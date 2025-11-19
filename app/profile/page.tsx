@@ -16,5 +16,13 @@ export default function ProfilePage() {
 
   if (!user) return null
 
-  return <Profile user={user} theme={theme} />
+  const safeUser = {
+    name: user.name || "User",
+    mobile: user.mobile || "",
+    photo:
+      user.photo ||
+      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
+  }
+
+  return <Profile user={safeUser as any} theme={theme} />
 }

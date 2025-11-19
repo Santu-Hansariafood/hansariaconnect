@@ -9,9 +9,10 @@ type OtpProps = {
   onVerify: (code: string) => void;
   onResend?: () => void;
   mobile: string;
+  serverError?: string;
 };
 
-const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile }) => {
+const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile, serverError }) => {
   const [code, setCode] = useState<string>("");
   const [error, setError] = useState<string>("");
 
@@ -49,9 +50,9 @@ const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile }) => {
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none tracking-widest text-center text-lg"
               maxLength={6}
             />
-            {error && (
+            {(error || serverError) && (
               <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-red-500 text-sm mt-2">
-                {error}
+                {serverError || error}
               </motion.p>
             )}
           </div>
