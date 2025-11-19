@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IProfile extends Document {
-  userId: string;
+  userId: mongoose.Types.ObjectId | string;
   name: string;
   about: string;
   photo: string;

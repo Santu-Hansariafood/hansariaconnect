@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { Camera, Edit2, Save } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 import dynamic from "next/dynamic";
+import Image from "next/image";
+
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 
 type User = {
@@ -26,44 +28,50 @@ type ProfileProps = {
 };
 
 const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
-  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isEditing, setIsEditing] = useState(false);
+
   const [profile, setProfile] = useState({
     name: user.name || "User",
     about: "Hey there! I am using HansariaConnect",
     mobile: user.mobile,
-    photo:
-      user.photo ||
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
+    photo: user.photo || "/logo.webp",
   });
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user.id) return
-      const res = await fetch(`/api/profile/${user.id}`)
-      const data = await res.json()
+      if (!user.id) return;
+      const res = await fetch(`/api/profile/${user.id}`);
+      const data = await res.json();
+
       if (data?.profile) {
         setProfile({
           name: data.profile.name,
           about: data.profile.about,
           mobile: user.mobile,
-          photo: data.profile.photo || profile.photo,
-        })
+          photo: data.profile.photo || "/logo.webp",
+        });
       }
-    }
-    fetchProfile()
-  }, [user.id])
-
-  const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    };
+    fetchProfile();
+  }, [user.id]);
+  const handlePhotoChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          setProfile((prev) => ({ ...prev, photo: reader.result as string }));
-        }
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    const fd = new FormData();
+    fd.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const contentType = res.headers.get("content-type") || "";
+
+      if (!contentType.includes("application/json")) return;
+
+      const data = await res.json();
+      if (data?.url) {
+        setProfile((prev) => ({ ...prev, photo: data.url }));
+      }
+    } catch {}
   };
 
   const handleSave = async () => {
@@ -76,19 +84,15 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
           name: profile.name,
           about: profile.about,
           photo: profile.photo,
-          theme: {
-            wallpaper: theme.wallpaper,
-            primary: theme.primary,
-            textSize: theme.textSize,
-          },
+          theme,
         }),
-      })
-      const contentType = res.headers.get("content-type") || ""
-      if (!contentType.includes("application/json")) {
-        throw new Error("Invalid response")
-      }
-      const data = await res.json()
-      if (data?.profile) setIsEditing(false)
+      });
+
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) return;
+
+      const data = await res.json();
+      if (data?.profile) setIsEditing(false);
     } catch {}
   };
 
@@ -126,13 +130,16 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
             <div className="relative mb-4">
               <motion.div
                 whileHover={{ scale: 1.05 }}
-                className="w-32 h-32 rounded-full overflow-hidden border-4 shadow-lg"
+                className="relative w-32 h-32 rounded-full overflow-hidden border-4 shadow-lg"
                 style={{ borderColor: theme.primary }}
               >
-                <img
+                <Image
                   src={profile.photo}
                   alt="Profile"
-                  className="w-full h-full object-cover"
+                  fill
+                  priority
+                  sizes="128px"
+                  className="object-cover"
                 />
               </motion.div>
               {isEditing && (
@@ -151,24 +158,21 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
               )}
             </div>
             {isEditing && (
-              <div className="mt-4 text-right">
-                <button
-                  onClick={async () => {
-                    await fetch(`/api/profile/${user.id}`, { method: "DELETE" })
-                    setProfile({
-                      name: "User",
-                      about: "Hey there! I am using HansariaConnect",
-                      mobile: user.mobile,
-                      photo:
-                        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
-                    })
-                  }}
-                  className="px-4 py-2 text-white rounded-xl ml-2"
-                  style={{ backgroundColor: theme.primary }}
-                >
-                  Delete Profile
-                </button>
-              </div>
+              <button
+                onClick={async () => {
+                  await fetch(`/api/profile/${user.id}`, { method: "DELETE" });
+                  setProfile({
+                    name: "User",
+                    about: "Hey there! I am using HansariaConnect",
+                    mobile: user.mobile,
+                    photo: "/logo.webp",
+                  });
+                }}
+                className="px-4 py-2 text-white rounded-xl"
+                style={{ backgroundColor: theme.primary }}
+              >
+                Delete Profile
+              </button>
             )}
           </div>
           <div className="space-y-6">
@@ -183,12 +187,10 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
                   onChange={(e) =>
                     setProfile((prev) => ({ ...prev, name: e.target.value }))
                   }
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 transition-colors"
                 />
               ) : (
-                <p className="px-4 py-3 bg-gray-50 rounded-xl text-gray-800">
-                  {profile.name}
-                </p>
+                <p className="px-4 py-3 bg-gray-50 rounded-xl">{profile.name}</p>
               )}
             </div>
             <div>
@@ -202,19 +204,17 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
                     setProfile((prev) => ({ ...prev, about: e.target.value }))
                   }
                   rows={3}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors resize-none"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 transition-colors resize-none"
                 />
               ) : (
-                <p className="px-4 py-3 bg-gray-50 rounded-xl text-gray-800">
-                  {profile.about}
-                </p>
+                <p className="px-4 py-3 bg-gray-50 rounded-xl">{profile.about}</p>
               )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Mobile Number
               </label>
-              <p className="px-4 py-3 bg-gray-50 rounded-xl text-gray-800">
+              <p className="px-4 py-3 bg-gray-50 rounded-xl">
                 {profile.mobile}
               </p>
               <p className="text-xs text-gray-500 mt-1">
