@@ -53,6 +53,17 @@ export async function POST(req: NextRequest) {
     }
     const res = NextResponse.json({ success: true, userId: user._id.toString() })
     res.cookies.delete("otp_session")
+    res.cookies.set(
+      "user_session",
+      JSON.stringify({ id: user._id.toString(), mobile }),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+      }
+    )
     return res
   } catch {
     return NextResponse.json({ success: false, error: "Invalid request" }, { status: 400 })
