@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Camera, Edit2, Save } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
@@ -8,9 +8,10 @@ import dynamic from "next/dynamic";
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 
 type User = {
-  name: string;
+  id: string;
+  name?: string;
   mobile: string;
-  photo: string;
+  photo?: string;
 };
 
 type Theme = {
@@ -27,11 +28,30 @@ type ProfileProps = {
 const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [profile, setProfile] = useState({
-    name: user.name,
+    name: user.name || "User",
     about: "Hey there! I am using HansariaConnect",
     mobile: user.mobile,
-    photo: user.photo,
+    photo:
+      user.photo ||
+      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
   });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user.id) return
+      const res = await fetch(`/api/profile/${user.id}`)
+      const data = await res.json()
+      if (data?.profile) {
+        setProfile({
+          name: data.profile.name,
+          about: data.profile.about,
+          mobile: user.mobile,
+          photo: data.profile.photo || profile.photo,
+        })
+      }
+    }
+    fetchProfile()
+  }, [user.id])
 
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,8 +66,30 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
     }
   };
 
-  const handleSave = () => {
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      const res = await fetch(`/api/profile/${user.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mobile: user.mobile,
+          name: profile.name,
+          about: profile.about,
+          photo: profile.photo,
+          theme: {
+            wallpaper: theme.wallpaper,
+            primary: theme.primary,
+            textSize: theme.textSize,
+          },
+        }),
+      })
+      const contentType = res.headers.get("content-type") || ""
+      if (!contentType.includes("application/json")) {
+        throw new Error("Invalid response")
+      }
+      const data = await res.json()
+      if (data?.profile) setIsEditing(false)
+    } catch {}
   };
 
   return (
@@ -108,6 +150,26 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
                 </label>
               )}
             </div>
+            {isEditing && (
+              <div className="mt-4 text-right">
+                <button
+                  onClick={async () => {
+                    await fetch(`/api/profile/${user.id}`, { method: "DELETE" })
+                    setProfile({
+                      name: "User",
+                      about: "Hey there! I am using HansariaConnect",
+                      mobile: user.mobile,
+                      photo:
+                        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
+                    })
+                  }}
+                  className="px-4 py-2 text-white rounded-xl ml-2"
+                  style={{ backgroundColor: theme.primary }}
+                >
+                  Delete Profile
+                </button>
+              </div>
+            )}
           </div>
           <div className="space-y-6">
             <div>

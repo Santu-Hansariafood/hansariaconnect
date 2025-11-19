@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useApp } from "@/context/AppContext/AppContext"
 import dynamic from "next/dynamic"
 const Profile = dynamic(() => import( "@/components/pages/Profile/Profile"));
+import { useState, useEffect as useReactEffect } from "react"
 
 export default function ProfilePage() {
   const { user, theme } = useApp()
@@ -16,13 +17,5 @@ export default function ProfilePage() {
 
   if (!user) return null
 
-  const safeUser = {
-    name: user.name || "User",
-    mobile: user.mobile || "",
-    photo:
-      user.photo ||
-      "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop",
-  }
-
-  return <Profile user={safeUser as any} theme={theme} />
+  return <Profile user={user as any} theme={theme} />
 }

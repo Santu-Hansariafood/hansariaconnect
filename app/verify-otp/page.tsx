@@ -27,7 +27,7 @@ export default function VerifyOtpPage() {
       })
       const data = await res.json()
       if (data.success) {
-        const userData = { mobile, step: "complete" as const }
+        const userData = { id: data.userId as string, mobile, step: "complete" as const }
         setUser(userData)
         localStorage.setItem("hansariaUser", JSON.stringify(userData))
         router.push("/profile")

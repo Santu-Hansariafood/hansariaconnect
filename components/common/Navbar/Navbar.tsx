@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
@@ -25,7 +26,30 @@ type NavbarProps = {
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { theme } = useApp();
+  const { theme, user: ctxUser } = useApp();
+  const [navUser, setNavUser] = useState<User>({ name: user?.name, photo: user?.photo });
+
+  useEffect(() => {
+    const load = async () => {
+      const id = (ctxUser as any)?.id
+      if (!id) {
+        setNavUser({ name: user?.name, photo: user?.photo })
+        return
+      }
+      try {
+        const res = await fetch(`/api/profile/${id}`)
+        const data = await res.json()
+        if (data?.profile) {
+          setNavUser({ name: data.profile.name, photo: data.profile.photo })
+        } else {
+          setNavUser({ name: user?.name, photo: user?.photo })
+        }
+      } catch {
+        setNavUser({ name: user?.name, photo: user?.photo })
+      }
+    }
+    load()
+  }, [ctxUser])
 
   const navItems = [
     { path: "/chats", icon: MessageCircle, label: "Chats" },
@@ -91,10 +115,10 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             onClick={() => router.push("/profile")}
             className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-gray-100 transition-all duration-300 hover:shadow-sm"
           >
-            {user.photo && user.photo.trim() ? (
+            {navUser.photo && navUser.photo.trim() ? (
               <Image
-                src={user.photo}
-                alt={user.name || "User"}
+                src={navUser.photo}
+                alt={navUser.name || "User"}
                 width={32}
                 height={32}
                 className="rounded-full object-cover"
@@ -104,11 +128,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white font-medium"
                 style={{ backgroundColor: `${theme.primary}` }}
               >
-                {(user.name || "U").charAt(0).toUpperCase()}
+                {(navUser.name || "U").charAt(0).toUpperCase()}
               </div>
             )}
             <span className="hidden md:block font-medium text-gray-800">
-              {user.name || "User"}
+              {navUser.name || "User"}
             </span>
           </motion.button>
 

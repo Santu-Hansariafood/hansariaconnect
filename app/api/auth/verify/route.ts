@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import crypto from "crypto"
+import { connectDB } from "@/lib/db/db"
+import User from "@/models/user/User"
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +46,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Incorrect OTP" }, { status: 401 })
     }
 
-    const res = NextResponse.json({ success: true })
+    await connectDB()
+    let user = await User.findOne({ mobile })
+    if (!user) {
+      user = await User.create({ mobile })
+    }
+    const res = NextResponse.json({ success: true, userId: user._id.toString() })
     res.cookies.delete("otp_session")
     return res
   } catch {
