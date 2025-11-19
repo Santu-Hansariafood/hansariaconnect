@@ -1,54 +1,37 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import ChatHome from '@/components/pages/ChatHome/ChatHome'
-
-interface User {
-  [key: string]: any
-}
+import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
+const ChatHome = dynamic(() => import('@/components/pages/ChatHome/ChatHome'));
 
 export default function ChatPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<any>(null)
   const [theme, setTheme] = useState({
     primary: '#0CA678',
     secondary: '#A2F5BF',
     wallpaper: 'bg-gradient-to-br from-emerald-50 to-teal-50',
     textSize: 'text-base',
   })
+  const router = useRouter()
 
   useEffect(() => {
     const savedUser = localStorage.getItem('hansariaUser')
     const savedTheme = localStorage.getItem('hansariaTheme')
-
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
-    } else {
-      window.location.href = '/login'
-    }
-
+    if (savedUser) setUser(JSON.parse(savedUser))
     if (savedTheme) setTheme(JSON.parse(savedTheme))
-    setLoading(false)
   }, [])
 
   const handleLogout = () => {
     localStorage.removeItem('hansariaUser')
     setUser(null)
-    window.location.href = '/login'
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen text-gray-700 text-lg">
-        Checking session...
-      </div>
-    )
+    router.push('/')
   }
 
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen text-gray-700 text-lg">
-        Redirecting to login...
+        Loading user data...
       </div>
     )
   }
