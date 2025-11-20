@@ -15,6 +15,7 @@ interface Contact {
   unread: number
   lastMessage: string
   lastMessageTime: string | Date
+  registered?: boolean
 }
 
 interface Theme {
@@ -141,7 +142,10 @@ const ContactCard: React.FC<ContactCardProps> = ({
               </h3>
             </div>
             <span className="text-xs text-gray-500">
-              {formatDistanceToNow(new Date(contact.lastMessageTime), { addSuffix: true })}
+              {(() => {
+                const d = new Date(contact.lastMessageTime)
+                return isNaN(d.getTime()) ? "" : formatDistanceToNow(d, { addSuffix: true })
+              })()}
             </span>
           </div>
           <p className="text-sm text-gray-600 truncate">{contact.lastMessage}</p>
@@ -156,6 +160,11 @@ const ContactCard: React.FC<ContactCardProps> = ({
             {contact.unread}
           </motion.div>
         )}
+      </div>
+      <div className="mt-1">
+        <span className={`text-xs px-2 py-1 rounded-full ${contact.registered ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
+          {contact.registered ? "Registered" : "Not Registered"}
+        </span>
       </div>
       {contextMenu.visible && (
         <motion.div

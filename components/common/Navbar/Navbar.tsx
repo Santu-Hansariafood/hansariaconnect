@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Settings,
   LogOut,
+  Phone,
 } from "lucide-react";
 
 type User = {
@@ -53,6 +54,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
   const navItems = [
     { path: "/chats", icon: MessageCircle, label: "Chats" },
+    { path: "/contacts", icon: Phone, label: "Contacts" },
     { path: "/status", icon: ImageIcon, label: "Status" },
     { path: "/groups", icon: Users, label: "Groups" },
     { path: "/settings", icon: Settings, label: "Settings" },
