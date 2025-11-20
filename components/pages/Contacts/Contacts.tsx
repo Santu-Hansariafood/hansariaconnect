@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import { fadeIn, staggerContainer } from "@/utils/animations/animations"
 import { X, Send } from "lucide-react"
 
@@ -26,11 +27,14 @@ type Contact = {
   mobiles?: string[]
   email?: string
   registered?: boolean
+  registeredUserId?: string
+  registeredProfile?: { name?: string; photo?: string } | null
 }
 
 type Props = { user: User; theme: Theme }
 
 export default function Contacts({ user, theme }: Props) {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [contacts, setContacts] = useState<Contact[]>([])
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([])
@@ -64,6 +68,8 @@ export default function Contacts({ user, theme }: Props) {
             mobiles: c.mobiles || [],
             email: c.email || "",
             registered: !!c.registered,
+            registeredUserId: c.registeredUserId || "",
+            registeredProfile: c.registeredProfile || null,
           }))
           setContacts(mapped)
         }
@@ -110,15 +116,19 @@ export default function Contacts({ user, theme }: Props) {
   }
 
   const buildShare = (contact: Contact) => {
-    const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const origin = typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.host}`
+      : ""
     const loginUrl = `${origin}/login`
-    const text = `Join HansariaConnect to chat with me. Login here: ${loginUrl}`
+    const text = `Welcome to HansariaConnect! Login here: ${loginUrl}`
     const encodedText = encodeURIComponent(text)
     const encodedUrl = encodeURIComponent(loginUrl)
     const wa = `https://wa.me/?text=${encodedText}`
     const fb = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encodedText}`
     const x = `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`
-    const sms = `sms:?&body=${encodedText}`
+    const number = (Array.isArray(contact.mobiles) && contact.mobiles[0]) || contact.mobile || ""
+    const cleaned = (number || "").replace(/\D/g, "")
+    const sms = cleaned ? `sms:${cleaned}?&body=${encodedText}` : `sms:?&body=${encodedText}`
     return { wa, fb, x, sms }
   }
 
@@ -207,7 +217,14 @@ export default function Contacts({ user, theme }: Props) {
               <div className="bg-white rounded-2xl p-4 shadow-md">
                 <ContactCard
                   contact={contact as any}
-                  onClick={() => {}}
+                  onClick={() => {
+                    if (contact.registered && contact.registeredUserId) {
+                      router.push(`/chat/${contact.registeredUserId}`)
+                    } else {
+                      setInviteMessage("This contact is not registered. Use Invite below.")
+                      setTimeout(() => setInviteMessage(""), 2500)
+                    }
+                  }}
                   onPin={() => {}}
                   onUnpin={() => {}}
                   onForward={() => {}}

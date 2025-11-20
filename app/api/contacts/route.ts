@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { connectDB } from "@/lib/db/db"
 import Contact from "@/models/contact/Contact"
+import Profile from "@/models/profile/Profile"
 import User from "@/models/user/User"
 
 export async function GET(req: NextRequest) {
@@ -26,10 +27,34 @@ export async function GET(req: NextRequest) {
       ? await User.find({ mobile: { $in: allMobiles } }, { mobile: 1 })
       : []
     const set = new Set(registeredUsers.map((u: any) => u.mobile))
-    const payload = items.map((c: any) => ({
-      ...c.toObject(),
-      registered: (Array.isArray(c.mobiles) ? c.mobiles : []).some((m: string) => set.has(m)),
-    }))
+    const map: Record<string, string> = {}
+    for (const u of registeredUsers as any[]) {
+      map[u.mobile] = u._id?.toString?.() || ""
+    }
+    const payload = [] as any[]
+    for (const c of items as any[]) {
+      const obj = c.toObject()
+      const arr = Array.isArray(obj.mobiles) ? obj.mobiles : []
+      let regId = ""
+      let regProfile: any = null
+      for (const m of arr) {
+        const id = map[m]
+        if (id) {
+          regId = id
+          break
+        }
+      }
+      if (regId) {
+        const p = await Profile.findOne({ userId: regId })
+        if (p) regProfile = { name: p.name, photo: p.photo }
+      }
+      payload.push({
+        ...obj,
+        registered: arr.some((m: string) => set.has(m)),
+        registeredUserId: regId,
+        registeredProfile: regProfile,
+      })
+    }
     return NextResponse.json({ contacts: payload })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 })

@@ -91,6 +91,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
             mobiles: c.mobiles || [],
             email: c.email || '',
             registered: !!c.registered,
+            registeredUserId: c.registeredUserId || '',
           }))
           setContacts(mapped)
         }
@@ -373,9 +374,32 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    closeModal()
-                    router.push(`/chat/${selectedContact.id}`)
+                  onClick={async () => {
+                    const peer = (selectedContact as any).registeredUserId
+                    if (peer) {
+                      closeModal()
+                      router.push(`/chat/${peer}`)
+                      return
+                    }
+                    try {
+                      const mobile = (Array.isArray(selectedContact.mobiles) && selectedContact.mobiles[0]) || selectedContact.mobile
+                      const res = await fetch('/api/users/by-mobile', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mobile }),
+                      })
+                      const data = await res.json()
+                      if (res.ok && data?.id) {
+                        closeModal()
+                        router.push(`/chat/${data.id}`)
+                      } else {
+                        closeModal()
+                        alert('Unable to open chat. Please check mobile number.')
+                      }
+                    } catch {
+                      closeModal()
+                      alert('Unable to open chat. Please try again.')
+                    }
                   }}
                   className="flex-1 py-3 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
                   style={{ backgroundColor: theme.primary }}

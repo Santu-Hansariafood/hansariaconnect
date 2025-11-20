@@ -7,6 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     const form = await req.formData()
     const file = form.get("file") as File | null
+    const kind = (form.get("kind") as string) || "image"
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
     }
@@ -37,8 +38,9 @@ export async function POST(req: NextRequest) {
     cloudForm.append("signature", signature)
     cloudForm.append("folder", folder)
 
+    const resourceType = kind === "video" ? "video" : kind === "raw" ? "raw" : "image"
     const uploadRes = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
       { method: "POST", body: cloudForm }
     )
     const contentType = uploadRes.headers.get("content-type") || ""
@@ -51,14 +53,15 @@ export async function POST(req: NextRequest) {
     }
 
     const originalUrl: string = uploadJson.secure_url
-    const webpUrl = originalUrl.replace("/upload/", "/upload/f_webp/")
+    const isImage = resourceType === "image"
+    const url = isImage ? originalUrl.replace("/upload/", "/upload/f_webp/") : originalUrl
 
     return NextResponse.json({
       public_id: uploadJson.public_id,
-      url: webpUrl,
+      url,
       original_url: originalUrl,
       resource_type: uploadJson.resource_type,
-      format: "webp",
+      format: isImage ? "webp" : uploadJson.format,
     })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 })
