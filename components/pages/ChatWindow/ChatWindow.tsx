@@ -14,10 +14,10 @@ import {
   Search as SearchIcon,
   Ban,
 } from "lucide-react";
-// import { contacts, messages } from "@/data/mockData";
 import dynamic from "next/dynamic";
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
 const MediaPicker = dynamic(() => import("@/components/ui/MediaPicker/MediaPicker"));
+import SearchBar from "@/components/common/SearchBar/SearchBar";
 
 interface Theme {
   primary: string;
@@ -31,6 +31,14 @@ interface User {
   avatar: string;
 }
 
+interface Contact {
+  registeredUserId: string;
+  name: string;
+  avatar: string;
+  mobile?: string;
+  online?: boolean;
+}
+
 interface ChatWindowProps {
   user: User;
   theme: Theme;
@@ -42,6 +50,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const id = params?.id as string;
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const [message, setMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
@@ -49,22 +58,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isBlocked, setIsBlocked] = useState(false);
   const [socket, setSocket] = useState<any>(null)
   const [contact, setContact] = useState<any>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const loadingMoreRef = useRef(false)
+  const preloadRef = useRef(false)
   const mergeUnique = (prev: any[], incoming: any[]) => {
     const map = new Map<string, any>()
     for (const m of prev) {
-      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
+      const k = m.id?.toString?.() || m._id?.toString?.() || String(m.timestamp || m.createdAt || "")
       if (!map.has(k)) map.set(k, m)
     }
     for (const m of incoming) {
-      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
+      const k = m.id?.toString?.() || m._id?.toString?.() || String(m.timestamp || m.createdAt || "")
       if (!map.has(k)) map.set(k, m)
     }
-    return Array.from(map.values()).sort((a: any, b: any) => new Date(a.createdAt || a.timestamp).getTime() - new Date(b.createdAt || b.timestamp).getTime())
+    return Array.from(map.values()).sort((a: any, b: any) => {
+      const ta = new Date(a.timestamp || a.createdAt || 0).getTime()
+      const tb = new Date(b.timestamp || b.createdAt || 0).getTime()
+      return ta - tb
+    })
   }
   useEffect(() => {
     const loadContact = async () => {
@@ -90,6 +106,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   }, [id])
 
   useEffect(() => {
+    if (loadingMoreRef.current) return
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
@@ -102,6 +119,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       s.on("message:new", (msg: any) => {
         if (msg?.from?.toString?.() === id) {
           setChatMessages((prev) => mergeUnique(prev, [msg]))
+          try {
+            s.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {
+              if (ack?.ok && ack?.message?._id) {
+                const mid = ack.message._id?.toString?.()
+                if (mid) updateMessageStatus(mid, ack.message.status)
+              }
+            })
+            setTimeout(() => {
+              s.emit("message:status", { id: msg?._id?.toString?.(), status: "seen" }, (ack: any) => {
+                if (ack?.ok && ack?.message?._id) {
+                  const mid = ack.message._id?.toString?.()
+                  if (mid) updateMessageStatus(mid, ack.message.status)
+                }
+              })
+            }, 500)
+          } catch {}
         }
       })
     }
@@ -114,7 +147,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/messages/${id}?limit=4&last=true`)
+        const res = await fetch(`/api/messages/${id}?all=true&last=true`, { credentials: 'include' })
         const data = await res.json()
         if (Array.isArray(data?.messages)) setChatMessages(mergeUnique([], data.messages))
         setHasMore(!!data?.hasMore)
@@ -123,22 +156,61 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     load()
   }, [id])
 
+  useEffect(() => {
+    const run = async () => {
+      if (preloadRef.current) return
+      if (!hasMore) return
+      if (chatMessages.length >= 40) return
+      preloadRef.current = true
+      for (let i = 0; i < 3; i++) {
+        if (!hasMore) break
+        await loadMore()
+        await new Promise((r) => setTimeout(r, 200))
+      }
+      preloadRef.current = false
+    }
+    run()
+  }, [hasMore, chatMessages.length, id])
+
   const loadMore = async () => {
     if (!chatMessages.length) return
+    const el = containerRef.current
+    const prevHeight = el?.scrollHeight || 0
+    const prevTop = el?.scrollTop || 0
     setLoadingMore(true)
+    loadingMoreRef.current = true
     try {
       const oldest = chatMessages[0]
-      const ts = oldest.createdAt || oldest.timestamp
-      const res = await fetch(`/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`)
+      const tsRaw = oldest.timestamp || oldest.createdAt
+      const ts = typeof tsRaw === "string" ? tsRaw : new Date(tsRaw).toISOString()
+      const res = await fetch(`/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`, { credentials: 'include' })
       const data = await res.json()
       if (Array.isArray(data?.messages) && data.messages.length) {
         setChatMessages((prev) => mergeUnique(prev, data.messages))
         setHasMore(!!data?.hasMore)
+        setTimeout(() => {
+          const el2 = containerRef.current
+          if (el2) {
+            const newHeight = el2.scrollHeight || 0
+            const delta = newHeight - prevHeight
+            el2.scrollTop = prevTop + delta
+          }
+        }, 0)
       } else {
         setHasMore(false)
       }
     } catch {}
     setLoadingMore(false)
+    loadingMoreRef.current = false
+  }
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (loadingMore) return
+    if (!hasMore) return
+    const target = e.currentTarget
+    if (target.scrollTop <= 10) {
+      loadMore()
+    }
   }
 
   const headerName = contact?.name || "User"
@@ -162,6 +234,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       }
     } catch {}
     return false
+  }
+
+  const updateMessageStatus = (mid: string, status: string) => {
+    setChatMessages((prev) => prev.map((m: any) => {
+      const idStr = m?._id?.toString?.()
+      if (idStr && idStr === mid) return { ...m, status }
+      return m
+    }))
   }
 
   const sendViaSocket = (payload: any) => {
@@ -261,6 +341,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   };
 
   const handleSearch = (query: string) => {
+    setSearchQuery(query)
     if (query.trim()) {
       const results = chatMessages.filter(
         (msg) => msg.text && msg.text.toLowerCase().includes(query.toLowerCase())
@@ -328,7 +409,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                 }}
               >
                 <p className="text-white font-semibold text-sm">{headerName}</p>
-                <p className="text-white/80 text-xs">{contact?.mobile || ""}</p>
+                <p className="text-white/80 text-xs">{`ID: ${id}`}</p>
               </div>
 
               <div className="py-2">
@@ -368,7 +449,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           )}
         </div>
       </motion.header>
-      <div className={`flex-1 overflow-y-auto p-4 ${theme.wallpaper}`}>
+      {showSearch && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="max-w-4xl mx-auto flex items-center gap-3">
+            <SearchBar onSearch={handleSearch} placeholder="Search messages..." />
+            <button
+              onClick={() => {
+                setShowSearch(false)
+                setSearchQuery("")
+                setSearchResults([])
+              }}
+              className="p-2 hover:bg-gray-100 rounded-full"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+        </div>
+      )}
+      <div ref={containerRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto p-4 ${theme.wallpaper}`}>
         <div className="max-w-4xl mx-auto space-y-3">
           {chatMessages.length === 0 && (
             <div className="text-center text-gray-600 py-6">
@@ -386,19 +484,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
               </button>
             </div>
           )}
-          {chatMessages.map((msg: any) => (
+          {(showSearch && searchQuery.trim() ? searchResults : chatMessages).map((msg: any) => (
             <MessageBubble
-              key={(msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ''}`}
+              key={msg.id || (msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.timestamp || msg.createdAt}-${msg.mediaUrl || msg.text || ''}`}
               message={{
-                sender: msg.from?.toString?.() === id ? "contact" : "me",
+                sender: ((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) === id ? "contact" : "me",
                 type: msg.type,
                 text: msg.text,
                 media: msg.mediaUrl,
                 url: msg.mediaUrl || undefined,
-                timestamp: msg.createdAt || new Date().toISOString(),
+                timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
                 status: msg.status || "sent",
               } as any}
-              isSent={msg.from?.toString?.() !== id}
+              isSent={((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) !== id}
               user={user}
               contact={{ id, name: headerName, avatar: headerAvatar } as any}
               theme={theme}

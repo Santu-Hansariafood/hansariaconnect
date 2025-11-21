@@ -4,7 +4,6 @@ import cookie from "cookie"
 import Message from "@/models/message/Message"
 import { connectDB } from "@/lib/db/db"
 import Conversation from "@/models/conversation/Conversation"
-import User from "@/models/user/User"
 
 export const config = {
   api: { bodyParser: false },
@@ -37,14 +36,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         socket.on("message:send", async (payload: any, cb: Function) => {
           try {
-            const to = String(payload?.to || "")
-            const exists = await User.exists({ _id: to })
-            if (!exists) {
-              return cb?.({ ok: false, error: "Peer not found" })
-            }
             const doc = await Message.create({
               from: userId,
-              to,
+              to: payload?.to,
               type: payload?.type,
               text: payload?.text,
               mediaUrl: payload?.mediaUrl,
@@ -56,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             })
             try {
               const a = String(userId)
-              const b = to
+              const b = String(payload?.to)
               const userA = a < b ? a : b
               const userB = a < b ? b : a
               await Conversation.findOneAndUpdate(
@@ -65,7 +59,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 { upsert: true }
               )
             } catch {}
-            io.to(to).emit("message:new", doc)
+            io.to(payload?.to).emit("message:new", doc)
+            cb?.({ ok: true, message: doc })
+          } catch (e: any) {
+            cb?.({ ok: false, error: e?.message || "error" })
+          }
+        })
+
+        socket.on("message:status", async (payload: any, cb: Function) => {
+          try {
+            const id = String(payload?.id || "")
+            const status = String(payload?.status || "")
+            if (!id || !status) {
+              cb?.({ ok: false, error: "invalid" })
+              return
+            }
+            const doc = await Message.findById(id)
+            if (!doc) {
+              cb?.({ ok: false, error: "not_found" })
+              return
+            }
+            if (String(doc.to) !== String(userId) && String(doc.from) !== String(userId)) {
+              cb?.({ ok: false, error: "forbidden" })
+              return
+            }
+            doc.status = status as any
+            await doc.save()
             cb?.({ ok: true, message: doc })
           } catch (e: any) {
             cb?.({ ok: false, error: e?.message || "error" })

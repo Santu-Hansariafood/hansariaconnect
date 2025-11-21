@@ -233,7 +233,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   isSent ? "text-white/80" : "text-gray-500"
                 }`}
               >
-                {format(new Date(message.timestamp), "HH:mm")}
+                {format(new Date(message.timestamp), "dd MMM, HH:mm")}
               </span>
               {isSent && (
                 <span className="flex items-center">
