@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { connectDB } from "@/lib/db/db"
 import User from "@/models/user/User"
+import Profile from "@/models/profile/Profile"
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
+    // Handle both Promise and direct params (Next.js 13+ compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    
     const sessionCookie = req.cookies.get("user_session")?.value
     if (!sessionCookie) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -20,12 +24,22 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     await connectDB()
     let user: any = null
     try {
-      user = await User.findById(params.id)
+      user = await User.findById(resolvedParams.id)
     } catch {}
     if (!user) {
-      return NextResponse.json({ id: params.id, mobile: "" })
+      return NextResponse.json({ id: resolvedParams.id, mobile: "", name: "", avatar: "" })
     }
-    return NextResponse.json({ id: user._id.toString(), mobile: user.mobile })
+    
+    // Get profile information
+    const profile = await Profile.findOne({ userId: resolvedParams.id }).lean()
+    const profileData = Array.isArray(profile) ? profile[0] : profile
+    
+    return NextResponse.json({ 
+      id: user._id.toString(), 
+      mobile: user.mobile || "",
+      name: (profileData as any)?.name || "",
+      avatar: (profileData as any)?.photo || ""
+    })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 })
   }
