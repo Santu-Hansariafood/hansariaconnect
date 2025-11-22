@@ -117,19 +117,44 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       s = io({ path: "/api/socket", transports: ["websocket", "polling"], withCredentials: true })
       setSocket(s)
       s.on("message:new", (msg: any) => {
-        if (msg?.from?.toString?.() === id) {
-          setChatMessages((prev) => mergeUnique(prev, [msg]))
+        // Check if message is from the peer (incoming message)
+        // Socket emits messages to the recipient, so if we receive it, it's from the peer to us
+        const msgFrom = String(msg?.from || '')
+        const msgTo = String(msg?.to || '')
+        const peerId = String(id || '')
+        
+        // Show message if it's from the peer (incoming message for this chat)
+        if (msgFrom === peerId) {
+          // Convert socket message format to match API format
+          const formattedMsg = {
+            id: String(msg._id || msg.id || ''),
+            from: String(msg.from || ''),
+            to: String(msg.to || ''),
+            type: msg.type || 'text',
+            text: msg.text || '',
+            mediaUrl: msg.mediaUrl || '',
+            fileName: msg.fileName || '',
+            fileSize: msg.fileSize || '',
+            duration: msg.duration,
+            linkTitle: msg.linkTitle || '',
+            linkDescription: msg.linkDescription || '',
+            timestamp: msg.createdAt || msg.timestamp || new Date(),
+            status: msg.status || 'sent',
+          }
+          setChatMessages((prev) => mergeUnique(prev, [formattedMsg]))
+          
+          // Mark as delivered and seen (message is for current user)
           try {
-            s.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {
+            s.emit("message:status", { id: String(msg._id || msg.id || ''), status: "delivered" }, (ack: any) => {
               if (ack?.ok && ack?.message?._id) {
-                const mid = ack.message._id?.toString?.()
+                const mid = String(ack.message._id)
                 if (mid) updateMessageStatus(mid, ack.message.status)
               }
             })
             setTimeout(() => {
-              s.emit("message:status", { id: msg?._id?.toString?.(), status: "seen" }, (ack: any) => {
+              s.emit("message:status", { id: String(msg._id || msg.id || ''), status: "seen" }, (ack: any) => {
                 if (ack?.ok && ack?.message?._id) {
-                  const mid = ack.message._id?.toString?.()
+                  const mid = String(ack.message._id)
                   if (mid) updateMessageStatus(mid, ack.message.status)
                 }
               })
@@ -147,13 +172,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/messages/${id}?all=true&last=true`, { credentials: 'include' })
+        // Load all messages initially to show old chats
+        const res = await fetch(`/api/messages/${id}?all=true`, { credentials: 'include' })
         const data = await res.json()
-        if (Array.isArray(data?.messages)) setChatMessages(mergeUnique([], data.messages))
-        setHasMore(!!data?.hasMore)
-      } catch {}
+        if (Array.isArray(data?.messages) && data.messages.length > 0) {
+          // Messages come sorted oldest first when all=true
+          setChatMessages(mergeUnique([], data.messages))
+          // Scroll to bottom after messages load
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+          }, 100)
+        } else {
+          setChatMessages([])
+        }
+        setHasMore(false) // No more to load if we got all
+      } catch (e) {
+        console.error('Failed to load messages:', e)
+        setChatMessages([])
+      }
     }
-    load()
+    if (id) {
+      load()
+    }
   }, [id])
 
   useEffect(() => {

@@ -14,6 +14,7 @@ const ForwardModal = dynamic(() => import('@/components/ui/ForwardModal/ForwardM
 
 interface Contact {
   id: string
+  peerId?: string
   name: string
   mobile: string
   avatar: string
@@ -22,8 +23,11 @@ interface Contact {
   active?: boolean
   lastSeen?: string
   lastMessageTime?: string
+  lastMessage?: string
   mobiles?: string[]
   email?: string
+  registered?: boolean
+  registeredUserId?: string
 }
 
 interface Theme {
@@ -73,35 +77,61 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
   }, [contacts, searchQuery])
 
   useEffect(() => {
-    const loadContacts = async () => {
+    const loadConversations = async () => {
       try {
-        const res = await fetch('/api/contacts', { method: 'GET' })
+        const res = await fetch('/api/conversations', { method: 'GET' })
         const data = await res.json()
-        if (Array.isArray(data?.contacts)) {
-          const mapped: Contact[] = data.contacts.map((c: any) => ({
-            id: c._id,
-            name: c.name,
-            mobile: Array.isArray(c.mobiles) && c.mobiles.length ? c.mobiles[0] : '',
-            avatar: c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
-            pinned: false,
-            blocked: false,
-            active: false,
-            lastSeen: '',
-            lastMessageTime: c.updatedAt || c.createdAt || '',
-            mobiles: c.mobiles || [],
-            email: c.email || '',
-            registered: !!c.registered,
-            registeredUserId: c.registeredUserId || '',
-          }))
+        if (Array.isArray(data?.conversations)) {
+          const mapped: Contact[] = data.conversations.map((c: any) => {
+            // Convert lastMessage object to string for display
+            let lastMessageText = ''
+            if (c.lastMessage) {
+              if (c.lastMessage.type === 'text') {
+                lastMessageText = c.lastMessage.text || ''
+              } else if (c.lastMessage.type === 'image') {
+                lastMessageText = '📷 Image'
+              } else if (c.lastMessage.type === 'video') {
+                lastMessageText = '🎥 Video'
+              } else if (c.lastMessage.type === 'voice') {
+                lastMessageText = '🎤 Voice'
+              } else if (c.lastMessage.type === 'pdf') {
+                lastMessageText = '📄 PDF'
+              } else if (c.lastMessage.type === 'excel') {
+                lastMessageText = '📊 Excel'
+              } else if (c.lastMessage.type === 'link') {
+                lastMessageText = c.lastMessage.linkTitle || '🔗 Link'
+              } else {
+                lastMessageText = c.lastMessage.text || ''
+              }
+            }
+            
+            return {
+              id: c.id || c.peerId,
+              peerId: c.peerId || c.id,
+              name: c.name || c.mobile || 'Unknown',
+              mobile: c.mobile || '',
+              avatar: c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+              pinned: false,
+              blocked: false,
+              active: false,
+              lastSeen: '',
+              lastMessageTime: c.lastMessageAt || '',
+              lastMessage: lastMessageText,
+              mobiles: [c.mobile].filter(Boolean),
+              email: '',
+              registered: true,
+              registeredUserId: c.peerId || c.id,
+            }
+          })
           setContacts(mapped)
         }
       } catch {}
     }
-    loadContacts()
+    loadConversations()
   }, [])
 
   const sortAndFilterContacts = (contactsList: Contact[], query: string) => {
-    let filtered = contactsList.filter((c) => c.registered)
+    let filtered = contactsList
 
     if (query.trim()) {
       filtered = contactsList.filter(
@@ -133,8 +163,13 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
   const handleSearch = (query: string) => setSearchQuery(query)
 
   const handleContactClick = (contact: Contact) => {
-    setSelectedContact(contact)
-    setShowContactModal(true)
+    const peerId = contact.peerId || contact.registeredUserId || contact.id
+    if (peerId) {
+      router.push(`/chat/${peerId}`)
+    } else {
+      setSelectedContact(contact)
+      setShowContactModal(true)
+    }
   }
 
   const handlePinContact = (contactId: string) => {

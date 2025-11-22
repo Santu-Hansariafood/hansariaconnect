@@ -8,24 +8,44 @@ import User from "@/models/user/User";
 export const runtime = "nodejs";
 
 const normalizeId = (val: unknown): string => {
-  if (typeof val === "string") return val;
+  if (typeof val === "string") {
+    // Remove any whitespace
+    return val.trim();
+  }
   if (val == null) return String(val);
   if (typeof val === "number" || typeof val === "bigint" || typeof val === "boolean") return String(val);
 
   if (typeof val === "object") {
-    const obj = val as { toString?: () => string; $oid?: unknown };
+    const obj = val as { toString?: () => string; $oid?: unknown; _id?: unknown };
+    // Handle MongoDB ObjectId objects
+    if (obj._id && typeof obj._id === "object" && "_id" in obj._id) {
+      const idObj = obj._id as { toString?: () => string };
+      if (typeof idObj.toString === "function") {
+        const s = idObj.toString();
+        if (s && s !== "[object Object]") return s;
+      }
+    }
+    // Handle BSON $oid format
     if (typeof obj.$oid === "string") return obj.$oid;
+    // Handle ObjectId.toString()
     if (typeof obj.toString === "function") {
       const s = obj.toString();
       if (s && s !== "[object Object]") return s;
+    }
+    // Try to get _id if it exists
+    if (obj._id) {
+      return normalizeId(obj._id);
     }
   }
 
   return String(val);
 };
 
-export async function GET(req: NextRequest, { params }: { params: { peerId: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ peerId: string }> | { peerId: string } }) {
   try {
+    // Handle both Promise and direct params (Next.js 13+ compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    
     const sessionCookie = req.cookies.get("user_session")?.value;
     if (!sessionCookie) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -39,16 +59,37 @@ export async function GET(req: NextRequest, { params }: { params: { peerId: stri
     if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const rawUserId = normalizeId((session as any).id);
-    const rawPeerId = normalizeId(params.peerId);
-    if (!Types.ObjectId.isValid(rawUserId) || !Types.ObjectId.isValid(rawPeerId)) {
-      return NextResponse.json({ error: "Invalid user or peer id" }, { status: 400 })
+    const rawPeerId = normalizeId(resolvedParams.peerId);
+    
+    // Better error handling with details
+    if (!Types.ObjectId.isValid(rawUserId)) {
+      console.error('Invalid user ID:', { 
+        rawUserId, 
+        sessionId: (session as any).id, 
+        sessionIdType: typeof (session as any).id,
+        peerId: rawPeerId 
+      });
+      return NextResponse.json({ 
+        error: "Invalid user id", 
+        details: { userId: rawUserId, peerId: rawPeerId } 
+      }, { status: 400 })
+    }
+    if (!Types.ObjectId.isValid(rawPeerId)) {
+      console.error('Invalid peer ID:', { 
+        rawPeerId, 
+        paramsPeerId: resolvedParams.peerId,
+        userId: rawUserId 
+      });
+      return NextResponse.json({ 
+        error: "Invalid peer id", 
+        details: { userId: rawUserId, peerId: rawPeerId } 
+      }, { status: 400 })
     }
     const userId = new Types.ObjectId(rawUserId)
     const peerId = new Types.ObjectId(rawPeerId)
 
     const { searchParams } = new URL(req.url);
 
-    const overrideMe = normalizeId(searchParams.get("me"));
     const limit = Math.max(5, Math.min(50, Number(searchParams.get("limit") || 20)));
     const before = searchParams.get("before");
     const fetchAll = searchParams.get("all") === "true";
@@ -65,7 +106,8 @@ export async function GET(req: NextRequest, { params }: { params: { peerId: stri
 
     let sort: any = { createdAt: 1 };
 
-    if (fetchLast) {
+    if (fetchLast && !fetchAll) {
+      // If fetching last N messages, get newest first, then reverse
       sort = { createdAt: -1 };
     } else if (before) {
       query.createdAt = { $lt: new Date(before) };
@@ -74,10 +116,11 @@ export async function GET(req: NextRequest, { params }: { params: { peerId: stri
 
     const docs =
       fetchAll
-        ? await Message.find(query).sort({ createdAt: 1 })
+        ? await Message.find(query).sort({ createdAt: 1 }) // All messages, oldest first
         : await Message.find(query).sort(sort).limit(limit);
 
-    const ordered = fetchLast || before ? docs.reverse() : docs;
+    // Reverse only if we fetched last N (not all) or if using before pagination
+    const ordered = (fetchLast && !fetchAll) || before ? docs.reverse() : docs;
 
     const messages = ordered.map((msg: any) => ({
       id: String(msg._id),
@@ -109,8 +152,11 @@ export async function GET(req: NextRequest, { params }: { params: { peerId: stri
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { peerId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ peerId: string }> | { peerId: string } }) {
   try {
+    // Handle both Promise and direct params (Next.js 13+ compatibility)
+    const resolvedParams = params instanceof Promise ? await params : params;
+    
     const sessionCookie = req.cookies.get("user_session")?.value;
     if (!sessionCookie) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -123,13 +169,18 @@ export async function POST(req: NextRequest, { params }: { params: { peerId: str
 
     if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const rawUserId = String(session.id || "");
-    const rawPeerId = String(params.peerId || "");
-    const effectiveUser = rawUserId
-    if (!Types.ObjectId.isValid(effectiveUser) || !Types.ObjectId.isValid(rawPeerId)) {
-      return NextResponse.json({ error: "Invalid user or peer id" }, { status: 400 })
+    const rawUserId = normalizeId(session.id);
+    const rawPeerId = normalizeId(resolvedParams.peerId);
+    
+    if (!Types.ObjectId.isValid(rawUserId)) {
+      console.error('POST: Invalid user ID:', { rawUserId, sessionId: session.id });
+      return NextResponse.json({ error: "Invalid user id", details: { userId: rawUserId } }, { status: 400 })
     }
-    const userId = new Types.ObjectId(effectiveUser)
+    if (!Types.ObjectId.isValid(rawPeerId)) {
+      console.error('POST: Invalid peer ID:', { rawPeerId, paramsPeerId: resolvedParams.peerId });
+      return NextResponse.json({ error: "Invalid peer id", details: { peerId: rawPeerId } }, { status: 400 })
+    }
+    const userId = new Types.ObjectId(rawUserId)
     const peerId = new Types.ObjectId(rawPeerId)
 
     const body = await req.json();
@@ -156,12 +207,12 @@ export async function POST(req: NextRequest, { params }: { params: { peerId: str
     try {
       const a = String(userId);
       const b = String(peerId);
-      const userA = a < b ? a : b;
-      const userB = a < b ? b : a;
+      const userA = a < b ? userId : peerId;
+      const userB = a < b ? peerId : userId;
 
       await Conversation.findOneAndUpdate(
         { userA, userB },
-        { lastMessageAt: new Date() },
+        { userA, userB, lastMessageAt: new Date() },
         { upsert: true }
       );
     } catch {}
