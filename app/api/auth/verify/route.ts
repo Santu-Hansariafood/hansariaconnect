@@ -1,59 +1,103 @@
-import { NextRequest, NextResponse } from "next/server"
-import crypto from "crypto"
-import { connectDB } from "@/lib/db/db"
-import User from "@/models/user/User"
+import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
+import { connectDB } from "@/lib/db/db";
+import User from "@/models/user/User";
 
-export async function POST(req: NextRequest) {
+interface OtpSessionPayload {
+  mobile: string;
+  hash: string;
+  salt: string;
+  exp: number;
+}
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const body = await req.json()
-    const mobile = (body?.mobile || "").toString()
-    const code = (body?.code || "").toString()
+    const body = await req.json();
+    const mobile: string = String(body?.mobile || "");
+    const code: string = String(body?.code || "");
+
     if (!/^\d{10}$/.test(mobile)) {
-      return NextResponse.json({ success: false, error: "Invalid mobile" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: "Invalid mobile number" },
+        { status: 400 }
+      );
     }
+
     if (!/^\d{6}$/.test(code)) {
-      return NextResponse.json({ success: false, error: "Invalid code" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: "Invalid OTP format" },
+        { status: 400 }
+      );
     }
 
-    const sessionCookie = req.cookies.get("otp_session")?.value
+    const sessionCookie = req.cookies.get("otp_session")?.value;
     if (!sessionCookie) {
-      return NextResponse.json({ success: false, error: "No OTP session" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: "OTP session not found" },
+        { status: 400 }
+      );
     }
 
-    let payload: any
+    let payload: OtpSessionPayload;
     try {
-      payload = JSON.parse(sessionCookie)
+      payload = JSON.parse(sessionCookie);
     } catch {
-      return NextResponse.json({ success: false, error: "Invalid OTP session" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: "Invalid OTP session format" },
+        { status: 400 }
+      );
     }
 
-    if (!payload || !payload.mobile || !payload.hash || !payload.salt || !payload.exp) {
-      return NextResponse.json({ success: false, error: "Malformed session" }, { status: 400 })
+    if (!payload?.mobile || !payload?.hash || !payload?.salt || !payload?.exp) {
+      return NextResponse.json(
+        { success: false, error: "Malformed OTP session" },
+        { status: 400 }
+      );
     }
 
     if (Date.now() > Number(payload.exp)) {
-      const res = NextResponse.json({ success: false, error: "OTP expired" }, { status: 400 })
-      res.cookies.delete("otp_session")
-      return res
+      const response = NextResponse.json(
+        { success: false, error: "OTP expired" },
+        { status: 400 }
+      );
+      response.cookies.delete("otp_session");
+      return response;
     }
 
     if (payload.mobile !== mobile) {
-      return NextResponse.json({ success: false, error: "Mobile mismatch" }, { status: 400 })
+      return NextResponse.json(
+        { success: false, error: "Mobile number mismatch" },
+        { status: 400 }
+      );
     }
 
-    const hash = crypto.createHash("sha256").update(code + payload.salt).digest("hex")
-    if (hash !== payload.hash) {
-      return NextResponse.json({ success: false, error: "Incorrect OTP" }, { status: 401 })
+    const generatedHash = crypto
+      .createHash("sha256")
+      .update(code + payload.salt)
+      .digest("hex");
+    if (generatedHash !== payload.hash) {
+      return NextResponse.json(
+        { success: false, error: "Incorrect OTP" },
+        { status: 401 }
+      );
     }
 
-    await connectDB()
-    let user = await User.findOne({ mobile })
+    await connectDB();
+
+    let user = await User.findOne({ mobile });
     if (!user) {
-      user = await User.create({ mobile })
+      user = await User.create({ mobile });
     }
-    const res = NextResponse.json({ success: true, userId: user._id.toString() })
-    res.cookies.delete("otp_session")
-    res.cookies.set(
+
+    const response = NextResponse.json({
+      success: true,
+      userId: user._id.toString(),
+      mobile,
+    });
+
+    response.cookies.delete("otp_session");
+
+    response.cookies.set(
       "user_session",
       JSON.stringify({ id: user._id.toString(), mobile }),
       {
@@ -63,9 +107,14 @@ export async function POST(req: NextRequest) {
         path: "/",
         maxAge: 30 * 24 * 60 * 60,
       }
-    )
-    return res
-  } catch {
-    return NextResponse.json({ success: false, error: "Invalid request" }, { status: 400 })
+    );
+
+    return response;
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { success: false, error: "Invalid request" },
+      { status: 400 }
+    );
   }
 }
