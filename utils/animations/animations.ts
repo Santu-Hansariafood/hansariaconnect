@@ -1,9 +1,14 @@
-import { Variants } from "framer-motion"
+import { Variants, MotionProps } from "framer-motion"
 
-export const fadeIn: Variants = {
+export const fadeIn: MotionProps = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.3 },
+}
+
+export const fadeInVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 }
 
 export const staggerContainer: Variants = {
@@ -16,7 +21,7 @@ export const staggerContainer: Variants = {
   },
 }
 
-export const slideIn = (direction: "left" | "right" | "up" | "down" = "left"): Variants => ({
+export const slideIn = (direction: "left" | "right" | "up" | "down" = "left"): MotionProps => ({
   initial: {
     x: direction === "left" ? -100 : direction === "right" ? 100 : 0,
     y: direction === "up" ? 100 : direction === "down" ? -100 : 0,
@@ -30,7 +35,7 @@ export const slideIn = (direction: "left" | "right" | "up" | "down" = "left"): V
   },
 })
 
-export const scaleIn: Variants = {
+export const scaleIn: MotionProps = {
   initial: { scale: 0.8, opacity: 0 },
   animate: { scale: 1, opacity: 1 },
   transition: { duration: 0.3 },

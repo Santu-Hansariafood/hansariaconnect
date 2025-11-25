@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { groups } from "@/data/mockData";
-import { staggerContainer, fadeIn } from "@/utils/animations/animations";
+import { staggerContainer, fadeInVariants } from "@/utils/animations/animations";
 import dynamic from "next/dynamic";
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 const GroupCard = dynamic(() => import("@/components/ui/GroupCard/GroupCard"));
@@ -64,10 +64,10 @@ const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
           {groups.map((group) => (
-            <motion.div key={group.id} variants={fadeIn}>
+            <motion.div key={group.id} variants={fadeInVariants}>
               <GroupCard
                 group={group}
-                user={user}
+                user={{ mobile: (user as any)?.mobile || "" } as any}
                 theme={theme}
                 onClick={() => router.push(`/chat/${group.id}`)}
               />

@@ -4,14 +4,14 @@ import { useState, ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { statuses } from '@/data/mockData';
-import { staggerContainer, fadeIn } from '@/utils/animations/animations';
+import { staggerContainer, fadeIn, fadeInVariants } from '@/utils/animations/animations';
 import dynamic from 'next/dynamic';
 const Navbar = dynamic(() => import('@/components/common/Navbar/Navbar'));
 const StatusCard = dynamic(() => import('@/components/common/StatusCard/StatusCard'));
 
 interface User {
-  name: string
-  photo: string
+  name?: string
+  photo?: string
 }
 
 interface Theme {
@@ -47,8 +47,8 @@ export default function StatusPage({
       reader.onloadend = () => {
         setMyStatus({
           id: Date.now(),
-          user: user.name,
-          avatar: user.photo,
+          user: user.name || "",
+          avatar: user.photo || "",
           media: reader.result as string,
           type: file.type.startsWith('video') ? 'video' : 'image',
           timestamp: new Date().toISOString(),
@@ -81,7 +81,7 @@ export default function StatusPage({
           animate="show"
           className="space-y-6"
         >
-          <motion.div variants={fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+          <motion.div variants={fadeInVariants} className="bg-white rounded-2xl p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">My Status</h2>
 
             {myStatus ? (
@@ -90,8 +90,8 @@ export default function StatusPage({
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <img
-                    src={user.photo}
-                    alt={user.name}
+                    src={user.photo || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"}
+                    alt={user.name || ""}
                     className="w-16 h-16 rounded-full object-cover"
                   />
                   <label
@@ -114,7 +114,7 @@ export default function StatusPage({
               </div>
             )}
           </motion.div>
-          <motion.div variants={fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+          <motion.div variants={fadeInVariants} className="bg-white rounded-2xl p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Updates</h2>
             <div className="space-y-4">
               {statuses.map((status: StatusItem) => (

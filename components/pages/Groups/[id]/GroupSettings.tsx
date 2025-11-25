@@ -35,7 +35,8 @@ type Group = {
 };
 
 const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams();
+  const id = String((params as any)?.id || "");
   const router = useRouter();
 
   const group = groups.find((g) => g.id === parseInt(id));

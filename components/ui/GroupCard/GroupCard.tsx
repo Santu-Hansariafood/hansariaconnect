@@ -8,10 +8,10 @@ import Image from "next/image"
 import React from "react"
 
 interface Group {
-  id: string
+  id: string | number
   name: string
   avatar: string
-  members: Array<{ id: string; name: string }>
+  members: string[]
   admin: string
   lastMessage?: string
   lastMessageTime?: string
@@ -23,7 +23,7 @@ interface Theme {
 }
 
 interface User {
-  mobile: string
+  mobile?: string
 }
 
 interface GroupCardProps {

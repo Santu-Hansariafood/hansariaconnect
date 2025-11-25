@@ -4,8 +4,16 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ChatHome from "@/components/pages/ChatHome/ChatHome";
 
+//
+// FIXED USER TYPE (Matches ChatHome requirements)
+//
 interface User {
-  [key: string]: any;
+  name: string;              // required
+  step?: string;
+  photo?: string;
+  email?: string;
+  id?: string;
+  [key: string]: any;        // allow extra properties
 }
 
 interface Theme {
@@ -37,7 +45,8 @@ export default function ChatPage() {
       return;
     }
 
-    setUser(JSON.parse(savedUser));
+    const parsedUser: User = JSON.parse(savedUser);
+    setUser(parsedUser);
 
     if (savedTheme) {
       setTheme(JSON.parse(savedTheme));
