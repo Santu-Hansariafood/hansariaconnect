@@ -66,7 +66,8 @@ const ContactCard: React.FC<ContactCardProps> = ({
   const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     if (!showContextMenu || !cardRef.current) return
-    const rect = cardRef.current.getBoundingClientRect()
+    const el = cardRef.current as HTMLDivElement
+    const rect = el.getBoundingClientRect()
     setContextMenu({
       visible: true,
       x: e.clientX - rect.left,
@@ -78,7 +79,8 @@ const ContactCard: React.FC<ContactCardProps> = ({
     if (!showContextMenu || !cardRef.current) return
     const timer = setTimeout(() => {
       const touch = e.touches[0]
-      const rect = cardRef.current.getBoundingClientRect()
+      const el = cardRef.current as HTMLDivElement
+      const rect = el.getBoundingClientRect()
       setContextMenu({
         visible: true,
         x: touch.clientX - rect.left,
