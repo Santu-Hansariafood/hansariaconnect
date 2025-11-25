@@ -2,12 +2,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Otp from "@/components/pages/Otp/Otp";
 
-function VerifyOtpInner() {
+export default function VerifyOtpPage() {
   const searchParams = useSearchParams();
-  const mobile = searchParams?.get("mobile") ?? "";
+  const mobile = searchParams?.get("mobile") ?? ""; // ✅ FIXED
   const { setUser } = useApp();
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -69,13 +69,5 @@ function VerifyOtpInner() {
       onResend={handleResend}
       serverError={serverError}
     />
-  );
-}
-
-export default function VerifyOtpPage() {
-  return (
-    <Suspense fallback={<div />}> 
-      <VerifyOtpInner />
-    </Suspense>
   );
 }

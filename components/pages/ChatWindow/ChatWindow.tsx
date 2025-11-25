@@ -23,6 +23,7 @@ interface Theme {
   primary: string;
   textSize?: string;
   wallpaper?: string;
+  secondary?: string;
 }
 
 interface User {
@@ -575,7 +576,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                 timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
                 status: msg.status || "sent",
               } as any}
-              isSent={((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) !== id}
               user={user}
               contact={{ id, name: headerName, avatar: headerAvatar } as any}
               theme={theme}

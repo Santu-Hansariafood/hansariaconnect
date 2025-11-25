@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import { formatDistanceToNow } from "date-fns"
 import { Pin } from "lucide-react"
-import { useState, useRef, useEffect, TouchEvent, MouseEvent } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 
 interface Contact {
@@ -46,7 +46,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+    const handleClickOutside = (event: Event) => {
       if (cardRef.current && !(event.target as Node)?.isSameNode(cardRef.current) && !cardRef.current.contains(event.target as Node)) {
         setContextMenu({ visible: false, x: 0, y: 0 })
       }
@@ -63,7 +63,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
     }
   }, [contextMenu.visible])
 
-  const handleContextMenu = (e: MouseEvent<HTMLDivElement>) => {
+  const handleContextMenu = (e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault()
     if (!showContextMenu || !cardRef.current) return
     const rect = cardRef.current.getBoundingClientRect()
@@ -74,7 +74,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
     })
   }
 
-  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     if (!showContextMenu || !cardRef.current) return
     const timer = setTimeout(() => {
       const touch = e.touches[0]

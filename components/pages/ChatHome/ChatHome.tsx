@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-// import { contacts as initialContacts } from '@/data/mockData'
 import { staggerContainer, fadeIn } from '@/utils/animations/animations'
 import { X, Phone, Clock, Ban, CheckCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -18,12 +17,13 @@ interface Contact {
   name: string
   mobile: string
   avatar: string
-  pinned?: boolean
+  pinned: boolean
   blocked?: boolean
-  active?: boolean
+  active: boolean
+  unread: number
   lastSeen?: string
-  lastMessageTime?: string
-  lastMessage?: string
+  lastMessageTime: string
+  lastMessage: string
   mobiles?: string[]
   email?: string
   registered?: boolean
@@ -33,7 +33,7 @@ interface Contact {
 interface Theme {
   wallpaper?: string
   textSize?: string
-  primary?: string
+  primary: string
   secondary?: string
 }
 
@@ -114,6 +114,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
               pinned: false,
               blocked: false,
               active: false,
+              unread: 0,
               lastSeen: '',
               lastMessageTime: c.lastMessageAt || '',
               lastMessage: lastMessageText,
@@ -188,12 +189,33 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
     )
   }
 
-  const handleForwardMessage = (contact: Contact) => {
+  const handleForwardMessage = (contact: any) => {
     setForwardModalData({ visible: true, contact })
   }
 
   const handleForwardSubmit = (selectedContactIds: string[], message: string) => {
-    console.log('Forwarding message to:', selectedContactIds, 'Message:', message)
+    const text = message.trim()
+    if (!text) {
+      setForwardModalData({ visible: false, contact: null })
+      return
+    }
+    const byId: Record<string, Contact> = {}
+    for (const c of contacts) byId[c.peerId || c.registeredUserId || c.id] = c
+    const sendAll = async () => {
+      for (const cid of selectedContactIds) {
+        const c = contacts.find((x) => x.id === cid) || byId[cid]
+        const peer = c?.peerId || c?.registeredUserId || c?.id
+        if (!peer) continue
+        try {
+          await fetch(`/api/messages/${peer}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'text', text }),
+          })
+        } catch {}
+      }
+    }
+    sendAll()
     setForwardModalData({ visible: false, contact: null })
   }
 
@@ -255,7 +277,9 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
           pinned: false,
           blocked: false,
           active: false,
+          unread: 0,
           lastSeen: '',
+          lastMessage: '',
           lastMessageTime: c.updatedAt || c.createdAt || '',
           mobiles: c.mobiles || [],
           email: c.email || '',
@@ -315,7 +339,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
           className="grid grid-cols-1 gap-3"
         >
           {filteredContacts.map((contact) => (
-            <motion.div key={contact.id} variants={fadeIn}>
+            <motion.div key={contact.id} {...fadeIn}>
               <ContactCard
                 contact={contact}
                 onClick={() => handleContactClick(contact)}

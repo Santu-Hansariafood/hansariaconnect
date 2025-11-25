@@ -213,7 +213,7 @@ export default function Contacts({ user, theme }: Props) {
 
         <motion.div variants={staggerContainer} initial="hidden" animate="show" className="grid grid-cols-1 gap-3">
           {filteredContacts.map((contact) => (
-            <motion.div key={contact.id} variants={fadeIn}>
+            <motion.div key={contact.id} {...fadeIn}>
               <div className="bg-white rounded-2xl p-4 shadow-md">
                 <ContactCard
                   contact={contact as any}
