@@ -1,17 +1,18 @@
 "use client";
 
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Camera, Plus, X } from "lucide-react";
-import { contacts } from "@/data/mockData";
+import { ArrowLeft, Camera, Plus, X, ShieldCheck } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 
 type Contact = {
-  id: number;
+  id: string;
   name: string;
   mobile: string;
   avatar: string;
+  registered: boolean;
+  registeredUserId?: string;
 };
 
 type Theme = {
@@ -33,6 +34,40 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
   );
   const [selectedMembers, setSelectedMembers] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(true);
+  const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    const loadContacts = async () => {
+      setLoadingContacts(true);
+      try {
+        const res = await fetch("/api/contacts", { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data?.contacts)) {
+          const mapped: Contact[] = data.contacts.map((contact: any) => ({
+            id: contact._id,
+            name: contact.name,
+            mobile: contact.mobiles?.[0] || "",
+            avatar:
+              contact.avatar ||
+              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
+            registered: !!contact.registered,
+            registeredUserId: contact.registeredUserId || "",
+          }));
+          setContacts(mapped.filter((contact) => contact.mobile));
+        } else {
+          setError(data?.error || "Failed to load contacts");
+        }
+      } catch {
+        setError("Failed to load contacts");
+      } finally {
+        setLoadingContacts(false);
+      }
+    };
+    loadContacts();
+  }, []);
 
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,6 +81,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
   };
 
   const toggleMember = (contact: Contact) => {
+    if (!contact.registered) return;
     setSelectedMembers((prev) =>
       prev.find((m) => m.id === contact.id)
         ? prev.filter((m) => m.id !== contact.id)
@@ -53,17 +89,46 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
     );
   };
 
-  const handleCreate = () => {
-    if (groupName.trim() && selectedMembers.length > 0) {
-      router.push("/groups");
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery.trim()) return contacts;
+    const query = searchQuery.toLowerCase();
+    return contacts.filter(
+      (contact) =>
+        contact.name.toLowerCase().includes(query) ||
+        contact.mobile.includes(searchQuery)
+    );
+  }, [contacts, searchQuery]);
+
+  const handleCreate = async () => {
+    if (!groupName.trim() || selectedMembers.length === 0) {
+      setError("Provide a group name and select at least one member.");
+      return;
+    }
+
+    setCreating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: groupName.trim(),
+          avatar: groupPhoto,
+          memberMobiles: selectedMembers.map((member) => member.mobile),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to create group");
+
+      setGroupName("");
+      setSelectedMembers([]);
+      router.push(`/group-settings/${data.group?.id || ""}`);
+    } catch (err: any) {
+      setError(err?.message || "Unable to create group right now.");
+    } finally {
+      setCreating(false);
     }
   };
-
-  const filteredContacts = contacts.filter(
-    (contact: Contact) =>
-      contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.mobile.includes(searchQuery)
-  );
 
   return (
     <div className={`min-h-screen ${theme.wallpaper || ""}`}>
@@ -164,56 +229,77 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
             />
           </div>
 
-          <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-hide">
-            {filteredContacts.map((contact: Contact) => {
-              const isSelected = selectedMembers.some(
-                (m) => m.id === contact.id
-              );
-              return (
-                <motion.button
-                  key={contact.id}
-                  whileHover={{ scale: 1.02 }}
-                  onClick={() => toggleMember(contact)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-xl transition-colors ${
-                    isSelected ? "bg-emerald-50" : "hover:bg-gray-50"
-                  }`}
-                >
-                  <img
-                    src={contact.avatar}
-                    alt={contact.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                  <div className="flex-1 text-left">
-                    <p className="font-semibold text-gray-800">
-                      {contact.name}
-                    </p>
-                    <p className="text-sm text-gray-500">{contact.mobile}</p>
-                  </div>
-                  {isSelected && (
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: theme.primary }}
-                    >
-                      <Plus className="w-4 h-4 text-white rotate-45" />
+          {loadingContacts ? (
+            <div className="py-6 text-center text-gray-500">Loading contacts...</div>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-hide">
+              {filteredContacts.map((contact) => {
+                const isSelected = selectedMembers.some((m) => m.id === contact.id);
+                const disabled = !contact.registered;
+
+                return (
+                  <motion.button
+                    key={contact.id}
+                    whileHover={{ scale: disabled ? 1 : 1.02 }}
+                    onClick={() => toggleMember(contact)}
+                    disabled={disabled}
+                    className={`w-full flex items-center gap-4 p-4 rounded-xl transition-colors ${
+                      isSelected ? "bg-emerald-50" : disabled ? "bg-gray-50 opacity-70" : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <img
+                      src={contact.avatar}
+                      alt={contact.name}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-gray-800">{contact.name}</p>
+                      <p className="text-sm text-gray-500">{contact.mobile}</p>
                     </div>
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
+                    {contact.registered ? (
+                      isSelected ? (
+                        <div
+                          className="w-6 h-6 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: theme.primary }}
+                        >
+                          <Plus className="w-4 h-4 text-white rotate-45" />
+                        </div>
+                      ) : (
+                        <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                      )
+                    ) : (
+                      <span className="text-xs font-medium text-gray-400">
+                        Not registered
+                      </span>
+                    )}
+                  </motion.button>
+                );
+              })}
+
+              {!filteredContacts.length && (
+                <div className="py-6 text-center text-gray-500">
+                  No contacts match your search.
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
         <motion.button
           {...fadeIn}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={handleCreate}
-          disabled={!groupName.trim() || selectedMembers.length === 0}
+          disabled={!groupName.trim() || selectedMembers.length === 0 || creating}
           className="w-full mt-6 py-4 text-white rounded-xl font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ backgroundColor: theme.primary }}
         >
-          Create Group with {selectedMembers.length} member
-          {selectedMembers.length !== 1 ? "s" : ""}
+          {creating
+            ? "Creating group..."
+            : `Create Group with ${selectedMembers.length} member${
+                selectedMembers.length !== 1 ? "s" : ""
+              }`}
         </motion.button>
+        {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
       </div>
     </div>
   );

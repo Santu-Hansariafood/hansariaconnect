@@ -63,10 +63,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [socket, setSocket] = useState<any>(null)
   const [contact, setContact] = useState<any>(null)
+  const [chatType, setChatType] = useState<"unknown" | "direct" | "group">("unknown")
+  const [groupInfo, setGroupInfo] = useState<any>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const loadingMoreRef = useRef(false)
   const preloadRef = useRef(false)
+  const myUserId = String((user as any)?.id || "")
   const mergeUnique = (prev: any[], incoming: any[]) => {
     const map = new Map<string, any>()
     for (const m of prev) {
@@ -83,7 +86,60 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       return ta - tb
     })
   }
+  const shapeMessage = (raw: any, kind: "direct" | "group") => ({
+    id: String(raw?._id || raw?.id || crypto.randomUUID?.() || `${Date.now()}`),
+    from: String(raw?.from || ""),
+    to: kind === "direct" ? String(raw?.to || raw?.peerId || id || "") : undefined,
+    groupId: kind === "group" ? String(raw?.groupId || raw?.to || id || "") : undefined,
+    type: raw?.type || "text",
+    text: raw?.text || "",
+    mediaUrl: raw?.mediaUrl || "",
+    fileName: raw?.fileName || "",
+    fileSize: raw?.fileSize || "",
+    duration: raw?.duration,
+    linkTitle: raw?.linkTitle || "",
+    linkDescription: raw?.linkDescription || "",
+    timestamp: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
+    status: raw?.status || "sent",
+  })
   useEffect(() => {
+    setChatMessages([])
+    setHasMore(false)
+    setContact(null)
+    setGroupInfo(null)
+    setChatType("unknown")
+  }, [id])
+
+  useEffect(() => {
+    let cancelled = false
+    const detectChatTarget = async () => {
+      if (!id) return
+      try {
+        const res = await fetch(`/api/groups/${id}`, { cache: "no-store" })
+        if (res.ok) {
+          const data = await res.json()
+          if (cancelled) return
+          setGroupInfo(data.group)
+          setContact({
+            name: data.group?.name || "Group",
+            avatar: data.group?.avatar || "",
+            members: data.group?.members || [],
+          })
+          setChatType("group")
+          return
+        }
+      } catch {}
+      if (cancelled) return
+      setChatType("direct")
+    }
+    detectChatTarget()
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (chatType !== "direct" || !id || contact?.members) return
     const loadContact = async () => {
       try {
         // First try to get from conversations API (if available)
@@ -130,10 +186,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         } catch {}
       } catch {}
     }
-    if (id) {
+    if (id && chatType === "direct") {
       loadContact()
     }
-  }, [id])
+  }, [id, chatType])
 
   useEffect(() => {
     if (loadingMoreRef.current) return
@@ -147,50 +203,35 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       s = io({ path: "/api/socket", transports: ["websocket", "polling"], withCredentials: true })
       setSocket(s)
       s.on("message:new", (msg: any) => {
-        // Check if message is from the peer (incoming message)
-        // Socket emits messages to the recipient, so if we receive it, it's from the peer to us
-        const msgFrom = String(msg?.from || '')
-        const msgTo = String(msg?.to || '')
-        const peerId = String(id || '')
-        
-        // Show message if it's from the peer (incoming message for this chat)
-        if (msgFrom === peerId) {
-          // Convert socket message format to match API format
-          const formattedMsg = {
-            id: String(msg._id || msg.id || ''),
-            from: String(msg.from || ''),
-            to: String(msg.to || ''),
-            type: msg.type || 'text',
-            text: msg.text || '',
-            mediaUrl: msg.mediaUrl || '',
-            fileName: msg.fileName || '',
-            fileSize: msg.fileSize || '',
-            duration: msg.duration,
-            linkTitle: msg.linkTitle || '',
-            linkDescription: msg.linkDescription || '',
-            timestamp: msg.createdAt || msg.timestamp || new Date(),
-            status: msg.status || 'sent',
-          }
-          setChatMessages((prev) => mergeUnique(prev, [formattedMsg]))
-          
-          // Mark as delivered and seen (message is for current user)
-          try {
-            s.emit("message:status", { id: String(msg._id || msg.id || ''), status: "delivered" }, (ack: any) => {
+        const msgFrom = String(msg?.from || "")
+        const peerId = String(id || "")
+        if (msgFrom !== peerId) return
+        const formattedMsg = shapeMessage(msg, "direct")
+        setChatMessages((prev) => mergeUnique(prev, [formattedMsg]))
+        try {
+          const incomingId = String(msg._id || msg.id || "")
+          if (!incomingId) return
+          s.emit("message:status", { id: incomingId, status: "delivered" }, (ack: any) => {
+            if (ack?.ok && ack?.message?._id) {
+              const mid = String(ack.message._id)
+              if (mid) updateMessageStatus(mid, ack.message.status)
+            }
+          })
+          setTimeout(() => {
+            s.emit("message:status", { id: incomingId, status: "seen" }, (ack: any) => {
               if (ack?.ok && ack?.message?._id) {
                 const mid = String(ack.message._id)
                 if (mid) updateMessageStatus(mid, ack.message.status)
               }
             })
-            setTimeout(() => {
-              s.emit("message:status", { id: String(msg._id || msg.id || ''), status: "seen" }, (ack: any) => {
-                if (ack?.ok && ack?.message?._id) {
-                  const mid = String(ack.message._id)
-                  if (mid) updateMessageStatus(mid, ack.message.status)
-                }
-              })
-            }, 500)
-          } catch {}
-        }
+          }, 500)
+        } catch {}
+      })
+      s.on("group:message:new", (msg: any) => {
+        const currentGroup = String(id || "")
+        if (String(msg?.groupId || msg?.to || "") !== currentGroup) return
+        const formattedMsg = shapeMessage(msg, "group")
+        setChatMessages((prev) => mergeUnique(prev, [formattedMsg]))
       })
     }
     connect()
@@ -200,31 +241,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   }, [id])
 
   useEffect(() => {
+    if (!id || chatType === "unknown") return
     const load = async () => {
       try {
-        // Load all messages initially to show old chats
-        const res = await fetch(`/api/messages/${id}?all=true`, { credentials: 'include' })
+        const endpoint =
+          chatType === "group"
+            ? `/api/groups/${id}/messages?all=true`
+            : `/api/messages/${id}?all=true`
+        const res = await fetch(endpoint, { credentials: 'include' })
         const data = await res.json()
         if (Array.isArray(data?.messages) && data.messages.length > 0) {
-          // Messages come sorted oldest first when all=true
           setChatMessages(mergeUnique([], data.messages))
-          // Scroll to bottom after messages load
           setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
           }, 100)
         } else {
           setChatMessages([])
         }
-        setHasMore(false) // No more to load if we got all
+        setHasMore(!!data?.hasMore)
       } catch (e) {
         console.error('Failed to load messages:', e)
         setChatMessages([])
+        setHasMore(false)
       }
     }
-    if (id) {
-      load()
-    }
-  }, [id])
+    load()
+  }, [id, chatType])
 
   useEffect(() => {
     const run = async () => {
@@ -243,7 +285,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   }, [hasMore, chatMessages.length, id])
 
   const loadMore = async () => {
-    if (!chatMessages.length) return
+    if (!chatMessages.length || chatType === "unknown") return
     const el = containerRef.current
     const prevHeight = el?.scrollHeight || 0
     const prevTop = el?.scrollTop || 0
@@ -253,7 +295,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       const oldest = chatMessages[0]
       const tsRaw = oldest.timestamp || oldest.createdAt
       const ts = typeof tsRaw === "string" ? tsRaw : new Date(tsRaw).toISOString()
-      const res = await fetch(`/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`, { credentials: 'include' })
+      const endpoint =
+        chatType === "group"
+          ? `/api/groups/${id}/messages?limit=10&before=${encodeURIComponent(ts)}`
+          : `/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`
+      const res = await fetch(endpoint, { credentials: 'include' })
       const data = await res.json()
       if (Array.isArray(data?.messages) && data.messages.length) {
         setChatMessages((prev) => mergeUnique(prev, data.messages))
@@ -285,17 +331,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
 
   const headerName = contact?.name || contact?.mobile || "User"
   const headerAvatar = contact?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
+  const toPlainId = (val: any) => {
+    if (typeof val === "string") return val
+    if (!val) return ""
+    if (typeof val === "object") {
+      if (typeof val.$oid === "string") return val.$oid
+      if (typeof val.toString === "function") {
+        const s = val.toString()
+        if (s && s !== "[object Object]") return s
+      }
+    }
+    return String(val || "")
+  }
+  const resolveSender = (msg: any) => {
+    const senderId = toPlainId(msg?.from)
+    if (chatType === "group") {
+      return senderId === myUserId ? "me" : "contact"
+    }
+    return senderId === String(id || "") ? "contact" : "me"
+  }
 
   const sendViaRest = async (payload: any) => {
     try {
-      const res = await fetch(`/api/messages/${id}`, {
+      const endpoint =
+        chatType === "group" ? `/api/groups/${id}/messages` : `/api/messages/${id}`
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (res.ok && data?.message) {
-        setChatMessages((prev) => mergeUnique(prev, [data.message]))
+        const kind = chatType === "group" ? "group" : "direct"
+        setChatMessages((prev) => mergeUnique(prev, [shapeMessage(data.message, kind)]))
         return true
       }
       if (!res.ok) {
@@ -318,14 +386,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     return new Promise<boolean>((resolve) => {
       if (!socket) return resolve(false)
       try {
-        socket.emit("message:send", { to: id, ...payload }, (ack: any) => {
-          if (ack?.ok && ack.message) {
-            setChatMessages((prev) => mergeUnique(prev, [ack.message]))
-            resolve(true)
-          } else {
-            resolve(false)
-          }
-        })
+        if (chatType === "group") {
+          socket.emit("group:message:send", { groupId: id, ...payload }, (ack: any) => {
+            if (ack?.ok && ack.message) {
+              setChatMessages((prev) => mergeUnique(prev, [shapeMessage(ack.message, "group")]))
+              resolve(true)
+            } else {
+              resolve(false)
+            }
+          })
+        } else {
+          socket.emit("message:send", { to: id, ...payload }, (ack: any) => {
+            if (ack?.ok && ack.message) {
+              setChatMessages((prev) => mergeUnique(prev, [shapeMessage(ack.message, "direct")]))
+              resolve(true)
+            } else {
+              resolve(false)
+            }
+          })
+        }
       } catch {
         resolve(false)
       }
@@ -568,7 +647,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
             <MessageBubble
               key={msg.id || (msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.timestamp || msg.createdAt}-${msg.mediaUrl || msg.text || ''}`}
               message={{
-                sender: ((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) === id ? "contact" : "me",
+                sender: resolveSender(msg),
                 type: msg.type,
                 text: msg.text,
                 media: msg.mediaUrl,

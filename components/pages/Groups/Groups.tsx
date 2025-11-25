@@ -1,9 +1,9 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
-import { groups } from "@/data/mockData";
 import { staggerContainer, fadeInVariants } from "@/utils/animations/animations";
 import dynamic from "next/dynamic";
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
@@ -26,8 +26,43 @@ type GroupsProps = {
   theme: Theme;
 };
 
+type GroupSummary = {
+  id: string;
+  name: string;
+  avatar: string;
+  members: string[];
+  admin: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+};
+
 const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
   const router = useRouter();
+  const [groupList, setGroupList] = useState<GroupSummary[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+
+  const loadGroups = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/groups", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to load groups");
+      }
+      setGroupList(Array.isArray(data?.groups) ? data.groups : []);
+    } catch (err: any) {
+      setGroupList([]);
+      setError(err?.message || "Unable to load groups right now.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadGroups();
+  }, [loadGroups]);
 
   return (
     <div className={`min-h-screen ${theme.wallpaper}`}>
@@ -57,23 +92,35 @@ const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
           </motion.button>
         </motion.div>
 
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {groups.map((group) => (
-            <motion.div key={group.id} variants={fadeInVariants}>
-              <GroupCard
-                group={group}
-                user={{ mobile: (user as any)?.mobile || "" } as any}
-                theme={theme}
-                onClick={() => router.push(`/chat/${group.id}`)}
-              />
-            </motion.div>
-          ))}
-        </motion.div>
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
+        )}
+
+        {loading ? (
+          <div className="py-12 text-center text-gray-500">Loading your groups...</div>
+        ) : groupList.length ? (
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {groupList.map((group) => (
+              <motion.div key={group.id} variants={fadeInVariants}>
+                <GroupCard
+                  group={group}
+                  user={{ mobile: (user as any)?.mobile || "" } as any}
+                  theme={theme}
+                  onClick={() => router.push(`/chat/${group.id}`)}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <div className="py-12 text-center text-gray-500">
+            No groups yet. Create one to start collaborating.
+          </div>
+        )}
       </div>
     </div>
   );

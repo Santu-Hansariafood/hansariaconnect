@@ -5,15 +5,16 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
 
-const CreateGroup = dynamic(() => import("@/components/pages/CreateGroup/CreateGroup"), {
-  loading: () => <p className="p-4 text-center">Loading...</p>,
-});
+const GroupSettings = dynamic(
+  () => import("@/components/pages/Groups/[id]/GroupSettings"),
+  { loading: () => <p className="p-4 text-center">Loading...</p> }
+);
 
-export default function CreateGroupPage() {
+export default function GroupSettingsPage() {
   const router = useRouter();
   const { user, theme } = useApp() as {
     user: { step?: string } | null;
-    theme: { primary: string; textSize: string; wallpaper: string } | null;
+    theme: { primary: string; wallpaper: string; textSize: string } | null;
   };
 
   useEffect(() => {
@@ -26,10 +27,12 @@ export default function CreateGroupPage() {
 
   const safeTheme =
     theme || ({
-      primary: "#10B981",
+      primary: "#0CA678",
+      wallpaper: "bg-gradient-to-br from-emerald-50 to-teal-50",
       textSize: "text-base",
-      wallpaper: "bg-gray-50",
     } as const);
 
-  return <CreateGroup user={user} theme={safeTheme} />;
+  return <GroupSettings user={user as any} theme={safeTheme} />;
 }
+
+
