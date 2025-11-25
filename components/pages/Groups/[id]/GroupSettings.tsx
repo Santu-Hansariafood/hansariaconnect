@@ -12,6 +12,7 @@ import {
   Shield,
 } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
+import Loading from "@/components/common/Loading/Loading";
 
 type Theme = {
   wallpaper: string;
@@ -198,9 +199,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
   if (loading) {
     return (
       <div className={`min-h-screen ${theme.wallpaper}`}>
-        <div className="flex h-screen items-center justify-center text-gray-500">
-          Loading group settings...
-        </div>
+        <Loading />
       </div>
     );
   }

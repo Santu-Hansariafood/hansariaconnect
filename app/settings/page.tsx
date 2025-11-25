@@ -9,11 +9,10 @@ const Settings = dynamic(() => import("@/components/common/Settings/Settings"), 
   ssr: false,
 });
 
-// User type MUST match what Settings component expects
 interface User {
   name: string;
-  mobile: string;   // ← REQUIRED
-  photo: string;    // ← REQUIRED
+  mobile: string;
+  photo: string;
   step?: string;
   [key: string]: any;
 }

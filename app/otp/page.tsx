@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect } from "react"
+import { Suspense, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useApp } from "@/context/AppContext/AppContext"
 import dynamic from "next/dynamic"
+import Loading from "@/components/common/Loading/Loading"
 const Otp = dynamic(() => import("@/components/pages/Otp/Otp"));
 
 export default function OtpPage() {
@@ -31,10 +32,12 @@ export default function OtpPage() {
   }
 
   return (
+    <Suspense fallback={<Loading />}>
     <Otp
       mobile={user.mobile || ""}
       onVerify={handleVerify}
       onResend={handleResend}
     />
+    </Suspense>
   )
 }

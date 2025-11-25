@@ -13,11 +13,8 @@ export const config = {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // @ts-ignore
   if (!(res as any).socket.server.io) {
-    // @ts-ignore
     const io = new Server((res as any).socket.server, { path: "/api/socket" })
-    // @ts-ignore
     ;(res as any).socket.server.io = io
 
     io.on("connection", async (socket) => {

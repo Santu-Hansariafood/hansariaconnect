@@ -8,6 +8,7 @@ import { fadeIn, staggerContainer } from "@/utils/animations/animations"
 import { X, CheckCircle2, CircleUserRound } from "lucide-react"
 
 import { FaWhatsapp, FaFacebookF, FaTwitter, FaSms } from "react-icons/fa"
+import Link from "next/link"
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"))
 const ContactCard = dynamic(() => import("@/components/ui/ContactCard/ContactCard"))
@@ -49,7 +50,6 @@ export default function Contacts({ user, theme }: Props) {
   const [inviteLoading, setInviteLoading] = useState<string>("")
   const [inviteMessage, setInviteMessage] = useState<string>("")
 
-  // Load contacts
   useEffect(() => {
     const loadContacts = async () => {
       try {
@@ -81,7 +81,6 @@ export default function Contacts({ user, theme }: Props) {
     loadContacts()
   }, [])
 
-  // Filter + sort
   useEffect(() => {
     let filtered = contacts
 
@@ -96,7 +95,6 @@ export default function Contacts({ user, theme }: Props) {
     setFilteredContacts(filtered)
   }, [contacts, searchQuery])
 
-  // Invite share links
   const buildShareLinks = (contact: Contact) => {
     const origin = typeof window !== "undefined"
       ? `${window.location.protocol}//${window.location.host}`
@@ -116,7 +114,6 @@ export default function Contacts({ user, theme }: Props) {
     }
   }
 
-  // Create contact
   const submitCreate = async () => {
     setError("")
     const cleanMobiles = newMobiles.map((m) => m.replace(/\D/g, "")).filter(Boolean)
@@ -172,7 +169,6 @@ export default function Contacts({ user, theme }: Props) {
       <Navbar user={user} />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
-        {/* Header */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <div className="flex items-center justify-between">
             <h1 className={`text-3xl font-bold ${theme.textSize}`}>Contacts</h1>
@@ -192,7 +188,6 @@ export default function Contacts({ user, theme }: Props) {
           />
         </motion.div>
 
-        {/* Contacts Grid */}
         <motion.div
           variants={staggerContainer}
           initial="hidden"
@@ -228,7 +223,6 @@ export default function Contacts({ user, theme }: Props) {
                     </div>
                   </div>
 
-                  {/* Buttons */}
                   {c.registered ? (
                     <button
                       onClick={() => router.push(`/chat/${c.registeredUserId}`)}
@@ -245,20 +239,19 @@ export default function Contacts({ user, theme }: Props) {
                         Invite
                       </button>
 
-                      {/* Social Share */}
                       <div className="flex gap-3 mt-3">
-                        <a href={links.wa} target="_blank" className="p-2 bg-green-500 rounded-full text-white">
+                        <Link href={links.wa} target="_blank" className="p-2 bg-green-500 rounded-full text-white">
                           <FaWhatsapp />
-                        </a>
-                        <a href={links.fb} target="_blank" className="p-2 bg-blue-600 rounded-full text-white">
+                        </Link>
+                        <Link href={links.fb} target="_blank" className="p-2 bg-blue-600 rounded-full text-white">
                           <FaFacebookF />
-                        </a>
-                        <a href={links.x} target="_blank" className="p-2 bg-black rounded-full text-white">
+                        </Link>
+                        <Link href={links.x} target="_blank" className="p-2 bg-black rounded-full text-white">
                           <FaTwitter />
-                        </a>
-                        <a href={links.sms} className="p-2 bg-gray-500 rounded-full text-white">
+                        </Link>
+                        <Link href={links.sms} className="p-2 bg-gray-500 rounded-full text-white">
                           <FaSms />
-                        </a>
+                        </Link>
                       </div>
                     </>
                   )}
@@ -267,15 +260,11 @@ export default function Contacts({ user, theme }: Props) {
             )
           })}
         </motion.div>
-
-        {/* Empty State */}
         {filteredContacts.length === 0 && (
           <div className="text-center py-12 text-gray-500 text-lg">
             No contacts found
           </div>
         )}
-
-        {/* Create Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
             <motion.div
@@ -290,9 +279,7 @@ export default function Contacts({ user, theme }: Props) {
                 </button>
               </div>
 
-              {/* Form */}
               <div className="space-y-4">
-                {/* Name */}
                 <div>
                   <label className="text-sm font-medium text-gray-700">Name</label>
                   <input
@@ -303,7 +290,6 @@ export default function Contacts({ user, theme }: Props) {
                   />
                 </div>
 
-                {/* Mobile Numbers */}
                 <div>
                   <label className="text-sm font-medium text-gray-700">
                     Mobile Numbers
@@ -347,7 +333,6 @@ export default function Contacts({ user, theme }: Props) {
                   </button>
                 </div>
 
-                {/* Email */}
                 <div>
                   <label className="text-sm font-medium text-gray-700">Email</label>
                   <input
@@ -361,7 +346,6 @@ export default function Contacts({ user, theme }: Props) {
 
                 {error && <p className="text-red-600">{error}</p>}
 
-                {/* Buttons */}
                 <div className="flex gap-4 pt-3">
                   <button
                     onClick={submitCreate}

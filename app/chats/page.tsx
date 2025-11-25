@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Loading from '@/components/common/Loading/Loading'
 import dynamic from 'next/dynamic'
 const ChatHome = dynamic(() => import('@/components/pages/ChatHome/ChatHome'));
 
@@ -30,9 +31,7 @@ export default function ChatPage() {
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-700 text-lg">
-        Loading user data...
-      </div>
+      <Loading />
     )
   }
 

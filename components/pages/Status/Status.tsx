@@ -1,64 +1,70 @@
-'use client'
+"use client";
 
-import { useState, ChangeEvent } from 'react';
-import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
-import { statuses } from '@/data/mockData';
-import { staggerContainer, fadeIn, fadeInVariants } from '@/utils/animations/animations';
-import dynamic from 'next/dynamic';
-const Navbar = dynamic(() => import('@/components/common/Navbar/Navbar'));
-const StatusCard = dynamic(() => import('@/components/common/StatusCard/StatusCard'));
+import { useState, ChangeEvent } from "react";
+import Image from "next/image";
+import dynamic from "next/dynamic";
+import { motion } from "framer-motion";
+import { Plus } from "lucide-react";
+import { statuses } from "@/data/mockData";
+import {
+  staggerContainer,
+  fadeInVariants,
+} from "@/utils/animations/animations";
+
+const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
+const StatusCard = dynamic(
+  () => import("@/components/common/StatusCard/StatusCard"),
+  { ssr: false }
+);
 
 interface User {
-  name?: string
-  photo?: string
+  name?: string;
+  photo?: string;
 }
 
 interface Theme {
-  wallpaper: string
-  textSize?: string
-  primary?: string
+  wallpaper: string;
+  textSize?: string;
+  primary?: string;
 }
 
 interface StatusItem {
-  id: number
-  user: string
-  avatar: string
-  media: string
-  type: 'image' | 'video'
-  timestamp: string
-  views: number
+  id: number;
+  user: string;
+  avatar: string;
+  media: string;
+  type: "image" | "video";
+  timestamp: string;
+  views: number;
 }
 
 export default function StatusPage({
   user,
   theme,
 }: {
-  user: User
-  theme: Theme
+  user: User;
+  theme: Theme;
 }) {
-  const [myStatus, setMyStatus] = useState<StatusItem | null>(null)
-  const [showUpload, setShowUpload] = useState(false)
+  const [myStatus, setMyStatus] = useState<StatusItem | null>(null);
 
   const handleStatusUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader()
+      const reader = new FileReader();
       reader.onloadend = () => {
         setMyStatus({
           id: Date.now(),
           user: user.name || "",
           avatar: user.photo || "",
           media: reader.result as string,
-          type: file.type.startsWith('video') ? 'video' : 'image',
+          type: file.type.startsWith("video") ? "video" : "image",
           timestamp: new Date().toISOString(),
           views: 0,
-        })
-        setShowUpload(false)
-      }
-      reader.readAsDataURL(file)
+        });
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   return (
     <div className={`min-h-screen ${theme.wallpaper}`}>
@@ -70,7 +76,9 @@ export default function StatusPage({
           animate={{ opacity: 1, y: 0 }}
           className="mb-6"
         >
-          <h1 className={`text-3xl font-bold text-gray-800 mb-4 ${theme.textSize}`}>
+          <h1
+            className={`text-3xl font-bold text-gray-800 mb-4 ${theme.textSize}`}
+          >
             Status Updates
           </h1>
         </motion.div>
@@ -81,19 +89,32 @@ export default function StatusPage({
           animate="show"
           className="space-y-6"
         >
-          <motion.div variants={fadeInVariants} className="bg-white rounded-2xl p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">My Status</h2>
+          <motion.div
+            variants={fadeInVariants}
+            className="bg-white rounded-2xl p-6 shadow-lg"
+          >
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              My Status
+            </h2>
 
             {myStatus ? (
               <StatusCard status={myStatus} theme={theme} />
             ) : (
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <img
-                    src={user.photo || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"}
-                    alt={user.name || ""}
-                    className="w-16 h-16 rounded-full object-cover"
-                  />
+                  <div className="w-16 h-16 rounded-full overflow-hidden">
+                    <Image
+                      src={
+                        user.photo ||
+                        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
+                      }
+                      alt={user.name || "User"}
+                      width={64}
+                      height={64}
+                      className="object-cover"
+                    />
+                  </div>
+
                   <label
                     className="absolute bottom-0 right-0 p-2 rounded-full cursor-pointer shadow-lg"
                     style={{ backgroundColor: theme.primary }}
@@ -107,6 +128,7 @@ export default function StatusPage({
                     />
                   </label>
                 </div>
+
                 <div>
                   <p className="font-medium text-gray-800">Add Status</p>
                   <p className="text-sm text-gray-500">Share your moment</p>
@@ -114,8 +136,14 @@ export default function StatusPage({
               </div>
             )}
           </motion.div>
-          <motion.div variants={fadeInVariants} className="bg-white rounded-2xl p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Updates</h2>
+          <motion.div
+            variants={fadeInVariants}
+            className="bg-white rounded-2xl p-6 shadow-lg"
+          >
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Recent Updates
+            </h2>
+
             <div className="space-y-4">
               {statuses.map((status: StatusItem) => (
                 <StatusCard key={status.id} status={status} theme={theme} />
@@ -125,5 +153,5 @@ export default function StatusPage({
         </motion.div>
       </div>
     </div>
-  )
+  );
 }

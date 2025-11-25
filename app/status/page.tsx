@@ -1,9 +1,13 @@
 "use client";
 
-import StatusPage from "@/components/pages/Status/Status";
+import Loading from "@/components/common/Loading/Loading";
 import { useApp } from "@/context/AppContext/AppContext";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+const StatusPage = dynamic(() => import("@/components/pages/Status/Status"), {
+  loading: () => <Loading />,
+});
 
 export default function StatusRoute() {
   const { user, theme } = useApp();
@@ -11,12 +15,10 @@ export default function StatusRoute() {
 
   const [hydrated, setHydrated] = useState(false);
 
-  // Prevent hydration mismatch
   useEffect(() => {
     setHydrated(true);
   }, []);
 
-  // Redirect only after hydration + user loaded
   useEffect(() => {
     if (!hydrated) return;
 
@@ -25,10 +27,8 @@ export default function StatusRoute() {
     }
   }, [hydrated, user, router]);
 
-  // Don't render anything until hydration is complete
   if (!hydrated) return null;
 
-  // If user data not loaded yet (localStorage), block UI flashing
   if (!user) return null;
 
   return <StatusPage user={user} theme={theme} />;

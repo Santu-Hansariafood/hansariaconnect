@@ -83,7 +83,6 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
         const data = await res.json()
         if (Array.isArray(data?.conversations)) {
           const mapped: Contact[] = data.conversations.map((c: any) => {
-            // Convert lastMessage object to string for display
             let lastMessageText = ''
             if (c.lastMessage) {
               if (c.lastMessage.type === 'text') {

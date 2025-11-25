@@ -5,28 +5,20 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
 import dynamic from "next/dynamic";
 
-// ----------------------
-// Correct User Type
-// ----------------------
 interface UserType {
   id?: string;
   name?: string;
   photo?: string;
-  mobile: string;      // ✅ REQUIRED for NameEntry
+  mobile: string;
   step: "name" | "complete" | string;
   [key: string]: any;
 }
 
-// Props expected by NameEntry component
 interface NameEntryProps {
   user: UserType;
   onComplete: (name: string, photo: string) => void;
 }
 
-// ----------------------
-// Dynamic Import — WITHOUT generics
-// (Next.js 16 does not need <NameEntryProps>)
-// ----------------------
 const NameEntry = dynamic(
   () => import("@/components/pages/NameEntry/NameEntry"),
   { ssr: false }
@@ -39,8 +31,6 @@ export default function NameEntryPage() {
   };
 
   const router = useRouter();
-
-  // Redirect only in effect
   useEffect(() => {
     if (!user || user.step !== "name") {
       router.replace("/");
@@ -49,7 +39,6 @@ export default function NameEntryPage() {
 
   if (!user || user.step !== "name") return null;
 
-  // Handle name entry
   const handleNameEntry = (name: string, photo: string) => {
     const updated: UserType = {
       ...user,

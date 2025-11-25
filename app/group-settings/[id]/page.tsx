@@ -4,10 +4,11 @@ import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
+import Loading from "@/components/common/Loading/Loading";
 
 const GroupSettings = dynamic(
   () => import("@/components/pages/Groups/[id]/GroupSettings"),
-  { loading: () => <p className="p-4 text-center">Loading...</p> }
+  { loading: () => <Loading /> }
 );
 
 export default function GroupSettingsPage() {

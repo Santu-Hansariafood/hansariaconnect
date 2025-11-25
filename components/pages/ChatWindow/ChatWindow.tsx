@@ -17,7 +17,7 @@ import {
 import dynamic from "next/dynamic";
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
 const MediaPicker = dynamic(() => import("@/components/ui/MediaPicker/MediaPicker"));
-import SearchBar from "@/components/common/SearchBar/SearchBar";
+const SearchBar = dynamic(() => import("@/components/common/SearchBar/SearchBar"));
 
 interface Theme {
   primary: string;
@@ -142,7 +142,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     if (chatType !== "direct" || !id || contact?.members) return
     const loadContact = async () => {
       try {
-        // First try to get from conversations API (if available)
         const convRes = await fetch('/api/conversations')
         const convData = await convRes.json()
         if (Array.isArray(convData?.conversations)) {
@@ -157,7 +156,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           }
         }
         
-        // Fallback to contacts API
         const res = await fetch('/api/contacts')
         const data = await res.json()
         if (Array.isArray(data?.contacts)) {
@@ -172,7 +170,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           }
         }
         
-        // Final fallback to users API (includes profile)
         try {
           const uRes = await fetch(`/api/users/${id}`)
           const uData = await uRes.json()
@@ -529,7 +526,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                 alt={headerName}
                 className="w-10 h-10 rounded-full object-cover"
                 onError={(e) => {
-                  // Fallback to default avatar if image fails to load
                   (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
                 }}
               />

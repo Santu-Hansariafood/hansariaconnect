@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
 import dynamic from "next/dynamic";
+import Loading from "@/components/common/Loading/Loading";
 
-// Types
 interface UserType {
   id: string;
   name: string;
@@ -20,9 +20,8 @@ interface ThemeType {
   textSize: string;
 }
 
-// Dynamic import with fallback UI
 const Groups = dynamic(() => import("@/components/pages/Groups/Groups"), {
-  loading: () => <p className="text-center p-4">Loading...</p>,
+  loading: () => <Loading />,
 });
 
 export default function GroupsPage() {
@@ -41,7 +40,6 @@ export default function GroupsPage() {
 
   if (!user) return null;
 
-  // ✅ FIX: Provide safe default theme so it's never null
   const safeTheme: ThemeType = theme ?? {
     primary: "#0A0A0A",
     secondary: "#FFFFFF",

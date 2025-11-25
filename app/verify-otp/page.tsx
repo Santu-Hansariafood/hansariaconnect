@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Otp from "@/components/pages/Otp/Otp";
+import Loading from "@/components/common/Loading/Loading";
 
 function VerifyOtpInner() {
   const searchParams = useSearchParams();
@@ -74,7 +75,7 @@ function VerifyOtpInner() {
 
 export default function VerifyOtpPage() {
   return (
-    <Suspense fallback={<div />}> 
+    <Suspense fallback={<Loading />}> 
       <VerifyOtpInner />
     </Suspense>
   );

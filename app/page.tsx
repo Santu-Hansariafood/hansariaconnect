@@ -3,17 +3,15 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ChatHome from "@/components/pages/ChatHome/ChatHome";
+import Loading from "@/components/common/Loading/Loading";
 
-//
-// FIXED USER TYPE (Matches ChatHome requirements)
-//
 interface User {
-  name: string;              // required
+  name: string;
   step?: string;
   photo?: string;
   email?: string;
   id?: string;
-  [key: string]: any;        // allow extra properties
+  [key: string]: any;
 }
 
 interface Theme {
@@ -63,17 +61,13 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-600 text-lg">
-        Checking session...
-      </div>
+      <Loading />
     );
   }
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen text-gray-600 text-lg">
-        Redirecting to login...
-      </div>
+      <Loading />
     );
   }
 

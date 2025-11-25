@@ -62,12 +62,12 @@ const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile, serverError }) =>
           </motion.button>
         </form>
 
-        <div className="mt-6 text-center">
+        {/* <div className="mt-6 text-center">
           <button onClick={onResend} className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-medium">
             <RotateCcw className="w-4 h-4" />
             Resend OTP
           </button>
-        </div>
+        </div> */}
       </motion.div>
     </div>
   );
