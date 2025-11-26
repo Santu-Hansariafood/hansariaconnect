@@ -50,12 +50,18 @@
 // }
 
 
-
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import twilio from "twilio";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
+
+// Initialize Twilio client
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID!,
+  process.env.TWILIO_AUTH_TOKEN!
+);
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -70,6 +76,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const otp = generateOtp();
+
+    // ----------- Hash OTP + Create Salt ----------
     const salt = crypto.randomBytes(16).toString("hex");
     const hash = crypto.createHash("sha256").update(otp + salt).digest("hex");
 
@@ -77,22 +85,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mobile,
       hash,
       salt,
-      exp: Date.now() + 5 * 60 * 1000, // 5 min expiry
+      exp: Date.now() + 5 * 60 * 1000, // expires in 5 mins
     };
 
-    // ----------------------------------------------
-    // 🔥 ALWAYS LOG OTP IN CONSOLE (Dev + Production)
-    // ----------------------------------------------
-    console.log("🚨 OTP for", mobile, "→", otp);
-    // ----------------------------------------------
+    // ----------- SEND OTP USING TWILIO ----------
+    try {
+      await client.messages.create({
+        body: `Your OTP is ${otp}. It will expire in 5 minutes.`,
+        from: process.env.TWILIO_PHONE_NUMBER!,
+        to: `+91${mobile}`, // India number format
+      });
+    } catch (twilioErr) {
+      console.error("Twilio Error:", twilioErr);
+      return NextResponse.json(
+        { success: false, error: "Failed to send OTP via SMS" },
+        { status: 500 }
+      );
+    }
 
+    // ----------- Set Cookie ----------
     const response = NextResponse.json({
       success: true,
-      // Now ALWAYS show OTP in console, NOT in API response
-      devOtp:
-        process.env.NODE_ENV !== "production"
-          ? otp
-          : undefined, // keep API clean
+      message: "OTP sent successfully!",
+      devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
     response.cookies.set("otp_session", JSON.stringify(payload), {
@@ -100,12 +115,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 5 * 60, // cookie expires in 5 mins
+      maxAge: 5 * 60, // 5 minutes
     });
 
     return response;
   } catch (error) {
-    console.error("OTP Error:", error);
     return NextResponse.json(
       { success: false, error: "Malformed or invalid request" },
       { status: 400 }
