@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 import io from "socket.io-client"
 import {
   ArrowLeft,
@@ -522,7 +523,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       }
     }
   };
+const fallbackImage =
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop";
 
+  const [imgSrc, setImgSrc] = useState(headerAvatar || fallbackImage);
+  
   const handleClearChat = () => {
     setChatMessages([]);
     setShowClearConfirm(false);
@@ -562,29 +567,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         </button>
 
         <div className="flex items-center gap-3 flex-1">
-          <div className="relative">
-            {headerAvatar ? (
-              <img
-                src={headerAvatar}
-                alt={headerName}
-                className="w-10 h-10 rounded-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
-                }}
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-semibold">
-                {headerName.charAt(0).toUpperCase()}
-              </div>
-            )}
-            {contact?.online && (
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-            )}
+      <div className="relative">
+        {headerAvatar ? (
+          <Image
+            src={imgSrc}
+            alt={headerName}
+            width={40}
+            height={40}
+            className="w-10 h-10 rounded-full object-cover"
+            onError={() => setImgSrc(fallbackImage)}
+            unoptimized
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-semibold">
+            {headerName.charAt(0).toUpperCase()}
           </div>
-          <h2 className={`font-semibold text-gray-800 ${theme.textSize}`}>
-            {headerName}
-          </h2>
-        </div>
+        )}
+
+        {/* Online Dot */}
+        {contact?.online && (
+          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+        )}
+      </div>
+
+      <h2 className={`font-semibold text-gray-800 ${theme.textSize}`}>
+        {headerName}
+      </h2>
+    </div>
         <div className="relative">
           <button
             onClick={() => setShowOptionsMenu((prev) => !prev)}
