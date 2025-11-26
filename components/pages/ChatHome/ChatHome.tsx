@@ -79,10 +79,16 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
   useEffect(() => {
     const loadConversations = async () => {
       try {
-        const res = await fetch('/api/conversations', { method: 'GET' })
-        const data = await res.json()
-        if (Array.isArray(data?.conversations)) {
-          const mapped: Contact[] = data.conversations.map((c: any) => {
+        const [convRes, unreadRes] = await Promise.all([
+          fetch('/api/conversations', { method: 'GET' }),
+          fetch('/api/unread-counts', { cache: 'no-store' }),
+        ]);
+        const convData = await convRes.json();
+        const unreadData = await unreadRes.json();
+        const unreadMap = unreadData?.conversations || {};
+
+        if (Array.isArray(convData?.conversations)) {
+          const mapped: Contact[] = convData.conversations.map((c: any) => {
             let lastMessageText = ''
             if (c.lastMessage) {
               if (c.lastMessage.type === 'text') {
@@ -113,7 +119,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
               pinned: false,
               blocked: false,
               active: false,
-              unread: 0,
+              unread: unreadMap[c.peerId || c.id] || 0,
               lastSeen: '',
               lastMessageTime: c.lastMessageAt || '',
               lastMessage: lastMessageText,

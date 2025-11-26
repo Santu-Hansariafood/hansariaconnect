@@ -58,15 +58,19 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { name, about, photo, theme } = await req.json();
+    const { name, about, photo, theme, notifications } = await req.json();
 
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
+    const updateData: any = { userId: session.id, name, about, photo };
+    if (theme) updateData.theme = theme;
+    if (notifications) updateData.notifications = notifications;
+
     const updated = await Profile.findOneAndUpdate(
       { userId: session.id },
-      { userId: session.id, name, about, photo, theme },
+      updateData,
       { new: true, upsert: true }
     );
 

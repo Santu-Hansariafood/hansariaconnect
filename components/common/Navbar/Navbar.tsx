@@ -29,6 +29,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const pathname = usePathname();
   const { theme, user: ctxUser } = useApp();
   const [navUser, setNavUser] = useState<User>({ name: user?.name, photo: user?.photo });
+  const [unreadCounts, setUnreadCounts] = useState({ total: 0, chats: 0, groups: 0 });
 
   useEffect(() => {
     const load = async () => {
@@ -52,12 +53,33 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     load()
   }, [ctxUser])
 
+  useEffect(() => {
+    const loadUnread = async () => {
+      try {
+        const res = await fetch("/api/unread-counts", { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && data) {
+          const chatsUnread = Object.values(data.conversations || {}).reduce((a: number, b: number) => a + b, 0);
+          const groupsUnread = Object.values(data.groups || {}).reduce((a: number, b: number) => a + b, 0);
+          setUnreadCounts({
+            total: data.total || 0,
+            chats: chatsUnread,
+            groups: groupsUnread,
+          });
+        }
+      } catch {}
+    };
+    loadUnread();
+    const interval = setInterval(loadUnread, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   const navItems = [
-    { path: "/chats", icon: MessageCircle, label: "Chats" },
-    { path: "/contacts", icon: Phone, label: "Contacts" },
-    { path: "/status", icon: ImageIcon, label: "Status" },
-    { path: "/groups", icon: Users, label: "Groups" },
-    { path: "/settings", icon: Settings, label: "Settings" },
+    { path: "/chats", icon: MessageCircle, label: "Chats", count: unreadCounts.chats },
+    { path: "/contacts", icon: Phone, label: "Contacts", count: 0 },
+    { path: "/status", icon: ImageIcon, label: "Status", count: 0 },
+    { path: "/groups", icon: Users, label: "Groups", count: unreadCounts.groups },
+    { path: "/settings", icon: Settings, label: "Settings", count: 0 },
   ];
 
   return (
@@ -87,6 +109,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.path;
+              const hasUnread = (item.count || 0) > 0;
               return (
                 <motion.button
                   key={item.path}
@@ -94,7 +117,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                   whileTap={{ scale: 0.95 }}
                   transition={{ type: "spring", stiffness: 300, damping: 20 }}
                   onClick={() => router.push(item.path)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
                     isActive ? "shadow-md" : "text-gray-600 hover:bg-gray-100 hover:shadow-sm"
                   }`}
                   style={
@@ -105,6 +128,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 >
                   <Icon className="w-5 h-5 transition-transform duration-300" />
                   {item.label}
+                  {hasUnread && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                      {item.count! > 99 ? "99+" : item.count}
+                    </span>
+                  )}
                 </motion.button>
               );
             })}
@@ -156,6 +184,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.path;
+            const hasUnread = (item.count || 0) > 0;
             return (
               <motion.button
                 key={item.path}
@@ -163,7 +192,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 whileHover={{ y: -3 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 onClick={() => router.push(item.path)}
-                className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 ${
+                className={`relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all duration-300 ${
                   isActive ? "" : "text-gray-600 hover:bg-gray-50"
                 }`}
                 style={
@@ -174,6 +203,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               >
                 <Icon className="w-6 h-6 transition-transform duration-300" />
                 <span className="text-xs">{item.label}</span>
+                {hasUnread && (
+                  <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                    {item.count! > 9 ? "9+" : item.count}
+                  </span>
+                )}
               </motion.button>
             );
           })}

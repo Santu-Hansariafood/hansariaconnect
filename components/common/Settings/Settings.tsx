@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Palette,
@@ -32,6 +32,12 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ user, theme, onThemeChange }) => {
   const [localTheme, setLocalTheme] = useState<Theme>(theme);
+  const [notifications, setNotifications] = useState({
+    messages: true,
+    groups: true,
+    enabled: true,
+  });
+  const [loading, setLoading] = useState(false);
 
   const colorOptions = [
     { primary: "#0CA678", secondary: "#A2F5BF", name: "Emerald" },
@@ -59,18 +65,66 @@ const Settings: React.FC<SettingsProps> = ({ user, theme, onThemeChange }) => {
     const newTheme = { ...localTheme, ...color };
     setLocalTheme(newTheme);
     onThemeChange(newTheme);
+    handleThemeSave();
   };
 
   const handleWallpaperChange = (wallpaper: string) => {
     const newTheme = { ...localTheme, wallpaper };
     setLocalTheme(newTheme);
     onThemeChange(newTheme);
+    handleThemeSave();
   };
 
   const handleTextSizeChange = (textSize: string) => {
     const newTheme = { ...localTheme, textSize };
     setLocalTheme(newTheme);
     onThemeChange(newTheme);
+    handleThemeSave();
+  };
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const res = await fetch("/api/settings");
+        const data = await res.json();
+        if (res.ok && data) {
+          if (data.theme) {
+            setLocalTheme((prev) => ({ ...prev, ...data.theme }));
+            onThemeChange({ ...theme, ...data.theme });
+          }
+          if (data.notifications) {
+            setNotifications(data.notifications);
+          }
+        }
+      } catch {}
+    };
+    loadSettings();
+  }, []);
+
+  const handleNotificationToggle = async (key: "messages" | "groups" | "enabled") => {
+    const updated = { ...notifications, [key]: !notifications[key] };
+    setNotifications(updated);
+    setLoading(true);
+    try {
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notifications: updated }),
+      });
+    } catch {}
+    setLoading(false);
+  };
+
+  const handleThemeSave = async () => {
+    setLoading(true);
+    try {
+      await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: localTheme }),
+      });
+    } catch {}
+    setLoading(false);
   };
 
   return (
@@ -211,10 +265,18 @@ const Settings: React.FC<SettingsProps> = ({ user, theme, onThemeChange }) => {
                   </p>
                 </div>
                 <button
-                  className="w-12 h-6 rounded-full relative transition-colors"
-                  style={{ backgroundColor: theme.primary }}
+                  onClick={() => handleNotificationToggle("messages")}
+                  disabled={loading}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${
+                    notifications.messages ? "" : "bg-gray-300"
+                  }`}
+                  style={notifications.messages ? { backgroundColor: theme.primary } : undefined}
                 >
-                  <span className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full"></span>
+                  <span
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                      notifications.messages ? "right-1" : "left-1"
+                    }`}
+                  ></span>
                 </button>
               </div>
               <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
@@ -224,8 +286,41 @@ const Settings: React.FC<SettingsProps> = ({ user, theme, onThemeChange }) => {
                     Get notified for group messages
                   </p>
                 </div>
-                <button className="w-12 h-6 bg-gray-300 rounded-full relative">
-                  <span className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full"></span>
+                <button
+                  onClick={() => handleNotificationToggle("groups")}
+                  disabled={loading}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${
+                    notifications.groups ? "" : "bg-gray-300"
+                  }`}
+                  style={notifications.groups ? { backgroundColor: theme.primary } : undefined}
+                >
+                  <span
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                      notifications.groups ? "right-1" : "left-1"
+                    }`}
+                  ></span>
+                </button>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
+                <div>
+                  <p className="font-medium text-gray-800">Enable All Notifications</p>
+                  <p className="text-sm text-gray-500">
+                    Master switch for all notifications
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleNotificationToggle("enabled")}
+                  disabled={loading}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${
+                    notifications.enabled ? "" : "bg-gray-300"
+                  }`}
+                  style={notifications.enabled ? { backgroundColor: theme.primary } : undefined}
+                >
+                  <span
+                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                      notifications.enabled ? "right-1" : "left-1"
+                    }`}
+                  ></span>
                 </button>
               </div>
             </div>

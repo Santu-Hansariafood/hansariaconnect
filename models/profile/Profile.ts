@@ -12,6 +12,12 @@ export interface IProfile extends Document {
     textSize?: string;
   };
 
+  notifications: {
+    messages: boolean;
+    groups: boolean;
+    enabled: boolean;
+  };
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,6 +42,12 @@ const ProfileSchema = new Schema<IProfile>(
       wallpaper: { type: String, default: "" },
       primary: { type: String, default: "#10b981" },
       textSize: { type: String, default: "text-base" },
+    },
+
+    notifications: {
+      messages: { type: Boolean, default: true },
+      groups: { type: Boolean, default: true },
+      enabled: { type: Boolean, default: true },
     },
   },
   { timestamps: true }

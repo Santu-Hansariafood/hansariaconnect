@@ -24,12 +24,23 @@ export async function POST(req: NextRequest) {
     const blob = new Blob([arrayBuffer], { type: file.type || "application/octet-stream" })
 
     const timestamp = Math.floor(Date.now() / 1000)
-    const folder = "profiles"
+    // Use different folders based on kind: status, messages, or profiles
+    const folder = kind === "status" ? "status" : kind === "video" && kind !== "raw" ? "messages" : "profiles"
     const toSign = `folder=${folder}&timestamp=${timestamp}`
     const signature = crypto
       .createHash("sha1")
       .update(toSign + CLOUDINARY_API_SECRET)
       .digest("hex")
+
+    // Detect resource type from file type if kind is "status"
+    const isVideoFile = file.type.startsWith("video/")
+    const resourceType = kind === "status" 
+      ? (isVideoFile ? "video" : "image")
+      : kind === "video" 
+        ? "video" 
+        : kind === "raw" 
+          ? "raw" 
+          : "image"
 
     const cloudForm = new FormData()
     cloudForm.append("file", blob, file.name)
@@ -37,8 +48,6 @@ export async function POST(req: NextRequest) {
     cloudForm.append("timestamp", String(timestamp))
     cloudForm.append("signature", signature)
     cloudForm.append("folder", folder)
-
-    const resourceType = kind === "video" ? "video" : kind === "raw" ? "raw" : "image"
     const uploadRes = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
       { method: "POST", body: cloudForm }

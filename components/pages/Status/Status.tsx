@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
-import { statuses } from "@/data/mockData";
 import {
   staggerContainer,
   fadeInVariants,
@@ -29,13 +28,16 @@ interface Theme {
 }
 
 interface StatusItem {
-  id: number;
-  user: string;
+  id: string;
+  userId: string;
+  name: string;
   avatar: string;
   media: string;
   type: "image" | "video";
-  timestamp: string;
+  timestamp: string | Date;
   views: number;
+  hasViewed?: boolean;
+  expiresAt?: string | Date;
 }
 
 export default function StatusPage({
@@ -46,24 +48,117 @@ export default function StatusPage({
   theme: Theme;
 }) {
   const [myStatus, setMyStatus] = useState<StatusItem | null>(null);
+  const [contactStatuses, setContactStatuses] = useState<Record<string, StatusItem[]>>({});
+  const [uploading, setUploading] = useState(false);
+  const [statusError, setStatusError] = useState("");
+  const [loadingStatuses, setLoadingStatuses] = useState(true);
 
-  const handleStatusUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const loadStatuses = async () => {
+      setStatusError("");
+      setLoadingStatuses(true);
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && data?.statuses) {
+          setContactStatuses(data.statuses);
+        } else {
+          setStatusError(data?.error || "Unable to load status updates.");
+        }
+      } catch (err: unknown) {
+        console.error("Failed to load statuses:", err);
+        setStatusError("Unable to load status updates right now.");
+      } finally {
+        setLoadingStatuses(false);
+      }
+    };
+    loadStatuses();
+    const interval = setInterval(loadStatuses, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleStatusUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMyStatus({
-          id: Date.now(),
-          user: user.name || "",
-          avatar: user.photo || "",
-          media: reader.result as string,
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      // Upload to Cloudinary first
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", "status"); // Use status folder in Cloudinary
+      
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json().catch(() => ({}));
+        console.error("Upload failed:", errorData);
+        setUploading(false);
+        return;
+      }
+
+      const uploadData = await uploadRes.json();
+      if (!uploadData?.url) {
+        console.error("No URL in upload response:", uploadData);
+        setUploading(false);
+        return;
+      }
+
+      // Create status with Cloudinary URL
+      const res = await fetch("/api/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          media: uploadData.url,
           type: file.type.startsWith("video") ? "video" : "image",
-          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Status creation failed:", errorData);
+        setUploading(false);
+        return;
+      }
+
+      const data = await res.json();
+      if (data?.status) {
+        setMyStatus({
+          id: data.status.id,
+            userId: String((user as { id?: string })?.id || ""),
+          name: user.name || "You",
+          avatar: user.photo || "",
+          media: data.status.media,
+          type: data.status.type,
+          timestamp: data.status.createdAt,
           views: 0,
         });
-      };
-      reader.readAsDataURL(file);
+        // Reload statuses to show the new one
+        const refreshRes = await fetch("/api/status", { cache: "no-store" });
+        const refreshData = await refreshRes.json();
+        if (refreshRes.ok && refreshData?.statuses) {
+          setContactStatuses(refreshData.statuses);
+        }
+      }
+    } catch (error) {
+      console.error("Status upload error:", error);
+    } finally {
+      setUploading(false);
     }
+  };
+
+  const handleStatusView = async (statusId: string) => {
+    try {
+      await fetch(`/api/status/${statusId}/view`, { method: "POST" });
+      setContactStatuses((prev) => {
+        const next: Record<string, StatusItem[]> = {};
+        for (const [uid, list] of Object.entries(prev)) {
+          next[uid] = list.map((status) =>
+            status.id === statusId ? { ...status, hasViewed: true, views: status.views + 1 } : status
+          );
+        }
+        return next;
+      });
+    } catch {}
   };
 
   return (
@@ -98,7 +193,16 @@ export default function StatusPage({
             </h2>
 
             {myStatus ? (
-              <StatusCard status={myStatus} theme={theme} />
+              <StatusCard
+                status={{
+                  user: myStatus.name,
+                  avatar: myStatus.avatar,
+                  type: myStatus.type,
+                  timestamp: myStatus.timestamp,
+                  views: myStatus.views,
+                }}
+                theme={theme}
+              />
             ) : (
               <div className="flex items-center gap-4">
                 <div className="relative">
@@ -116,7 +220,9 @@ export default function StatusPage({
                   </div>
 
                   <label
-                    className="absolute bottom-0 right-0 p-2 rounded-full cursor-pointer shadow-lg"
+                    className={`absolute bottom-0 right-0 p-2 rounded-full cursor-pointer shadow-lg ${
+                      uploading ? "opacity-50" : ""
+                    }`}
                     style={{ backgroundColor: theme.primary }}
                   >
                     <Plus className="w-4 h-4 text-white" />
@@ -125,12 +231,15 @@ export default function StatusPage({
                       accept="image/*,video/*"
                       onChange={handleStatusUpload}
                       className="hidden"
+                      disabled={uploading}
                     />
                   </label>
                 </div>
 
                 <div>
-                  <p className="font-medium text-gray-800">Add Status</p>
+                  <p className="font-medium text-gray-800">
+                    {uploading ? "Uploading..." : "Add Status"}
+                  </p>
                   <p className="text-sm text-gray-500">Share your moment</p>
                 </div>
               </div>
@@ -145,9 +254,36 @@ export default function StatusPage({
             </h2>
 
             <div className="space-y-4">
-              {statuses.map((status: StatusItem) => (
-                <StatusCard key={status.id} status={status} theme={theme} />
-              ))}
+              {loadingStatuses ? (
+                <p className="text-gray-500 text-center py-8">Loading status updates...</p>
+              ) : statusError ? (
+                <p className="text-red-500 text-center py-8">{statusError}</p>
+              ) : Object.keys(contactStatuses).length === 0 ? (
+                <p className="text-gray-500 text-center py-8">
+                  No status updates from your contacts
+                </p>
+              ) : (
+                Object.entries(contactStatuses).map(([, statuses]) =>
+                  statuses.map((status: StatusItem) => (
+                    <div
+                      key={status.id}
+                      onClick={() => handleStatusView(status.id)}
+                      className="cursor-pointer"
+                    >
+                      <StatusCard
+                        status={{
+                          user: status.name,
+                          avatar: status.avatar,
+                          type: status.type,
+                          timestamp: status.timestamp,
+                          views: status.views,
+                        }}
+                        theme={theme}
+                      />
+                    </div>
+                  ))
+                )
+              )}
             </div>
           </motion.div>
         </motion.div>

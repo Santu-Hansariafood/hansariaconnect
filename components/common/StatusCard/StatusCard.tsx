@@ -23,6 +23,10 @@ type StatusCardProps = {
 };
 
 const StatusCard: React.FC<StatusCardProps> = ({ status, theme }) => {
+  const avatarSrc =
+    status.avatar && status.avatar.trim().length > 0
+      ? status.avatar
+      : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -33,7 +37,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ status, theme }) => {
         <div className="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-emerald-500 to-teal-500">
           <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
             <Image
-              src={status.avatar}
+              src={avatarSrc}
               alt={status.user}
               width={56}
               height={56}

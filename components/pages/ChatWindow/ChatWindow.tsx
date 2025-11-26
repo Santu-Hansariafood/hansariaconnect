@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
 import io from "socket.io-client"
@@ -86,6 +86,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       return ta - tb
     })
   }
+  const recordReadReceipt = useCallback(async (payload: Record<string, string>) => {
+    try {
+      await fetch("/api/read-receipts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    } catch {}
+  }, [])
+
+  const markConversationRead = useCallback(() => {
+    if (!id || chatType === "unknown") return
+    recordReadReceipt(
+      chatType === "group" ? { groupId: id } : { conversationId: id }
+    )
+  }, [chatType, id, recordReadReceipt])
   const shapeMessage = (raw: any, kind: "direct" | "group") => ({
     id: String(raw?._id || raw?.id || crypto.randomUUID?.() || `${Date.now()}`),
     from: String(raw?.from || ""),
@@ -221,6 +237,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                 if (mid) updateMessageStatus(mid, ack.message.status)
               }
             })
+            if (document.visibilityState === "visible") {
+              recordReadReceipt({ messageId: incomingId, conversationId: peerId })
+            }
           }, 500)
         } catch {}
       })
@@ -229,13 +248,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         if (String(msg?.groupId || msg?.to || "") !== currentGroup) return
         const formattedMsg = shapeMessage(msg, "group")
         setChatMessages((prev) => mergeUnique(prev, [formattedMsg]))
+        // Mark as read if visible
+        if (document.visibilityState === "visible") {
+          recordReadReceipt({ groupMessageId: String(msg.id), groupId: currentGroup })
+        }
       })
     }
     connect()
     return () => {
       if (s) s.disconnect()
     }
-  }, [id])
+  }, [id, recordReadReceipt])
 
   useEffect(() => {
     if (!id || chatType === "unknown") return
@@ -252,6 +275,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           setTimeout(() => {
             messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
           }, 100)
+          recordReadReceipt(
+            chatType === "group" ? { groupId: id } : { conversationId: id }
+          )
         } else {
           setChatMessages([])
         }
@@ -263,7 +289,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       }
     }
     load()
-  }, [id, chatType])
+  }, [id, chatType, recordReadReceipt])
+
+  useEffect(() => {
+    if (!id || chatType === "unknown") return
+    markConversationRead()
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        markConversationRead()
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => document.removeEventListener("visibilitychange", handleVisibility)
+  }, [id, chatType, markConversationRead])
 
   useEffect(() => {
     const run = async () => {
@@ -321,7 +359,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     if (loadingMore) return
     if (!hasMore) return
     const target = e.currentTarget
-    if (target.scrollTop <= 10) {
+    const nearTop = target.scrollTop <= 10
+    const nearBottom = target.scrollHeight - target.scrollTop - target.clientHeight <= 40
+    if (nearBottom) {
+      markConversationRead()
+    }
+    if (nearTop) {
       loadMore()
     }
   }
