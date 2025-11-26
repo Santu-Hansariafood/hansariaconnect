@@ -3,17 +3,6 @@ import crypto from "crypto";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 
-export const runtime = "nodejs"; // Required for Twilio
-
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
-const USE_TWILIO = Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_VERIFY_SERVICE_SID);
-
-const client = USE_TWILIO
-  ? require("twilio")(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-  : null;
-
 interface OtpSessionPayload {
   mobile: string;
   hash: string;
@@ -27,7 +16,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const mobile: string = String(body?.mobile || "");
     const code: string = String(body?.code || "");
 
-    // --- Validate inputs ---
     if (!/^\d{10}$/.test(mobile)) {
       return NextResponse.json(
         { success: false, error: "Invalid mobile number" },
@@ -42,7 +30,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // --- Read OTP session from cookie ---
     const sessionCookie = req.cookies.get("otp_session")?.value;
     if (!sessionCookie) {
       return NextResponse.json(
@@ -61,25 +48,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // --- Validate session object ---
-    if (!payload.mobile || !payload.hash || !payload.salt || !payload.exp) {
+    if (!payload?.mobile || !payload?.hash || !payload?.salt || !payload?.exp) {
       return NextResponse.json(
         { success: false, error: "Malformed OTP session" },
         { status: 400 }
       );
     }
 
-    // --- Check expiry ---
-    if (Date.now() > payload.exp) {
-      const res = NextResponse.json(
+    if (Date.now() > Number(payload.exp)) {
+      const response = NextResponse.json(
         { success: false, error: "OTP expired" },
         { status: 400 }
       );
-      res.cookies.delete("otp_session");
-      return res;
+      response.cookies.delete("otp_session");
+      return response;
     }
 
-    // --- Check mobile mismatch ---
     if (payload.mobile !== mobile) {
       return NextResponse.json(
         { success: false, error: "Mobile number mismatch" },
@@ -87,44 +71,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // -------------------------------------------------------------------------
-    // TWILIO VERIFY CHECK (if configured)
-    // -------------------------------------------------------------------------
-    let twilioApproved = false;
-    let twilioChecked = false;
-    if (USE_TWILIO && client) {
-      try {
-        const twilioResponse = await client.verify.v2
-          .services(TWILIO_VERIFY_SERVICE_SID!)
-          .verificationChecks.create({
-            to: `+91${mobile}`,
-            code,
-          });
-        twilioChecked = true;
-        twilioApproved = twilioResponse.status === "approved";
-        if (!twilioApproved) {
-          return NextResponse.json(
-            { success: false, error: "Incorrect OTP" },
-            { status: 401 }
-          );
-        }
-      } catch (err) {
-        console.error("Twilio Verify Error:", err);
-      }
-    }
-
-    if (!USE_TWILIO || !twilioChecked) {
-      const generatedHash = crypto
-        .createHash("sha256")
-        .update(code + payload.salt)
-        .digest("hex");
-
-      if (generatedHash !== payload.hash) {
-        return NextResponse.json(
-          { success: false, error: "Incorrect OTP" },
-          { status: 401 }
-        );
-      }
+    const generatedHash = crypto
+      .createHash("sha256")
+      .update(code + payload.salt)
+      .digest("hex");
+    if (generatedHash !== payload.hash) {
+      return NextResponse.json(
+        { success: false, error: "Incorrect OTP" },
+        { status: 401 }
+      );
     }
 
     await connectDB();
@@ -150,13 +105,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 30,
+        maxAge: 30 * 24 * 60 * 60,
       }
     );
 
     return response;
   } catch (error) {
-    console.error("Verification Error:", error);
+    console.error(error);
     return NextResponse.json(
       { success: false, error: "Invalid request" },
       { status: 400 }
