@@ -1,43 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import {
-  Palette,
-  Image as ImageIcon,
-  Type,
-  Bell,
-  User,
-  Info,
-} from "lucide-react";
-import Navbar from "@/components/common/Navbar/Navbar";
 import { fadeIn } from "@/utils/animations/animations";
+import { Palette, Image as ImageIcon, Type, Bell, User, Info } from "lucide-react";
 
-interface Theme {
-  primary: string;
-  secondary: string;
-  wallpaper: string;
-  textSize: string;
-}
+import { useSettings } from "@/hooks/settings/useSettings";
+import { useThemeSettings } from "@/hooks/settings/useThemeSettings";
+import { useNotificationSettings } from "@/hooks/settings/useNotificationSettings";
+import dynamic from "next/dynamic";
+const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 
-interface SettingsProps {
-  user: {
-    name: string;
-    mobile: string;
-    photo: string;
-  };
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
-}
+const Settings = ({ user, theme, onThemeChange }: any) => {
+  const { initialTheme, notifications, setNotifications } = useSettings();
 
-const Settings: React.FC<SettingsProps> = ({ user, theme, onThemeChange }) => {
-  const [localTheme, setLocalTheme] = useState<Theme>(theme);
-  const [notifications, setNotifications] = useState({
-    messages: true,
-    groups: true,
-    enabled: true,
-  });
-  const [loading, setLoading] = useState(false);
+  const {
+    localTheme,
+    updateTheme,
+    loading: themeSaving,
+  } = useThemeSettings(initialTheme || theme, onThemeChange);
+
+  const {
+    toggleNotification,
+    loading: notificationLoading,
+  } = useNotificationSettings(notifications, setNotifications);
 
   const colorOptions = [
     { primary: "#0CA678", secondary: "#A2F5BF", name: "Emerald" },
@@ -61,283 +46,138 @@ const Settings: React.FC<SettingsProps> = ({ user, theme, onThemeChange }) => {
     { value: "text-lg", name: "Large" },
   ];
 
-  const handleColorChange = (color: { primary: string; secondary: string }) => {
-    const newTheme = { ...localTheme, ...color };
-    setLocalTheme(newTheme);
-    onThemeChange(newTheme);
-    handleThemeSave();
-  };
-
-  const handleWallpaperChange = (wallpaper: string) => {
-    const newTheme = { ...localTheme, wallpaper };
-    setLocalTheme(newTheme);
-    onThemeChange(newTheme);
-    handleThemeSave();
-  };
-
-  const handleTextSizeChange = (textSize: string) => {
-    const newTheme = { ...localTheme, textSize };
-    setLocalTheme(newTheme);
-    onThemeChange(newTheme);
-    handleThemeSave();
-  };
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const res = await fetch("/api/settings");
-        const data = await res.json();
-        if (res.ok && data) {
-          if (data.theme) {
-            setLocalTheme((prev) => ({ ...prev, ...data.theme }));
-            onThemeChange({ ...theme, ...data.theme });
-          }
-          if (data.notifications) {
-            setNotifications(data.notifications);
-          }
-        }
-      } catch {}
-    };
-    loadSettings();
-  }, []);
-
-  const handleNotificationToggle = async (key: "messages" | "groups" | "enabled") => {
-    const updated = { ...notifications, [key]: !notifications[key] };
-    setNotifications(updated);
-    setLoading(true);
-    try {
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notifications: updated }),
-      });
-    } catch {}
-    setLoading(false);
-  };
-
-  const handleThemeSave = async () => {
-    setLoading(true);
-    try {
-      await fetch("/api/settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: localTheme }),
-      });
-    } catch {}
-    setLoading(false);
-  };
-
   return (
-    <div className={`min-h-screen ${theme.wallpaper}`}>
+    <div className={`min-h-screen ${localTheme?.wallpaper}`}>
       <Navbar user={user} />
 
       <div className="max-w-4xl mx-auto px-4 py-6">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
         >
-          <h1
-            className={`text-3xl font-bold text-gray-800 mb-2 ${theme.textSize}`}
-          >
+          <h1 className={`text-3xl font-bold text-gray-800 mb-2 ${localTheme?.textSize}`}>
             Settings
           </h1>
-          <p className="text-gray-600">
-            Customize your HansariaConnect experience
-          </p>
+          <p className="text-gray-600">Customize your HansariaConnect experience</p>
         </motion.div>
 
-        <div className="space-y-6">
-          <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <Palette className="w-6 h-6" style={{ color: theme.primary }} />
-              <h2 className="text-xl font-semibold text-gray-800">
-                Theme Color
-              </h2>
-            </div>
-            <div className="grid grid-cols-5 gap-4">
-              {colorOptions.map((color) => (
-                <button
-                  key={color.name}
-                  onClick={() => handleColorChange(color)}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <div
-                    className="w-12 h-12 rounded-full border-4 border-white shadow-lg"
-                    style={{ backgroundColor: color.primary }}
-                  />
-                  <span className="text-xs text-gray-600">{color.name}</span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-          <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <ImageIcon
-                className="w-6 h-6"
-                style={{ color: theme.primary }}
-              />
-              <h2 className="text-xl font-semibold text-gray-800">
-                Chat Wallpaper
-              </h2>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              {wallpaperOptions.map((wp) => (
-                <button
-                  key={wp.name}
-                  onClick={() => handleWallpaperChange(wp.value)}
-                  className={`h-24 rounded-xl border-4 ${wp.value} ${
-                    localTheme.wallpaper === wp.value
-                      ? "border-emerald-500"
-                      : "border-gray-200"
-                  } hover:border-emerald-300 transition-colors`}
-                >
-                  <span className="text-xs font-medium text-gray-700">
-                    {wp.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </motion.div>
-          <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <Type className="w-6 h-6" style={{ color: theme.primary }} />
-              <h2 className="text-xl font-semibold text-gray-800">Text Size</h2>
-            </div>
-            <div className="flex gap-4">
-              {textSizeOptions.map((size) => (
-                <button
-                  key={size.name}
-                  onClick={() => handleTextSizeChange(size.value)}
-                  className={`flex-1 py-3 px-6 rounded-xl font-semibold transition-colors ${
-                    localTheme.textSize === size.value
-                      ? "text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                  style={
-                    localTheme.textSize === size.value
-                      ? { backgroundColor: theme.primary }
-                      : {}
-                  }
-                >
-                  {size.name}
-                </button>
-              ))}
-            </div>
-          </motion.div>
-          <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <User className="w-6 h-6" style={{ color: theme.primary }} />
-              <h2 className="text-xl font-semibold text-gray-800">
-                Profile Settings
-              </h2>
-            </div>
-            <div className="space-y-3">
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                <p className="font-medium text-gray-800">Edit Profile</p>
-                <p className="text-sm text-gray-500">
-                  Change name, photo, and about
-                </p>
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Palette className="w-6 h-6" style={{ color: localTheme?.primary }} />
+            <h2 className="text-xl font-semibold text-gray-800">Theme Color</h2>
+          </div>
+
+          <div className="grid grid-cols-5 gap-4">
+            {colorOptions.map((color) => (
+              <button
+                key={color.name}
+                onClick={() => updateTheme(color)}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-50"
+              >
+                <div
+                  className="w-12 h-12 rounded-full border-4 border-white shadow-lg"
+                  style={{ backgroundColor: color.primary }}
+                />
+                <span className="text-xs text-gray-600">{color.name}</span>
               </button>
-              <button className="w-full text-left px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                <p className="font-medium text-gray-800">Privacy</p>
-                <p className="text-sm text-gray-500">
-                  Manage who can see your info
-                </p>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <ImageIcon className="w-6 h-6" style={{ color: localTheme?.primary }} />
+            <h2 className="text-xl font-semibold text-gray-800">Chat Wallpaper</h2>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            {wallpaperOptions.map((wp) => (
+              <button
+                key={wp.name}
+                onClick={() => updateTheme({ wallpaper: wp.value })}
+                className={`h-24 rounded-xl border-4 ${wp.value} ${
+                  localTheme?.wallpaper === wp.value
+                    ? "border-emerald-500"
+                    : "border-gray-200"
+                }`}
+              >
+                <span className="text-xs font-medium text-gray-700">{wp.name}</span>
               </button>
-            </div>
-          </motion.div>
-          <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <Bell className="w-6 h-6" style={{ color: theme.primary }} />
-              <h2 className="text-xl font-semibold text-gray-800">
-                Notifications
-              </h2>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-                <div>
-                  <p className="font-medium text-gray-800">
-                    Message Notifications
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    Get notified for new messages
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleNotificationToggle("messages")}
-                  disabled={loading}
-                  className={`w-12 h-6 rounded-full relative transition-colors ${
-                    notifications.messages ? "" : "bg-gray-300"
-                  }`}
-                  style={notifications.messages ? { backgroundColor: theme.primary } : undefined}
-                >
-                  <span
-                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                      notifications.messages ? "right-1" : "left-1"
-                    }`}
-                  ></span>
-                </button>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-                <div>
-                  <p className="font-medium text-gray-800">Group Notifications</p>
-                  <p className="text-sm text-gray-500">
-                    Get notified for group messages
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleNotificationToggle("groups")}
-                  disabled={loading}
-                  className={`w-12 h-6 rounded-full relative transition-colors ${
-                    notifications.groups ? "" : "bg-gray-300"
-                  }`}
-                  style={notifications.groups ? { backgroundColor: theme.primary } : undefined}
-                >
-                  <span
-                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                      notifications.groups ? "right-1" : "left-1"
-                    }`}
-                  ></span>
-                </button>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl">
-                <div>
-                  <p className="font-medium text-gray-800">Enable All Notifications</p>
-                  <p className="text-sm text-gray-500">
-                    Master switch for all notifications
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleNotificationToggle("enabled")}
-                  disabled={loading}
-                  className={`w-12 h-6 rounded-full relative transition-colors ${
-                    notifications.enabled ? "" : "bg-gray-300"
-                  }`}
-                  style={notifications.enabled ? { backgroundColor: theme.primary } : undefined}
-                >
-                  <span
-                    className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
-                      notifications.enabled ? "right-1" : "left-1"
-                    }`}
-                  ></span>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-          <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center gap-3 mb-4">
-              <Info className="w-6 h-6" style={{ color: theme.primary }} />
-              <h2 className="text-xl font-semibold text-gray-800">About</h2>
-            </div>
-            <div className="space-y-2 text-gray-600">
-              <p>HansariaConnect v1.0.0</p>
-              <p className="text-sm">
-                © 2025 HansariaConnect. All rights reserved.
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <Type className="w-6 h-6" style={{ color: localTheme?.primary }} />
+            <h2 className="text-xl font-semibold text-gray-800">Text Size</h2>
+          </div>
+
+          <div className="flex gap-4">
+            {textSizeOptions.map((size) => (
+              <button
+                key={size.name}
+                onClick={() => updateTheme({ textSize: size.value })}
+                className={`flex-1 py-3 px-6 rounded-xl font-semibold ${
+                  localTheme?.textSize === size.value
+                    ? "text-white"
+                    : "bg-gray-100 text-gray-700"
+                }`}
+                style={
+                  localTheme?.textSize === size.value
+                    ? { backgroundColor: localTheme?.primary }
+                    : {}
+                }
+              >
+                {size.name}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <Bell className="w-6 h-6" style={{ color: localTheme?.primary }} />
+            <h2 className="text-xl font-semibold text-gray-800">Notifications</h2>
+          </div>
+
+          {["messages", "groups", "enabled"].map((key: any) => (
+            <div
+              key={key}
+              className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl mb-3"
+            >
+              <p className="font-medium text-gray-800 capitalize">
+                {key} Notifications
               </p>
+
+              <button
+                onClick={() => toggleNotification(key)}
+                disabled={notificationLoading}
+                className={`w-12 h-6 rounded-full relative ${
+                  notifications[key] ? "" : "bg-gray-300"
+                }`}
+                style={notifications[key] ? { backgroundColor: localTheme?.primary } : undefined}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
+                    notifications[key] ? "right-1" : "left-1"
+                  }`}
+                />
+              </button>
             </div>
-          </motion.div>
-        </div>
+          ))}
+        </motion.div>
+
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <Info className="w-6 h-6" style={{ color: localTheme?.primary }} />
+            <h2 className="text-xl font-semibold text-gray-800">About</h2>
+          </div>
+          <p className="text-gray-600">HansariaConnect v1.0.0</p>
+          <p className="text-sm text-gray-500">
+            © 2025 HansariaConnect. All rights reserved.
+          </p>
+        </motion.div>
       </div>
     </div>
   );

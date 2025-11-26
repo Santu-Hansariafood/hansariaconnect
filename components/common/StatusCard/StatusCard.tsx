@@ -2,8 +2,10 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
 import { Eye, Play } from "lucide-react";
+
+import { useAvatar } from "@/hooks/statuscard/useAvatar";
+import { useTimeAgo } from "@/hooks/statuscard/useTimeAgo";
 
 type Theme = {
   textSize?: string;
@@ -23,16 +25,14 @@ type StatusCardProps = {
 };
 
 const StatusCard: React.FC<StatusCardProps> = ({ status, theme }) => {
-  const avatarSrc =
-    status.avatar && status.avatar.trim().length > 0
-      ? status.avatar
-      : "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
+  const avatarSrc = useAvatar(status.avatar);
+  const timeAgo = useTimeAgo(status.timestamp);
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
     >
-      {/* Avatar */}
       <div className="relative">
         <div className="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-emerald-500 to-teal-500">
           <div className="w-full h-full rounded-full overflow-hidden border-2 border-white">
@@ -46,7 +46,6 @@ const StatusCard: React.FC<StatusCardProps> = ({ status, theme }) => {
           </div>
         </div>
 
-        {/* Video Badge */}
         {status.type === "video" && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-6 h-6 bg-white/90 rounded-full flex items-center justify-center shadow">
@@ -56,17 +55,13 @@ const StatusCard: React.FC<StatusCardProps> = ({ status, theme }) => {
         )}
       </div>
 
-      {/* Username + Timestamp */}
       <div className="flex-1">
         <h3 className={`font-semibold text-gray-800 ${theme.textSize || ""}`}>
           {status.user}
         </h3>
-        <p className="text-sm text-gray-500">
-          {formatDistanceToNow(new Date(status.timestamp), { addSuffix: true })}
-        </p>
+        <p className="text-sm text-gray-500">{timeAgo}</p>
       </div>
 
-      {/* Views */}
       <div className="flex items-center gap-1 text-gray-500">
         <Eye className="w-4 h-4" />
         <span className="text-sm">{status.views}</span>
