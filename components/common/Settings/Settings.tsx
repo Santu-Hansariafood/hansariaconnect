@@ -2,13 +2,28 @@
 
 import { motion } from "framer-motion";
 import { fadeIn } from "@/utils/animations/animations";
-import { Palette, Image as ImageIcon, Type, Bell, User, Info } from "lucide-react";
+import {
+  Palette,
+  Image as ImageIcon,
+  Type,
+  Bell,
+  Info,
+} from "lucide-react";
 
 import { useSettings } from "@/hooks/settings/useSettings";
 import { useThemeSettings } from "@/hooks/settings/useThemeSettings";
 import { useNotificationSettings } from "@/hooks/settings/useNotificationSettings";
 import dynamic from "next/dynamic";
-const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
+import Loading from "../Loading/Loading";
+
+const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"), {
+  ssr: false,
+  loading: () => <Loading />,
+});
+
+type NotificationKey = "messages" | "groups" | "enabled";
+
+const notificationKeys: NotificationKey[] = ["messages", "groups", "enabled"];
 
 const Settings = ({ user, theme, onThemeChange }: any) => {
   const { initialTheme, notifications, setNotifications } = useSettings();
@@ -55,10 +70,14 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h1 className={`text-3xl font-bold text-gray-800 mb-2 ${localTheme?.textSize}`}>
+          <h1
+            className={`text-3xl font-bold text-gray-800 mb-2 ${localTheme?.textSize}`}
+          >
             Settings
           </h1>
-          <p className="text-gray-600">Customize your HansariaConnect experience</p>
+          <p className="text-gray-600">
+            Customize your HansariaConnect experience
+          </p>
         </motion.div>
 
         <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
@@ -84,7 +103,7 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
           <div className="flex items-center gap-3 mb-4">
             <ImageIcon className="w-6 h-6" style={{ color: localTheme?.primary }} />
             <h2 className="text-xl font-semibold text-gray-800">Chat Wallpaper</h2>
@@ -107,7 +126,7 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
           <div className="flex items-center gap-3 mb-4">
             <Type className="w-6 h-6" style={{ color: localTheme?.primary }} />
             <h2 className="text-xl font-semibold text-gray-800">Text Size</h2>
@@ -135,13 +154,13 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
           <div className="flex items-center gap-3 mb-4">
             <Bell className="w-6 h-6" style={{ color: localTheme?.primary }} />
             <h2 className="text-xl font-semibold text-gray-800">Notifications</h2>
           </div>
 
-          {["messages", "groups", "enabled"].map((key: any) => (
+          {notificationKeys.map((key) => (
             <div
               key={key}
               className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl mb-3"
@@ -156,7 +175,11 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
                 className={`w-12 h-6 rounded-full relative ${
                   notifications[key] ? "" : "bg-gray-300"
                 }`}
-                style={notifications[key] ? { backgroundColor: localTheme?.primary } : undefined}
+                style={
+                  notifications[key]
+                    ? { backgroundColor: localTheme?.primary }
+                    : undefined
+                }
               >
                 <span
                   className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${
@@ -168,7 +191,7 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
           ))}
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
           <div className="flex items-center gap-3 mb-4">
             <Info className="w-6 h-6" style={{ color: localTheme?.primary }} />
             <h2 className="text-xl font-semibold text-gray-800">About</h2>

@@ -46,14 +46,20 @@ export async function GET(req: NextRequest) {
     const groupCounts: Record<string, number> = {};
 
     for (const conv of conversations) {
-      const peerId = String(conv.userA) === String(userId) ? conv.userB : conv.userA;
-      const receipt = await ReadReceipt.findOne({
+      const peerId =
+        String(conv.userA) === String(userId) ? conv.userB : conv.userA;
+
+      // Force the receipt to be treated as a single object
+      const receipt = (await ReadReceipt.findOne({
         userId,
         conversationId: conv._id,
-      }).lean();
+      }).lean()) as any;
 
-      const lastReadAt = receipt?.readAt || new Date(0);
-      // Only count incoming messages (from peer to user), not outgoing messages
+      const lastReadAt =
+        (receipt && typeof receipt === "object" && "readAt" in receipt
+          ? receipt.readAt
+          : null) || new Date(0);
+
       const unreadCount = await Message.countDocuments({
         from: new Types.ObjectId(peerId),
         to: userId,
@@ -66,12 +72,16 @@ export async function GET(req: NextRequest) {
     }
 
     for (const group of groups) {
-      const receipt = await ReadReceipt.findOne({
+      const receipt = (await ReadReceipt.findOne({
         userId,
         groupId: group._id,
-      }).lean();
+      }).lean()) as any;
 
-      const lastReadAt = receipt?.readAt || new Date(0);
+      const lastReadAt =
+        (receipt && typeof receipt === "object" && "readAt" in receipt
+          ? receipt.readAt
+          : null) || new Date(0);
+
       const unreadCount = await GroupMessage.countDocuments({
         groupId: group._id,
         from: { $ne: userId },
@@ -83,7 +93,8 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const totalUnread = Object.values(conversationCounts).reduce((a, b) => a + b, 0) +
+    const totalUnread =
+      Object.values(conversationCounts).reduce((a, b) => a + b, 0) +
       Object.values(groupCounts).reduce((a, b) => a + b, 0);
 
     return NextResponse.json({
@@ -97,4 +108,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

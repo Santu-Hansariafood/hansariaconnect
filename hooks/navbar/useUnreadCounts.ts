@@ -1,6 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 
+type UnreadResponse = {
+  total?: number;
+  conversations?: Record<string, number>;
+  groups?: Record<string, number>;
+};
+
 export function useUnreadCounts() {
   const [counts, setCounts] = useState({
     total: 0,
@@ -15,25 +21,28 @@ export function useUnreadCounts() {
           cache: "no-store",
         });
 
-        const data = await res.json();
+        const data: UnreadResponse = await res.json();
         if (!res.ok) return;
 
+        // Safe numeric reduction
         const chatsUnread = Object.values(data.conversations || {}).reduce(
-          (a: any, b: any) => a + b,
+          (a, b) => a + Number(b || 0),
           0
         );
 
         const groupsUnread = Object.values(data.groups || {}).reduce(
-          (a: any, b: any) => a + b,
+          (a, b) => a + Number(b || 0),
           0
         );
 
         setCounts({
-          total: data.total || 0,
+          total: Number(data.total || 0),
           chats: chatsUnread,
           groups: groupsUnread,
         });
-      } catch {}
+      } catch {
+        // ignore
+      }
     };
 
     loadUnread();

@@ -4,6 +4,17 @@ import { connectDB } from "@/lib/db/db"
 import Group from "@/models/group/Group"
 import GroupMessage from "@/models/group/GroupMessage"
 
+interface GroupMember {
+  userId: Types.ObjectId | string
+  [key: string]: any
+}
+
+interface GroupDoc {
+  _id: Types.ObjectId
+  members: GroupMember[]
+  [key: string]: any
+}
+
 const normalizeId = (val: unknown): string => {
   if (typeof val === "string") return val
   if (val == null) return ""
@@ -36,10 +47,11 @@ const resolveParams = async (params: { id: string } | Promise<{ id: string }>) =
 }
 
 const ensureMembership = async (groupId: Types.ObjectId, userId: Types.ObjectId) => {
-  const group = await Group.findById(groupId).lean()
+  const group = await Group.findById(groupId).lean<GroupDoc>()
   if (!group) return { ok: false as const, status: 404 as const, error: "Group not found" }
+
   const members = Array.isArray(group.members) ? group.members : []
-  const member = members.find((entry: any) => String(entry.userId) === String(userId))
+  const member = members.find((entry) => String(entry.userId) === String(userId))
   if (!member) return { ok: false as const, status: 403 as const, error: "Access denied" }
   return { ok: true as const, group, member }
 }
@@ -91,8 +103,8 @@ export async function GET(
     }
 
     const docs = fetchAll
-      ? await GroupMessage.find(query).sort({ createdAt: 1 })
-      : await GroupMessage.find(query).sort(sort).limit(limit)
+      ? await GroupMessage.find(query).sort({ createdAt: 1 }).select("_id groupId from type text mediaUrl fileName fileSize duration linkTitle linkDescription createdAt")
+      : await GroupMessage.find(query).sort(sort).limit(limit).select("_id groupId from type text mediaUrl fileName fileSize duration linkTitle linkDescription createdAt")
 
     const ordered = (fetchLast && !fetchAll) || before ? docs.reverse() : docs
 
@@ -199,5 +211,3 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
-
-

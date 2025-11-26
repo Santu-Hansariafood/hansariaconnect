@@ -4,6 +4,24 @@ import { connectDB } from "@/lib/db/db"
 import Group from "@/models/group/Group"
 import Profile from "@/models/profile/Profile"
 
+// ---- TYPE FIX ----
+type GroupMember = {
+  userId: any
+  mobile: string
+  role: string
+}
+
+type GroupDoc = {
+  _id: any
+  name: string
+  avatar?: string
+  members: GroupMember[]
+  lastMessage?: string
+  lastMessageAt?: any
+  updatedAt?: any
+  createdAt?: any
+}
+
 const normalizeId = (val: unknown): string => {
   if (typeof val === "string") return val
   if (val == null) return ""
@@ -35,7 +53,7 @@ const resolveParams = async (params: { id: string } | Promise<{ id: string }>) =
   return params instanceof Promise ? await params : params
 }
 
-const buildDetailedGroup = async (group: any) => {
+const buildDetailedGroup = async (group: GroupDoc) => {
   const members = Array.isArray(group?.members) ? group.members : []
   const memberIds = members.map((member: any) => member?.userId).filter(Boolean)
 
@@ -66,7 +84,11 @@ const buildDetailedGroup = async (group: any) => {
     members: memberPayload,
     adminMobile: adminEntry?.mobile || "",
     lastMessage: group?.lastMessage || "",
-    lastMessageTime: group?.lastMessageAt || group?.updatedAt || group?.createdAt || null,
+    lastMessageTime:
+      group?.lastMessageAt ||
+      group?.updatedAt ||
+      group?.createdAt ||
+      null,
   }
 }
 
@@ -94,14 +116,16 @@ export async function GET(
 
     await connectDB()
 
-    const group = await Group.findById(id).lean()
+    // ---- TYPE FIX HERE ----
+    const group = await Group.findById(id).lean() as GroupDoc | null
+
     if (!group) {
       return NextResponse.json({ error: "Group not found" }, { status: 404 })
     }
 
-    const membership = Array.isArray(group.members)
-      ? group.members.find((member: any) => String(member.userId) === String(sessionObjectId))
-      : null
+    const membership = group.members.find(
+      (member: any) => String(member.userId) === String(sessionObjectId)
+    )
 
     if (!membership) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 })
@@ -155,7 +179,7 @@ export async function PATCH(
       { _id: id, members: { $elemMatch: { userId: sessionObjectId, role: "admin" } } },
       { $set: updates },
       { new: true }
-    ).lean()
+    ).lean() as GroupDoc | null
 
     if (!group) {
       return NextResponse.json({ error: "Group not found or no permission" }, { status: 404 })
@@ -168,5 +192,3 @@ export async function PATCH(
     return NextResponse.json({ error: error?.message || "Server error" }, { status: 500 })
   }
 }
-
-

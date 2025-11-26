@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     const form = await req.formData()
     const file = form.get("file") as File | null
     const kind = (form.get("kind") as string) || "image"
+
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
     }
@@ -24,23 +25,28 @@ export async function POST(req: NextRequest) {
     const blob = new Blob([arrayBuffer], { type: file.type || "application/octet-stream" })
 
     const timestamp = Math.floor(Date.now() / 1000)
-    // Use different folders based on kind: status, messages, or profiles
-    const folder = kind === "status" ? "status" : kind === "video" && kind !== "raw" ? "messages" : "profiles"
+
+    let folder = "profiles"
+    if (kind === "status") folder = "status"
+    else if (kind === "video") folder = "messages"
+    else if (kind === "raw") folder = "rawfiles"
+
     const toSign = `folder=${folder}&timestamp=${timestamp}`
     const signature = crypto
       .createHash("sha1")
       .update(toSign + CLOUDINARY_API_SECRET)
       .digest("hex")
 
-    // Detect resource type from file type if kind is "status"
     const isVideoFile = file.type.startsWith("video/")
-    const resourceType = kind === "status" 
-      ? (isVideoFile ? "video" : "image")
-      : kind === "video" 
-        ? "video" 
-        : kind === "raw" 
-          ? "raw" 
-          : "image"
+
+    const resourceType =
+      kind === "status"
+        ? isVideoFile ? "video" : "image"
+        : kind === "video"
+          ? "video"
+          : kind === "raw"
+            ? "raw"
+            : "image"
 
     const cloudForm = new FormData()
     cloudForm.append("file", blob, file.name)
@@ -48,12 +54,15 @@ export async function POST(req: NextRequest) {
     cloudForm.append("timestamp", String(timestamp))
     cloudForm.append("signature", signature)
     cloudForm.append("folder", folder)
+
     const uploadRes = await fetch(
       `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
       { method: "POST", body: cloudForm }
     )
+
     const contentType = uploadRes.headers.get("content-type") || ""
     const uploadJson = contentType.includes("application/json") ? await uploadRes.json() : null
+
     if (!uploadRes.ok) {
       return NextResponse.json(
         { error: uploadJson?.error?.message || "Upload failed" },
@@ -63,7 +72,9 @@ export async function POST(req: NextRequest) {
 
     const originalUrl: string = uploadJson.secure_url
     const isImage = resourceType === "image"
-    const url = isImage ? originalUrl.replace("/upload/", "/upload/f_webp/") : originalUrl
+    const url = isImage
+      ? originalUrl.replace("/upload/", "/upload/f_webp/")
+      : originalUrl
 
     return NextResponse.json({
       public_id: uploadJson.public_id,
