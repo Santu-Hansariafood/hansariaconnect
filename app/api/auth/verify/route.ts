@@ -110,13 +110,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
       } catch (err) {
         console.error("Twilio Verify Error:", err);
-        // Fall through to local hash verification
       }
     }
 
-    // -------------------------------------------------------------------------
-    // LOCAL HASH VERIFICATION (used when Twilio not configured or failed)
-    // -------------------------------------------------------------------------
     if (!USE_TWILIO || !twilioChecked) {
       const generatedHash = crypto
         .createHash("sha256")
@@ -131,9 +127,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // -------------------------------------------------------------------------
-    // OTP VERIFIED → LOGIN / REGISTER USER
-    // -------------------------------------------------------------------------
     await connectDB();
 
     let user = await User.findOne({ mobile });
@@ -147,10 +140,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       mobile,
     });
 
-    // Delete OTP cookie
     response.cookies.delete("otp_session");
 
-    // Create login session
     response.cookies.set(
       "user_session",
       JSON.stringify({ id: user._id.toString(), mobile }),
@@ -159,7 +150,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 60 * 60 * 24 * 30, // 30 days
+        maxAge: 60 * 60 * 24 * 30,
       }
     );
 

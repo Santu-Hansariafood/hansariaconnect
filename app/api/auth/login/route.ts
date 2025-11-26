@@ -61,10 +61,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           });
       } catch (err) {
         console.error("Twilio send error:", err);
-        // Graceful fallback: keep response success for dev/local
       }
     } else {
-      // No Twilio config → rely on devOtp and cookie-based verification
     }
 
     return response;
