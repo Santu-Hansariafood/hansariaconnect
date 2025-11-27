@@ -123,81 +123,133 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { connectDB } from "@/lib/db/db";
+import User from "@/models/user/User";
 
-export async function POST(req: NextRequest) {
+interface OtpSessionPayload {
+  mobile: string;
+  hash: string;
+  salt: string;
+  exp: number;
+}
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const userOtp = String(body?.otp || "");
+    const mobile: string = String(body?.mobile || "");
+    const code: string = String(body?.code || "");
 
-    if (!/^\d{6}$/.test(userOtp)) {
+    // Validate mobile
+    if (!/^\d{10}$/.test(mobile)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid mobile number" },
+        { status: 400 }
+      );
+    }
+
+    // Validate OTP code
+    if (!/^\d{6}$/.test(code)) {
       return NextResponse.json(
         { success: false, error: "Invalid OTP format" },
         { status: 400 }
       );
     }
 
-    // ----------- Read cookie ----------
-    const cookie = req.cookies.get("otp_session")?.value;
-
-    if (!cookie) {
+    const sessionCookie = req.cookies.get("otp_session")?.value;
+    if (!sessionCookie) {
       return NextResponse.json(
-        { success: false, error: "OTP expired or not found" },
-        { status: 400 }
+        { success: false, error: "OTP session not found" },
+        { status: 403 }
       );
     }
 
-    let session;
+    let payload: OtpSessionPayload;
     try {
-      session = JSON.parse(cookie);
-    } catch (err) {
+      payload = JSON.parse(sessionCookie);
+    } catch {
       return NextResponse.json(
-        { success: false, error: "Invalid OTP session" },
+        { success: false, error: "Invalid OTP session format" },
         { status: 400 }
       );
     }
 
-    const { mobile, hash, salt, exp } = session;
-
-    // ----------- Check expiration -----------
-    if (Date.now() > exp) {
+    // Ensure all fields exist
+    if (!payload.mobile || !payload.hash || !payload.salt || !payload.exp) {
       return NextResponse.json(
-        { success: false, error: "OTP has expired" },
+        { success: false, error: "Malformed OTP session" },
         { status: 400 }
       );
     }
 
-    // ----------- Recreate Hash ----------
-    const userHash = crypto
+    // Expiry check
+    if (Date.now() > payload.exp) {
+      const response = NextResponse.json(
+        { success: false, error: "OTP expired" },
+        { status: 403 }
+      );
+      response.cookies.delete("otp_session");
+      return response;
+    }
+
+    // Mobile mismatch protection
+    if (payload.mobile !== mobile) {
+      return NextResponse.json(
+        { success: false, error: "Mobile number mismatch" },
+        { status: 403 }
+      );
+    }
+
+    // Validate OTP with hash
+    const generatedHash = crypto
       .createHash("sha256")
-      .update(userOtp + salt)
+      .update(code + payload.salt)
       .digest("hex");
 
-    // ----------- Compare ----------
-    if (userHash !== hash) {
-      return NextResponse.json(
+    if (generatedHash !== payload.hash) {
+      const response = NextResponse.json(
         { success: false, error: "Incorrect OTP" },
         { status: 401 }
       );
+      response.cookies.delete("otp_session");
+      return response;
     }
 
-    // ----------- OTP Verified Successfully ----------
+    // DB Connect
+    await connectDB();
+
+    // Find or create user
+    let user = await User.findOne({ mobile });
+    if (!user) {
+      user = await User.create({ mobile });
+    }
+
+    // Encode session to prevent special character issues
+    const sessionData = Buffer.from(
+      JSON.stringify({ id: user._id.toString(), mobile }),
+      "utf8"
+    ).toString("base64");
+
     const response = NextResponse.json({
       success: true,
-      message: "OTP verified successfully",
+      userId: user._id.toString(),
       mobile,
     });
 
-    // Optional: clear OTP cookie after verification
-    response.cookies.set("otp_session", "", {
+    // Remove OTP session cookie
+    response.cookies.delete("otp_session");
+
+    // Set user session cookie
+    response.cookies.set("user_session", sessionData, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 0,
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
     return response;
   } catch (error) {
+    console.error("OTP Verify Error:", error);
     return NextResponse.json(
       { success: false, error: "Invalid request" },
       { status: 400 }

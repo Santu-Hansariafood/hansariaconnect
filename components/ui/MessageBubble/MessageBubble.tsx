@@ -13,7 +13,6 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import React from "react"
-import Link from "next/link"
 
 interface Message {
   id?: string
@@ -207,14 +206,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     <span className="text-xs font-medium">Shared Link</span>
                   </div>
                   {message.url && (
-                    <Link
+                    <a
                       href={message.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-sm underline break-all hover:opacity-80 transition-opacity"
                     >
                       {message.url}
-                    </Link>
+                    </a>
                   )}
                   {message.linkTitle && (
                     <p className="text-sm font-medium">{message.linkTitle}</p>
@@ -234,7 +233,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   isSent ? "text-white/80" : "text-gray-500"
                 }`}
               >
-                {format(new Date(message.timestamp), "dd MMM, HH:mm")}
+                {format(new Date(message.timestamp), "HH:mm")}
               </span>
               {isSent && (
                 <span className="flex items-center">

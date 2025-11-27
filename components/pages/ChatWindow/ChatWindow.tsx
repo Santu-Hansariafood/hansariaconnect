@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
-import Image from "next/image";
 import io from "socket.io-client"
 import {
   ArrowLeft,
@@ -18,13 +17,12 @@ import {
 import dynamic from "next/dynamic";
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
 const MediaPicker = dynamic(() => import("@/components/ui/MediaPicker/MediaPicker"));
-const SearchBar = dynamic(() => import("@/components/common/SearchBar/SearchBar"));
+import SearchBar from "@/components/common/SearchBar/SearchBar";
 
 interface Theme {
   primary: string;
   textSize?: string;
   wallpaper?: string;
-  secondary?: string;
 }
 
 interface User {
@@ -64,146 +62,44 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [socket, setSocket] = useState<any>(null)
   const [contact, setContact] = useState<any>(null)
-  const [chatType, setChatType] = useState<"unknown" | "direct" | "group">("unknown")
-  const [groupInfo, setGroupInfo] = useState<any>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const loadingMoreRef = useRef(false)
   const preloadRef = useRef(false)
-  const myUserId = String((user as any)?.id || "")
   const mergeUnique = (prev: any[], incoming: any[]) => {
     const map = new Map<string, any>()
     for (const m of prev) {
-      const k = m.id?.toString?.() || m._id?.toString?.() || String(m.timestamp || m.createdAt || "")
+      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
       if (!map.has(k)) map.set(k, m)
     }
     for (const m of incoming) {
-      const k = m.id?.toString?.() || m._id?.toString?.() || String(m.timestamp || m.createdAt || "")
+      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
       if (!map.has(k)) map.set(k, m)
     }
-    return Array.from(map.values()).sort((a: any, b: any) => {
-      const ta = new Date(a.timestamp || a.createdAt || 0).getTime()
-      const tb = new Date(b.timestamp || b.createdAt || 0).getTime()
-      return ta - tb
-    })
+    return Array.from(map.values())
   }
-  const recordReadReceipt = useCallback(async (payload: Record<string, string>) => {
-    try {
-      await fetch("/api/read-receipts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-    } catch {}
-  }, [])
-
-  const markConversationRead = useCallback(() => {
-    if (!id || chatType === "unknown") return
-    recordReadReceipt(
-      chatType === "group" ? { groupId: id } : { conversationId: id }
-    )
-  }, [chatType, id, recordReadReceipt])
-  const shapeMessage = (raw: any, kind: "direct" | "group") => ({
-    id: String(raw?._id || raw?.id || crypto.randomUUID?.() || `${Date.now()}`),
-    from: String(raw?.from || ""),
-    to: kind === "direct" ? String(raw?.to || raw?.peerId || id || "") : undefined,
-    groupId: kind === "group" ? String(raw?.groupId || raw?.to || id || "") : undefined,
-    type: raw?.type || "text",
-    text: raw?.text || "",
-    mediaUrl: raw?.mediaUrl || "",
-    fileName: raw?.fileName || "",
-    fileSize: raw?.fileSize || "",
-    duration: raw?.duration,
-    linkTitle: raw?.linkTitle || "",
-    linkDescription: raw?.linkDescription || "",
-    timestamp: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
-    status: raw?.status || "sent",
-  })
   useEffect(() => {
-    setChatMessages([])
-    setHasMore(false)
-    setContact(null)
-    setGroupInfo(null)
-    setChatType("unknown")
-  }, [id])
-
-  useEffect(() => {
-    let cancelled = false
-    const detectChatTarget = async () => {
-      if (!id) return
-      try {
-        const res = await fetch(`/api/groups/${id}`, { cache: "no-store" })
-        if (res.ok) {
-          const data = await res.json()
-          if (cancelled) return
-          setGroupInfo(data.group)
-          setContact({
-            name: data.group?.name || "Group",
-            avatar: data.group?.avatar || "",
-            members: data.group?.members || [],
-          })
-          setChatType("group")
-          return
-        }
-      } catch {}
-      if (cancelled) return
-      setChatType("direct")
-    }
-    detectChatTarget()
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  useEffect(() => {
-    if (chatType !== "direct" || !id || contact?.members) return
     const loadContact = async () => {
       try {
-        const convRes = await fetch('/api/conversations')
-        const convData = await convRes.json()
-        if (Array.isArray(convData?.conversations)) {
-          const found = convData.conversations.find((c: any) => c.peerId === id || c.id === id)
-          if (found) {
-            setContact({ 
-              name: found.name || found.mobile || "User", 
-              avatar: found.avatar || "", 
-              mobile: found.mobile || "" 
-            })
-            return
-          }
-        }
-        
         const res = await fetch('/api/contacts')
         const data = await res.json()
         if (Array.isArray(data?.contacts)) {
           const found = data.contacts.find((c: any) => c.registeredUserId === id)
-          if (found) {
-            setContact({ 
-              name: found.name || found.mobile || "User", 
-              avatar: found.avatar || found.registeredProfile?.photo || "", 
-              mobile: found.mobile || "" 
-            })
-            return
+          if (found) setContact(found)
+          else {
+            try {
+              const uRes = await fetch(`/api/users/${id}`)
+              const uData = await uRes.json()
+              if (uRes.ok && uData?.mobile) {
+                setContact({ name: uData.mobile, avatar: "", mobile: uData.mobile })
+              }
+            } catch {}
           }
         }
-        
-        try {
-          const uRes = await fetch(`/api/users/${id}`)
-          const uData = await uRes.json()
-          if (uRes.ok) {
-            setContact({ 
-              name: uData.name || uData.mobile || "User", 
-              avatar: uData.avatar || "", 
-              mobile: uData.mobile || "" 
-            })
-          }
-        } catch {}
       } catch {}
     }
-    if (id && chatType === "direct") {
-      loadContact()
-    }
-  }, [id, chatType])
+    loadContact()
+  }, [id])
 
   useEffect(() => {
     if (loadingMoreRef.current) return
@@ -217,41 +113,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       s = io({ path: "/api/socket", transports: ["websocket", "polling"], withCredentials: true })
       setSocket(s)
       s.on("message:new", (msg: any) => {
-        const msgFrom = String(msg?.from || "")
-        const peerId = String(id || "")
-        if (msgFrom !== peerId) return
-        const formattedMsg = shapeMessage(msg, "direct")
-        setChatMessages((prev) => mergeUnique(prev, [formattedMsg]))
-        try {
-          const incomingId = String(msg._id || msg.id || "")
-          if (!incomingId) return
-          s.emit("message:status", { id: incomingId, status: "delivered" }, (ack: any) => {
-            if (ack?.ok && ack?.message?._id) {
-              const mid = String(ack.message._id)
-              if (mid) updateMessageStatus(mid, ack.message.status)
-            }
-          })
-          setTimeout(() => {
-            s.emit("message:status", { id: incomingId, status: "seen" }, (ack: any) => {
+        if (msg?.from?.toString?.() === id) {
+          setChatMessages((prev) => mergeUnique(prev, [msg]))
+          try {
+            s.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {
               if (ack?.ok && ack?.message?._id) {
-                const mid = String(ack.message._id)
+                const mid = ack.message._id?.toString?.()
                 if (mid) updateMessageStatus(mid, ack.message.status)
               }
             })
-            if (document.visibilityState === "visible") {
-              recordReadReceipt({ messageId: incomingId, conversationId: peerId })
-            }
-          }, 500)
-        } catch {}
-      })
-      s.on("group:message:new", (msg: any) => {
-        const currentGroup = String(id || "")
-        if (String(msg?.groupId || msg?.to || "") !== currentGroup) return
-        const formattedMsg = shapeMessage(msg, "group")
-        setChatMessages((prev) => mergeUnique(prev, [formattedMsg]))
-        // Mark as read if visible
-        if (document.visibilityState === "visible") {
-          recordReadReceipt({ groupMessageId: String(msg.id), groupId: currentGroup })
+            setTimeout(() => {
+              s.emit("message:status", { id: msg?._id?.toString?.(), status: "seen" }, (ack: any) => {
+                if (ack?.ok && ack?.message?._id) {
+                  const mid = ack.message._id?.toString?.()
+                  if (mid) updateMessageStatus(mid, ack.message.status)
+                }
+              })
+            }, 500)
+          } catch {}
         }
       })
     }
@@ -259,50 +138,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     return () => {
       if (s) s.disconnect()
     }
-  }, [id, recordReadReceipt])
+  }, [id])
 
   useEffect(() => {
-    if (!id || chatType === "unknown") return
     const load = async () => {
       try {
-        const endpoint =
-          chatType === "group"
-            ? `/api/groups/${id}/messages?all=true`
-            : `/api/messages/${id}?all=true`
-        const res = await fetch(endpoint, { credentials: 'include' })
+        const res = await fetch(`/api/messages/${id}?all=true&last=true`, { credentials: 'include' })
         const data = await res.json()
-        if (Array.isArray(data?.messages) && data.messages.length > 0) {
-          setChatMessages(mergeUnique([], data.messages))
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
-          }, 100)
-          recordReadReceipt(
-            chatType === "group" ? { groupId: id } : { conversationId: id }
-          )
-        } else {
-          setChatMessages([])
-        }
+        if (Array.isArray(data?.messages)) setChatMessages(mergeUnique([], data.messages))
         setHasMore(!!data?.hasMore)
-      } catch (e) {
-        console.error('Failed to load messages:', e)
-        setChatMessages([])
-        setHasMore(false)
-      }
+      } catch {}
     }
     load()
-  }, [id, chatType, recordReadReceipt])
-
-  useEffect(() => {
-    if (!id || chatType === "unknown") return
-    markConversationRead()
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        markConversationRead()
-      }
-    }
-    document.addEventListener("visibilitychange", handleVisibility)
-    return () => document.removeEventListener("visibilitychange", handleVisibility)
-  }, [id, chatType, markConversationRead])
+  }, [id])
 
   useEffect(() => {
     const run = async () => {
@@ -321,7 +169,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   }, [hasMore, chatMessages.length, id])
 
   const loadMore = async () => {
-    if (!chatMessages.length || chatType === "unknown") return
+    if (!chatMessages.length) return
     const el = containerRef.current
     const prevHeight = el?.scrollHeight || 0
     const prevTop = el?.scrollTop || 0
@@ -329,13 +177,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     loadingMoreRef.current = true
     try {
       const oldest = chatMessages[0]
-      const tsRaw = oldest.timestamp || oldest.createdAt
+      const tsRaw = oldest.createdAt || oldest.timestamp
       const ts = typeof tsRaw === "string" ? tsRaw : new Date(tsRaw).toISOString()
-      const endpoint =
-        chatType === "group"
-          ? `/api/groups/${id}/messages?limit=10&before=${encodeURIComponent(ts)}`
-          : `/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`
-      const res = await fetch(endpoint, { credentials: 'include' })
+      const res = await fetch(`/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`, { credentials: 'include' })
       const data = await res.json()
       if (Array.isArray(data?.messages) && data.messages.length) {
         setChatMessages((prev) => mergeUnique(prev, data.messages))
@@ -360,51 +204,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     if (loadingMore) return
     if (!hasMore) return
     const target = e.currentTarget
-    const nearTop = target.scrollTop <= 10
-    const nearBottom = target.scrollHeight - target.scrollTop - target.clientHeight <= 40
-    if (nearBottom) {
-      markConversationRead()
-    }
-    if (nearTop) {
+    if (target.scrollTop <= 10) {
       loadMore()
     }
   }
 
-  const headerName = contact?.name || contact?.mobile || "User"
+  const headerName = contact?.name || "User"
   const headerAvatar = contact?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
-  const toPlainId = (val: any) => {
-    if (typeof val === "string") return val
-    if (!val) return ""
-    if (typeof val === "object") {
-      if (typeof val.$oid === "string") return val.$oid
-      if (typeof val.toString === "function") {
-        const s = val.toString()
-        if (s && s !== "[object Object]") return s
-      }
-    }
-    return String(val || "")
-  }
-  const resolveSender = (msg: any) => {
-    const senderId = toPlainId(msg?.from)
-    if (chatType === "group") {
-      return senderId === myUserId ? "me" : "contact"
-    }
-    return senderId === String(id || "") ? "contact" : "me"
-  }
 
   const sendViaRest = async (payload: any) => {
     try {
-      const endpoint =
-        chatType === "group" ? `/api/groups/${id}/messages` : `/api/messages/${id}`
-      const res = await fetch(endpoint, {
+      const res = await fetch(`/api/messages/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (res.ok && data?.message) {
-        const kind = chatType === "group" ? "group" : "direct"
-        setChatMessages((prev) => mergeUnique(prev, [shapeMessage(data.message, kind)]))
+        setChatMessages((prev) => mergeUnique(prev, [data.message]))
         return true
       }
       if (!res.ok) {
@@ -427,25 +244,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     return new Promise<boolean>((resolve) => {
       if (!socket) return resolve(false)
       try {
-        if (chatType === "group") {
-          socket.emit("group:message:send", { groupId: id, ...payload }, (ack: any) => {
-            if (ack?.ok && ack.message) {
-              setChatMessages((prev) => mergeUnique(prev, [shapeMessage(ack.message, "group")]))
-              resolve(true)
-            } else {
-              resolve(false)
-            }
-          })
-        } else {
-          socket.emit("message:send", { to: id, ...payload }, (ack: any) => {
-            if (ack?.ok && ack.message) {
-              setChatMessages((prev) => mergeUnique(prev, [shapeMessage(ack.message, "direct")]))
-              resolve(true)
-            } else {
-              resolve(false)
-            }
-          })
-        }
+        socket.emit("message:send", { to: id, ...payload }, (ack: any) => {
+          if (ack?.ok && ack.message) {
+            setChatMessages((prev) => mergeUnique(prev, [ack.message]))
+            resolve(true)
+          } else {
+            resolve(false)
+          }
+        })
       } catch {
         resolve(false)
       }
@@ -523,11 +329,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       }
     }
   };
-const fallbackImage =
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop";
 
-  const [imgSrc, setImgSrc] = useState(headerAvatar || fallbackImage);
-  
   const handleClearChat = () => {
     setChatMessages([]);
     setShowClearConfirm(false);
@@ -567,33 +369,20 @@ const fallbackImage =
         </button>
 
         <div className="flex items-center gap-3 flex-1">
-      <div className="relative">
-        {headerAvatar ? (
-          <Image
-            src={imgSrc}
-            alt={headerName}
-            width={40}
-            height={40}
-            className="w-10 h-10 rounded-full object-cover"
-            onError={() => setImgSrc(fallbackImage)}
-            unoptimized
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-600 font-semibold">
-            {headerName.charAt(0).toUpperCase()}
+          <div className="relative">
+            <img
+              src={headerAvatar}
+              alt={headerName}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+            {contact?.online && (
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+            )}
           </div>
-        )}
-
-        {/* Online Dot */}
-        {contact?.online && (
-          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-        )}
-      </div>
-
-      <h2 className={`font-semibold text-gray-800 ${theme.textSize}`}>
-        {headerName}
-      </h2>
-    </div>
+          <h2 className={`font-semibold text-gray-800 ${theme.textSize}`}>
+            {headerName}
+          </h2>
+        </div>
         <div className="relative">
           <button
             onClick={() => setShowOptionsMenu((prev) => !prev)}
@@ -693,9 +482,9 @@ const fallbackImage =
           )}
           {(showSearch && searchQuery.trim() ? searchResults : chatMessages).map((msg: any) => (
             <MessageBubble
-              key={msg.id || (msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.timestamp || msg.createdAt}-${msg.mediaUrl || msg.text || ''}`}
+              key={(msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ''}`}
               message={{
-                sender: resolveSender(msg),
+                sender: ((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) === id ? "contact" : "me",
                 type: msg.type,
                 text: msg.text,
                 media: msg.mediaUrl,
@@ -703,6 +492,7 @@ const fallbackImage =
                 timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
                 status: msg.status || "sent",
               } as any}
+              isSent={((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) !== id}
               user={user}
               contact={{ id, name: headerName, avatar: headerAvatar } as any}
               theme={theme}
