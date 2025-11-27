@@ -43,7 +43,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
     const loadContacts = async () => {
       setLoadingContacts(true);
       try {
-        const res = await fetch("/api/contacts", { cache: "no-store" });
+        const res = await fetch("/api/contacts", { cache: "no-store", credentials: "include" });
         const data = await res.json();
         if (res.ok && Array.isArray(data?.contacts)) {
           const mapped: Contact[] = data.contacts.map((contact: any) => ({
@@ -111,6 +111,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
       const res = await fetch("/api/groups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: groupName.trim(),
           avatar: groupPhoto,

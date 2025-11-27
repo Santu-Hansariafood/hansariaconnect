@@ -14,6 +14,7 @@ export const useNotificationSettings = (notifications: any, setNotifications: an
       await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ notifications: updated }),
       });
     } catch {

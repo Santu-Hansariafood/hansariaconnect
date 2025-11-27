@@ -13,7 +13,9 @@ export const useSettings = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await fetch("/api/settings");
+        const res = await fetch("/api/settings",{
+          credentials: "include",
+        });
         const data = await res.json();
 
         if (res.ok) {

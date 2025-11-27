@@ -53,7 +53,7 @@ export default function Contacts({ user, theme }: Props) {
   useEffect(() => {
     const loadContacts = async () => {
       try {
-        const res = await fetch("/api/contacts")
+        const res = await fetch("/api/contacts", { cache: "no-store", credentials: "include" })
         const data = await res.json()
 
         if (Array.isArray(data?.contacts)) {
@@ -127,6 +127,7 @@ export default function Contacts({ user, theme }: Props) {
       const res = await fetch("/api/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: newName.trim(),
           mobiles: cleanMobiles,

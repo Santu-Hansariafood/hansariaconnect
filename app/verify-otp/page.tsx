@@ -29,6 +29,7 @@ function VerifyOtpInner() {
         const res = await fetch("/api/auth/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ mobile, code }),
         });
 
@@ -58,6 +59,7 @@ function VerifyOtpInner() {
   const handleResend = useCallback(async () => {
     await fetch("/api/auth/login", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mobile }),
     });

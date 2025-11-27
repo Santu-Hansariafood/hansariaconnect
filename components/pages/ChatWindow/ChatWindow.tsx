@@ -218,6 +218,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       const res = await fetch(`/api/messages/${id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       })
       const data = await res.json()
@@ -281,7 +282,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         fd.append("file", fileOrData)
         fd.append("kind", type === "video" ? "video" : "image")
         try {
-          const res = await fetch("/api/upload", { method: "POST", body: fd })
+          const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
           const data = await res.json()
           if (data?.url) {
             const payload = { type: "image", mediaUrl: data.url }
@@ -304,7 +305,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         fd.append("file", fileOrData)
         fd.append("kind", "video")
         try {
-          const res = await fetch("/api/upload", { method: "POST", body: fd })
+          const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
           const data = await res.json()
           if (data?.url) {
             const payload = { type: "voice", mediaUrl: data.url }
@@ -319,7 +320,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         fd.append("file", fileOrData)
         fd.append("kind", "raw")
         try {
-          const res = await fetch("/api/upload", { method: "POST", body: fd })
+          const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
           const data = await res.json()
           if (data?.url) {
             const payload = { type, mediaUrl: data.url, fileName: fileOrData.name, fileSize: `${(fileOrData.size / (1024*1024)).toFixed(2)} MB` }

@@ -91,6 +91,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
       const res = await fetch(`/api/groups/${groupData.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -133,6 +134,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
       const res = await fetch(`/api/groups/${groupData.id}/members`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ memberId }),
       });
       const data = await res.json();
@@ -153,6 +155,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
       const res = await fetch(`/api/groups/${groupData.id}/members`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ memberId, role: "admin" }),
       });
       const data = await res.json();
@@ -184,6 +187,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
       const res = await fetch(`/api/groups/${groupData.id}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ mobiles }),
       });
       const data = await res.json();

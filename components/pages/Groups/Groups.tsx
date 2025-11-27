@@ -46,7 +46,7 @@ const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/groups", { cache: "no-store" });
+      const res = await fetch("/api/groups", { cache: "no-store", credentials: "include" });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data?.error || "Failed to load groups");

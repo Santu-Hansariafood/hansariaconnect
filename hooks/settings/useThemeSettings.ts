@@ -12,6 +12,7 @@ export const useThemeSettings = (initialTheme: any, onThemeChange: any) => {
       await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ theme: updatedTheme }),
       });
     } catch {

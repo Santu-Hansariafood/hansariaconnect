@@ -58,7 +58,7 @@ export default function StatusPage({
       setStatusError("");
       setLoadingStatuses(true);
       try {
-        const res = await fetch("/api/status", { cache: "no-store" });
+        const res = await fetch("/api/status", { cache: "no-store", credentials: "include" });
         const data = await res.json();
         if (res.ok && data?.statuses) {
           setContactStatuses(data.statuses);
@@ -88,7 +88,7 @@ export default function StatusPage({
       fd.append("file", file);
       fd.append("kind", "status"); // Use status folder in Cloudinary
       
-      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+      const uploadRes = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" });
       if (!uploadRes.ok) {
         const errorData = await uploadRes.json().catch(() => ({}));
         console.error("Upload failed:", errorData);
@@ -107,6 +107,7 @@ export default function StatusPage({
       const res = await fetch("/api/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           media: uploadData.url,
           type: file.type.startsWith("video") ? "video" : "image",
@@ -133,7 +134,7 @@ export default function StatusPage({
           views: 0,
         });
         // Reload statuses to show the new one
-        const refreshRes = await fetch("/api/status", { cache: "no-store" });
+        const refreshRes = await fetch("/api/status", { cache: "no-store", credentials: "include" });
         const refreshData = await refreshRes.json();
         if (refreshRes.ok && refreshData?.statuses) {
           setContactStatuses(refreshData.statuses);
@@ -148,7 +149,7 @@ export default function StatusPage({
 
   const handleStatusView = async (statusId: string) => {
     try {
-      await fetch(`/api/status/${statusId}/view`, { method: "POST" });
+      await fetch(`/api/status/${statusId}/view`, { method: "POST", credentials: "include" });
       setContactStatuses((prev) => {
         const next: Record<string, StatusItem[]> = {};
         for (const [uid, list] of Object.entries(prev)) {

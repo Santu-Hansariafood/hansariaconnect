@@ -16,7 +16,9 @@ export function useNotifications() {
   useEffect(() => {
     const loadPreferences = async () => {
       try {
-        const res = await fetch("/api/settings");
+        const res = await fetch("/api/settings",{
+          credentials: "include",
+        });
         const data = await res.json();
         if (res.ok && data?.notifications) {
           setPreferences(data.notifications);

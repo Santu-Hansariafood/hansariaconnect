@@ -19,6 +19,7 @@ export function useUnreadCounts() {
       try {
         const res = await fetch("/api/unread-counts", {
           cache: "no-store",
+          credentials: "include",
         });
 
         const data: UnreadResponse = await res.json();

@@ -62,7 +62,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
     fd.append("file", file);
 
     try {
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" });
       const contentType = res.headers.get("content-type") || "";
 
       if (!contentType.includes("application/json")) return;
@@ -79,6 +79,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
       const res = await fetch(`/api/profile/${user.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           mobile: user.mobile,
           name: profile.name,
