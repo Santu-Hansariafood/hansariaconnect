@@ -21,6 +21,7 @@ import SearchBar from "@/components/common/SearchBar/SearchBar";
 
 interface Theme {
   primary: string;
+  secondary?: string;
   textSize?: string;
   wallpaper?: string;
 }
@@ -401,7 +402,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
               <div
                 className="px-4 py-3"
                 style={{
-                  background: `linear-gradient(to right, ${theme.primary}, ${theme.primary}AA, ${theme.primary}66, ${theme.secondary})`,
+                  background: `linear-gradient(
+  to right,
+  ${theme.primary},
+  ${theme.primary}AA,
+  ${theme.primary}66,
+  ${theme.secondary ?? theme.primary}
+)`,
                 }}
               >
                 <p className="text-white font-semibold text-sm">{headerName}</p>

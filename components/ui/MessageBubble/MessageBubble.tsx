@@ -56,6 +56,7 @@ interface MessageBubbleProps {
   user: User
   contact: Contact
   theme: Theme
+    isSent: boolean;
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
