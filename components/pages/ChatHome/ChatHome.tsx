@@ -80,8 +80,8 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
     const loadConversations = async () => {
       try {
         const [convRes, unreadRes] = await Promise.all([
-          fetch('/api/conversations', { method: 'GET' }),
-          fetch('/api/unread-counts', { cache: 'no-store' }),
+          fetch('/api/conversations', { method: 'GET', credentials: 'include' }),
+          fetch('/api/unread-counts', { cache: 'no-store', credentials: 'include' }),
         ]);
         const convData = await convRes.json();
         const unreadData = await unreadRes.json();
@@ -215,6 +215,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
           await fetch(`/api/messages/${peer}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ type: 'text', text }),
           })
         } catch {}

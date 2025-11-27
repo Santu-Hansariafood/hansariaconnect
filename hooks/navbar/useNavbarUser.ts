@@ -23,7 +23,7 @@ export function useNavbarUser(initialUser: User) {
       }
 
       try {
-        const res = await fetch(`/api/profile/${id}`);
+        const res = await fetch(`/api/profile/${id}`, { credentials: "include" });
         const data = await res.json();
 
         if (data?.profile) {

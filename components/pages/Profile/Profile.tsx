@@ -40,7 +40,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user.id) return;
-      const res = await fetch(`/api/profile/${user.id}`);
+      const res = await fetch(`/api/profile/${user.id}`, { credentials: "include" });
       const data = await res.json();
 
       if (data?.profile) {
@@ -161,7 +161,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
             {isEditing && (
               <button
                 onClick={async () => {
-                  await fetch(`/api/profile/${user.id}`, { method: "DELETE" });
+                  await fetch(`/api/profile/${user.id}`, { method: "DELETE", credentials: "include" });
                   setProfile({
                     name: "User",
                     about: "Hey there! I am using HansariaConnect",

@@ -223,11 +223,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       user = await User.create({ mobile });
     }
 
-    // Encode session to prevent special character issues
-    const sessionData = Buffer.from(
-      JSON.stringify({ id: user._id.toString(), mobile }),
-      "utf8"
-    ).toString("base64");
+    const sessionData = JSON.stringify({ id: user._id.toString(), mobile });
 
     const response = NextResponse.json({
       success: true,

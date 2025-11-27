@@ -82,14 +82,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   useEffect(() => {
     const loadContact = async () => {
       try {
-        const res = await fetch('/api/contacts')
+        const res = await fetch('/api/contacts', { credentials: 'include' })
         const data = await res.json()
         if (Array.isArray(data?.contacts)) {
           const found = data.contacts.find((c: any) => c.registeredUserId === id)
           if (found) setContact(found)
           else {
             try {
-              const uRes = await fetch(`/api/users/${id}`)
+              const uRes = await fetch(`/api/users/${id}`, { credentials: 'include' })
               const uData = await uRes.json()
               if (uRes.ok && uData?.mobile) {
                 setContact({ name: uData.mobile, avatar: "", mobile: uData.mobile })
