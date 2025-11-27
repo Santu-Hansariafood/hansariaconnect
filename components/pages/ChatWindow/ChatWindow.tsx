@@ -111,7 +111,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     let s: any
     const connect = async () => {
       try { await fetch('/api/socket') } catch {}
-      s = io({ path: "/api/socket", transports: ["websocket", "polling"], withCredentials: true })
+      const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
+      const transports = isVercel ? ["polling"] : ["websocket", "polling"]
+      s = io({ path: "/api/socket", transports, withCredentials: true })
       setSocket(s)
       s.on("message:new", (msg: any) => {
         if (msg?.from?.toString?.() === id) {
