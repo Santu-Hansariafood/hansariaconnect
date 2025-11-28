@@ -7,14 +7,12 @@ import { X, Phone, Clock, Ban, CheckCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { staggerContainer, fadeIn } from '@/utils/animations/animations'
-
 import { useContacts } from '@/hooks/chathome/useContacts'
 import { useFilteredContacts } from '@/hooks/chathome/useFilteredContacts'
 import { useCreateContact } from '@/hooks/chathome/useCreateContact'
 import { useForwardMessage } from '@/hooks/chathome/useForwardMessage'
 import { useContactActions } from '@/hooks/chathome/useContactActions'
 import Loading from '@/components/common/Loading/Loading'
-
 const Navbar = dynamic(() => import('@/components/common/Navbar/Navbar'));
 const ContactCard = dynamic(() => import('@/components/ui/ContactCard/ContactCard'));
 const SearchBar = dynamic(() => import('@/components/common/SearchBar/SearchBar'));
@@ -44,7 +42,7 @@ interface Theme {
   textSize?: string
   primary: string
   secondary?: string
-  isDark?: boolean // Added dark mode support
+  isDark?: boolean
 }
 
 interface User {
@@ -99,7 +97,6 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
 
   const handleSearch = (query: string) => setSearchQuery(query)
 
-  // Dark mode color classes
   const textColor = theme.isDark ? 'text-gray-100' : 'text-gray-800'
   const textSecondary = theme.isDark ? 'text-gray-300' : 'text-gray-600'
   const textMuted = theme.isDark ? 'text-gray-400' : 'text-gray-500'
@@ -118,7 +115,6 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
   return (
     <div className={`min-h-screen ${theme.wallpaper}`}>
       <Navbar user={user} onLogout={onLogout} />
-
       <div className="max-w-7xl mx-auto px-4 py-6">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -240,7 +236,6 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                   </div>
                 </div>
               </div>
-
               <div className="flex gap-3">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -278,7 +273,6 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                   <Phone className="w-5 h-5" />
                   Message
                 </motion.button>
-
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
