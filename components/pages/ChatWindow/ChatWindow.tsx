@@ -14,6 +14,7 @@ import {
   Trash2,
   Search as SearchIcon,
   Ban,
+  CircleUserRound,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
@@ -70,6 +71,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const loadingMoreRef = useRef(false)
   const preloadRef = useRef(false)
   const [initialLoading, setInitialLoading] = useState(true)
+  const [savingContact, setSavingContact] = useState(false)
+  const [saveError, setSaveError] = useState("")
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [saveName, setSaveName] = useState("")
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editName, setEditName] = useState("")
+  const [editError, setEditError] = useState("")
   const mergeUnique = (prev: any[], incoming: any[]) => {
     const map = new Map<string, any>()
     for (const m of prev) {
@@ -234,6 +242,80 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
 
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
+
+  const isSavedContact = Boolean(contact && (contact._id || contact.id))
+
+  const handleOpenSaveModal = () => {
+    setSaveError("")
+    setSaveName(headerName || "")
+    setShowSaveModal(true)
+  }
+
+  const handleSaveContact = async () => {
+    if (!saveName.trim()) {
+      setSaveError("Name is required")
+      return
+    }
+    const mobile = contact?.mobile || ""
+    const cleanMobile = String(mobile).replace(/\D/g, "")
+    if (!/^\d{10}$/.test(cleanMobile)) {
+      setSaveError("Valid 10-digit mobile required")
+      return
+    }
+    setSavingContact(true)
+    setSaveError("")
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: saveName.trim(), mobiles: [cleanMobile] })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setSaveError(data?.error || 'Failed to save contact')
+      } else {
+        const newContact = data?.contact
+        if (newContact) setContact(newContact)
+        setShowSaveModal(false)
+      }
+    } catch {
+      setSaveError('Failed to save contact')
+    }
+    setSavingContact(false)
+  }
+
+  const handleOpenEditModal = () => {
+    setEditError("")
+    setEditName(headerName || "")
+    setShowEditModal(true)
+  }
+
+  const handleEditContact = async () => {
+    if (!isSavedContact) return
+    if (!editName.trim()) {
+      setEditError("Name is required")
+      return
+    }
+    try {
+      const res = await fetch('/api/contacts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ id: contact._id || contact.id, name: editName.trim() })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setEditError(data?.error || 'Failed to update contact')
+      } else {
+        const updated = data?.contact
+        if (updated) setContact(updated)
+        setShowEditModal(false)
+      }
+    } catch {
+      setEditError('Failed to update contact')
+    }
+  }
 
   const sendViaRest = async (payload: any) => {
     try {
@@ -450,6 +532,30 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
               </div>
 
               <div className="py-2">
+                {!isSavedContact && (
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      handleOpenSaveModal();
+                    }}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <CircleUserRound className="w-5 h-5 text-emerald-600" />
+                    <span className="text-gray-700 font-medium">Save Contact</span>
+                  </button>
+                )}
+                {isSavedContact && (
+                  <button
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      handleOpenEditModal();
+                    }}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <CircleUserRound className="w-5 h-5 text-blue-600" />
+                    <span className="text-gray-700 font-medium">Edit Contact Name</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setShowClearConfirm(true);
@@ -486,6 +592,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           )}
         </div>
       </motion.header>
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Save Contact</h3>
+            {saveError && <div className="text-red-600 text-sm mb-2">{saveError}</div>}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-700">Name</label>
+              <input value={saveName} onChange={(e) => setSaveName(e.target.value)} className="w-full px-4 py-3 border rounded-xl" placeholder="Enter name" />
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700">Cancel</button>
+              <button onClick={handleSaveContact} disabled={savingContact} className="px-4 py-2 rounded-xl text-white" style={{ backgroundColor: theme.primary }}>{savingContact ? 'Saving...' : 'Save'}</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Edit Contact Name</h3>
+            {editError && <div className="text-red-600 text-sm mb-2">{editError}</div>}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-gray-700">Name</label>
+              <input value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full px-4 py-3 border rounded-xl" placeholder="Enter name" />
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700">Cancel</button>
+              <button onClick={handleEditContact} className="px-4 py-2 rounded-xl text-white" style={{ backgroundColor: theme.primary }}>Update</button>
+            </div>
+          </motion.div>
+        </div>
+      )}
       {showSearch && (
         <div className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center gap-3">
