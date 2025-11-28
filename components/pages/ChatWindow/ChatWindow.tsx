@@ -134,6 +134,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                 }
               })
             }, 500)
+            try {
+              fetch('/api/read-receipts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ peerId: id })
+              })
+            } catch {}
           } catch {}
         }
       })
@@ -151,6 +159,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         const data = await res.json()
         if (Array.isArray(data?.messages)) setChatMessages(mergeUnique([], data.messages))
         setHasMore(!!data?.hasMore)
+        try {
+          await fetch('/api/read-receipts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ peerId: id })
+          })
+        } catch {}
       } catch {}
     }
     load()

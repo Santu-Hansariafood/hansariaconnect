@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const userId = new Types.ObjectId(normalizedId);
     const body = await req.json();
-    const { messageId, groupMessageId, conversationId, groupId } = body;
+    const { messageId, groupMessageId, conversationId, groupId, peerId } = body;
 
     await connectDB();
 
@@ -64,6 +64,21 @@ export async function POST(req: NextRequest) {
       await ReadReceipt.findOneAndUpdate(
         { userId, groupId: new Types.ObjectId(groupId) },
         { userId, groupId: new Types.ObjectId(groupId), readAt: new Date() },
+        { upsert: true }
+      );
+    } else if (peerId && Types.ObjectId.isValid(peerId)) {
+      const a = String(userId);
+      const b = String(peerId);
+      const userA = a < b ? userId : new Types.ObjectId(peerId);
+      const userB = a < b ? new Types.ObjectId(peerId) : userId;
+      await connectDB();
+      const conv = await (await import("@/models/conversation/Conversation")).default.findOne({ userA, userB }).lean();
+      if (!conv) {
+        return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+      }
+      await ReadReceipt.findOneAndUpdate(
+        { userId, conversationId: new Types.ObjectId(String((conv as any)._id)) },
+        { userId, conversationId: new Types.ObjectId(String((conv as any)._id)), readAt: new Date() },
         { upsert: true }
       );
     } else {
