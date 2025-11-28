@@ -19,6 +19,7 @@ import dynamic from "next/dynamic";
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
 const MediaPicker = dynamic(() => import("@/components/ui/MediaPicker/MediaPicker"));
 const SearchBar = dynamic(() => import("@/components/common/SearchBar/SearchBar"));
+const Loading = dynamic(() => import("@/components/common/Loading/Loading"));
 
 interface Theme {
   primary: string;
@@ -68,6 +69,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [loadingMore, setLoadingMore] = useState(false)
   const loadingMoreRef = useRef(false)
   const preloadRef = useRef(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const mergeUnique = (prev: any[], incoming: any[]) => {
     const map = new Map<string, any>()
     for (const m of prev) {
@@ -92,8 +94,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
             try {
               const uRes = await fetch(`/api/users/${id}`, { credentials: 'include' })
               const uData = await uRes.json()
-              if (uRes.ok && uData?.mobile) {
-                setContact({ name: uData.mobile, avatar: "", mobile: uData.mobile })
+              if (uRes.ok && (uData?.mobile || uData?.name || uData?.avatar)) {
+                setContact({ name: uData?.name || uData?.mobile || "User", avatar: uData?.avatar || "", mobile: uData?.mobile || "" })
               }
             } catch {}
           }
@@ -168,6 +170,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           })
         } catch {}
       } catch {}
+      setInitialLoading(false)
     }
     load()
   }, [id])
@@ -229,8 +232,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     }
   }
 
-  const headerName = contact?.name || "User"
-  const headerAvatar = contact?.avatar || "/logo/logo.png"
+  const headerName = contact?.registeredProfile?.name || contact?.name || "User"
+  const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
 
   const sendViaRest = async (payload: any) => {
     try {
@@ -373,6 +376,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     setIsBlocked((prev) => !prev);
     setShowOptionsMenu(false);
   };
+
+  if (initialLoading) {
+    return (
+      <div className={`min-h-screen ${theme.wallpaper || ''}`}>
+        <Loading />
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">

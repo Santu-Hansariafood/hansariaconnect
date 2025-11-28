@@ -60,10 +60,10 @@ export default function Contacts({ user, theme }: Props) {
         if (Array.isArray(data?.contacts)) {
           const mapped = data.contacts.map((c: any) => ({
             id: c._id,
-            name: c.name,
+            name: (c.registeredProfile?.name || c.name),
             mobile: c.mobiles?.[0] || "",
             avatar:
-              c.avatar ||
+              c.registeredProfile?.photo || c.avatar ||
               "/logo/logo.png",
             pinned: false,
             blocked: false,
