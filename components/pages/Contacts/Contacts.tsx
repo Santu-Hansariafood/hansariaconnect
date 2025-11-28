@@ -93,6 +93,15 @@ export default function Contacts({ user, theme }: Props) {
       )
     }
 
+    filtered = [...filtered].sort((a, b) => {
+      const aName = (a.name || "").toLowerCase()
+      const bName = (b.name || "").toLowerCase()
+      if (aName && bName && aName !== bName) return aName.localeCompare(bName)
+      const aMobile = (a.mobile || "")
+      const bMobile = (b.mobile || "")
+      return aMobile.localeCompare(bMobile)
+    })
+
     setFilteredContacts(filtered)
   }, [contacts, searchQuery])
 
