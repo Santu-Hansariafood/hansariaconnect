@@ -34,7 +34,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
     name: user.name || "User",
     about: "Hey there! I am using HansariaConnect",
     mobile: user.mobile,
-    photo: user.photo || "/logo.webp",
+    photo: user.photo || "/logo/logo.png",
   });
 
   useEffect(() => {
@@ -48,7 +48,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
           name: data.profile.name,
           about: data.profile.about,
           mobile: user.mobile,
-          photo: data.profile.photo || "/logo.webp",
+          photo: data.profile.photo || "/logo/logo.png",
         });
       }
     };
@@ -166,7 +166,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
                     name: "User",
                     about: "Hey there! I am using HansariaConnect",
                     mobile: user.mobile,
-                    photo: "/logo.webp",
+                    photo: "/logo/logo.png",
                   });
                 }}
                 className="px-4 py-2 text-white rounded-xl"

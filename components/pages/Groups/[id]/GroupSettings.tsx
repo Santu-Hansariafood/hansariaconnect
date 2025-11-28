@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, ChangeEvent } from "react";
 import { motion } from "framer-motion";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   ArrowLeft,
   Camera,
@@ -254,12 +255,14 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                 className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-lg"
                 style={{ borderColor: theme.primary }}
               >
-                <img
+                <Image
                   src={
                     groupData.avatar ||
-                    "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop"
+                    "/logo/logo.png"
                   }
                   alt="Group"
+                  width={96}
+                  height={96}
                   className="w-full h-full object-cover"
                 />
               </motion.div>
@@ -340,14 +343,17 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                   whileHover={{ scale: 1.01 }}
                   className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
                 >
-                  <img
-                    src={
-                      member.avatar ||
-                      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
-                    }
-                    alt={member.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
+                    <Image
+                      src={
+                        member.avatar ||
+                        "/logo/logo.png"
+                      }
+                      alt={member.name}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+
                   <div className="flex-1">
                     <p className="font-semibold text-gray-800">{member.name}</p>
                     <p className="text-sm text-gray-500">{member.mobile}</p>

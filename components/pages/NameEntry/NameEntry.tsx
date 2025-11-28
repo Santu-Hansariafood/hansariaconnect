@@ -2,6 +2,7 @@
 
 import { useState, FormEvent, ChangeEvent } from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { User, Camera, ArrowRight } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 
@@ -15,7 +16,7 @@ type NameEntryProps = {
 const NameEntry: React.FC<NameEntryProps> = ({ onComplete, user }) => {
   const [name, setName] = useState<string>("");
   const [photo, setPhoto] = useState<string>(
-    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&h=400&fit=crop"
+    "/logo/logo.png"
   );
   const [error, setError] = useState<string>("");
 
@@ -60,9 +61,11 @@ const NameEntry: React.FC<NameEntryProps> = ({ onComplete, user }) => {
                 whileHover={{ scale: 1.05 }}
                 className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500 shadow-lg"
               >
-                <img
+                <Image
                   src={photo}
                   alt="Profile"
+                  width={128}
+                  height={128}
                   className="w-full h-full object-cover"
                 />
               </motion.div>

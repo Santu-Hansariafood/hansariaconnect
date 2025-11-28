@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 import io from "socket.io-client"
 import {
   ArrowLeft,
@@ -17,7 +18,7 @@ import {
 import dynamic from "next/dynamic";
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
 const MediaPicker = dynamic(() => import("@/components/ui/MediaPicker/MediaPicker"));
-import SearchBar from "@/components/common/SearchBar/SearchBar";
+const SearchBar = dynamic(() => import("@/components/common/SearchBar/SearchBar"));
 
 interface Theme {
   primary: string;
@@ -213,7 +214,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   }
 
   const headerName = contact?.name || "User"
-  const headerAvatar = contact?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
+  const headerAvatar = contact?.avatar || "/logo/logo.png"
 
   const sendViaRest = async (payload: any) => {
     try {
@@ -373,16 +374,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         </button>
 
         <div className="flex items-center gap-3 flex-1">
-          <div className="relative">
-            <img
-              src={headerAvatar}
-              alt={headerName}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            {contact?.online && (
-              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
-            )}
-          </div>
+            <div className="relative">
+              <Image
+                src={headerAvatar || "/logo/logo.png"}
+                alt={headerName}
+                width={40}
+                height={40}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+
+              {contact?.online && (
+                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+              )}
+            </div>
           <h2 className={`font-semibold text-gray-800 ${theme.textSize}`}>
             {headerName}
           </h2>
@@ -406,13 +410,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                 className="px-4 py-3"
                 style={{
                   background: `linear-gradient(
-  to right,
-  ${theme.primary},
-  ${theme.primary}AA,
-  ${theme.primary}66,
-  ${theme.secondary ?? theme.primary}
-)`,
-                }}
+                                                to right,
+                                                ${theme.primary},
+                                                ${theme.primary}AA,
+                                                ${theme.primary}66,
+                                                ${theme.secondary ?? theme.primary}
+                                              )`,
+                        }}
               >
                 <p className="text-white font-semibold text-sm">{headerName}</p>
                 <p className="text-white/80 text-xs">{`ID: ${id}`}</p>

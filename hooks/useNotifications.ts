@@ -35,18 +35,18 @@ export function useNotifications() {
     if (Notification.permission === "granted") {
       new Notification(title, {
         body,
-        icon: "/logo/logo.webp",
+        icon: "/logo/logo.png",
         tag,
-        badge: "/logo/logo.webp",
+        badge: "/logo/logo.png",
       });
     } else if (Notification.permission !== "denied") {
       Notification.requestPermission().then((permission) => {
         if (permission === "granted") {
           new Notification(title, {
             body,
-            icon: "/logo/logo.webp",
+            icon: "/logo/logo.png",
             tag,
-            badge: "/logo/logo.webp",
+            badge: "/logo/logo.png",
           });
         }
       });

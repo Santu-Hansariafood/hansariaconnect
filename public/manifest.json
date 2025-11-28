@@ -5,15 +5,15 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0A0A0A",
-  "description": "Secure encrypted messaging platform.",
+  "description": "Secure encrypted messaging platform - by Hansaria Food Private Limited",
   "icons": [
     {
-      "src": "/android-chrome-192x192.png",
+      "src": "/favicon/android-chrome-192x192.png",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "/android-chrome-512x512.png",
+      "src": "/favicon/android-chrome-512x512.png",
       "type": "image/png",
       "sizes": "512x512"
     }

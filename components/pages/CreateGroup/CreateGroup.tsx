@@ -3,6 +3,7 @@
 import { useState, ChangeEvent, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { ArrowLeft, Camera, Plus, X, ShieldCheck } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 
@@ -30,7 +31,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
   const router = useRouter();
   const [groupName, setGroupName] = useState("");
   const [groupPhoto, setGroupPhoto] = useState(
-    "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop"
+    "/logo/logo.png"
   );
   const [selectedMembers, setSelectedMembers] = useState<Contact[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,7 +53,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
             mobile: contact.mobiles?.[0] || "",
             avatar:
               contact.avatar ||
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
+              "/logo/logo.png",
             registered: !!contact.registered,
             registeredUserId: contact.registeredUserId || "",
           }));
@@ -163,9 +164,11 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                 className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-lg"
                 style={{ borderColor: theme.primary }}
               >
-                <img
+                <Image
                   src={groupPhoto}
                   alt="Group"
+                  width={800}
+                  height={400}
                   className="w-full h-full object-cover"
                 />
               </motion.div>
@@ -248,12 +251,15 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                       isSelected ? "bg-emerald-50" : disabled ? "bg-gray-50 opacity-70" : "hover:bg-gray-50"
                     }`}
                   >
-                    <img
-                      src={contact.avatar}
-                      alt={contact.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div className="flex-1 text-left">
+                        <Image
+                          src={contact.avatar || "/logo/logo.png"}
+                          alt={contact.name}
+                          width={48}
+                          height={48}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+
+                      <div className="flex-1 text-left">
                       <p className="font-semibold text-gray-800">{contact.name}</p>
                       <p className="text-sm text-gray-500">{contact.mobile}</p>
                     </div>

@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/og-image.png",
+        url: "/favicon/android-chrome-512x512.png",
         width: 1200,
         height: 630,
         alt: "HansariaConnect – Secure Messaging",
@@ -76,13 +76,13 @@ export const metadata: Metadata = {
     title: "HansariaConnect – Secure Encrypted Messaging",
     description:
       "A privacy-first encrypted messaging platform built for modern communication.",
-    images: ["/og-image.png"],
+    images: ["/favicon/android-chrome-512x512.png"],
   },
 
   icons: {
     icon: "/favicon.ico",
-    shortcut: "/favicon-32x32.png",
-    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon/favicon-32x32.png",
+    apple: "/favicon/apple-touch-icon.png",
   },
 
   themeColor: "#0A0A0A",
@@ -105,8 +105,8 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="icon" href="/favicon/favicon-32x32.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
       </head>
 
       <body

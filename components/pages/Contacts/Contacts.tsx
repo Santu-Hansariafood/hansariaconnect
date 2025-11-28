@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { fadeIn, staggerContainer } from "@/utils/animations/animations"
 import { X, CheckCircle2, CircleUserRound } from "lucide-react"
 
@@ -63,7 +64,7 @@ export default function Contacts({ user, theme }: Props) {
             mobile: c.mobiles?.[0] || "",
             avatar:
               c.avatar ||
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
+              "/logo/logo.png",
             pinned: false,
             blocked: false,
             lastMessageTime: c.updatedAt || c.createdAt || "",
@@ -143,7 +144,7 @@ export default function Contacts({ user, theme }: Props) {
             name: data.contact.name,
             mobile: data.contact.mobiles?.[0] || "",
             avatar:
-              "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
+              "/logo/logo.png",
             registered: false,
             mobiles: data.contact.mobiles,
             email: data.contact.email,
@@ -206,12 +207,14 @@ export default function Contacts({ user, theme }: Props) {
                       : "border-gray-100 bg-white"
                   }`}
                 >
-                  {/* Avatar + Name */}
                   <div className="flex items-center gap-4 mb-3">
-                    <img
-                      src={c.avatar}
-                      className="w-14 h-14 rounded-full object-cover border border-gray-200"
-                    />
+                      <Image
+                        src={c.avatar || "/logo/logo.png"}
+                        alt={c.name}
+                        width={56}
+                        height={56}
+                        className="w-14 h-14 rounded-full object-cover border border-gray-200"
+                      />
                     <div>
                       <div className="text-lg font-semibold">{c.name}</div>
                       <div className="text-sm text-gray-500">{c.mobile}</div>

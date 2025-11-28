@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { staggerContainer, fadeIn } from '@/utils/animations/animations'
 import { X, Phone, Clock, Ban, CheckCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -115,7 +116,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
               peerId: c.peerId || c.id,
               name: c.name || c.mobile || 'Unknown',
               mobile: c.mobile || '',
-              avatar: c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+              avatar: c.avatar || '/logo/logo.png',
               pinned: false,
               blocked: false,
               active: false,
@@ -279,7 +280,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
           id: c._id,
           name: c.name,
           mobile: Array.isArray(c.mobiles) && c.mobiles.length ? c.mobiles[0] : '',
-          avatar: c.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
+          avatar: c.avatar || '/logo/logo.png',
           pinned: false,
           blocked: false,
           active: false,
@@ -393,13 +394,17 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
               </div>
 
               <div className="flex flex-col items-center mb-6">
+                
                 <div className="relative mb-4">
-                  <img
-                    src={selectedContact.avatar}
+                  <Image
+                    src={selectedContact.avatar || "/logo/logo.png"}
                     alt={selectedContact.name}
+                    width={128}
+                    height={128}
                     className="w-32 h-32 rounded-full object-cover border-4"
                     style={{ borderColor: theme.secondary }}
                   />
+
                   {selectedContact.active && (
                     <span className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white rounded-full" />
                   )}
