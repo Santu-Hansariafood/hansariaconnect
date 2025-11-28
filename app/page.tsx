@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import ChatHome from "@/components/pages/ChatHome/ChatHome";
 import Loading from "@/components/common/Loading/Loading";
+import ChatHome from "@/components/pages/ChatHome/ChatHome";
 
 interface User {
   name: string;

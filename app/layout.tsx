@@ -17,7 +17,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://hansariaconnect.com"),
+  metadataBase: new URL("https://hfconnect.in"),
 
   title: {
     default: "HansariaConnect – Secure Encrypted Messaging",
@@ -37,7 +37,12 @@ export const metadata: Metadata = {
     "Real-time Chat",
     "Instant Messaging App",
     "Made in India Chat App",
-    "Secure Communication Hansaria",
+    "Secure Communication HFConnect",
+    "Hansaria Food Connect",
+    "Kolkata Chat App",
+    "Corporate Messaging India",
+    "Privacy-focused Chat",
+    "Modern Messaging Platform",
   ],
 
   authors: [{ name: "Santu De" }],
@@ -57,7 +62,7 @@ export const metadata: Metadata = {
     title: "HansariaConnect – Secure Encrypted Messaging",
     description:
       "A privacy-first encrypted messaging platform built with real-time messaging and modern UX.",
-    url: "https://hansariaconnect.com",
+    url: "https://hfconnect.in",
     siteName: "HansariaConnect",
     type: "website",
     locale: "en_US",
@@ -90,7 +95,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
 
   alternates: {
-    canonical: "https://hansariaconnect.com",
+    canonical: "https://hfconnect.in",
   },
 };
 
@@ -102,8 +107,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <meta
+          name="google-site-verification"
+          content="KOtoHmfJpZzpPdAhcnsZcPBaO41N8EKdujIWScgtK5E"
+        />
+
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon/favicon-32x32.png" type="image/png" />
         <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
