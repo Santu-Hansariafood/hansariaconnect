@@ -1,11 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Contact } from "./useContacts";
+import type { Contact } from "./useContacts";
+
+type ForwardableContact = {
+  id: string;
+  name?: string;
+  avatar?: string;
+  peerId?: string;
+  registeredUserId?: string;
+  mobile?: string;
+};
 
 interface ForwardModalData {
   visible: boolean;
-  contact: Contact | null;
+  contact: ForwardableContact | null;
 }
 
 interface UseForwardMessageProps {
@@ -18,7 +27,7 @@ export const useForwardMessage = ({ contacts }: UseForwardMessageProps) => {
     contact: null,
   });
 
-  const handleForwardMessage = (contact: Contact) => {
+  const handleForwardMessage = (contact: ForwardableContact) => {
     setForwardModalData({ visible: true, contact });
   };
 

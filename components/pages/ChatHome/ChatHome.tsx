@@ -18,7 +18,7 @@ const ContactCard = dynamic(() => import('@/components/ui/ContactCard/ContactCar
 const SearchBar = dynamic(() => import('@/components/common/SearchBar/SearchBar'));
 const ForwardModal = dynamic(() => import('@/components/ui/ForwardModal/ForwardModal'));
 
-interface Contact {
+export interface Contact {
   id: string
   peerId?: string
   name: string
