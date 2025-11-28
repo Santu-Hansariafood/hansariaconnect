@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-interface Contact {
+export interface Contact {
   id: string;
   peerId?: string;
   name: string;
@@ -39,6 +39,7 @@ export const useContacts = () => {
             credentials: "include",
           }),
         ]);
+
         const convData = await convRes.json();
         const unreadData = await unreadRes.json();
         const unreadMap = unreadData?.conversations || {};
@@ -46,24 +47,16 @@ export const useContacts = () => {
         if (Array.isArray(convData?.conversations)) {
           const mapped: Contact[] = convData.conversations.map((c: any) => {
             let lastMessageText = "";
+
             if (c.lastMessage) {
-              if (c.lastMessage.type === "text") {
-                lastMessageText = c.lastMessage.text || "";
-              } else if (c.lastMessage.type === "image") {
-                lastMessageText = "📷 Image";
-              } else if (c.lastMessage.type === "video") {
-                lastMessageText = "🎥 Video";
-              } else if (c.lastMessage.type === "voice") {
-                lastMessageText = "🎤 Voice";
-              } else if (c.lastMessage.type === "pdf") {
-                lastMessageText = "📄 PDF";
-              } else if (c.lastMessage.type === "excel") {
-                lastMessageText = "📊 Excel";
-              } else if (c.lastMessage.type === "link") {
-                lastMessageText = c.lastMessage.linkTitle || "🔗 Link";
-              } else {
-                lastMessageText = c.lastMessage.text || "";
-              }
+              if (c.lastMessage.type === "text") lastMessageText = c.lastMessage.text || "";
+              else if (c.lastMessage.type === "image") lastMessageText = "📷 Image";
+              else if (c.lastMessage.type === "video") lastMessageText = "🎥 Video";
+              else if (c.lastMessage.type === "voice") lastMessageText = "🎤 Voice";
+              else if (c.lastMessage.type === "pdf") lastMessageText = "📄 PDF";
+              else if (c.lastMessage.type === "excel") lastMessageText = "📊 Excel";
+              else if (c.lastMessage.type === "link") lastMessageText = c.lastMessage.linkTitle || "🔗 Link";
+              else lastMessageText = c.lastMessage.text || "";
             }
 
             return {
@@ -85,6 +78,7 @@ export const useContacts = () => {
               registeredUserId: c.peerId || c.id,
             };
           });
+
           setContacts(mapped);
         }
       } catch {
@@ -92,6 +86,7 @@ export const useContacts = () => {
         setLoading(false);
       }
     };
+
     loadConversations();
   }, []);
 
