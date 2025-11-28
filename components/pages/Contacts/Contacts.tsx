@@ -6,7 +6,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { fadeIn, staggerContainer } from "@/utils/animations/animations"
-import { X, CheckCircle2, CircleUserRound } from "lucide-react"
+import { X, CheckCircle2, CircleUserRound, Pencil, Trash2 } from "lucide-react"
 
 import { FaWhatsapp, FaFacebookF, FaTwitter, FaSms } from "react-icons/fa"
 import Link from "next/link"
@@ -14,6 +14,7 @@ import Link from "next/link"
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"))
 const ContactCard = dynamic(() => import("@/components/ui/ContactCard/ContactCard"))
 const SearchBar = dynamic(() => import("@/components/common/SearchBar/SearchBar"))
+const ManageContactModal = dynamic(() => import("@/components/ui/ManageContactModal/ManageContactModal"))
 
 type Theme = { wallpaper?: string; textSize?: string; primary?: string }
 type User = any
@@ -40,6 +41,7 @@ export default function Contacts({ user, theme }: Props) {
   const [searchQuery, setSearchQuery] = useState("")
   const [contacts, setContacts] = useState<Contact[]>([])
   const [filteredContacts, setFilteredContacts] = useState<Contact[]>([])
+  const [manageContact, setManageContact] = useState<Contact | null>(null)
 
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newName, setNewName] = useState("")
@@ -234,6 +236,24 @@ export default function Contacts({ user, theme }: Props) {
                         </div>
                       )}
                     </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      <button
+                        onClick={() => setManageContact(c)}
+                        className="p-2 border rounded-xl text-gray-700 hover:bg-gray-50"
+                        aria-label="Edit"
+                        title="Edit"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setManageContact(c)}
+                        className="p-2 border rounded-xl text-red-600 hover:bg-red-50"
+                        aria-label="Delete"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {c.registered ? (
@@ -377,6 +397,43 @@ export default function Contacts({ user, theme }: Props) {
               </div>
             </motion.div>
           </div>
+        )}
+        {manageContact && (
+          <ManageContactModal
+            contact={{ id: manageContact.id, name: manageContact.name }}
+            onClose={() => setManageContact(null)}
+            onSave={async (name) => {
+              try {
+                const res = await fetch('/api/contacts', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ id: manageContact.id, name })
+                })
+                const data = await res.json()
+                if (res.ok && data?.contact) {
+                  setContacts((prev) => prev.map((ct) => ct.id === manageContact.id ? { ...ct, name } : ct))
+                  setFilteredContacts((prev) => prev.map((ct) => ct.id === manageContact.id ? { ...ct, name } : ct))
+                }
+              } catch {}
+            }}
+            onDelete={async () => {
+              try {
+                const res = await fetch('/api/contacts', {
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ id: manageContact.id })
+                })
+                const data = await res.json()
+                if (res.ok && data?.deleted) {
+                  setContacts((prev) => prev.filter((ct) => ct.id !== manageContact.id))
+                  setFilteredContacts((prev) => prev.filter((ct) => ct.id !== manageContact.id))
+                }
+              } catch {}
+            }}
+            theme={theme}
+          />
         )}
       </div>
     </div>

@@ -154,6 +154,8 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                 onPin={handlePinContact}
                 onUnpin={handleUnpinContact}
                 onForward={handleForwardMessage}
+                onEdit={(c) => {}}
+                onDelete={(id) => {}}
                 theme={theme}
               />
             </motion.div>

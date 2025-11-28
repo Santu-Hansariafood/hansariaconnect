@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import { formatDistanceToNow } from "date-fns"
-import { Pin } from "lucide-react"
+import { Pin, Pencil, Trash2 } from "lucide-react"
 import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 
@@ -29,6 +29,8 @@ interface ContactCardProps {
   onPin: (id: string) => void
   onUnpin: (id: string) => void
   onForward: (contact: Contact) => void
+  onEdit: (contact: Contact) => void
+  onDelete: (id: string) => void
   theme: Theme
   showContextMenu?: boolean
 }
@@ -39,6 +41,8 @@ const ContactCard: React.FC<ContactCardProps> = ({
   onPin,
   onUnpin,
   onForward,
+  onEdit,
+  onDelete,
   theme,
   showContextMenu = true,
 }) => {
@@ -204,6 +208,20 @@ const ContactCard: React.FC<ContactCardProps> = ({
               />
             </svg>
             <span>Forward Message</span>
+          </button>
+          <button
+            onClick={() => { onEdit(contact); setContextMenu({ visible: false, x: 0, y: 0 }) }}
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+          >
+            <Pencil className="w-4 h-4" />
+            <span>Edit Contact</span>
+          </button>
+          <button
+            onClick={() => { onDelete(contact.id); setContextMenu({ visible: false, x: 0, y: 0 }) }}
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-red-600"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete Contact</span>
           </button>
         </motion.div>
       )}

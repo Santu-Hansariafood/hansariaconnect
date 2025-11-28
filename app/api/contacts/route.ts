@@ -193,3 +193,41 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: error.message || "Server error" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest): Promise<NextResponse> {
+  try {
+    const sessionCookie = req.cookies.get("user_session")?.value;
+    if (!sessionCookie) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let session: SessionCookie;
+    try {
+      session = JSON.parse(sessionCookie) as SessionCookie;
+    } catch {
+      return NextResponse.json({ error: "Invalid session format" }, { status: 401 });
+    }
+
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const id = String(body?.id || "");
+    if (!id) {
+      return NextResponse.json({ error: "Contact id required" }, { status: 400 });
+    }
+
+    await connectDB();
+
+    const deleted = await Contact.findOneAndDelete({ _id: id, userId: session.id });
+    if (!deleted) {
+      return NextResponse.json({ error: "Contact not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ deleted: true }, { status: 200 });
+  } catch (error: any) {
+    console.error("DELETE /contacts error →", error);
+    return NextResponse.json({ error: error.message || "Server error" }, { status: 500 });
+  }
+}
