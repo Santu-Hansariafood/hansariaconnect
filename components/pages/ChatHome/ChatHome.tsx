@@ -108,7 +108,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
 
   if (loading) {
     return (
-      <Loading theme={theme} />
+      <Loading />
     )
   }
 
