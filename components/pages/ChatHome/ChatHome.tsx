@@ -1,12 +1,20 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { staggerContainer, fadeIn } from '@/utils/animations/animations'
 import { X, Phone, Clock, Ban, CheckCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
+import { staggerContainer, fadeIn } from '@/utils/animations/animations'
+
+import { useContacts } from '@/hooks/chathome/useContacts'
+import { useFilteredContacts } from '@/hooks/chathome/useFilteredContacts'
+import { useCreateContact } from '@/hooks/chathome/useCreateContact'
+import { useForwardMessage } from '@/hooks/chathome/useForwardMessage'
+import { useContactActions } from '@/hooks/chathome/useContactActions'
+import Loading from '@/components/common/Loading/Loading'
+
 const Navbar = dynamic(() => import('@/components/common/Navbar/Navbar'));
 const ContactCard = dynamic(() => import('@/components/ui/ContactCard/ContactCard'));
 const SearchBar = dynamic(() => import('@/components/common/SearchBar/SearchBar'));
@@ -36,17 +44,13 @@ interface Theme {
   textSize?: string
   primary: string
   secondary?: string
+  isDark?: boolean // Added dark mode support
 }
 
 interface User {
   name: string
   avatar?: string
   email?: string
-}
-
-interface ForwardModalData {
-  visible: boolean
-  contact: Contact | null
 }
 
 interface ChatHomeProps {
@@ -58,253 +62,57 @@ interface ChatHomeProps {
 export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([])
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null)
-  const [showContactModal, setShowContactModal] = useState(false)
-  const [forwardModalData, setForwardModalData] = useState<ForwardModalData>({
-    visible: false,
-    contact: null,
-  })
-  const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newMobiles, setNewMobiles] = useState<string[]>([''])
-  const [newEmail, setNewEmail] = useState('')
-  const [createError, setCreateError] = useState('')
-  const [creating, setCreating] = useState(false)
 
-  useEffect(() => {
-    sortAndFilterContacts(contacts, searchQuery)
-  }, [contacts, searchQuery])
+  const { contacts, loading, setContacts } = useContacts()
+  const filteredContacts = useFilteredContacts({ contacts, searchQuery })
+  const {
+    showCreateModal,
+    setShowCreateModal,
+    newName,
+    setNewName,
+    newMobiles,
+    newEmail,
+    setNewEmail,
+    createError,
+    creating,
+    addMobileField,
+    updateMobileField,
+    removeMobileField,
+    submitCreateContact
+  } = useCreateContact({ contacts, setContacts })
 
-  useEffect(() => {
-    const loadConversations = async () => {
-      try {
-        const [convRes, unreadRes] = await Promise.all([
-          fetch('/api/conversations', { method: 'GET', credentials: 'include' }),
-          fetch('/api/unread-counts', { cache: 'no-store', credentials: 'include' }),
-        ]);
-        const convData = await convRes.json();
-        const unreadData = await unreadRes.json();
-        const unreadMap = unreadData?.conversations || {};
+  const {
+    forwardModalData,
+    handleForwardMessage,
+    handleForwardSubmit
+  } = useForwardMessage({ contacts })
 
-        if (Array.isArray(convData?.conversations)) {
-          const mapped: Contact[] = convData.conversations.map((c: any) => {
-            let lastMessageText = ''
-            if (c.lastMessage) {
-              if (c.lastMessage.type === 'text') {
-                lastMessageText = c.lastMessage.text || ''
-              } else if (c.lastMessage.type === 'image') {
-                lastMessageText = '📷 Image'
-              } else if (c.lastMessage.type === 'video') {
-                lastMessageText = '🎥 Video'
-              } else if (c.lastMessage.type === 'voice') {
-                lastMessageText = '🎤 Voice'
-              } else if (c.lastMessage.type === 'pdf') {
-                lastMessageText = '📄 PDF'
-              } else if (c.lastMessage.type === 'excel') {
-                lastMessageText = '📊 Excel'
-              } else if (c.lastMessage.type === 'link') {
-                lastMessageText = c.lastMessage.linkTitle || '🔗 Link'
-              } else {
-                lastMessageText = c.lastMessage.text || ''
-              }
-            }
-            
-            return {
-              id: c.id || c.peerId,
-              peerId: c.peerId || c.id,
-              name: c.name || c.mobile || 'Unknown',
-              mobile: c.mobile || '',
-              avatar: c.avatar || '/logo/logo.png',
-              pinned: false,
-              blocked: false,
-              active: false,
-              unread: unreadMap[c.peerId || c.id] || 0,
-              lastSeen: '',
-              lastMessageTime: c.lastMessageAt || '',
-              lastMessage: lastMessageText,
-              mobiles: [c.mobile].filter(Boolean),
-              email: '',
-              registered: true,
-              registeredUserId: c.peerId || c.id,
-            }
-          })
-          setContacts(mapped)
-        }
-      } catch {}
-    }
-    loadConversations()
-  }, [])
-
-  const sortAndFilterContacts = (contactsList: Contact[], query: string) => {
-    let filtered = contactsList
-
-    if (query.trim()) {
-      filtered = contactsList.filter(
-        (contact) =>
-          contact.name.toLowerCase().includes(query.toLowerCase()) ||
-          contact.mobile.includes(query)
-      )
-    }
-
-    const pinned = filtered
-      .filter((c) => c.pinned)
-      .sort(
-        (a, b) =>
-          new Date(b.lastMessageTime || '').getTime() -
-          new Date(a.lastMessageTime || '').getTime()
-      )
-
-    const unpinned = filtered
-      .filter((c) => !c.pinned)
-      .sort(
-        (a, b) =>
-          new Date(b.lastMessageTime || '').getTime() -
-          new Date(a.lastMessageTime || '').getTime()
-      )
-
-    setFilteredContacts([...pinned, ...unpinned])
-  }
+  const {
+    selectedContact,
+    showContactModal,
+    handleContactClick,
+    handlePinContact,
+    handleUnpinContact,
+    handleBlockUnblock,
+    closeContactModal
+  } = useContactActions({ contacts, setContacts })
 
   const handleSearch = (query: string) => setSearchQuery(query)
 
-  const handleContactClick = (contact: Contact) => {
-    const peerId = contact.peerId || contact.registeredUserId || contact.id
-    if (peerId) {
-      router.push(`/chat/${peerId}`)
-    } else {
-      setSelectedContact(contact)
-      setShowContactModal(true)
-    }
-  }
+  // Dark mode color classes
+  const textColor = theme.isDark ? 'text-gray-100' : 'text-gray-800'
+  const textSecondary = theme.isDark ? 'text-gray-300' : 'text-gray-600'
+  const textMuted = theme.isDark ? 'text-gray-400' : 'text-gray-500'
+  const bgCard = theme.isDark ? 'bg-gray-800' : 'bg-white'
+  const bgCardHover = theme.isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
+  const bgOverlay = theme.isDark ? 'bg-gray-900/80' : 'bg-black/50'
+  const borderColor = theme.isDark ? 'border-gray-700' : 'border-gray-200'
+  const inputBg = theme.isDark ? 'bg-gray-800 border-gray-600 focus:border-blue-400' : 'bg-white border-gray-200 focus:border-emerald-500'
 
-  const handlePinContact = (contactId: string) => {
-    setContacts((prev) =>
-      prev.map((contact) =>
-        contact.id === contactId ? { ...contact, pinned: true } : contact
-      )
+  if (loading) {
+    return (
+      <Loading theme={theme} />
     )
-  }
-
-  const handleUnpinContact = (contactId: string) => {
-    setContacts((prev) =>
-      prev.map((contact) =>
-        contact.id === contactId ? { ...contact, pinned: false } : contact
-      )
-    )
-  }
-
-  const handleForwardMessage = (contact: any) => {
-    setForwardModalData({ visible: true, contact })
-  }
-
-  const handleForwardSubmit = (selectedContactIds: string[], message: string) => {
-    const text = message.trim()
-    if (!text) {
-      setForwardModalData({ visible: false, contact: null })
-      return
-    }
-    const byId: Record<string, Contact> = {}
-    for (const c of contacts) byId[c.peerId || c.registeredUserId || c.id] = c
-    const sendAll = async () => {
-      for (const cid of selectedContactIds) {
-        const c = contacts.find((x) => x.id === cid) || byId[cid]
-        const peer = c?.peerId || c?.registeredUserId || c?.id
-        if (!peer) continue
-        try {
-          await fetch(`/api/messages/${peer}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ type: 'text', text }),
-          })
-        } catch {}
-      }
-    }
-    sendAll()
-    setForwardModalData({ visible: false, contact: null })
-  }
-
-  const handleBlockUnblock = (contactId: string) => {
-    setContacts((prev) =>
-      prev.map((contact) =>
-        contact.id === contactId
-          ? { ...contact, blocked: !contact.blocked }
-          : contact
-      )
-    )
-
-    if (selectedContact?.id === contactId) {
-      setSelectedContact({
-        ...selectedContact,
-        blocked: !selectedContact.blocked,
-      })
-    }
-  }
-
-  const closeModal = () => {
-    setShowContactModal(false)
-    setSelectedContact(null)
-  }
-
-  const addMobileField = () => setNewMobiles((prev) => [...prev, ''])
-  const updateMobileField = (idx: number, value: string) => {
-    setNewMobiles((prev) => prev.map((m, i) => (i === idx ? value : m)))
-  }
-  const removeMobileField = (idx: number) => {
-    setNewMobiles((prev) => prev.filter((_, i) => i !== idx))
-  }
-  const submitCreateContact = async () => {
-    setCreateError('')
-    const mobilesClean = newMobiles.map((m) => m.replace(/\D/g, '')).filter((m) => m)
-    if (!newName.trim()) {
-      setCreateError('Name is required')
-      return
-    }
-    if (!mobilesClean.length) {
-      setCreateError('Add at least one mobile number')
-      return
-    }
-    setCreating(true)
-    try {
-      const res = await fetch('/api/contacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName.trim(), mobiles: mobilesClean, email: newEmail.trim() }),
-      })
-      const data = await res.json()
-      if (res.ok && data?.contact) {
-        const c = data.contact
-        const mapped: Contact = {
-          id: c._id,
-          name: c.name,
-          mobile: Array.isArray(c.mobiles) && c.mobiles.length ? c.mobiles[0] : '',
-          avatar: c.avatar || '/logo/logo.png',
-          pinned: false,
-          blocked: false,
-          active: false,
-          unread: 0,
-          lastSeen: '',
-          lastMessage: '',
-          lastMessageTime: c.updatedAt || c.createdAt || '',
-          mobiles: c.mobiles || [],
-          email: c.email || '',
-          registered: !!c.registered,
-        }
-        setContacts((prev) => [mapped, ...prev])
-        setShowCreateModal(false)
-        setNewName('')
-        setNewMobiles([''])
-        setNewEmail('')
-      } else {
-        setCreateError(data?.error || 'Failed to create contact')
-      }
-    } catch {
-      setCreateError('Failed to create contact')
-    } finally {
-      setCreating(false)
-    }
   }
 
   return (
@@ -318,9 +126,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
           className="mb-6"
         >
           <div className="flex items-center justify-between mb-2">
-            <h1
-            className={`text-3xl font-bold text-gray-800 mb-2 ${theme.textSize}`}
-            >
+            <h1 className={`text-3xl font-bold ${textColor} mb-2 ${theme.textSize}`}>
               Chats
             </h1>
             <motion.button
@@ -338,7 +144,6 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
             placeholder="Search by name or mobile..."
           />
         </motion.div>
-
         <motion.div
           variants={staggerContainer}
           initial="hidden"
@@ -358,14 +163,13 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
             </motion.div>
           ))}
         </motion.div>
-
-        {filteredContacts.length === 0 && (
+        {filteredContacts.length === 0 && !loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-center py-12"
           >
-            <p className="text-gray-500 text-lg">No contacts found</p>
+            <p className={`text-lg ${textMuted}`}>No contacts found</p>
           </motion.div>
         )}
         {showContactModal && selectedContact && (
@@ -373,28 +177,27 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            onClick={closeModal}
+            className={`fixed inset-0 ${bgOverlay} flex items-center justify-center z-50 p-4`}
+            onClick={closeContactModal}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"
+              className={`${bgCard} rounded-3xl p-6 max-w-md w-full shadow-2xl border ${borderColor}`}
             >
               <div className="flex justify-between items-start mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Contact Info</h2>
+                <h2 className={`text-2xl font-bold ${textColor}`}>Contact Info</h2>
                 <button
-                  onClick={closeModal}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  onClick={closeContactModal}
+                  className={`${bgCardHover} p-2 rounded-full transition-colors`}
                 >
-                  <X className="w-6 h-6 text-gray-600" />
+                  <X className={`w-6 h-6 ${textSecondary}`} />
                 </button>
               </div>
 
               <div className="flex flex-col items-center mb-6">
-                
                 <div className="relative mb-4">
                   <Image
                     src={selectedContact.avatar || "/logo/logo.png"}
@@ -402,38 +205,36 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                     width={128}
                     height={128}
                     className="w-32 h-32 rounded-full object-cover border-4"
-                    style={{ borderColor: theme.secondary }}
+                    style={{ borderColor: theme.secondary || (theme.isDark ? '#374151' : '#e5e7eb') }}
                   />
-
                   {selectedContact.active && (
                     <span className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white rounded-full" />
                   )}
                 </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-1">
+                <h3 className={`text-2xl font-bold ${textColor} mb-1`}>
                   {selectedContact.name}
                 </h3>
-                <p className="text-gray-600 flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
+                <p className={`${textSecondary} flex items-center gap-2`}>
+                  <Phone className={`w-4 h-4 ${textSecondary}`} />
                   {selectedContact.mobile}
                 </p>
               </div>
 
               <div className="space-y-4 mb-6">
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                  <Clock className="w-5 h-5 text-gray-600" />
+                <div className={`${bgCardHover} flex items-center gap-3 p-3 rounded-xl ${borderColor}`}>
+                  <Clock className={`w-5 h-5 ${textMuted}`} />
                   <div>
-                    <p className="text-sm text-gray-500">Last Seen</p>
-                    <p className="font-medium text-gray-800">
-                      {selectedContact.lastSeen}
+                    <p className={`${textMuted} text-sm`}>Last Seen</p>
+                    <p className={`${textColor} font-medium`}>
+                      {selectedContact.lastSeen || 'Never'}
                     </p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                  <CheckCircle className="w-5 h-5 text-gray-600" />
+                <div className={`${bgCardHover} flex items-center gap-3 p-3 rounded-xl ${borderColor}`}>
+                  <CheckCircle className={`w-5 h-5 ${textMuted}`} />
                   <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <p className="font-medium text-gray-800">
+                    <p className={`${textMuted} text-sm`}>Status</p>
+                    <p className={`font-medium ${selectedContact.active ? 'text-green-500' : textColor}`}>
                       {selectedContact.active ? 'Active' : 'Inactive'}
                     </p>
                   </div>
@@ -447,7 +248,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                   onClick={async () => {
                     const peer = (selectedContact as any).registeredUserId
                     if (peer) {
-                      closeModal()
+                      closeContactModal()
                       router.push(`/chat/${peer}`)
                       return
                     }
@@ -460,18 +261,18 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                       })
                       const data = await res.json()
                       if (res.ok && data?.id) {
-                        closeModal()
+                        closeContactModal()
                         router.push(`/chat/${data.id}`)
                       } else {
-                        closeModal()
+                        closeContactModal()
                         alert('Unable to open chat. Please check mobile number.')
                       }
                     } catch {
-                      closeModal()
+                      closeContactModal()
                       alert('Unable to open chat. Please try again.')
                     }
                   }}
-                  className="flex-1 py-3 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+                  className="flex-1 py-3 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-lg"
                   style={{ backgroundColor: theme.primary }}
                 >
                   <Phone className="w-5 h-5" />
@@ -482,9 +283,9 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleBlockUnblock(selectedContact.id)}
-                  className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-lg ${
                     selectedContact.blocked
-                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      ? 'bg-green-600 text-white hover:bg-green-700'
                       : 'bg-red-500 text-white hover:bg-red-600'
                   }`}
                 >
@@ -495,53 +296,51 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
             </motion.div>
           </motion.div>
         )}
-
         {forwardModalData.visible && (
           <ForwardModal
             contacts={contacts}
-            onClose={() =>
-              setForwardModalData({ visible: false, contact: null })
-            }
+            onClose={() => handleForwardSubmit([], '')}
             onForward={handleForwardSubmit}
             theme={theme}
           />
         )}
-
         {showCreateModal && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            className={`fixed inset-0 ${bgOverlay} flex items-center justify-center z-50 p-4`}
             onClick={() => setShowCreateModal(false)}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl"
+              className={`${bgCard} rounded-3xl p-6 max-w-lg w-full shadow-2xl border ${borderColor}`}
             >
               <div className="flex justify-between items-start mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Create Contact</h2>
+                <h2 className={`text-2xl font-bold ${textColor}`}>Create Contact</h2>
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  className={`${bgCardHover} p-2 rounded-full transition-colors`}
                 >
-                  <X className="w-6 h-6 text-gray-600" />
+                  <X className={`w-6 h-6 ${textSecondary}`} />
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <label className={`block text-sm font-medium ${textSecondary} mb-2`}>Name</label>
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 rounded-xl transition-colors ${inputBg} ${textColor}`}
+                    placeholder="Enter contact name"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Numbers</label>
+                  <label className={`block text-sm font-medium ${textSecondary} mb-2`}>Mobile Numbers</label>
                   <div className="space-y-2">
                     {newMobiles.map((m, idx) => (
                       <div key={idx} className="flex gap-2">
@@ -549,13 +348,13 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                           type="tel"
                           value={m}
                           onChange={(e) => updateMobileField(idx, e.target.value)}
-                          className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 transition-colors"
+                          className={`flex-1 px-4 py-3 border-2 rounded-xl transition-colors ${inputBg} ${textColor}`}
                           placeholder="10-digit number"
                         />
                         {newMobiles.length > 1 && (
                           <button
                             onClick={() => removeMobileField(idx)}
-                            className="px-3 py-2 bg-red-500 text-white rounded-xl"
+                            className="px-3 py-2 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-colors"
                           >
                             Remove
                           </button>
@@ -565,24 +364,27 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                   </div>
                   <button
                     onClick={addMobileField}
-                    className="mt-2 px-3 py-2 bg-gray-100 rounded-xl text-gray-700 hover:bg-gray-200"
+                    className={`${bgCardHover} mt-2 px-3 py-2 rounded-xl ${textSecondary} hover:opacity-80 transition-all`}
                   >
                     Add another number
                   </button>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className={`block text-sm font-medium ${textSecondary} mb-2`}>Email</label>
                   <input
                     type="email"
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 transition-colors"
+                    className={`w-full px-4 py-3 border-2 rounded-xl transition-colors ${inputBg} ${textColor}`}
                     placeholder="example@domain.com"
                   />
                 </div>
 
                 {createError && (
-                  <p className="text-red-600 text-sm">{createError}</p>
+                  <p className="text-red-400 text-sm bg-red-500/10 p-3 rounded-xl border border-red-500/30">
+                    {createError}
+                  </p>
                 )}
 
                 <div className="flex gap-3 pt-2">
@@ -591,7 +393,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                     whileTap={{ scale: 0.98 }}
                     onClick={submitCreateContact}
                     disabled={creating}
-                    className="flex-1 py-3 text-white rounded-xl font-medium transition-colors"
+                    className="flex-1 py-3 text-white rounded-xl font-medium transition-colors shadow-lg"
                     style={{ backgroundColor: theme.primary }}
                   >
                     {creating ? 'Saving...' : 'Save Contact'}
@@ -600,7 +402,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setShowCreateModal(false)}
-                    className="flex-1 py-3 bg-gray-100 rounded-xl font-medium text-gray-700"
+                    className={`${bgCardHover} flex-1 py-3 rounded-xl font-medium ${textSecondary} border ${borderColor}`}
                   >
                     Cancel
                   </motion.button>
