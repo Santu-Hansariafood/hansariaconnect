@@ -9,7 +9,6 @@ export const runtime = "nodejs";
 
 const normalizeId = (val: unknown): string => {
   if (typeof val === "string") {
-    // Remove any whitespace
     return val.trim();
   }
   if (val == null) return String(val);
@@ -17,7 +16,6 @@ const normalizeId = (val: unknown): string => {
 
   if (typeof val === "object") {
     const obj = val as { toString?: () => string; $oid?: unknown; _id?: unknown };
-    // Handle MongoDB ObjectId objects
     if (obj._id && typeof obj._id === "object" && "_id" in obj._id) {
       const idObj = obj._id as { toString?: () => string };
       if (typeof idObj.toString === "function") {
@@ -25,14 +23,11 @@ const normalizeId = (val: unknown): string => {
         if (s && s !== "[object Object]") return s;
       }
     }
-    // Handle BSON $oid format
     if (typeof obj.$oid === "string") return obj.$oid;
-    // Handle ObjectId.toString()
     if (typeof obj.toString === "function") {
       const s = obj.toString();
       if (s && s !== "[object Object]") return s;
     }
-    // Try to get _id if it exists
     if (obj._id) {
       return normalizeId(obj._id);
     }
@@ -43,7 +38,6 @@ const normalizeId = (val: unknown): string => {
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ peerId: string }> | { peerId: string } }) {
   try {
-    // Handle both Promise and direct params (Next.js 13+ compatibility)
     const resolvedParams = params instanceof Promise ? await params : params;
     
     const sessionCookie = req.cookies.get("user_session")?.value;
@@ -61,7 +55,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ peer
     const rawUserId = normalizeId((session as any).id);
     const rawPeerId = normalizeId(resolvedParams.peerId);
     
-    // Better error handling with details
     if (!Types.ObjectId.isValid(rawUserId)) {
       console.error('Invalid user ID:', { 
         rawUserId, 
@@ -107,7 +100,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ peer
     let sort: any = { createdAt: 1 };
 
     if (fetchLast && !fetchAll) {
-      // If fetching last N messages, get newest first, then reverse
       sort = { createdAt: -1 };
     } else if (before) {
       query.createdAt = { $lt: new Date(before) };
@@ -116,10 +108,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ peer
 
     const docs =
       fetchAll
-        ? await Message.find(query).sort({ createdAt: 1 }) // All messages, oldest first
+        ? await Message.find(query).sort({ createdAt: 1 })
         : await Message.find(query).sort(sort).limit(limit);
 
-    // Reverse only if we fetched last N (not all) or if using before pagination
     const ordered = (fetchLast && !fetchAll) || before ? docs.reverse() : docs;
 
     const messages = ordered.map((msg: any) => ({
@@ -154,7 +145,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ peer
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ peerId: string }> | { peerId: string } }) {
   try {
-    // Handle both Promise and direct params (Next.js 13+ compatibility)
     const resolvedParams = params instanceof Promise ? await params : params;
     
     const sessionCookie = req.cookies.get("user_session")?.value;

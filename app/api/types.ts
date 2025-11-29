@@ -1,5 +1,3 @@
-// Common types for API routes
-
 export interface SessionData {
   id: string | unknown;
   mobile?: string;

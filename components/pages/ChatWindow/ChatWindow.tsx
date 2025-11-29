@@ -146,6 +146,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
 
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
+  const maskedId = (() => {
+    const s = String(id || "")
+    const last4 = s.slice(-4)
+    return `•••• ${last4}`
+  })()
+  const maskedUrl = (() => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const s = String(id || "")
+    const last4 = s.slice(-4)
+    return `${origin}/chat/${last4}`
+  })()
 
   const isSavedContact = Boolean(contact && (contact._id || contact.id))
 
@@ -241,8 +252,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     } catch {}
     return false
   }
-
-  
 
   const sendViaSocket = (payload: any) => {
     return new Promise<boolean>((resolve) => {
@@ -429,7 +438,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                         }}
               >
                 <p className="text-white font-semibold text-sm">{headerName}</p>
-                <p className="text-white/80 text-xs">{`ID: ${id}`}</p>
+                <p className="text-white/80 text-xs">{`Chat URL: ${maskedUrl}`}</p>
               </div>
 
               <div className="py-2">

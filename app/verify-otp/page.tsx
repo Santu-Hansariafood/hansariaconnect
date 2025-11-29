@@ -3,8 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import Otp from "@/components/pages/Otp/Otp";
 import Loading from "@/components/common/Loading/Loading";
+import dynamic from "next/dynamic";
+const Otp = dynamic(() => import("@/components/pages/Otp/Otp"), { ssr: false });
 
 function VerifyOtpInner() {
   const searchParams = useSearchParams();

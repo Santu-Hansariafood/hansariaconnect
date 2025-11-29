@@ -6,9 +6,6 @@ import Profile from "@/models/profile/Profile";
 import Message from "@/models/message/Message";
 import { Types } from "mongoose";
 
-// -----------------------------
-// Interfaces for Lean Documents
-// -----------------------------
 interface IUser {
   _id: string;
   mobile?: string;
@@ -41,9 +38,6 @@ interface IConversation {
   [key: string]: any;
 }
 
-// -----------------------------
-// Normalize ID Helper
-// -----------------------------
 const normalizeId = (val: unknown): string => {
   if (typeof val === "string") return val;
   if (val == null) return String(val);
@@ -60,9 +54,6 @@ const normalizeId = (val: unknown): string => {
   return String(val);
 };
 
-// -----------------------------
-// GET Handler
-// -----------------------------
 export async function GET(req: NextRequest) {
   try {
     const sessionCookie = req.cookies.get("user_session")?.value;
@@ -82,7 +73,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Normalize & validate userId
     const rawUserId = normalizeId(session.id);
     if (!Types.ObjectId.isValid(rawUserId)) {
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
@@ -90,10 +80,8 @@ export async function GET(req: NextRequest) {
 
     const userId = new Types.ObjectId(rawUserId);
 
-    // Connect DB
     await connectDB();
 
-    // Fetch conversations
     const conversations = (await Conversation.find({
   $or: [{ userA: userId }, { userB: userId }],
 })
@@ -106,9 +94,6 @@ export async function GET(req: NextRequest) {
 
     const conversationResults: any[] = [];
 
-    // -----------------------------
-    // Build Conversation Response
-    // -----------------------------
     for (const conv of conversations) {
       const peerId =
         String(conv.userA) === String(userId) ? conv.userB : conv.userA;

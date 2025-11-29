@@ -83,10 +83,9 @@ export default function StatusPage({
 
     setUploading(true);
     try {
-      // Upload to Cloudinary first
       const fd = new FormData();
       fd.append("file", file);
-      fd.append("kind", "status"); // Use status folder in Cloudinary
+      fd.append("kind", "status");
       
       const uploadRes = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" });
       if (!uploadRes.ok) {
@@ -103,7 +102,6 @@ export default function StatusPage({
         return;
       }
 
-      // Create status with Cloudinary URL
       const res = await fetch("/api/status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -133,7 +131,6 @@ export default function StatusPage({
           timestamp: data.status.createdAt,
           views: 0,
         });
-        // Reload statuses to show the new one
         const refreshRes = await fetch("/api/status", { cache: "no-store", credentials: "include" });
         const refreshData = await refreshRes.json();
         if (refreshRes.ok && refreshData?.statuses) {
@@ -211,7 +208,7 @@ export default function StatusPage({
                     <Image
                       src={
                         user.photo ||
-                        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop"
+                        "/logo/logo.png"
                       }
                       alt={user.name || "User"}
                       width={64}

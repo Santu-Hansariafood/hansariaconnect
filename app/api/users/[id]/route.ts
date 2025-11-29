@@ -5,7 +5,6 @@ import Profile from "@/models/profile/Profile"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
   try {
-    // Handle both Promise and direct params (Next.js 13+ compatibility)
     const resolvedParams = params instanceof Promise ? await params : params;
     
     const sessionCookie = req.cookies.get("user_session")?.value
@@ -30,7 +29,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       return NextResponse.json({ id: resolvedParams.id, mobile: "", name: "", avatar: "" })
     }
     
-    // Get profile information
     const profile = await Profile.findOne({ userId: resolvedParams.id }).lean()
     const profileData = Array.isArray(profile) ? profile[0] : profile
     

@@ -20,13 +20,12 @@ const getSession = (req: NextRequest): SessionData | null => {
   }
 };
 
-// ----------- GET PROFILE -----------
 export async function GET(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params; // 👈 FIX
+    const { id } = await context.params;
     await connectDB();
 
     const session = getSession(req);
@@ -44,13 +43,12 @@ export async function GET(
   }
 }
 
-// ----------- UPDATE or CREATE PROFILE -----------
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params; // 👈 FIX
+    const { id } = await context.params;
     await connectDB();
 
     const session = getSession(req);
@@ -83,13 +81,12 @@ export async function POST(
   }
 }
 
-// ----------- DELETE PROFILE -----------
 export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params; // 👈 FIX
+    const { id } = await context.params;
     await connectDB();
 
     const session = getSession(req);

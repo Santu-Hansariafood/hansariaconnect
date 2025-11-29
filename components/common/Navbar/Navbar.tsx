@@ -24,8 +24,6 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { theme } = useApp();
-
-  // 🔥 Custom Hooks
   const navUser = useNavbarUser(user);
   const unreadCounts = useUnreadCounts();
   const navItems = useNavbarItems(unreadCounts);
@@ -38,8 +36,6 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     >
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-
-          {/* LEFT LOGO */}
           <div className="flex items-center gap-3">
             <motion.div
               whileHover={{ rotate: 360 }}
@@ -57,7 +53,6 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             </h1>
           </div>
 
-          {/* DESKTOP NAV */}
           <div className="hidden md:flex items-center gap-6">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -98,7 +93,6 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             })}
           </div>
 
-          {/* RIGHT USER + LOGOUT */}
           <div className="flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
@@ -141,7 +135,6 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           </div>
         </div>
 
-        {/* MOBILE NAV */}
         <div className="md:hidden flex items-center justify-around py-2 border-t border-gray-200">
           {navItems.map((item) => {
             const Icon = item.icon;
