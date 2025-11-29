@@ -35,7 +35,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     await connectDB();
 
-    const contacts = await Contact.find({ userId: session.id }).sort({ updatedAt: -1 });
+    const contacts = await Contact.find({ userId: session.id })
+      .sort({ updatedAt: -1 })
+      .select({ name: 1, mobiles: 1, email: 1, avatar: 1, createdAt: 1, updatedAt: 1 })
+      .lean();
 
     const extractedMobiles = contacts
       .flatMap((item: any) => (Array.isArray(item.mobiles) ? item.mobiles : []))
@@ -43,45 +46,52 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const registeredUsers = extractedMobiles.length
       ? await User.find({ mobile: { $in: extractedMobiles } }, { mobile: 1 })
+          .lean()
       : [];
 
     const registeredNumbers = new Set(registeredUsers.map((u: any) => u.mobile));
 
-    const idMap: Record<string, string> = {};
+    const mobileToId: Record<string, string> = {};
     registeredUsers.forEach((u: any) => {
-      idMap[u.mobile] = u._id.toString();
+      mobileToId[u.mobile] = u._id.toString();
     });
 
-    const payload = [];
+    const candidateUserIds: string[] = [];
+    const perContactUserId: Record<string, string> = {};
 
-    for (const contactDoc of contacts) {
-      const contactObj = contactDoc.toObject();
+    for (const c of contacts) {
+      const mobiles = Array.isArray((c as any).mobiles) ? (c as any).mobiles : [];
+      let uid = "";
+      for (const m of mobiles) {
+        const found = mobileToId[m];
+        if (found) { uid = found; break; }
+      }
+      if (uid) {
+        perContactUserId[String((c as any)._id)] = uid;
+        candidateUserIds.push(uid);
+      }
+    }
+
+    const uniqueUserIds = Array.from(new Set(candidateUserIds));
+    const profiles = uniqueUserIds.length
+      ? await Profile.find({ userId: { $in: uniqueUserIds } }, { userId: 1, name: 1, photo: 1 }).lean()
+      : [];
+    const profileMap = new Map<string, any>();
+    profiles.forEach((p: any) => profileMap.set(String(p.userId), p));
+
+    const payload = contacts.map((contactObj: any) => {
       const mobiles = Array.isArray(contactObj.mobiles) ? contactObj.mobiles : [];
-
-      let registeredUserId = "";
-      let registeredProfile: { name: string; photo: string } | null = null;
-
-      for (const mobile of mobiles) {
-        if (idMap[mobile]) {
-          registeredUserId = idMap[mobile];
-          break;
-        }
-      }
-
-      if (registeredUserId) {
-        const profile = await Profile.findOne({ userId: registeredUserId });
-        if (profile) {
-          registeredProfile = { name: profile.name, photo: profile.photo };
-        }
-      }
-
-      payload.push({
+      const cid = String(contactObj._id);
+      const registeredUserId = perContactUserId[cid] || "";
+      const prof = registeredUserId ? profileMap.get(registeredUserId) : null;
+      const registeredProfile = prof ? { name: prof.name, photo: prof.photo } : null;
+      return {
         ...contactObj,
         registered: mobiles.some((m: string) => registeredNumbers.has(m)),
         registeredUserId,
         registeredProfile,
-      });
-    }
+      };
+    });
 
     return NextResponse.json({ contacts: payload }, { status: 200 });
   } catch (error: any) {

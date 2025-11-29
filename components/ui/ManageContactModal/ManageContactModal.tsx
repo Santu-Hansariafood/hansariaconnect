@@ -15,7 +15,7 @@ interface Props {
   onClose: () => void
   onSave: (name: string) => Promise<void> | void
   onDelete: () => Promise<void> | void
-  theme: Theme
+  theme?: Theme
 }
 
 const ManageContactModal: React.FC<Props> = ({ contact, onClose, onSave, onDelete, theme }) => {
@@ -50,7 +50,7 @@ const ManageContactModal: React.FC<Props> = ({ contact, onClose, onSave, onDelet
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700">Cancel</button>
-          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-xl text-white" style={{ backgroundColor: theme.primary || "#10b981" }}>{saving ? 'Saving...' : 'Save'}</button>
+          <button onClick={handleSave} disabled={saving} className="px-4 py-2 rounded-xl text-white" style={{ backgroundColor: theme?.primary || "#10b981" }}>{saving ? 'Saving...' : 'Save'}</button>
           <button onClick={handleDelete} className="ml-auto px-4 py-2 rounded-xl text-white bg-red-600">Delete</button>
         </div>
       </motion.div>
