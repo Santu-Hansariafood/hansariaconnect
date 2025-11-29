@@ -5,7 +5,6 @@ import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
-import io from "socket.io-client"
 import {
   ArrowLeft,
   Send,
@@ -18,6 +17,9 @@ import {
   CircleUserRound,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useChatSocket } from "@/hooks/chatwindow/useChatSocket"
+import { useUnreadBehavior } from "@/hooks/chatwindow/useUnreadBehavior"
+import { useInfiniteScroll } from "@/hooks/chatwindow/useInfiniteScroll"
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
 const MediaPicker = dynamic(() => import("@/components/ui/MediaPicker/MediaPicker"));
 const SearchBar = dynamic(() => import("@/components/common/SearchBar/SearchBar"));
@@ -55,7 +57,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const id = params?.id as string;
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null)
   const [message, setMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
@@ -65,16 +66,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isBlocked, setIsBlocked] = useState(false);
-  const [socket, setSocket] = useState<any>(null)
   const [contact, setContact] = useState<any>(null)
-  const [hasMore, setHasMore] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [unreadOnOpen, setUnreadOnOpen] = useState(0)
-  const [showUnreadBanner, setShowUnreadBanner] = useState(false)
-  const unreadDividerRef = useRef<HTMLDivElement | null>(null)
-  const hasScrolledToUnreadRef = useRef<boolean>(false)
-  const loadingMoreRef = useRef(false)
-  const preloadRef = useRef(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [savingContact, setSavingContact] = useState(false)
   const [saveError, setSaveError] = useState("")
@@ -83,18 +75,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState("")
   const [editError, setEditError] = useState("")
-  const mergeUnique = (prev: any[], incoming: any[]) => {
-    const map = new Map<string, any>()
-    for (const m of prev) {
-      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
-      if (!map.has(k)) map.set(k, m)
-    }
-    for (const m of incoming) {
-      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
-      if (!map.has(k)) map.set(k, m)
-    }
-    return Array.from(map.values())
-  }
+  
   useEffect(() => {
     const loadContact = async () => {
       try {
@@ -118,55 +99,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     loadContact()
   }, [id])
 
-  useEffect(() => {
-    if (loadingMoreRef.current) return
-    if (unreadOnOpen > 0 && !hasScrolledToUnreadRef.current) return
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+  const mergeUnique = (prev: any[], incoming: any[]) => {
+    const map = new Map<string, any>()
+    for (const m of prev) {
+      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
+      if (!map.has(k)) map.set(k, m)
+    }
+    for (const m of incoming) {
+      const k = m._id?.toString?.() || m.id?.toString?.() || String(m.createdAt || m.timestamp || "")
+      if (!map.has(k)) map.set(k, m)
+    }
+    return Array.from(map.values())
+  }
+
+  const { containerRef, hasMore, loadingMore, loadMore, handleScroll } = useInfiniteScroll(id, chatMessages, setChatMessages, mergeUnique)
+
+  const socket = useChatSocket(id, setChatMessages, mergeUnique)
+
+  const { unreadOnOpen, showUnreadBanner, setShowUnreadBanner, unreadDividerRef, hasScrolledToUnreadRef } = useUnreadBehavior(id, chatMessages, socket, setChatMessages)
 
   useEffect(() => {
-    let s: any
-    const connect = async () => {
-      try { await fetch('/api/socket') } catch {}
-      const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
-      const transports = isVercel ? ["polling"] : ["websocket", "polling"]
-      s = io({ path: "/api/socket", transports, withCredentials: true })
-      setSocket(s)
-      s.on("message:new", (msg: any) => {
-        if (msg?.from?.toString?.() === id) {
-          setChatMessages((prev) => mergeUnique(prev, [msg]))
-          try {
-            s.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {
-              if (ack?.ok && ack?.message?._id) {
-                const mid = ack.message._id?.toString?.()
-                if (mid) updateMessageStatus(mid, ack.message.status)
-              }
-            })
-            setTimeout(() => {
-              s.emit("message:status", { id: msg?._id?.toString?.(), status: "seen" }, (ack: any) => {
-                if (ack?.ok && ack?.message?._id) {
-                  const mid = ack.message._id?.toString?.()
-                  if (mid) updateMessageStatus(mid, ack.message.status)
-                }
-              })
-            }, 500)
-            try {
-              fetch('/api/read-receipts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ peerId: id })
-              })
-            } catch {}
-          } catch {}
-        }
-      })
-    }
-    connect()
-    return () => {
-      if (s) s.disconnect()
-    }
-  }, [id])
+    if (unreadOnOpen > 0 && !hasScrolledToUnreadRef.current) return
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, unreadOnOpen]);
 
   useEffect(() => {
     const load = async () => {
@@ -174,13 +129,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         const res = await fetch(`/api/messages/${id}?all=true&last=true`, { credentials: 'include' })
         const data = await res.json()
         if (Array.isArray(data?.messages)) setChatMessages(mergeUnique([], data.messages))
-        const fromId = (x: any) => ((typeof x.from === 'string' ? x.from : (x.from?.toString?.() || x.from?.$oid || ''))) as string
-        const initialUnread = Array.isArray(data?.messages)
-          ? data.messages.filter((m: any) => fromId(m) === id && (m.status || 'sent') !== 'seen').length
-          : 0
-        setUnreadOnOpen(initialUnread)
-        setShowUnreadBanner(initialUnread > 0)
-        setHasMore(!!data?.hasMore)
+        
         try {
           await fetch('/api/read-receipts', {
             method: 'POST',
@@ -194,101 +143,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     }
     load()
   }, [id])
-
-  useEffect(() => {
-    if (unreadOnOpen > 0 && unreadDividerRef.current && !hasScrolledToUnreadRef.current) {
-      unreadDividerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      hasScrolledToUnreadRef.current = true
-    }
-  }, [chatMessages, unreadOnOpen])
-
-  useEffect(() => {
-    const fromId = (x: any) => ((typeof x.from === 'string' ? x.from : (x.from?.toString?.() || x.from?.$oid || ''))) as string
-    const pending = chatMessages.filter((m: any) => fromId(m) === id && (m.status || 'sent') !== 'seen')
-    if (!pending.length) return
-    const delay = (unreadOnOpen > 0 && !hasScrolledToUnreadRef.current) ? 400 : 0
-    const t = setTimeout(() => {
-      setChatMessages((prev) => prev.map((m: any) => {
-        const f = fromId(m)
-        if (f === id && (m.status || 'sent') !== 'seen') return { ...m, status: 'seen' }
-        return m
-      }))
-      try {
-        pending.forEach((m: any) => {
-          const mid = m?._id?.toString?.()
-          if (mid && socket) socket.emit("message:status", { id: mid, status: "seen" })
-        })
-      } catch {}
-      try {
-        fetch('/api/read-receipts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ peerId: id })
-        })
-      } catch {}
-      setShowUnreadBanner(false)
-      setUnreadOnOpen(0)
-    }, delay)
-    return () => clearTimeout(t)
-  }, [chatMessages, id, socket])
-
-  useEffect(() => {
-    const run = async () => {
-      if (preloadRef.current) return
-      if (!hasMore) return
-      if (chatMessages.length >= 40) return
-      preloadRef.current = true
-      for (let i = 0; i < 3; i++) {
-        if (!hasMore) break
-        await loadMore()
-        await new Promise((r) => setTimeout(r, 200))
-      }
-      preloadRef.current = false
-    }
-    run()
-  }, [hasMore, chatMessages.length, id])
-
-  const loadMore = async () => {
-    if (!chatMessages.length) return
-    const el = containerRef.current
-    const prevHeight = el?.scrollHeight || 0
-    const prevTop = el?.scrollTop || 0
-    setLoadingMore(true)
-    loadingMoreRef.current = true
-    try {
-      const oldest = chatMessages[0]
-      const tsRaw = oldest.createdAt || oldest.timestamp
-      const ts = typeof tsRaw === "string" ? tsRaw : new Date(tsRaw).toISOString()
-      const res = await fetch(`/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`, { credentials: 'include' })
-      const data = await res.json()
-      if (Array.isArray(data?.messages) && data.messages.length) {
-        setChatMessages((prev) => mergeUnique(prev, data.messages))
-        setHasMore(!!data?.hasMore)
-        setTimeout(() => {
-          const el2 = containerRef.current
-          if (el2) {
-            const newHeight = el2.scrollHeight || 0
-            const delta = newHeight - prevHeight
-            el2.scrollTop = prevTop + delta
-          }
-        }, 0)
-      } else {
-        setHasMore(false)
-      }
-    } catch {}
-    setLoadingMore(false)
-    loadingMoreRef.current = false
-  }
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (loadingMore) return
-    if (!hasMore) return
-    const target = e.currentTarget
-    if (target.scrollTop <= 10) {
-      loadMore()
-    }
-  }
 
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
@@ -388,13 +242,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     return false
   }
 
-  const updateMessageStatus = (mid: string, status: string) => {
-    setChatMessages((prev) => prev.map((m: any) => {
-      const idStr = m?._id?.toString?.()
-      if (idStr && idStr === mid) return { ...m, status }
-      return m
-    }))
-  }
+  
 
   const sendViaSocket = (payload: any) => {
     return new Promise<boolean>((resolve) => {
