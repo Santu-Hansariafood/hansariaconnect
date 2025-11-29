@@ -48,7 +48,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("hansariaTheme", JSON.stringify(newTheme))
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
+    } catch {}
     setUser(null)
     localStorage.removeItem("hansariaUser")
   }

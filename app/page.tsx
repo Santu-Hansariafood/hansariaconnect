@@ -53,7 +53,13 @@ export default function ChatPage() {
     setLoading(false);
   }, [router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {}
     localStorage.removeItem("hansariaUser");
     setUser(null);
     router.replace("/login");
