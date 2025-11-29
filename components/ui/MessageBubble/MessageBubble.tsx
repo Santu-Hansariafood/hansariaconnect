@@ -13,18 +13,18 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import React from "react"
+import {
+  extractLinks,
+  validateUrl,
+  detectHarmfulWords,
+  formatRichText,
+} from "@/utils/text/formatting"
+import Link from "next/link"
 
 interface Message {
   id?: string
   sender: "me" | "contact"
-  type:
-    | "text"
-    | "image"
-    | "video"
-    | "voice"
-    | "pdf"
-    | "excel"
-    | "link"
+  type: "text" | "image" | "video" | "voice" | "pdf" | "excel" | "link"
   text?: string
   media?: string
   url?: string
@@ -56,7 +56,6 @@ interface MessageBubbleProps {
   user: User
   contact: Contact
   theme: Theme
-    isSent: boolean;
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -67,6 +66,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   const isSent = message.sender === "me"
   const senderName = isSent ? user.name : contact.name
+
+  const textContent = message.text || ""
+
+  const links = textContent ? extractLinks(textContent) : []
+  const topLink = links.find((l) => validateUrl(l))
+
+  const harmful = detectHarmfulWords(textContent)
+
+  const rich = formatRichText(textContent)
 
   return (
     <motion.div
@@ -105,11 +113,47 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               isSent
                 ? "chat-bubble-sent text-white"
                 : "chat-bubble-received bg-gray-100 text-gray-800"
-            } ${theme.textSize || "text-sm"}`}
+            } ${theme.textSize || "text-sm"} ${
+              harmful.hasWarning
+                ? isSent
+                  ? "ring-2 ring-red-300"
+                  : "border-2 border-red-300"
+                : ""
+            }`}
             style={isSent ? { backgroundColor: theme.primary } : {}}
           >
             {message.type === "text" && (
-              <p className="break-words">{message.text}</p>
+              <div className="break-words">
+                {topLink && (
+                  <div
+                    className={`${
+                      isSent ? "bg-white/10" : "bg-gray-200"
+                    } rounded-lg p-2 mb-2 flex items-center gap-2`}
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                    <a
+                      href={
+                        topLink.startsWith("http")
+                          ? topLink
+                          : `http://${topLink}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline break-all"
+                    >
+                      {topLink}
+                    </a>
+                  </div>
+                )}
+
+                <div>{rich.nodes}</div>
+
+                {harmful.hasWarning && (
+                  <div className="mt-2 text-xs font-medium text-red-700">
+                    Harmful content detected: {harmful.warnings.join(", ")}
+                  </div>
+                )}
+              </div>
             )}
 
             {message.type === "image" && (
@@ -123,48 +167,75 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className="rounded-lg max-w-full h-auto object-cover"
                   />
                 )}
-                {message.text && <p className="break-words">{message.text}</p>}
+
+                {message.text && (
+                  <div className="break-words">
+                    {formatRichText(message.text).nodes}
+                    {harmful.hasWarning && (
+                      <div className="mt-2 text-xs text-red-700">
+                        Harmful content detected
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
-
             {message.type === "video" && (
               <div className="space-y-2">
                 {message.media && (
-                  <div className="relative rounded-lg overflow-hidden bg-black">
-                    <video
-                      src={message.media}
-                      className="max-w-full h-auto"
-                      controls
-                    />
+                  <div className="rounded-lg overflow-hidden bg-black">
+                    <video src={message.media} controls className="w-full" />
                   </div>
                 )}
-                {message.text && <p className="break-words">{message.text}</p>}
+
+                {message.text && (
+                  <div className="break-words">
+                    {formatRichText(message.text).nodes}
+                    {harmful.hasWarning && (
+                      <div className="mt-2 text-xs text-red-700">
+                        Harmful content detected
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
-
             {message.type === "voice" && (
               <div className="space-y-2">
                 <div className="flex items-center gap-3 bg-white/10 rounded-lg p-3">
-                  <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+                  <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition">
                     <Play className="w-4 h-4" />
                   </button>
+
                   <div className="flex-1 h-1 bg-white/20 rounded-full">
                     <div
                       className="h-full bg-white/50 rounded-full"
                       style={{ width: "30%" }}
-                    ></div>
+                    />
                   </div>
+
                   <span className="text-xs opacity-80">
                     0:{message.duration || "15"}
                   </span>
                 </div>
-                {message.text && <p className="break-words">{message.text}</p>}
+
+                {message.text && (
+                  <div className="break-words">
+                    {formatRichText(message.text).nodes}
+                    {harmful.hasWarning && (
+                      <div className="mt-2 text-xs text-red-700">
+                        Harmful content detected
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {message.type === "pdf" && (
               <div className="space-y-2">
                 <div className="flex items-center gap-3 bg-white/10 rounded-lg p-3">
                   <FileText className="w-8 h-8" />
+
                   <div className="flex-1">
                     <p className="font-medium text-sm">
                       {message.fileName || "Document.pdf"}
@@ -173,17 +244,30 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                       {message.fileSize || "2.5 MB"}
                     </p>
                   </div>
-                  <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+
+                  <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition">
                     <Download className="w-4 h-4" />
                   </button>
                 </div>
-                {message.text && <p className="break-words">{message.text}</p>}
+
+                {message.text && (
+                  <div className="break-words">
+                    {formatRichText(message.text).nodes}
+
+                    {harmful.hasWarning && (
+                      <div className="mt-2 text-xs text-red-700">
+                        Harmful content detected
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {message.type === "excel" && (
               <div className="space-y-2">
                 <div className="flex items-center gap-3 bg-white/10 rounded-lg p-3">
                   <File className="w-8 h-8" />
+
                   <div className="flex-1">
                     <p className="font-medium text-sm">
                       {message.fileName || "Spreadsheet.xlsx"}
@@ -192,11 +276,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                       {message.fileSize || "1.8 MB"}
                     </p>
                   </div>
-                  <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition-colors">
+
+                  <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition">
                     <Download className="w-4 h-4" />
                   </button>
                 </div>
-                {message.text && <p className="break-words">{message.text}</p>}
+
+                {message.text && (
+                  <div className="break-words">
+                    {formatRichText(message.text).nodes}
+                  </div>
+                )}
               </div>
             )}
             {message.type === "link" && (
@@ -206,26 +296,32 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     <LinkIcon className="w-4 h-4" />
                     <span className="text-xs font-medium">Shared Link</span>
                   </div>
+
                   {message.url && (
-                    <a
+                    <Link
                       href={message.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm underline break-all hover:opacity-80 transition-opacity"
+                      className="text-sm underline break-all"
                     >
                       {message.url}
-                    </a>
+                    </Link>
                   )}
+
                   {message.linkTitle && (
                     <p className="text-sm font-medium">{message.linkTitle}</p>
                   )}
+
                   {message.linkDescription && (
                     <p className="text-xs opacity-70">
                       {message.linkDescription}
                     </p>
                   )}
                 </div>
-                {message.text && <p className="break-words">{message.text}</p>}
+
+                {message.text && (
+                  <p className="break-words">{message.text}</p>
+                )}
               </div>
             )}
             <div className="flex items-center justify-end gap-2 mt-1">
