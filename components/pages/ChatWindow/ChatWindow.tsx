@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter, useParams } from "next/navigation";
@@ -68,6 +69,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [contact, setContact] = useState<any>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [unreadOnOpen, setUnreadOnOpen] = useState(0)
+  const [showUnreadBanner, setShowUnreadBanner] = useState(false)
   const loadingMoreRef = useRef(false)
   const preloadRef = useRef(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -168,6 +171,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         const res = await fetch(`/api/messages/${id}?all=true&last=true`, { credentials: 'include' })
         const data = await res.json()
         if (Array.isArray(data?.messages)) setChatMessages(mergeUnique([], data.messages))
+        const fromId = (x: any) => ((typeof x.from === 'string' ? x.from : (x.from?.toString?.() || x.from?.$oid || ''))) as string
+        const initialUnread = Array.isArray(data?.messages)
+          ? data.messages.filter((m: any) => fromId(m) === id && (m.status || 'sent') !== 'seen').length
+          : 0
+        setUnreadOnOpen(initialUnread)
+        setShowUnreadBanner(initialUnread > 0)
         setHasMore(!!data?.hasMore)
         try {
           await fetch('/api/read-receipts', {
@@ -182,6 +191,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     }
     load()
   }, [id])
+
+  useEffect(() => {
+    const fromId = (x: any) => ((typeof x.from === 'string' ? x.from : (x.from?.toString?.() || x.from?.$oid || ''))) as string
+    const pending = chatMessages.filter((m: any) => fromId(m) === id && (m.status || 'sent') !== 'seen')
+    if (!pending.length) return
+    setChatMessages((prev) => prev.map((m: any) => {
+      const f = fromId(m)
+      if (f === id && (m.status || 'sent') !== 'seen') return { ...m, status: 'seen' }
+      return m
+    }))
+    try {
+      pending.forEach((m: any) => {
+        const mid = m?._id?.toString?.()
+        if (mid && socket) socket.emit("message:status", { id: mid, status: "seen" })
+      })
+    } catch {}
+    try {
+      fetch('/api/read-receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ peerId: id })
+      })
+    } catch {}
+    setShowUnreadBanner(false)
+    setUnreadOnOpen(0)
+  }, [chatMessages, id, socket])
 
   useEffect(() => {
     const run = async () => {
@@ -659,24 +695,49 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
               </button>
             </div>
           )}
-          {(showSearch && searchQuery.trim() ? searchResults : chatMessages).map((msg: any) => (
-            <MessageBubble
-              key={(msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ''}`}
-              message={{
-                sender: ((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) === id ? "contact" : "me",
-                type: msg.type,
-                text: msg.text,
-                media: msg.mediaUrl,
-                url: msg.mediaUrl || undefined,
-                timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
-                status: msg.status || "sent",
-              } as any}
-              isSent={((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) !== id}
-              user={user}
-              contact={{ id, name: headerName, avatar: headerAvatar } as any}
-              theme={theme}
-            />
-          ))}
+          {showUnreadBanner && unreadOnOpen > 0 && (
+            <div className="sticky top-0 z-10">
+              <div className="px-3 py-2 bg-yellow-100 text-yellow-800 rounded-xl text-sm font-medium shadow">
+                {unreadOnOpen} unread message{unreadOnOpen > 1 ? 's' : ''}
+              </div>
+            </div>
+          )}
+          {(showSearch && searchQuery.trim() ? searchResults : chatMessages).map((msg: any, idx: number, arr: any[]) => {
+            const fromStr = ((typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || ''))) as string
+            const isIncoming = fromStr === id
+            const notSeen = (msg.status || 'sent') !== 'seen'
+            const firstUnread = (() => {
+              for (let i = 0; i < arr.length; i++) {
+                const m = arr[i]
+                const f = ((typeof m.from === 'string' ? m.from : (m.from?.toString?.() || m.from?.$oid || ''))) as string
+                if (f === id && (m.status || 'sent') !== 'seen') return i
+              }
+              return -1
+            })()
+            return (
+              <React.Fragment key={(msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ''}`}>
+                {idx === firstUnread && firstUnread >= 0 && (
+                  <div className="flex justify-center my-2">
+                    <span className="text-xs px-3 py-1 bg-gray-200 rounded-full text-gray-700">Unread messages</span>
+                  </div>
+                )}
+                <MessageBubble
+                  message={{
+                    sender: isIncoming ? "contact" : "me",
+                    type: msg.type,
+                    text: msg.text,
+                    media: msg.mediaUrl,
+                    url: msg.mediaUrl || undefined,
+                    timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
+                    status: msg.status || "sent",
+                  } as any}
+                  user={user}
+                  contact={{ id, name: headerName, avatar: headerAvatar } as any}
+                  theme={theme}
+                />
+              </React.Fragment>
+            )
+          })}
           <div ref={messagesEndRef} />
         </div>
       </div>
