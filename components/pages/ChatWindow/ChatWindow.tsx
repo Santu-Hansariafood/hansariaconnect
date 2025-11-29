@@ -71,6 +71,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [loadingMore, setLoadingMore] = useState(false)
   const [unreadOnOpen, setUnreadOnOpen] = useState(0)
   const [showUnreadBanner, setShowUnreadBanner] = useState(false)
+  const unreadDividerRef = useRef<HTMLDivElement | null>(null)
+  const hasScrolledToUnreadRef = useRef<boolean>(false)
   const loadingMoreRef = useRef(false)
   const preloadRef = useRef(false)
   const [initialLoading, setInitialLoading] = useState(true)
@@ -118,6 +120,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
 
   useEffect(() => {
     if (loadingMoreRef.current) return
+    if (unreadOnOpen > 0 && !hasScrolledToUnreadRef.current) return
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
@@ -193,30 +196,41 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   }, [id])
 
   useEffect(() => {
+    if (unreadOnOpen > 0 && unreadDividerRef.current && !hasScrolledToUnreadRef.current) {
+      unreadDividerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      hasScrolledToUnreadRef.current = true
+    }
+  }, [chatMessages, unreadOnOpen])
+
+  useEffect(() => {
     const fromId = (x: any) => ((typeof x.from === 'string' ? x.from : (x.from?.toString?.() || x.from?.$oid || ''))) as string
     const pending = chatMessages.filter((m: any) => fromId(m) === id && (m.status || 'sent') !== 'seen')
     if (!pending.length) return
-    setChatMessages((prev) => prev.map((m: any) => {
-      const f = fromId(m)
-      if (f === id && (m.status || 'sent') !== 'seen') return { ...m, status: 'seen' }
-      return m
-    }))
-    try {
-      pending.forEach((m: any) => {
-        const mid = m?._id?.toString?.()
-        if (mid && socket) socket.emit("message:status", { id: mid, status: "seen" })
-      })
-    } catch {}
-    try {
-      fetch('/api/read-receipts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ peerId: id })
-      })
-    } catch {}
-    setShowUnreadBanner(false)
-    setUnreadOnOpen(0)
+    const delay = (unreadOnOpen > 0 && !hasScrolledToUnreadRef.current) ? 400 : 0
+    const t = setTimeout(() => {
+      setChatMessages((prev) => prev.map((m: any) => {
+        const f = fromId(m)
+        if (f === id && (m.status || 'sent') !== 'seen') return { ...m, status: 'seen' }
+        return m
+      }))
+      try {
+        pending.forEach((m: any) => {
+          const mid = m?._id?.toString?.()
+          if (mid && socket) socket.emit("message:status", { id: mid, status: "seen" })
+        })
+      } catch {}
+      try {
+        fetch('/api/read-receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ peerId: id })
+        })
+      } catch {}
+      setShowUnreadBanner(false)
+      setUnreadOnOpen(0)
+    }, delay)
+    return () => clearTimeout(t)
   }, [chatMessages, id, socket])
 
   useEffect(() => {
@@ -535,6 +549,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           <h2 className={`font-semibold text-gray-800 ${theme.textSize}`}>
             {headerName}
           </h2>
+          {showUnreadBanner && unreadOnOpen > 0 && (
+            <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Unread: {unreadOnOpen}</span>
+          )}
         </div>
         <div className="relative">
           <button
@@ -717,7 +734,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
             return (
               <React.Fragment key={(msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ''}`}>
                 {idx === firstUnread && firstUnread >= 0 && (
-                  <div className="flex justify-center my-2">
+                  <div className="flex justify-center my-2" ref={unreadDividerRef}>
                     <span className="text-xs px-3 py-1 bg-gray-200 rounded-full text-gray-700">Unread messages</span>
                   </div>
                 )}
