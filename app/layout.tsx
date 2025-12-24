@@ -20,32 +20,30 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://hfconnect.in"),
 
   title: {
-    default: "HansariaConnect – Secure Encrypted Messaging",
+    default: "HansariaConnect – Secure Encrypted Messaging App",
     template: "%s | HansariaConnect",
   },
 
   description:
-    "HansariaConnect is a secure end-to-end encrypted messaging platform designed for privacy, real-time chat, and seamless communication.",
+    "HansariaConnect is a secure, privacy-focused encrypted messaging platform with real-time chat, instant communication, and modern UI. Built for individuals, teams, and enterprises in India.",
 
   keywords: [
     "HansariaConnect",
-    "Hansaria Chat App",
-    "Encrypted Chat",
-    "Secure Messaging India",
-    "Private Messaging",
-    "End-to-End Encryption",
-    "Real-time Chat",
-    "Instant Messaging App",
-    "Made in India Chat App",
-    "Secure Communication HFConnect",
+    "Hansaria Chat",
+    "Encrypted Messaging App",
+    "Secure Chat App India",
+    "E2E Encrypted Chat",
+    "Private Messaging App",
+    "Indian WhatsApp Alternative",
+    "Real-Time Messaging",
+    "Corporate Communication App",
+    "HFConnect",
     "Hansaria Food Connect",
-    "Kolkata Chat App",
-    "Corporate Messaging India",
-    "Privacy-focused Chat",
-    "Modern Messaging Platform",
   ],
 
-  authors: [{ name: "Santu De" }],
+  authors: [{ name: "Santu De", url: "https://hfconnect.in" }],
+  creator: "HansariaConnect",
+  publisher: "HansariaConnect",
 
   robots: {
     index: true,
@@ -53,57 +51,59 @@ export const metadata: Metadata = {
     googleBot: {
       index: true,
       follow: true,
+      maxSnippet: -1,
+      maxImagePreview: "large",
+      maxVideoPreview: -1,
     },
   },
 
   applicationName: "HansariaConnect",
 
   openGraph: {
-    title: "HansariaConnect – Secure Encrypted Messaging",
+    title: "HansariaConnect – Secure Encrypted Messaging App",
     description:
-      "A privacy-first encrypted messaging platform built with real-time messaging and modern UX.",
+      "A privacy-first, secure, encrypted messaging platform built with real-time chat and a modern interface.",
     url: "https://hfconnect.in",
     siteName: "HansariaConnect",
-    type: "website",
     locale: "en_US",
+    type: "website",
     images: [
       {
         url: "/favicon/android-chrome-512x512.png",
         width: 1200,
         height: 630,
-        alt: "HansariaConnect – Secure Messaging",
+        alt: "HansariaConnect Secure Messaging Preview",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "HansariaConnect – Secure Encrypted Messaging",
+    title: "HansariaConnect – Secure Encrypted Messaging App",
     description:
-      "A privacy-first encrypted messaging platform built for modern communication.",
+      "A modern encrypted messaging app designed for privacy, speed, and real-time chat.",
     images: ["/favicon/android-chrome-512x512.png"],
+    creator: "@HansariaConnect",
   },
 
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon/favicon-32x32.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon/favicon-32x32.png", type: "image/png" },
+    ],
     apple: "/favicon/apple-touch-icon.png",
   },
-
-  themeColor: "#0A0A0A",
 
   manifest: "/manifest.json",
 
   alternates: {
     canonical: "https://hfconnect.in",
   },
+
+  themeColor: "#0A0A0A",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <head>
@@ -116,8 +116,26 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
 
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <link rel="icon" href="/favicon/favicon-32x32.png" type="image/png" />
         <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "HansariaConnect",
+              url: "https://hfconnect.in",
+              description:
+                "HansariaConnect is a secure encrypted messaging platform offering private real-time chat.",
+              publisher: {
+                "@type": "Organization",
+                name: "HansariaConnect",
+                logo: "https://hfconnect.in/favicon/android-chrome-512x512.png",
+              },
+            }),
+          }}
+        />
       </head>
 
       <body
