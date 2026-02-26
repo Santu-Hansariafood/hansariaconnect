@@ -8,6 +8,7 @@ import Conversation from "@/models/conversation/Conversation";
 import GroupMessage from "@/models/group/GroupMessage";
 import Group from "@/models/group/Group";
 import { Types } from "mongoose";
+import AccessControl from "@/models/access/AccessControl";
 
 export const config = {
   api: {
@@ -54,6 +55,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           const fromId = new Types.ObjectId(userId);
           const toId = new Types.ObjectId(payload.to);
+          const access = await AccessControl.findOne({ userId: fromId }).lean();
+          const allowAttachments = !!(access as any)?.permissions?.attachments;
+          const isText = String(payload.type) === "text";
+          if (!isText && !allowAttachments) {
+            return cb?.({ ok: false, error: "Attachments not allowed" });
+          }
 
           const doc = await Message.create({
             from: fromId,
@@ -98,6 +105,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const members = group.members || [];
           const isMember = members.some((m: any) => String(m.userId) === userId);
           if (!isMember) return cb?.({ ok: false, error: "Forbidden" });
+          const access = await AccessControl.findOne({ userId: fromId }).lean();
+          const allowAttachments = !!(access as any)?.permissions?.attachments;
+          const isText = String(payload.type) === "text";
+          if (!isText && !allowAttachments) {
+            return cb?.({ ok: false, error: "Attachments not allowed" });
+          }
 
           const msg = await GroupMessage.create({
             groupId,

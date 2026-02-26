@@ -1,12 +1,12 @@
-import type { Metadata } from "next";
-import { Inter, Poppins } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Roboto, Poppins } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext/AppContext";
 
-/* -------------------- Fonts -------------------- */
-const inter = Inter({
+const roboto = Roboto({
   subsets: ["latin"],
-  variable: "--font-inter",
+  weight: ["300", "400", "500", "700", "900"],
+  variable: "--font-roboto",
   display: "swap",
 });
 
@@ -17,7 +17,6 @@ const poppins = Poppins({
   display: "swap",
 });
 
-/* -------------------- Metadata -------------------- */
 export const metadata: Metadata = {
   metadataBase: new URL("https://hfconnect.in"),
 
@@ -96,11 +95,12 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://hfconnect.in",
   },
+};
 
+export const viewport: Viewport = {
   themeColor: "#0A0A0A",
 };
 
-/* -------------------- Root Layout -------------------- */
 export default function RootLayout({
   children,
 }: {
@@ -109,13 +109,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Google Site Verification */}
         <meta
           name="google-site-verification"
           content="KOtoHmfJpZzpPdAhcnsZcPBaO41N8EKdujIWScgtK5E"
         />
 
-        {/* Preconnect Fonts */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
@@ -123,11 +121,9 @@ export default function RootLayout({
           crossOrigin=""
         />
 
-        {/* Favicons */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
 
-        {/* Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -150,7 +146,7 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${inter.variable} ${poppins.variable} bg-neutral-50 text-gray-900 antialiased`}
+        className={`${roboto.variable} ${poppins.variable} bg-neutral-50 text-gray-900 antialiased`}
       >
         <AppProvider>{children}</AppProvider>
       </body>

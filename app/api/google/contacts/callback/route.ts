@@ -31,7 +31,6 @@ export async function GET(req: Request) {
 
   const contactsData = await contactsRes.json()
 
-  // Format contacts
   const importedContacts = (contactsData.connections || []).map((p: any) => ({
     name: p.names?.[0]?.displayName || "Unknown",
     mobiles:
@@ -41,7 +40,6 @@ export async function GET(req: Request) {
     email: p.emailAddresses?.[0]?.value || "",
   }))
 
-  // Optional: Save to DB or return to frontend
   return NextResponse.redirect(
     `/contacts?imported=${encodeURIComponent(JSON.stringify(importedContacts))}`
   )

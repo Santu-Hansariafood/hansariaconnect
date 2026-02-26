@@ -60,6 +60,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [message, setMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [allowAttachments, setAllowAttachments] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -143,6 +144,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     }
     load()
   }, [id])
+  useEffect(() => {
+    let mounted = true
+    const run = async () => {
+      try {
+        const res = await fetch("/api/access/me", { cache: "no-store" })
+        const data = await res.json()
+        if (!mounted) return
+        if (res.ok && data?.permissions) setAllowAttachments(!!data.permissions.attachments)
+      } catch {}
+    }
+    run()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
@@ -622,8 +638,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       >
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           <button
-            onClick={() => setShowMediaPicker((prev) => !prev)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110"
+            onClick={() => allowAttachments && setShowMediaPicker((prev) => !prev)}
+            disabled={!allowAttachments}
+            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110 disabled:opacity-50"
           >
             <ImageIcon className="w-6 h-6 text-gray-600" />
           </button>
@@ -649,7 +666,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           </motion.button>
         </div>
 
-        {showMediaPicker && (
+        {showMediaPicker && allowAttachments && (
           <MediaPicker
             onSelect={handleMediaSelect}
             onClose={() => setShowMediaPicker(false)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { fadeIn } from "@/utils/animations/animations";
 import {
   Palette,
@@ -61,6 +62,22 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
     { value: "text-lg", name: "Large" },
   ];
 
+  const [perm, setPerm] = useState<{ contacts: boolean; groups: boolean; status: boolean; attachments: boolean } | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await fetch("/api/access/me", { cache: "no-store" });
+        const data = await res.json();
+        if (!mounted) return;
+        if (res.ok && data?.permissions) setPerm(data.permissions);
+      } catch {}
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
   return (
     <div className={`min-h-screen ${localTheme?.wallpaper}`}>
       <Navbar user={user} />
@@ -78,6 +95,19 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
           <p className="text-gray-600">
             Customize your HansariaConnect experience
           </p>
+        </motion.div>
+
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+          <div className="mb-2">
+            <h2 className="text-xl font-semibold text-gray-800">Your Access</h2>
+            <p className="text-sm text-gray-600">Features available to you</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`px-4 py-3 rounded-xl border ${perm?.contacts ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Contacts</div>
+            <div className={`px-4 py-3 rounded-xl border ${perm?.groups ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Groups</div>
+            <div className={`px-4 py-3 rounded-xl border ${perm?.status ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Status</div>
+            <div className={`px-4 py-3 rounded-xl border ${perm?.attachments ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Attachments</div>
+          </div>
         </motion.div>
 
         <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
