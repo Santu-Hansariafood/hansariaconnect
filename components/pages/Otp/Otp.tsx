@@ -4,15 +4,17 @@ import { useState, FormEvent } from "react";
 import { motion } from "framer-motion";
 import { ShieldCheck, RotateCcw } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
+import Image from "next/image";
 
 type OtpProps = {
   onVerify: (code: string) => void;
   onResend?: () => void;
   mobile: string;
+  email?: string;
   serverError?: string;
 };
 
-const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile, serverError }) => {
+const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile, email, serverError }) => {
   const [code, setCode] = useState<string>("");
   const [error, setError] = useState<string>("");
 
@@ -21,7 +23,7 @@ const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile, serverError }) =>
     if (/^\d{6}$/.test(code)) {
       onVerify(code);
     } else {
-      setError("Enter the 6-digit code sent to your phone");
+      setError(`Enter the 6-digit code sent to your ${email ? "email" : "phone"}`);
     }
   };
 
@@ -29,11 +31,17 @@ const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile, serverError }) =>
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
       <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.5, delay: 0.2 }} className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full mb-4">
-            <ShieldCheck className="w-10 h-10 text-white" />
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ duration: 0.5, delay: 0.2 }} className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4">
+            <Image
+              src="/logo/logo.png"
+              alt="HansariaConnect Logo"
+              width={80}
+              height={80}
+              className="rounded-full"
+            />
           </motion.div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Verify OTP</h2>
-          <p className="text-gray-600">Sent to {mobile}</p>
+          <p className="text-gray-600">Sent to {email || mobile}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -61,13 +69,6 @@ const Otp: React.FC<OtpProps> = ({ onVerify, onResend, mobile, serverError }) =>
             Verify
           </motion.button>
         </form>
-
-        {/* <div className="mt-6 text-center">
-          <button onClick={onResend} className="inline-flex items-center gap-2 text-emerald-600 hover:text-emerald-700 font-medium">
-            <RotateCcw className="w-4 h-4" />
-            Resend OTP
-          </button>
-        </div> */}
       </motion.div>
     </div>
   );

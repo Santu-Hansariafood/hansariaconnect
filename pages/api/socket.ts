@@ -94,6 +94,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
+      socket.on("message:status", async (payload, cb) => {
+        try {
+          const messageId = new Types.ObjectId(payload.id);
+          const status = payload.status as "sent" | "delivered" | "seen";
+
+          const updatedMessage = await Message.findByIdAndUpdate(
+            messageId,
+            { status },
+            { new: true }
+          );
+
+          if (updatedMessage) {
+            // Emit to the sender that the message status has been updated
+            io.to(String(updatedMessage.from)).emit("message:status:update", {
+              id: updatedMessage._id.toString(),
+              status,
+            });
+
+            cb?.({ ok: true, message: updatedMessage });
+          } else {
+            cb?.({ ok: false, error: "Message not found" });
+          }
+        } catch (err: any) {
+          cb?.({ ok: false, error: err.message || "Error updating status" });
+        }
+      });
+
       socket.on("group:message:send", async (payload, cb) => {
         try {
           const fromId = new Types.ObjectId(userId);
@@ -118,6 +145,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             type: payload.type,
             text: payload.text,
             mediaUrl: payload.mediaUrl,
+            fileName: payload.fileName,
+            fileSize: payload.fileSize,
+            duration: payload.duration,
+            linkTitle: payload.linkTitle,
+            linkDescription: payload.linkDescription,
           });
 
           members.forEach((m: any) => {

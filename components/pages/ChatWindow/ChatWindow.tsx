@@ -248,40 +248,99 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     }
   }
 
-  const sendViaRest = async (payload: any) => {
-    try {
-      const res = await fetch(`/api/messages/${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
-      if (res.ok && data?.message) {
-        setChatMessages((prev) => mergeUnique(prev, [data.message]))
-        return true
+  // Generate temporary ID for optimistic updates
+  const generateTempId = () => `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+
+  const sendViaRest = async (payload: any, tempMessage?: any) => {
+    return new Promise<boolean>(async (resolve) => {
+      try {
+        const res = await fetch(`/api/messages/${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json()
+        if (res.ok && data?.message) {
+          if (tempMessage) {
+            // Replace temporary message with real one
+            setChatMessages((prev) =>
+              prev.map((m: any) =>
+                (m?._id?.toString?.() === tempMessage._id.toString() ? data.message : m
+              )
+            ))
+          } else {
+            setChatMessages((prev) => mergeUnique(prev, [data.message]))
+          }
+          resolve(true)
+          return
+        }
+        if (!res.ok && tempMessage) {
+          // Mark temporary message as failed
+          setChatMessages((prev) =>
+            prev.map((m: any) =>
+              (m?._id?.toString?.() === tempMessage._id.toString()
+                ? { ...m, status: "failed" }
+                : m
+            )
+          ))
+        }
+        resolve(false)
+      } catch {
+        if (tempMessage) {
+          setChatMessages((prev) =>
+            prev.map((m: any) =>
+              (m?._id?.toString?.() === tempMessage._id.toString()
+                ? { ...m, status: "failed" }
+                : m
+            )
+          ))
+        }
+        resolve(false)
       }
-      if (!res.ok) {
-        const err = data?.error || "Send failed"
-        setShowMediaPicker(false)
-      }
-    } catch {}
-    return false
+    })
   }
 
-  const sendViaSocket = (payload: any) => {
+  const sendViaSocket = (payload: any, tempMessage?: any) => {
     return new Promise<boolean>((resolve) => {
       if (!socket) return resolve(false)
       try {
         socket.emit("message:send", { to: id, ...payload }, (ack: any) => {
           if (ack?.ok && ack.message) {
-            setChatMessages((prev) => mergeUnique(prev, [ack.message]))
+            if (tempMessage) {
+              // Replace temporary message with real one
+              setChatMessages((prev) =>
+                prev.map((m: any) =>
+                  (m?._id?.toString?.() === tempMessage._id.toString() ? ack.message : m
+                )
+              ))
+            } else {
+              setChatMessages((prev) => mergeUnique(prev, [ack.message]))
+            }
             resolve(true)
           } else {
+            if (tempMessage) {
+              setChatMessages((prev) =>
+                prev.map((m: any) =>
+                  (m?._id?.toString?.() === tempMessage._id.toString()
+                    ? { ...m, status: "failed" }
+                    : m
+                )
+              ))
+            }
             resolve(false)
           }
         })
       } catch {
+        if (tempMessage) {
+          setChatMessages((prev) =>
+            prev.map((m: any) =>
+              (m?._id?.toString?.() === tempMessage._id.toString()
+                ? { ...m, status: "failed" }
+                : m
+            )
+          ))
+        }
         resolve(false)
       }
     })
@@ -291,18 +350,66 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     const text = message.trim()
     if (!text) return
     const payload = { type: "text", text }
-    const okSocket = await sendViaSocket(payload)
+
+    // Create optimistic message
+    const tempId = generateTempId()
+    const optimisticMessage = {
+      _id: tempId,
+      from: user.id,
+      to: id,
+      type: payload.type,
+      text: payload.text,
+      status: "sending",
+      createdAt: new Date(),
+    }
+
+    setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]))
+    setMessage("") // Clear input immediately for better UX
+
+    // Try socket first
+    const okSocket = await sendViaSocket(payload, optimisticMessage)
     if (okSocket) {
-      setMessage("")
       return
     }
-    const okRest = await sendViaRest(payload)
-    if (okRest) setMessage("")
+
+    // Fallback to REST
+    await sendViaRest(payload, optimisticMessage)
   };
 
   const handleMediaSelect = async (fileOrData: any, type: string) => {
     setShowMediaPicker(false)
-    if (!socket) return
+    
+    // Helper function to send media with optimistic update
+    const sendMediaWithOptimistic = async (payload: any) => {
+      const tempId = generateTempId()
+      const optimisticMessage = {
+        _id: tempId,
+        from: user.id,
+        to: id,
+        type: payload.type,
+        text: payload.text,
+        mediaUrl: payload.mediaUrl,
+        fileName: payload.fileName,
+        fileSize: payload.fileSize,
+        duration: payload.duration,
+        linkTitle: payload.linkTitle,
+        linkDescription: payload.linkDescription,
+        status: "sending",
+        createdAt: new Date(),
+      }
+
+      setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]))
+
+      // Try socket first
+      if (socket) {
+        const okSocket = await sendViaSocket(payload, optimisticMessage)
+        if (okSocket) return
+      }
+
+      // Fallback to REST
+      await sendViaRest(payload, optimisticMessage)
+    }
+
     if (type === "image" || type === "video") {
       if (fileOrData instanceof File) {
         const fd = new FormData()
@@ -313,19 +420,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           const data = await res.json()
           if (data?.url) {
             const payload = { type: "image", mediaUrl: data.url }
-            const okSocket = await sendViaSocket(payload)
-            if (!okSocket) await sendViaRest(payload)
+            await sendMediaWithOptimistic(payload)
           }
         } catch {}
       } else {
         const payload = { type, mediaUrl: fileOrData.url }
-        const okSocket = await sendViaSocket(payload)
-        if (!okSocket) await sendViaRest(payload)
+        await sendMediaWithOptimistic(payload)
       }
     } else if (type === "link") {
       const payload = { type: "link", text: fileOrData.url, mediaUrl: fileOrData.url }
-      const okSocket = await sendViaSocket(payload)
-      if (!okSocket) await sendViaRest(payload)
+      await sendMediaWithOptimistic(payload)
     } else if (type === "voice") {
       if (fileOrData instanceof File) {
         const fd = new FormData()
@@ -336,8 +440,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           const data = await res.json()
           if (data?.url) {
             const payload = { type: "voice", mediaUrl: data.url }
-            const okSocket = await sendViaSocket(payload)
-            if (!okSocket) await sendViaRest(payload)
+            await sendMediaWithOptimistic(payload)
           }
         } catch {}
       }
@@ -350,9 +453,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
           const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
           const data = await res.json()
           if (data?.url) {
-            const payload = { type, mediaUrl: data.url, fileName: fileOrData.name, fileSize: `${(fileOrData.size / (1024*1024)).toFixed(2)} MB` }
-            const okSocket = await sendViaSocket(payload)
-            if (!okSocket) await sendViaRest(payload)
+            const payload = { 
+              type, 
+              mediaUrl: data.url, 
+              fileName: fileOrData.name, 
+              fileSize: `${(fileOrData.size / (1024*1024)).toFixed(2)} MB` 
+            }
+            await sendMediaWithOptimistic(payload)
           }
         } catch {}
       }

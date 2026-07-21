@@ -10,6 +10,7 @@ const Otp = dynamic(() => import("@/components/pages/Otp/Otp"), { ssr: false });
 function VerifyOtpInner() {
   const searchParams = useSearchParams();
   const mobile = searchParams?.get("mobile") ?? "";
+  const email = searchParams?.get("email") ?? "";
   const { setUser } = useApp();
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -57,20 +58,11 @@ function VerifyOtpInner() {
     [mobile, setUser, router]
   );
 
-  const handleResend = useCallback(async () => {
-    await fetch("/api/auth/login", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mobile }),
-    });
-  }, [mobile]);
-
   return (
     <Otp
       mobile={mobile}
+      email={email || undefined}
       onVerify={handleVerify}
-      onResend={handleResend}
       serverError={serverError}
     />
   );

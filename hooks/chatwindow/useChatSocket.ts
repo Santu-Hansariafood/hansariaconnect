@@ -14,10 +14,43 @@ export const useChatSocket = (
       try { await fetch('/api/socket') } catch {}
       const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
       const transports = isVercel ? ["polling"] : ["websocket", "polling"]
-      s = io({ path: "/api/socket", transports, withCredentials: true })
+      
+      s = io({ 
+        path: "/api/socket", 
+        transports, 
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        randomizationFactor: 0.5,
+        timeout: 20000,
+      })
+      
       setSocket(s)
+      
+      s.on("connect", () => {
+        console.log("Socket connected")
+      })
+
+      s.on("disconnect", (reason: string) => {
+        console.log("Socket disconnected:", reason)
+      })
+
+      s.on("connect_error", (err: any) => {
+        console.error("Socket connection error:", err)
+      })
+
+      s.on("reconnect_attempt", (attemptNumber: number) => {
+        console.log(`Socket reconnecting, attempt ${attemptNumber}`)
+      })
+
+      s.on("reconnect", () => {
+        console.log("Socket reconnected successfully")
+      })
+
       s.on("message:new", (msg: any) => {
-        if (msg?.from?.toString?.() === id) {
+        if (msg?.from?.toString?.() === id || String(msg?.from) === id) {
           setChatMessages((prev) => mergeUnique(prev, [msg]))
           try {
             s.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {
@@ -57,10 +90,20 @@ export const useChatSocket = (
           } catch {}
         }
       })
+
+      s.on("message:status:update", (data: any) => {
+        if (data?.id) {
+          setChatMessages((prev) => prev.map((m: any) => {
+            const idStr = m?._id?.toString?.()
+            if (idStr && idStr === data.id) return { ...m, status: data.status }
+            return m
+          }))
+        }
+      })
     }
     connect()
     return () => { if (s) s.disconnect() }
-  }, [id])
+  }, [id, setChatMessages, mergeUnique])
 
   return socket
 }

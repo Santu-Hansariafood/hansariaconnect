@@ -33,7 +33,7 @@ interface Message {
   linkTitle?: string
   linkDescription?: string
   timestamp: string | Date
-  status?: "sent" | "delivered" | "seen"
+  status?: "sent" | "delivered" | "seen" | "sending" | "failed"
   duration?: number
 }
 
@@ -334,6 +334,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               </span>
               {isSent && (
                 <span className="flex items-center">
+                  {message.status === "sending" && (
+                    <div className="w-3 h-3 border-2 border-white/40 border-t-white/80 rounded-full animate-spin" />
+                  )}
+                  {message.status === "failed" && (
+                    <span className="text-red-300 text-xs">Failed</span>
+                  )}
                   {message.status === "sent" && (
                     <Check className="w-3 h-3 text-white/60" />
                   )}
