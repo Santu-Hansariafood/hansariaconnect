@@ -33,4 +33,8 @@ const MessageSchema = new Schema<IMessage>(
   { timestamps: true }
 )
 
+// Add indexes for faster querying
+MessageSchema.index({ from: 1, to: 1, createdAt: -1 })
+MessageSchema.index({ to: 1, createdAt: -1 })
+
 export default mongoose.models.Message || mongoose.model<IMessage>("Message", MessageSchema)

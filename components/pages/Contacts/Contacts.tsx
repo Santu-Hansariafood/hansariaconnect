@@ -36,11 +36,17 @@ type Contact = {
 
 type Props = { user: User; theme: Theme }
 
+// Extend Contact type to include share links
+interface ContactWithLinks extends Contact {
+  shareLinks?: { wa: string; fb: string; x: string; sms: string }
+  shareLinksLoading?: boolean
+}
+
 export default function Contacts({ user, theme }: Props) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([])
+  const [contacts, setContacts] = useState<ContactWithLinks[]>([])
+  const [filteredContacts, setFilteredContacts] = useState<ContactWithLinks[]>([])
   const [manageContact, setManageContact] = useState<Contact | null>(null)
 
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -52,6 +58,94 @@ export default function Contacts({ user, theme }: Props) {
 
   const [inviteLoading, setInviteLoading] = useState<string>("")
   const [inviteMessage, setInviteMessage] = useState<string>("")
+  const [syncing, setSyncing] = useState(false)
+
+  // Function to load share links for a contact
+  const loadShareLinks = async (contactId: string) => {
+    setContacts((prev) =>
+      prev.map((c) =>
+        c.id === contactId ? { ...c, shareLinksLoading: true } : c
+      )
+    )
+
+    const contact = contacts.find((c) => c.id === contactId)
+    if (!contact) return
+
+    const origin = typeof window !== "undefined"
+      ? `${window.location.protocol}//${window.location.host}`
+      : ""
+
+    // Get personalized SMS text from API
+    let text = `Welcome to HansariaConnect! Login here: ${origin}/login`
+    try {
+      const res = await fetch("/api/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mobiles: [contact.mobile] }),
+      })
+      const data = await res.json()
+      if (data.smsText) text = data.smsText
+    } catch {}
+
+    const encoded = encodeURIComponent(text)
+    const encodedUrl = encodeURIComponent(origin + "/login")
+
+    const shareLinks = {
+      wa: `https://wa.me/?text=${encoded}`,
+      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encoded}`,
+      x: `https://twitter.com/intent/tweet?text=${encoded}&url=${encodedUrl}`,
+      sms: `sms:${contact.mobile}?&body=${encoded}`,
+    }
+
+    setContacts((prev) =>
+      prev.map((c) =>
+        c.id === contactId ? { ...c, shareLinks, shareLinksLoading: false } : c
+      )
+    )
+  }
+
+  // Auto sync Google Contacts on mount if tokens exist
+  useEffect(() => {
+    const autoSync = async () => {
+      setSyncing(true)
+      try {
+        await fetch("/api/google/contacts/sync", {
+          method: "POST",
+          credentials: "include",
+        })
+        // Refresh contacts list
+        const res = await fetch("/api/contacts", { cache: "no-store", credentials: "include" })
+        const data = await res.json()
+
+        if (Array.isArray(data?.contacts)) {
+          const mapped = data.contacts.map((c: any) => ({
+            id: c._id,
+            name: (c.registeredProfile?.name || c.name),
+            mobile: c.mobiles?.[0] || "",
+            avatar:
+              c.registeredProfile?.photo || c.avatar ||
+              "/logo/logo.png",
+            pinned: false,
+            blocked: false,
+            lastMessageTime: c.updatedAt || c.createdAt || "",
+            mobiles: c.mobiles || [],
+            email: c.email || "",
+            registered: !!c.registered,
+            registeredUserId: c.registeredUserId || "",
+            registeredProfile: c.registeredProfile || null,
+          }))
+
+          setContacts(mapped)
+        }
+      } catch (err) {
+        // Ignore errors (e.g., no tokens)
+      } finally {
+        setSyncing(false)
+      }
+    }
+    autoSync()
+  }, [])
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -106,25 +200,6 @@ export default function Contacts({ user, theme }: Props) {
 
     setFilteredContacts(filtered)
   }, [contacts, searchQuery])
-
-  const buildShareLinks = (contact: Contact) => {
-    const origin = typeof window !== "undefined"
-      ? `${window.location.protocol}//${window.location.host}`
-      : ""
-
-    const loginUrl = `${origin}/login`
-    const text = `Welcome to HansariaConnect! Login here: ${loginUrl}`
-
-    const encoded = encodeURIComponent(text)
-    const encodedUrl = encodeURIComponent(loginUrl)
-
-    return {
-      wa: `https://wa.me/?text=${encoded}`,
-      fb: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}&quote=${encoded}`,
-      x: `https://twitter.com/intent/tweet?text=${encoded}&url=${encodedUrl}`,
-      sms: `sms:${contact.mobile}?&body=${encoded}`,
-    }
-  }
 
   const submitCreate = async () => {
     setError("")
@@ -186,13 +261,21 @@ export default function Contacts({ user, theme }: Props) {
           <div className="flex items-center justify-between">
             <h1 className={`text-3xl font-bold ${theme.textSize}`}>Contacts</h1>
 
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-5 py-2 rounded-xl text-white font-medium shadow"
-              style={{ backgroundColor: theme.primary }}
-            >
-              + New Contact
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => window.location.href = "/api/google/contacts/auth"}
+                className="px-4 py-2 rounded-xl text-white font-medium shadow bg-blue-600 hover:bg-blue-700"
+              >
+                Import Google Contacts
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-5 py-2 rounded-xl text-white font-medium shadow"
+                style={{ backgroundColor: theme.primary }}
+              >
+                + New Contact
+              </button>
+            </div>
           </div>
 
           <SearchBar
@@ -208,7 +291,6 @@ export default function Contacts({ user, theme }: Props) {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6"
         >
           {filteredContacts.map((c) => {
-            const links = buildShareLinks(c)
             return (
               <motion.div key={c.id} {...fadeIn}>
                 <div
@@ -266,26 +348,35 @@ export default function Contacts({ user, theme }: Props) {
                   ) : (
                     <>
                       <button
-                        onClick={() => setInviteMessage("Invitation prepared.")}
+                        onClick={() => {
+                          // Load share links when invite button is clicked
+                          if (!c.shareLinks && !c.shareLinksLoading) {
+                            loadShareLinks(c.id)
+                          }
+                          setInviteMessage("Invitation prepared.")
+                        }}
                         className="w-full py-2 bg-gray-800 text-white rounded-xl font-medium hover:bg-black"
+                        disabled={c.shareLinksLoading}
                       >
-                        Invite
+                        {c.shareLinksLoading ? "Preparing invite..." : "Invite"}
                       </button>
 
-                      <div className="flex gap-3 mt-3">
-                        <Link href={links.wa} target="_blank" className="p-2 bg-green-500 rounded-full text-white">
-                          <FaWhatsapp />
-                        </Link>
-                        <Link href={links.fb} target="_blank" className="p-2 bg-blue-600 rounded-full text-white">
-                          <FaFacebookF />
-                        </Link>
-                        <Link href={links.x} target="_blank" className="p-2 bg-black rounded-full text-white">
-                          <FaTwitter />
-                        </Link>
-                        <Link href={links.sms} className="p-2 bg-gray-500 rounded-full text-white">
-                          <FaSms />
-                        </Link>
-                      </div>
+                      {c.shareLinks && (
+                        <div className="flex gap-3 mt-3">
+                          <Link href={c.shareLinks.wa} target="_blank" className="p-2 bg-green-500 rounded-full text-white">
+                            <FaWhatsapp />
+                          </Link>
+                          <Link href={c.shareLinks.fb} target="_blank" className="p-2 bg-blue-600 rounded-full text-white">
+                            <FaFacebookF />
+                          </Link>
+                          <Link href={c.shareLinks.x} target="_blank" className="p-2 bg-black rounded-full text-white">
+                            <FaTwitter />
+                          </Link>
+                          <Link href={c.shareLinks.sms} className="p-2 bg-gray-500 rounded-full text-white">
+                            <FaSms />
+                          </Link>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

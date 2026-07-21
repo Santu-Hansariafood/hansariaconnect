@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Phone, User, Mail, Calendar, Check, X } from "lucide-react";
+import { Phone, User, Mail, Calendar, Check, X, QrCode, RefreshCw } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 import Image from "next/image";
+import QRCode from "react-qr-code";
 
 const Login = () => {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "scan">("login");
   
   // Login form state
   const [mobile, setMobile] = useState("");
@@ -23,6 +24,59 @@ const Login = () => {
   const [sex, setSex] = useState<"male" | "female" | "other" | "">("");
   const [dob, setDob] = useState("");
   const [terms, setTerms] = useState(false);
+
+  // Scan-to-login state
+  const [scanToken, setScanToken] = useState<string | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
+
+  const generateScanToken = async () => {
+    setScanLoading(true);
+    try {
+      const res = await fetch("/api/auth/scan/generate", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setScanToken(data.token);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode === "scan") {
+      generateScanToken();
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (!scanToken) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/auth/scan/generate?token=${scanToken}`);
+        const data = await res.json();
+
+        if (data.success && data.ready && data.mobile) {
+          // Now verify the token
+          const verifyRes = await fetch("/api/auth/scan/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: scanToken }),
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyData.success) {
+            router.push("/");
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [scanToken, router]);
 
   const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -140,6 +194,16 @@ const Login = () => {
             Login
           </button>
           <button
+            onClick={() => { setMode("scan"); setError(""); }}
+            className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
+              mode === "scan" 
+                ? "bg-white shadow-md text-emerald-600" 
+                : "text-gray-500"
+            }`}
+          >
+            Scan to Login
+          </button>
+          <button
             onClick={() => { setMode("register"); setError(""); }}
             className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
               mode === "register" 
@@ -181,6 +245,35 @@ const Login = () => {
               {loading ? "Sending OTP..." : "Continue"}
             </motion.button>
           </form>
+        ) : mode === "scan" ? (
+          <div className="space-y-6 text-center">
+            <div className="p-6 bg-gray-50 rounded-2xl">
+              {scanLoading || !scanToken ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <RefreshCw className="w-12 h-12 text-gray-400 animate-spin" />
+                  <p className="mt-4 text-gray-500">Generating QR code...</p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  <QRCode
+                    value={`hansaria://scan?token=${scanToken}`}
+                    size={256}
+                    level="H"
+                  />
+                  <p className="mt-4 text-gray-600">Scan this QR code from your logged-in HansariaConnect app</p>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                generateScanToken();
+              }}
+              className="flex items-center justify-center gap-2 w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh QR Code
+            </button>
+          </div>
         ) : (
           <form onSubmit={handleRegisterSubmit} className="space-y-4">
             <div>

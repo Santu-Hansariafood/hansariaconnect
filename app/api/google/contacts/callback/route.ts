@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { connectDB } from "@/lib/db/db"
+import User from "@/models/user/User"
+import Contact from "@/models/contact/Contact"
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -22,6 +26,42 @@ export async function GET(req: Request) {
   if (!token.access_token)
     return NextResponse.json({ error: "Token error" }, { status: 400 })
 
+  // Get user from session
+  const cookieStore = await cookies()
+  const sessionCookie = cookieStore.get("user_session")?.value
+  if (!sessionCookie) {
+    return NextResponse.redirect("/login")
+  }
+
+  let session
+  try {
+    session = JSON.parse(sessionCookie)
+  } catch {
+    return NextResponse.redirect("/login")
+  }
+
+  if (!session?.id) {
+    return NextResponse.redirect("/login")
+  }
+
+  await connectDB()
+
+  // Save tokens to user
+  const user = await User.findById(session.id)
+  if (!user) {
+    return NextResponse.redirect("/login")
+  }
+
+  user.googleAccessToken = token.access_token
+  if (token.refresh_token) {
+    user.googleRefreshToken = token.refresh_token
+  }
+  if (token.expires_in) {
+    user.googleTokenExpiry = Date.now() + (token.expires_in * 1000)
+  }
+  await user.save()
+
+  // Fetch and import contacts
   const contactsRes = await fetch(
     "https://people.googleapis.com/v1/people/me/connections?personFields=names,phoneNumbers,emailAddresses",
     {
@@ -30,7 +70,6 @@ export async function GET(req: Request) {
   )
 
   const contactsData = await contactsRes.json()
-
   const importedContacts = (contactsData.connections || []).map((p: any) => ({
     name: p.names?.[0]?.displayName || "Unknown",
     mobiles:
@@ -40,7 +79,25 @@ export async function GET(req: Request) {
     email: p.emailAddresses?.[0]?.value || "",
   }))
 
-  return NextResponse.redirect(
-    `/contacts?imported=${encodeURIComponent(JSON.stringify(importedContacts))}`
-  )
+  // Save contacts to DB (avoid duplicates by checking mobile)
+  for (const contact of importedContacts) {
+    const hasValidMobile = contact.mobiles?.some((m: string) => m.length === 10)
+    if (!hasValidMobile) continue
+
+    // Check if contact already exists
+    const existing = await Contact.findOne({
+      userId: user._id,
+      $or: contact.mobiles.map((m: string) => ({ mobiles: { $in: [m] } }))
+    })
+    if (existing) continue
+
+    await Contact.create({
+      userId: user._id,
+      name: contact.name,
+      mobiles: contact.mobiles,
+      email: contact.email,
+    })
+  }
+
+  return NextResponse.redirect("/contacts")
 }

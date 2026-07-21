@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { connectDB } from "@/lib/db/db";
+import User from "@/models/user/User";
+import Profile from "@/models/profile/Profile";
 
 interface InviteRequestBody {
   mobiles: Array<string | number>;
@@ -34,7 +37,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const name = typeof body.name === "string" ? body.name.trim() : "";
+    await connectDB();
+
+    // Get sender's info
+    const user = await User.findById(session.id);
+    const profile = await Profile.findOne({ userId: session.id });
+    const senderName = profile?.name || user?.name || "Someone";
+    const senderMobile = user?.mobile || "";
 
     const cleanedMobiles = body.mobiles
       .map((val) => String(val).replace(/\D/g, ""))
@@ -44,12 +53,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No valid mobile numbers provided" }, { status: 400 });
     }
 
+    // Build SMS text with sender's info
+    const origin = process.env.NEXTAUTH_URL || "https://hansariaconnect.com";
+    const loginUrl = `${origin}/login`;
+    const smsText = `Hi, ${senderName}${senderMobile ? ` (+91${senderMobile})` : ""} has invited you to join HansariaConnect! Login here: ${loginUrl}`;
+
     return NextResponse.json(
       {
         success: true,
         invitedCount: cleanedMobiles.length,
         invitedMobiles: cleanedMobiles,
-        name: name || null,
+        smsText,
       },
       { status: 200 }
     );

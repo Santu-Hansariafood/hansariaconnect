@@ -106,10 +106,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ peer
       sort = { createdAt: -1 };
     }
 
+    // Use lean() for faster querying and select only required fields
     const docs =
       fetchAll
-        ? await Message.find(query).sort({ createdAt: 1 })
-        : await Message.find(query).sort(sort).limit(limit);
+        ? await Message.find(query).sort({ createdAt: 1 }).lean()
+        : await Message.find(query).sort(sort).limit(limit).lean();
 
     const ordered = (fetchLast && !fetchAll) || before ? docs.reverse() : docs;
 

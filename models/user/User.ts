@@ -7,6 +7,9 @@ export interface IUser extends Document {
   sex?: "male" | "female" | "other";
   dateOfBirth?: Date;
   termsAccepted?: boolean;
+  googleAccessToken?: string;
+  googleRefreshToken?: string;
+  googleTokenExpiry?: number;
   createdAt: Date;
 }
 
@@ -18,6 +21,9 @@ const UserSchema = new Schema<IUser>(
     sex: { type: String, enum: ["male", "female", "other"] },
     dateOfBirth: { type: Date },
     termsAccepted: { type: Boolean, default: false },
+    googleAccessToken: { type: String },
+    googleRefreshToken: { type: String },
+    googleTokenExpiry: { type: Number },
   },
   { timestamps: true }
 );
