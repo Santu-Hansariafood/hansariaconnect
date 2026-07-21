@@ -3,6 +3,20 @@ import crypto from "crypto"
 
 export const runtime = "nodejs"
 
+// Allowed file types and extensions
+const ALLOWED_MIME_TYPES = [
+  "image/",
+  "video/",
+  "audio/",
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]
+
+const BLOCKED_EXTENSIONS = [
+  ".zip", ".rar", ".7z", ".apk", ".exe", ".bat", ".cmd", ".sh", ".dll", ".sys", ".msi"
+]
+
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData()
@@ -11,6 +25,31 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
+    }
+
+    // Validate file type and extension
+    const fileName = file.name.toLowerCase()
+    const fileMime = file.type.toLowerCase()
+
+    // Check blocked extensions first
+    const hasBlockedExtension = BLOCKED_EXTENSIONS.some(ext => fileName.endsWith(ext))
+    if (hasBlockedExtension) {
+      return NextResponse.json({ error: "File type not allowed" }, { status: 400 })
+    }
+
+    // Check allowed mime types
+    const isAllowedMime = ALLOWED_MIME_TYPES.some(type => fileMime.startsWith(type))
+    if (!isAllowedMime) {
+      // Also check if it's an excel/pdf/image/video/audio by extension if mime is missing
+      const isImageByExtension = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", 
+                                 ".pdf", 
+                                 ".xlsx", ".xls",
+                                 ".mp4", ".webm", ".mov",
+                                 ".mp3", ".wav", ".ogg", ".aac"
+                                ].some(ext => fileName.endsWith(ext))
+      if (!isImageByExtension) {
+        return NextResponse.json({ error: "File type not allowed" }, { status: 400 })
+      }
     }
 
     const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME

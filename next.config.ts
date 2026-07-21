@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  compress: true,
+  productionBrowserSourceMaps: false,
+  poweredByHeader: false,
+  generateEtags: true,
+  reactStrictMode: true,
   images: {
     remotePatterns: [
       {
@@ -11,6 +16,12 @@ const nextConfig = {
         hostname: "res.cloudinary.com",
       },
     ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60,
+    unoptimized: false,
+  },
+  experimental: {
+    optimizePackageImports: ["framer-motion", "lucide-react"],
   },
 }
 

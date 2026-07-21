@@ -1,18 +1,12 @@
-"use client"
+import type { Metadata } from "next"
+import LoginClient from "./login-client"
 
-import { useRouter } from "next/navigation"
-import { useApp } from "@/context/AppContext/AppContext"
-import { useEffect } from "react"
-import dynamic from "next/dynamic"
-const Login = dynamic(() => import("@/components/pages/Login/Login"))
+export const metadata: Metadata = {
+  title: "Login – HansariaConnect",
+  description: "Login to HansariaConnect, the secure encrypted messaging app for private conversations.",
+  keywords: ["HansariaConnect login", "secure chat login", "HFConnect login"],
+}
 
 export default function LoginPage() {
-  const { user } = useApp()
-  const router = useRouter()
-
-  useEffect(() => {
-    if (user?.step === "complete") router.push("/profile")
-  }, [user, router])
-
-  return <Login />
+  return <LoginClient />
 }
