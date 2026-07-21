@@ -38,33 +38,48 @@ export async function POST(req: NextRequest) {
     if (messageId && Types.ObjectId.isValid(messageId)) {
       const message = await Message.findById(messageId);
       if (!message) {
-        return NextResponse.json({ error: "Message not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Message not found" },
+          { status: 404 },
+        );
       }
       if (String(message.to) !== String(userId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
       await ReadReceipt.findOneAndUpdate(
         { userId, messageId: new Types.ObjectId(messageId) },
-        { userId, messageId: new Types.ObjectId(messageId), readAt: new Date() },
-        { upsert: true }
+        {
+          userId,
+          messageId: new Types.ObjectId(messageId),
+          readAt: new Date(),
+        },
+        { upsert: true },
       );
     } else if (groupMessageId && Types.ObjectId.isValid(groupMessageId)) {
       await ReadReceipt.findOneAndUpdate(
         { userId, groupMessageId: new Types.ObjectId(groupMessageId) },
-        { userId, groupMessageId: new Types.ObjectId(groupMessageId), readAt: new Date() },
-        { upsert: true }
+        {
+          userId,
+          groupMessageId: new Types.ObjectId(groupMessageId),
+          readAt: new Date(),
+        },
+        { upsert: true },
       );
     } else if (conversationId && Types.ObjectId.isValid(conversationId)) {
       await ReadReceipt.findOneAndUpdate(
         { userId, conversationId: new Types.ObjectId(conversationId) },
-        { userId, conversationId: new Types.ObjectId(conversationId), readAt: new Date() },
-        { upsert: true }
+        {
+          userId,
+          conversationId: new Types.ObjectId(conversationId),
+          readAt: new Date(),
+        },
+        { upsert: true },
       );
     } else if (groupId && Types.ObjectId.isValid(groupId)) {
       await ReadReceipt.findOneAndUpdate(
         { userId, groupId: new Types.ObjectId(groupId) },
         { userId, groupId: new Types.ObjectId(groupId), readAt: new Date() },
-        { upsert: true }
+        { upsert: true },
       );
     } else if (peerId && Types.ObjectId.isValid(peerId)) {
       const a = String(userId);
@@ -72,14 +87,28 @@ export async function POST(req: NextRequest) {
       const userA = a < b ? userId : new Types.ObjectId(peerId);
       const userB = a < b ? new Types.ObjectId(peerId) : userId;
       await connectDB();
-      const conv = await (await import("@/models/conversation/Conversation")).default.findOne({ userA, userB }).lean();
+      const conv = await (
+        await import("@/models/conversation/Conversation")
+      ).default
+        .findOne({ userA, userB })
+        .lean();
       if (!conv) {
-        return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Conversation not found" },
+          { status: 404 },
+        );
       }
       await ReadReceipt.findOneAndUpdate(
-        { userId, conversationId: new Types.ObjectId(String((conv as any)._id)) },
-        { userId, conversationId: new Types.ObjectId(String((conv as any)._id)), readAt: new Date() },
-        { upsert: true }
+        {
+          userId,
+          conversationId: new Types.ObjectId(String((conv as any)._id)),
+        },
+        {
+          userId,
+          conversationId: new Types.ObjectId(String((conv as any)._id)),
+          readAt: new Date(),
+        },
+        { upsert: true },
       );
     } else {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
@@ -133,4 +162,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 
 export async function GET() {
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI
-  const clientId = process.env.GOOGLE_CLIENT_ID
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const clientId = process.env.GOOGLE_CLIENT_ID;
 
   const scope =
-    "https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email"
+    "https://www.googleapis.com/auth/contacts.readonly https://www.googleapis.com/auth/userinfo.email";
 
   const url =
     "https://accounts.google.com/o/oauth2/v2/auth" +
@@ -14,7 +14,7 @@ export async function GET() {
     `&response_type=code` +
     `&scope=${encodeURIComponent(scope)}` +
     "&access_type=offline" +
-    "&prompt=consent"
+    "&prompt=consent";
 
-  return NextResponse.redirect(url)
+  return NextResponse.redirect(url);
 }

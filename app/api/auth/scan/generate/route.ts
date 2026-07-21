@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
-// In-memory store for scan tokens (in production, use Redis or MongoDB with TTL)
 const scanTokens = new Map<
   string,
   {
@@ -12,7 +11,6 @@ const scanTokens = new Map<
   }
 >();
 
-// Cleanup old tokens (older than 5 minutes)
 setInterval(() => {
   const now = Date.now();
   for (const [key, token] of scanTokens) {
@@ -42,7 +40,7 @@ export async function POST(req: NextRequest) {
     console.error("Generate Scan Token Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to generate scan token" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -54,7 +52,7 @@ export async function GET(req: NextRequest) {
   if (!token) {
     return NextResponse.json(
       { success: false, error: "Token required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -62,7 +60,7 @@ export async function GET(req: NextRequest) {
   if (!scanData) {
     return NextResponse.json(
       { success: false, error: "Invalid token" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -70,18 +68,17 @@ export async function GET(req: NextRequest) {
     scanTokens.delete(token);
     return NextResponse.json(
       { success: false, error: "Token expired" },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
   if (scanData.used) {
     return NextResponse.json(
       { success: false, error: "Token already used" },
-      { status: 403 }
+      { status: 403 },
     );
   }
 
-  // If token is linked to a mobile, return that it's ready
   return NextResponse.json({
     success: true,
     ready: !!scanData.mobile,
@@ -90,4 +87,5 @@ export async function GET(req: NextRequest) {
 }
 
 export const getScanToken = (token: string) => scanTokens.get(token);
-export const setScanToken = (token: string, data: any) => scanTokens.set(token, data);
+export const setScanToken = (token: string, data: any) =>
+  scanTokens.set(token, data);

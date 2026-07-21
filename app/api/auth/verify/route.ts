@@ -18,14 +18,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!/^\d{10}$/.test(mobile)) {
       return NextResponse.json(
         { success: false, error: "Invalid mobile number" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!/^\d{6}$/.test(code)) {
       return NextResponse.json(
         { success: false, error: "Invalid OTP format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!sessionCookie) {
       return NextResponse.json(
         { success: false, error: "OTP session not found" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -43,21 +43,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } catch {
       return NextResponse.json(
         { success: false, error: "Invalid OTP session format" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!payload.mobile || !payload.hash || !payload.salt || !payload.exp) {
       return NextResponse.json(
         { success: false, error: "Malformed OTP session" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (Date.now() > payload.exp) {
       const response = NextResponse.json(
         { success: false, error: "OTP expired" },
-        { status: 403 }
+        { status: 403 },
       );
       response.cookies.delete("otp_session");
       return response;
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (payload.mobile !== mobile) {
       return NextResponse.json(
         { success: false, error: "Mobile number mismatch" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (generatedHash !== payload.hash) {
       const response = NextResponse.json(
         { success: false, error: "Incorrect OTP" },
-        { status: 401 }
+        { status: 401 },
       );
       response.cookies.delete("otp_session");
       return response;
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error("OTP Verify Error:", error);
     return NextResponse.json(
       { success: false, error: "Invalid request" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 }

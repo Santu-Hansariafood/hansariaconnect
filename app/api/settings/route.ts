@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     const updated = await Profile.findOneAndUpdate(
       { userId: session.id },
       { $set: updateData },
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     return NextResponse.json({
@@ -94,4 +94,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

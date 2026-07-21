@@ -66,4 +66,3 @@ export interface MessageQuery {
 }
 
 export type MessageSort = Record<string, 1 | -1>;
-

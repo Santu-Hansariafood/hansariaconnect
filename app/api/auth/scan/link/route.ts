@@ -9,14 +9,14 @@ export async function POST(req: NextRequest) {
     if (!token || !mobile) {
       return NextResponse.json(
         { success: false, error: "Token and mobile required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (!/^\d{10}$/.test(mobile)) {
       return NextResponse.json(
         { success: false, error: "Invalid mobile number" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -24,21 +24,21 @@ export async function POST(req: NextRequest) {
     if (!scanData) {
       return NextResponse.json(
         { success: false, error: "Invalid token" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (Date.now() - scanData.createdAt > 5 * 60 * 1000) {
       return NextResponse.json(
         { success: false, error: "Token expired" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (scanData.used) {
       return NextResponse.json(
         { success: false, error: "Token already used" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     console.error("Link Scan Token Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to link token" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

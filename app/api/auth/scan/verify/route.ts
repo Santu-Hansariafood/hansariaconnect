@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!token) {
       return NextResponse.json(
         { success: false, error: "Token required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -19,21 +19,21 @@ export async function POST(req: NextRequest) {
     if (!scanData) {
       return NextResponse.json(
         { success: false, error: "Invalid token" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     if (Date.now() - scanData.createdAt > 5 * 60 * 1000) {
       return NextResponse.json(
         { success: false, error: "Token expired" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     if (scanData.used || !scanData.mobile) {
       return NextResponse.json(
         { success: false, error: "Token not ready or already used" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -44,10 +44,12 @@ export async function POST(req: NextRequest) {
       user = await User.create({ mobile: scanData.mobile });
     }
 
-    // Mark token as used
     setScanToken(token, { ...scanData, used: true });
 
-    const sessionData = JSON.stringify({ id: user._id.toString(), mobile: scanData.mobile });
+    const sessionData = JSON.stringify({
+      id: user._id.toString(),
+      mobile: scanData.mobile,
+    });
 
     const response = NextResponse.json({
       success: true,
@@ -68,7 +70,7 @@ export async function POST(req: NextRequest) {
     console.error("Verify Scan Token Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to verify token" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

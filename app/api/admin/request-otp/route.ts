@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
-import crypto from "crypto"
+import { NextRequest, NextResponse } from "next/server";
+import nodemailer from "nodemailer";
+import crypto from "crypto";
 
-const ADMINS = new Set(["santude1997@gmail.com", "test@gmail.com"])
+const ADMINS = new Set(["santude1997@gmail.com", "test@gmail.com"]);
 
-const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString()
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 const mailTemplate = (otp: string) => `
 <div style="font-family: Inter, Arial, sans-serif; background:#f7fafc; padding:24px">
@@ -19,17 +20,22 @@ const mailTemplate = (otp: string) => `
     </div>
     <div style="background:#f9fafb; padding:16px 24px; color:#6b7280; font-size:12px; text-align:center">HansariaConnect</div>
   </div>
-</div>`
+</div>`;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const body = await req.json()
-    const email = String(body?.email || "").toLowerCase().trim()
+    const body = await req.json();
+    const email = String(body?.email || "")
+      .toLowerCase()
+      .trim();
     if (!email || !ADMINS.has(email)) {
-      return NextResponse.json({ success: false, error: "Not allowed" }, { status: 403 })
+      return NextResponse.json(
+        { success: false, error: "Not allowed" },
+        { status: 403 },
+      );
     }
 
-    const otp = generateOtp()
+    const otp = generateOtp();
 
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST || "smtp.gmail.com",
@@ -39,35 +45,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-    })
+    });
 
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
       to: email,
       subject: "Your Admin OTP",
       html: mailTemplate(otp),
-    })
+    });
 
-    const salt = crypto.randomBytes(16).toString("hex")
-    const hash = crypto.createHash("sha256").update(otp + salt).digest("hex")
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto
+      .createHash("sha256")
+      .update(otp + salt)
+      .digest("hex");
 
     const payload = {
       email,
       hash,
       salt,
       exp: Date.now() + 5 * 60 * 1000,
-    }
+    };
 
-    const response = NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true });
     response.cookies.set("admin_otp_session", JSON.stringify(payload), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: 5 * 60,
-    })
-    return response
+    });
+    return response;
   } catch (e: any) {
-    return NextResponse.json({ success: false, error: e?.message || "Server error" }, { status: 500 })
+    return NextResponse.json(
+      { success: false, error: e?.message || "Server error" },
+      { status: 500 },
+    );
   }
 }

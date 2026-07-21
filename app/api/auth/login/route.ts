@@ -17,7 +17,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!/^\d{10}$/.test(mobile)) {
       return NextResponse.json(
         { success: false, error: "Invalid mobile number" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -27,12 +27,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await client.messages.create({
       body: `Your OTP is: ${otp}`,
-      from: process.env.TWILIO_PHONE_NUMBER!, // your Twilio number
+      from: process.env.TWILIO_PHONE_NUMBER!,
       to: toNumber,
     });
 
     const salt = crypto.randomBytes(16).toString("hex");
-    const hash = crypto.createHash("sha256").update(otp + salt).digest("hex");
+    const hash = crypto
+      .createHash("sha256")
+      .update(otp + salt)
+      .digest("hex");
 
     const payload = {
       mobile,
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error("Twilio Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to send OTP", details: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

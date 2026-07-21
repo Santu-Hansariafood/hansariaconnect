@@ -1,37 +1,41 @@
-import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
-import { connectDB } from "@/lib/db/db"
-import User from "@/models/user/User"
-import Contact from "@/models/contact/Contact"
+import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { connectDB } from "@/lib/db/db";
+import User from "@/models/user/User";
+import Contact from "@/models/contact/Contact";
 
 export async function POST() {
-  const cookieStore = await cookies()
-  const sessionCookie = cookieStore.get("user_session")?.value
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("user_session")?.value;
 
   if (!sessionCookie) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let session
+  let session;
   try {
-    session = JSON.parse(sessionCookie)
+    session = JSON.parse(sessionCookie);
   } catch {
-    return NextResponse.json({ error: "Invalid session" }, { status: 401 })
+    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
   }
 
   if (!session?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await connectDB()
+  await connectDB();
 
-  const user = await User.findById(session.id)
+  const user = await User.findById(session.id);
   if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 })
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  let accessToken = user.googleAccessToken
-  if (!accessToken || (user.googleTokenExpiry && Date.now() > user.googleTokenExpiry - 300000)) { // 5 mins before expiry
+  let accessToken = user.googleAccessToken;
+  if (
+    !accessToken ||
+    (user.googleTokenExpiry && Date.now() > user.googleTokenExpiry - 300000)
+  ) {
+    // 5 mins before expiry
     // Refresh token if needed
     if (user.googleRefreshToken) {
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
@@ -43,20 +47,23 @@ export async function POST() {
           client_secret: process.env.GOOGLE_CLIENT_SECRET!,
           grant_type: "refresh_token",
         }),
-      })
-      const tokenData = await tokenRes.json()
+      });
+      const tokenData = await tokenRes.json();
       if (tokenData.access_token) {
-        accessToken = tokenData.access_token
-        user.googleAccessToken = accessToken
+        accessToken = tokenData.access_token;
+        user.googleAccessToken = accessToken;
         if (tokenData.expires_in) {
-          user.googleTokenExpiry = Date.now() + (tokenData.expires_in * 1000)
+          user.googleTokenExpiry = Date.now() + tokenData.expires_in * 1000;
         }
-        await user.save()
+        await user.save();
       } else {
-        return NextResponse.json({ error: "Token expired, re-authenticate" }, { status: 401 })
+        return NextResponse.json(
+          { error: "Token expired, re-authenticate" },
+          { status: 401 },
+        );
       }
     } else {
-      return NextResponse.json({ error: "No tokens found" }, { status: 404 })
+      return NextResponse.json({ error: "No tokens found" }, { status: 404 });
     }
   }
 
@@ -65,37 +72,38 @@ export async function POST() {
     "https://people.googleapis.com/v1/people/me/connections?personFields=names,phoneNumbers,emailAddresses",
     {
       headers: { Authorization: `Bearer ${accessToken}` },
-    }
-  )
+    },
+  );
 
-  const contactsData = await contactsRes.json()
+  const contactsData = await contactsRes.json();
   const importedContacts = (contactsData.connections || []).map((p: any) => ({
     name: p.names?.[0]?.displayName || "Unknown",
     mobiles:
-      p.phoneNumbers?.map((ph: any) =>
-        (ph.value || "").replace(/\D/g, "")
-      ) || [],
+      p.phoneNumbers?.map((ph: any) => (ph.value || "").replace(/\D/g, "")) ||
+      [],
     email: p.emailAddresses?.[0]?.value || "",
-  }))
+  }));
 
   // Save contacts to DB
   for (const contact of importedContacts) {
-    const hasValidMobile = contact.mobiles?.some((m: string) => m.length === 10)
-    if (!hasValidMobile) continue
+    const hasValidMobile = contact.mobiles?.some(
+      (m: string) => m.length === 10,
+    );
+    if (!hasValidMobile) continue;
 
     const existing = await Contact.findOne({
       userId: user._id,
-      $or: contact.mobiles.map((m: string) => ({ mobiles: { $in: [m] } }))
-    })
-    if (existing) continue
+      $or: contact.mobiles.map((m: string) => ({ mobiles: { $in: [m] } })),
+    });
+    if (existing) continue;
 
     await Contact.create({
       userId: user._id,
       name: contact.name,
       mobiles: contact.mobiles,
       email: contact.email,
-    })
+    });
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true });
 }

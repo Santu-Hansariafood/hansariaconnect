@@ -83,10 +83,10 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const conversations = (await Conversation.find({
-  $or: [{ userA: userId }, { userB: userId }],
-})
-  .sort({ lastMessageAt: -1 })
-  .lean()) as unknown as IConversation[];
+      $or: [{ userA: userId }, { userB: userId }],
+    })
+      .sort({ lastMessageAt: -1 })
+      .lean()) as unknown as IConversation[];
 
     if (!conversations.length) {
       return NextResponse.json({ conversations: [] });
@@ -139,7 +139,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

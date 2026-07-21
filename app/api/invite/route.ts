@@ -34,7 +34,10 @@ export async function POST(req: NextRequest) {
     const body: InviteRequestBody = await req.json().catch(() => null);
 
     if (!body || !Array.isArray(body.mobiles)) {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
     }
 
     await connectDB();
@@ -50,7 +53,10 @@ export async function POST(req: NextRequest) {
       .filter((num) => /^\d{10}$/.test(num));
 
     if (cleanedMobiles.length === 0) {
-      return NextResponse.json({ error: "No valid mobile numbers provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No valid mobile numbers provided" },
+        { status: 400 },
+      );
     }
 
     // Build SMS text with sender's info
@@ -65,9 +71,8 @@ export async function POST(req: NextRequest) {
         invitedMobiles: cleanedMobiles,
         smsText,
       },
-      { status: 200 }
+      { status: 200 },
     );
-
   } catch (error: unknown) {
     const err = error instanceof Error ? error.message : "Server error";
     return NextResponse.json({ error: err }, { status: 500 });

@@ -15,13 +15,15 @@ const parseSession = (req: NextRequest) => {
   }
 };
 
-const resolveParams = async (params: { id: string } | Promise<{ id: string }>) => {
+const resolveParams = async (
+  params: { id: string } | Promise<{ id: string }>,
+) => {
   return params instanceof Promise ? await params : params;
 };
 
 export async function POST(
   req: NextRequest,
-  context: { params: { id: string } | Promise<{ id: string }> }
+  context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
     const session = parseSession(req);
@@ -64,4 +66,3 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

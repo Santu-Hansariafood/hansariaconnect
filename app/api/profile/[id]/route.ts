@@ -22,7 +22,7 @@ const getSession = (req: NextRequest): SessionData | null => {
 
 export async function GET(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await context.params;
@@ -38,14 +38,14 @@ export async function GET(
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function POST(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await context.params;
@@ -69,21 +69,21 @@ export async function POST(
     const updated = await Profile.findOneAndUpdate(
       { userId: session.id },
       updateData,
-      { new: true, upsert: true }
+      { new: true, upsert: true },
     );
 
     return NextResponse.json({ profile: updated });
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await context.params;
@@ -99,7 +99,7 @@ export async function DELETE(
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

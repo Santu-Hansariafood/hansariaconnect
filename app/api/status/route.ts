@@ -67,12 +67,15 @@ export async function GET(req: NextRequest) {
       statusMap[uid].push({
         id: String(status._id),
         userId: uid,
-        name: (profile as any)?.name || (status as any).userId?.mobile || "User",
+        name:
+          (profile as any)?.name || (status as any).userId?.mobile || "User",
         avatar: (profile as any)?.photo || "",
         media: status.media,
         type: status.type,
         views: (status.views || []).length,
-        hasViewed: (status.views || []).some((v: any) => String(v) === String(userId)),
+        hasViewed: (status.views || []).some(
+          (v: any) => String(v) === String(userId),
+        ),
         timestamp: status.createdAt,
         expiresAt: status.expiresAt,
       });
@@ -119,11 +122,13 @@ export async function POST(req: NextRequest) {
       expiresAt,
     });
 
-    return NextResponse.json({ status: { id: String(status._id), ...status.toObject() } }, { status: 201 });
+    return NextResponse.json(
+      { status: { id: String(status._id), ...status.toObject() } },
+      { status: 201 },
+    );
   } catch (error: unknown) {
     console.error("POST /api/status error →", error);
     const message = error instanceof Error ? error.message : "Server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

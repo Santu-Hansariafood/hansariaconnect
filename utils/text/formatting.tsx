@@ -4,7 +4,7 @@ import harmfulWordsJson from "@/data/harmfulWords.json";
 const harmfulWords: string[] = harmfulWordsJson.words;
 
 export const detectHarmfulWords = (text: string) => {
-  const tokens = text.toLowerCase().split(/\W+/); // split into words only
+  const tokens = text.toLowerCase().split(/\W+/);
 
   const found = harmfulWords.filter((hw) =>
     tokens.includes(hw.toLowerCase())

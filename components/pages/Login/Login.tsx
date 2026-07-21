@@ -11,13 +11,9 @@ import QRCode from "react-qr-code";
 const Login = () => {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register" | "scan">("login");
-  
-  // Login form state
-  const [mobile, setMobile] = useState("");
+    const [mobile, setMobile] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // Register form state
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [registerMobile, setRegisterMobile] = useState("");
@@ -25,7 +21,6 @@ const Login = () => {
   const [dob, setDob] = useState("");
   const [terms, setTerms] = useState(false);
 
-  // Scan-to-login state
   const [scanToken, setScanToken] = useState<string | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
 
@@ -59,7 +54,6 @@ const Login = () => {
         const data = await res.json();
 
         if (data.success && data.ready && data.mobile) {
-          // Now verify the token
           const verifyRes = await fetch("/api/auth/scan/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -166,13 +160,13 @@ const Login = () => {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="inline-flex items-center justify-center w-24 h-24 rounded-full mb-4"
+            className="inline-flex items-center justify-center w-28 h-28 rounded-full mb-4"
           >
             <Image
               src="/logo/logo.png"
               alt="HansariaConnect Logo"
-              width={80}
-              height={80}
+              width={70}
+              height={70}
               className="rounded-full"
             />
           </motion.div>
@@ -180,8 +174,6 @@ const Login = () => {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">HansariaConnect</h1>
           <p className="text-gray-600">Connect with your world</p>
         </div>
-
-        {/* Mode Toggle */}
         <div className="flex mb-8 bg-gray-100 rounded-xl p-1">
           <button
             onClick={() => { setMode("login"); setError(""); }}
