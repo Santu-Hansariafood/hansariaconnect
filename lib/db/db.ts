@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Admin from "../../models/admin/Admin";
 
 type MongooseCache = {
   conn: typeof mongoose | null;
@@ -18,6 +19,38 @@ global.mongooseCache = globalCache;
 
 const cached: MongooseCache = globalCache;
 
+async function seedSuperAdmin() {
+  try {
+    const userId = process.env.INITIAL_SUPER_ADMIN_USER_ID;
+    const email = process.env.INITIAL_SUPER_ADMIN_EMAIL;
+    const password = process.env.INITIAL_SUPER_ADMIN_PASSWORD;
+
+    if (!userId || !email || !password) {
+      console.log("Skipping super admin seeding: missing env vars");
+      return;
+    }
+
+    const existingAdmin = await Admin.findOne({
+      $or: [{ userId }, { email }],
+    });
+
+    if (!existingAdmin) {
+      const superAdmin = new Admin({
+        userId,
+        email,
+        password,
+        isSuperAdmin: true,
+      });
+      await superAdmin.save();
+      console.log("Initial super admin created successfully");
+    } else {
+      console.log("Super admin already exists");
+    }
+  } catch (error) {
+    console.error("Error seeding super admin:", error);
+  }
+}
+
 export async function connectDB() {
   const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -28,21 +61,23 @@ export async function connectDB() {
   }
 
   if (!cached.promise) {
-    // Optimized for 10k+ concurrent users
     const opts = {
       bufferCommands: false,
-      maxPoolSize: 200, // Increase pool size for more concurrent connections
-      minPoolSize: 50, // Keep more idle connections ready
+      maxPoolSize: 200,
+      minPoolSize: 50,
       socketTimeoutMS: 45000,
       serverSelectionTimeoutMS: 30000,
       heartbeatFrequencyMS: 10000,
-      connectTimeoutMS: 30000, // Timeout for initial connection
-      maxIdleTimeMS: 60000, // Close idle connections after 1 minute
+      connectTimeoutMS: 30000,
+      maxIdleTimeMS: 60000,
     };
 
     cached.promise = mongoose
       .connect(MONGODB_URI, opts)
-      .then((mongoose) => mongoose);
+      .then(async (mongoose) => {
+        await seedSuperAdmin();
+        return mongoose;
+      });
   }
 
   cached.conn = await cached.promise;

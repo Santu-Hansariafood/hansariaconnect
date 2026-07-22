@@ -3,27 +3,17 @@ import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import Profile from "@/models/profile/Profile";
 import AccessControl from "@/models/access/AccessControl";
-
-const ADMINS = new Set(["santude1997@gmail.com", "test@gmail.com"]);
-
-const parseAdmin = (req: NextRequest) => {
-  const raw = req.cookies.get("admin_session")?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.email || !ADMINS.has(String(parsed.email).toLowerCase()))
-      return null;
-    return parsed as { email: string };
-  } catch {
-    return null;
-  }
-};
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = parseAdmin(req);
-    if (!admin)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireAdmin(req);
+    if ("error" in authResult) {
+      return NextResponse.json(
+        { error: authResult.error },
+        { status: authResult.status },
+      );
+    }
     await connectDB();
     const users = await User.find().sort({ createdAt: -1 }).lean();
     const userIds = users.map((u: any) => u._id);

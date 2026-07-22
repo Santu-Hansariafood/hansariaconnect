@@ -1,59 +1,54 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [sent, setSent] = useState(false)
-  const [code, setCode] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [isSuperSubdomain, setIsSuperSubdomain] = useState(false);
 
-  const sendOtp = async () => {
-    setError("")
-    setLoading(true)
+  useEffect(() => {
+    // Check if we're on super. subdomain
+    const host = window.location.host;
+    setIsSuperSubdomain(/^super\./i.test(host));
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
     try {
-      const res = await fetch("/api/admin/request-otp", {
+      const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.success) {
-        setError(data?.error || "Failed to send code")
-      } else {
-        setSent(true)
-      }
-    } catch {
-      setError("Network error")
-    } finally {
-      setLoading(false)
-    }
-  }
+        body: JSON.stringify({ identifier, password }),
+      });
 
-  const verify = async () => {
-    setError("")
-    setLoading(true)
-    try {
-      const res = await fetch("/api/admin/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.success) {
-        setError(data?.error || "Invalid code")
-      } else {
-        router.replace("/admin")
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setError(data.error || "Login failed");
+        return;
       }
+
+      // If on super subdomain, ensure the logged in user is a super admin
+      if (isSuperSubdomain && !data.admin.isSuperAdmin) {
+        setError("Only super admins can access this subdomain");
+        return;
+      }
+
+      router.replace("/admin");
     } catch {
-      setError("Network error")
+      setError("Network error");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4"
@@ -67,64 +62,47 @@ export default function AdminLoginPage() {
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 rounded-xl" style={{ background: "linear-gradient(135deg, #10b981, #3b82f6)" }} />
           <h1 className="text-2xl font-extrabold tracking-tight" style={{ background: "linear-gradient(90deg, #0ea5e9, #22c55e, #f59e0b)", WebkitBackgroundClip: "text", color: "transparent" }}>
-            HansariaConnect Admin
+            HansariaConnect {isSuperSubdomain ? "Super Admin" : "Admin"}
           </h1>
         </div>
-        <p className="text-sm text-gray-600 mb-6">Sign in securely with a one-time code.</p>
+        <p className="text-sm text-gray-600 mb-6">
+          {isSuperSubdomain ? "Sign in as Super Admin" : "Sign in with User ID or Email and Password"}
+        </p>
 
-        <div className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label className="block text-sm text-gray-700 mb-1">Email</label>
+            <label className="block text-sm text-gray-700 mb-1">User ID or Email</label>
             <input
-              type="email"
+              type="text"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              value={email}
-              disabled={sent}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@example.com"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="Enter User ID or Email"
+              required
             />
           </div>
-          {!sent ? (
-            <button
-              onClick={sendOtp}
-              disabled={loading || !email}
-              className="w-full py-3 rounded-2xl text-white font-semibold shadow-lg disabled:opacity-60"
-              style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }}
-            >
-              {loading ? "Sending..." : "Send Code"}
-            </button>
-          ) : (
-            <>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Enter Code</label>
-                <input
-                  inputMode="numeric"
-                  maxLength={6}
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-emerald-500 tracking-[0.4em] text-center"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="000000"
-                />
-              </div>
-              <button
-                onClick={verify}
-                disabled={loading || code.length !== 6}
-                className="w-full py-3 rounded-2xl text-white font-semibold shadow-lg disabled:opacity-60"
-                style={{ background: "linear-gradient(90deg, #3b82f6, #8b5cf6)" }}
-              >
-                {loading ? "Verifying..." : "Verify & Continue"}
-              </button>
-              <button
-                onClick={() => { setSent(false); setCode("") }}
-                className="w-full py-2 text-sm text-emerald-700 hover:underline"
-              >
-                Use a different email
-              </button>
-            </>
-          )}
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+            />
+          </div>
           {error && <p className="text-red-600 text-sm">{error}</p>}
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-2xl text-white font-semibold shadow-lg disabled:opacity-60"
+            style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }}
+          >
+            {loading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
       </div>
     </div>
-  )
+  );
 }

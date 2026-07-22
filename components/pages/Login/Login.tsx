@@ -3,15 +3,17 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Phone, User, Mail, Calendar, Check, X, QrCode, RefreshCw } from "lucide-react";
+import { Phone, User, Mail, Calendar, Check, X, QrCode, RefreshCw, ArrowLeft } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 
 const Login = () => {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register" | "scan">("login");
-    const [mobile, setMobile] = useState("");
+  const [host, setHost] = useState("");
+  const [isWebSubdomain, setIsWebSubdomain] = useState(false);
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mobile, setMobile] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
@@ -23,6 +25,13 @@ const Login = () => {
 
   const [scanToken, setScanToken] = useState<string | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
+
+  // Detect host/subdomain on client side
+  useEffect(() => {
+    const currentHost = window.location.host;
+    setHost(currentHost);
+    setIsWebSubdomain(/^web\./i.test(currentHost));
+  }, []);
 
   const generateScanToken = async () => {
     setScanLoading(true);
@@ -40,13 +49,13 @@ const Login = () => {
   };
 
   useEffect(() => {
-    if (mode === "scan") {
+    if (isWebSubdomain) {
       generateScanToken();
     }
-  }, [mode]);
+  }, [isWebSubdomain]);
 
   useEffect(() => {
-    if (!scanToken) return;
+    if (!scanToken || !isWebSubdomain) return;
 
     const pollInterval = setInterval(async () => {
       try {
@@ -70,7 +79,7 @@ const Login = () => {
     }, 2000);
 
     return () => clearInterval(pollInterval);
-  }, [scanToken, router]);
+  }, [scanToken, isWebSubdomain, router]);
 
   const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -152,92 +161,29 @@ const Login = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
-      <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg">
-        <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="inline-flex items-center justify-center w-28 h-28 rounded-full mb-4"
-          >
-            <Image
-              src="/logo/logo.png"
-              alt="HansariaConnect Logo"
-              width={70}
-              height={70}
-              className="rounded-full"
-            />
-          </motion.div>
-
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">HansariaConnect</h1>
-          <p className="text-gray-600">Connect with your world</p>
-        </div>
-        <div className="flex mb-8 bg-gray-100 rounded-xl p-1">
-          <button
-            onClick={() => { setMode("login"); setError(""); }}
-            className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-              mode === "login" 
-                ? "bg-white shadow-md text-emerald-600" 
-                : "text-gray-500"
-            }`}
-          >
-            Login
-          </button>
-          <button
-            onClick={() => { setMode("scan"); setError(""); }}
-            className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-              mode === "scan" 
-                ? "bg-white shadow-md text-emerald-600" 
-                : "text-gray-500"
-            }`}
-          >
-            Scan to Login
-          </button>
-          <button
-            onClick={() => { setMode("register"); setError(""); }}
-            className={`flex-1 py-3 rounded-lg font-semibold transition-all ${
-              mode === "register" 
-                ? "bg-white shadow-md text-emerald-600" 
-                : "text-gray-500"
-            }`}
-          >
-            Register
-          </button>
-        </div>
-
-        {mode === "login" ? (
-          <form onSubmit={handleLoginSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="tel"
-                  maxLength={10}
-                  value={mobile}
-                  onChange={(e) => {
-                    setMobile(e.target.value);
-                    setError("");
-                  }}
-                  placeholder="Enter 10-digit mobile number"
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
-                />
-              </div>
-              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-            </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
+  // If web subdomain, show only QR code
+  if (isWebSubdomain) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
+        <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg">
+          <div className="text-center mb-8">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="inline-flex items-center justify-center w-28 h-28 rounded-full mb-4"
             >
-              {loading ? "Sending OTP..." : "Continue"}
-            </motion.button>
-          </form>
-        ) : mode === "scan" ? (
+              <Image
+                src="/logo/logo.png"
+                alt="HansariaConnect Logo"
+                width={70}
+                height={70}
+                className="rounded-full"
+              />
+            </motion.div>
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">HansariaConnect Web</h1>
+            <p className="text-gray-600">Scan to login with your mobile app</p>
+          </div>
           <div className="space-y-6 text-center">
             <div className="p-6 bg-gray-50 rounded-2xl">
               {scanLoading || !scanToken ? (
@@ -266,8 +212,98 @@ const Login = () => {
               Refresh QR Code
             </button>
           </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Main domain: login/register
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
+      <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg">
+        <div className="text-center mb-8">
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="inline-flex items-center justify-center w-28 h-28 rounded-full mb-4"
+          >
+            <Image
+              src="/logo/logo.png"
+              alt="HansariaConnect Logo"
+              width={70}
+              height={70}
+              className="rounded-full"
+            />
+          </motion.div>
+
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">HansariaConnect</h1>
+          <p className="text-gray-600">Connect with your world</p>
+        </div>
+
+        {mode === "login" ? (
+          <div className="space-y-6">
+            <form onSubmit={handleLoginSubmit} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={mobile}
+                    onChange={(e) => {
+                      setMobile(e.target.value);
+                      setError("");
+                    }}
+                    placeholder="Enter 10-digit mobile number"
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                  />
+                </div>
+                {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
+              >
+                {loading ? "Sending OTP..." : "Continue"}
+              </motion.button>
+            </form>
+            
+            <div className="text-center">
+              <p className="text-gray-600">
+                New to HansariaConnect?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("register");
+                    setError("");
+                    setRegisterMobile(mobile); // Pre-fill mobile from login
+                  }}
+                  className="text-emerald-600 font-semibold hover:underline"
+                >
+                  Create Account
+                </button>
+              </p>
+            </div>
+          </div>
         ) : (
           <form onSubmit={handleRegisterSubmit} className="space-y-4">
+            <button
+              type="button"
+              onClick={() => {
+                setMode("login");
+                setError("");
+              }}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Login
+            </button>
+            
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
               <div className="relative">
@@ -373,7 +409,7 @@ const Login = () => {
               disabled={loading}
               className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
             >
-              {loading ? "Registering..." : "Register"}
+              {loading ? "Registering..." : "Create Account"}
             </motion.button>
           </form>
         )}
