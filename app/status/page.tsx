@@ -10,10 +10,15 @@ const StatusPage = dynamic(() => import("@/components/pages/Status/Status"), {
 });
 
 export default function StatusRoute() {
-  const { user, theme } = useApp();
+  const { user, theme, logout } = useApp();
   const router = useRouter();
 
   const [hydrated, setHydrated] = useState(false);
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/");
+  };
 
   useEffect(() => {
     setHydrated(true);
@@ -31,5 +36,5 @@ export default function StatusRoute() {
 
   if (!user) return null;
 
-  return <StatusPage user={user} theme={theme} />;
+  return <StatusPage user={user} theme={theme} onLogout={handleLogout} />;
 }

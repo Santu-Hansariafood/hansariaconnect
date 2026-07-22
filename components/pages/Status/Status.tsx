@@ -43,9 +43,11 @@ interface StatusItem {
 export default function StatusPage({
   user,
   theme,
+  onLogout,
 }: {
   user: User;
   theme: Theme;
+  onLogout?: () => void;
 }) {
   const [myStatus, setMyStatus] = useState<StatusItem | null>(null);
   const [contactStatuses, setContactStatuses] = useState<Record<string, StatusItem[]>>({});
@@ -161,7 +163,7 @@ export default function StatusPage({
 
   return (
     <div className={`min-h-screen ${theme.wallpaper}`}>
-      <Navbar user={user} />
+      <Navbar user={user} onLogout={onLogout} />
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <motion.div

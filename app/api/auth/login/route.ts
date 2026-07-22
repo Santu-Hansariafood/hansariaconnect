@@ -23,13 +23,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const otp = generateOtp();
 
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[LOGIN OTP] Mobile: ${mobile}, OTP: ${otp}`);
+    }
+
     const toNumber = `+91${mobile}`;
 
-    await client.messages.create({
-      body: `Your OTP is: ${otp}`,
-      from: process.env.TWILIO_PHONE_NUMBER!,
-      to: toNumber,
-    });
+    try {
+      await client.messages.create({
+        body: `Your OTP is: ${otp}`,
+        from: process.env.TWILIO_PHONE_NUMBER!,
+        to: toNumber,
+      });
+    } catch (error) {
+      console.error("Twilio Error:", error);
+    }
 
     const salt = crypto.randomBytes(16).toString("hex");
     const hash = crypto

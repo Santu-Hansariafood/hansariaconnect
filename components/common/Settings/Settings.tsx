@@ -228,7 +228,7 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
           </div>
           <p className="text-gray-600">HansariaConnect v1.0.0</p>
           <p className="text-sm text-gray-500">
-            © 2025 HansariaConnect. All rights reserved.
+            © 2026 HansariaConnect. All rights reserved.
           </p>
         </motion.div>
       </div>

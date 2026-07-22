@@ -23,10 +23,16 @@ export default function ChatPage() {
     if (savedTheme) setTheme(JSON.parse(savedTheme))
   }, [])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {}
     localStorage.removeItem('hansariaUser')
     setUser(null)
-    router.push('/')
+    router.replace('/')
   }
 
   if (!user) {

@@ -70,6 +70,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const otp = generateOtp();
 
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[REGISTER OTP] Mobile: ${mobile}, Email: ${email}, OTP: ${otp}`);
+    }
+
     try {
       await transporter.sendMail({
         from: process.env.SMTP_FROM || "no-reply@hansariaconnect.com",
