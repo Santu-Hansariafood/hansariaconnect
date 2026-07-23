@@ -25,9 +25,10 @@ type Theme = {
 type ProfileProps = {
   user: User;
   theme: Theme;
+  onLogout?: () => void;
 };
 
-const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
+const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
   const [isEditing, setIsEditing] = useState(false);
 
   const [profile, setProfile] = useState({
@@ -99,7 +100,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme }) => {
 
   return (
     <div className={`min-h-screen ${theme.wallpaper}`}>
-      <Navbar user={user} />
+      <Navbar user={user} onLogout={onLogout} />
 
       <div className="max-w-2xl mx-auto px-4 py-6">
         <motion.div

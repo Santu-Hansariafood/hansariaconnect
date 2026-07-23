@@ -25,8 +25,13 @@ interface Theme {
 }
 
 export default function SettingsPage() {
-  const { user, theme, updateTheme } = useApp();
+  const { user, theme, updateTheme, logout } = useApp();
   const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace("/");
+  };
 
   useEffect(() => {
     if (!user || user.step !== "complete") {
@@ -41,6 +46,7 @@ export default function SettingsPage() {
       user={user as User}
       theme={theme}
       onThemeChange={updateTheme}
+      onLogout={handleLogout}
     />
   );
 }

@@ -26,7 +26,7 @@ type NotificationKey = "messages" | "groups" | "enabled";
 
 const notificationKeys: NotificationKey[] = ["messages", "groups", "enabled"];
 
-const Settings = ({ user, theme, onThemeChange }: any) => {
+const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   const { initialTheme, notifications, setNotifications } = useSettings();
 
   const {
@@ -80,7 +80,7 @@ const Settings = ({ user, theme, onThemeChange }: any) => {
   }, []);
   return (
     <div className={`min-h-screen ${localTheme?.wallpaper}`}>
-      <Navbar user={user} />
+      <Navbar user={user} onLogout={onLogout} />
 
       <div className="max-w-4xl mx-auto px-4 py-6">
         <motion.div
