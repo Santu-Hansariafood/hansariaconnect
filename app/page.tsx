@@ -4,78 +4,56 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/common/Loading/Loading";
 import ChatHome from "@/components/pages/ChatHome/ChatHome";
-
-interface User {
-  name: string;
-  step?: string;
-  photo?: string;
-  email?: string;
-  id?: string;
-  [key: string]: any;
-}
-
-interface Theme {
-  primary: string;
-  secondary: string;
-  wallpaper: string;
-  textSize: string;
-}
+import ChatWindow from "@/components/pages/ChatWindow/ChatWindow";
+import { useApp } from "@/context/AppContext/AppContext";
 
 export default function ChatPage() {
   const router = useRouter();
-
-  const [user, setUser] = useState<User | null>(null);
+  const { user, theme, logout } = useApp();
   const [loading, setLoading] = useState(true);
-
-  const [theme, setTheme] = useState<Theme>({
-    primary: "#0CA678",
-    secondary: "#A2F5BF",
-    wallpaper: "bg-gradient-to-br from-emerald-50 to-teal-50",
-    textSize: "text-base",
-  });
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("hansariaUser");
-    const savedTheme = localStorage.getItem("hansariaTheme");
-
-    if (!savedUser) {
+    if (!user || user.step !== "complete") {
       router.replace("/login");
-      return;
+    } else {
+      setLoading(false);
     }
+  }, [user, router]);
 
-    const parsedUser: User = JSON.parse(savedUser);
-    setUser(parsedUser);
-
-    if (savedTheme) {
-      setTheme(JSON.parse(savedTheme));
-    }
-
-    setLoading(false);
-  }, [router]);
-
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch {}
-    localStorage.removeItem("hansariaUser");
-    setUser(null);
-    router.replace("/login");
-  };
-
-  if (loading) {
-    return (
-      <Loading />
-    );
+  if (loading || !user) {
+    return <Loading />;
   }
 
-  if (!user) {
-    return (
-      <Loading />
-    );
-  }
-
-  return <ChatHome user={user} theme={theme} onLogout={handleLogout} />;
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* Left Sidebar (Contacts) */}
+      <div className="w-96 border-r border-gray-200 flex flex-col overflow-hidden bg-gray-50">
+        <ChatHome 
+          user={user} 
+          theme={theme} 
+          onLogout={logout} 
+          selectedChatId={selectedChatId || undefined}
+          onSelectChat={setSelectedChatId}
+        />
+      </div>
+      {/* Right Chat Window */}
+      <div className="flex-1 overflow-hidden">
+        {selectedChatId ? (
+          <div className="h-full">
+            <ChatWindow 
+              user={user as any} 
+              theme={theme}
+              id={selectedChatId}
+              onBack={() => setSelectedChatId(null)}
+            />
+          </div>
+        ) : (
+          <div className="h-full flex items-center justify-center text-gray-500">
+            <p>Select a chat to start messaging</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

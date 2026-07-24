@@ -33,6 +33,7 @@ interface ContactCardProps {
   onDelete: (id: string) => void
   theme: Theme
   showContextMenu?: boolean
+  active?: boolean
 }
 
 const ContactCard: React.FC<ContactCardProps> = ({
@@ -45,6 +46,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
   onDelete,
   theme,
   showContextMenu = true,
+  active = false,
 }) => {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0 })
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null)
@@ -121,7 +123,8 @@ const ContactCard: React.FC<ContactCardProps> = ({
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-all cursor-pointer relative"
+      className={`rounded-2xl p-4 shadow-md hover:shadow-lg transition-all cursor-pointer relative ${active ? "border-2" : "border border-transparent"} bg-white`}
+      style={active ? {borderColor: theme.primary} : {}}
     >
       <div className="flex items-center gap-4">
         <div className="relative">

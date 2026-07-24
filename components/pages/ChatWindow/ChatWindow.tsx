@@ -55,12 +55,14 @@ interface Contact {
 interface ChatWindowProps {
   user: User;
   theme: Theme;
+  onBack?: () => void;
+  id?: string;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId }) => {
   const router = useRouter();
   const params = useParams();
-  const id = params?.id as string;
+  const id = propId || (params?.id as string);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState("");
@@ -538,9 +540,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         style={{ backgroundColor: `${theme.primary}10` }}
       >
         <button
-          onClick={() => router.push("/")}
-          className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110"
-        >
+            onClick={onBack || (() => router.push("/"))}
+            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110"
+          >
           <ArrowLeft className="w-6 h-6" style={{ color: theme.primary }} />
         </button>
 

@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import AccessControl from "@/models/access/AccessControl";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireSuperAdmin } from "@/lib/adminAuth";
 
 export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> | { id: string } },
 ) {
   try {
-    const authResult = await requireAdmin(req);
+    const authResult = await requireSuperAdmin(req);
     if ("error" in authResult) {
       return NextResponse.json(
         { error: authResult.error },

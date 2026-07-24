@@ -55,9 +55,11 @@ interface ChatHomeProps {
   user: User
   theme: Theme
   onLogout: () => void
+  selectedChatId?: string
+  onSelectChat?: (chatId: string) => void
 }
 
-export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
+export default function ChatHome({ user, theme, onLogout, selectedChatId, onSelectChat }: ChatHomeProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -113,50 +115,58 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
   }
 
   return (
-    <div className={`min-h-screen ${theme.wallpaper}`}>
+    <div className={`flex-1 flex flex-col overflow-hidden ${theme.wallpaper}`}>
       <Navbar user={user} onLogout={onLogout} />
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="flex-1 overflow-y-auto px-4 py-4">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
+          className="mb-4"
         >
           <div className="flex items-center justify-between mb-2">
-            <h1 className={`text-3xl font-bold ${textColor} mb-2 ${theme.textSize}`}>
+            <h1 className={`text-2xl font-bold ${textColor} ${theme.textSize}`}>
               Chats
             </h1>
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 text-white rounded-xl shadow-sm font-medium"
+              className="px-3 py-2 text-white rounded-xl shadow-sm font-medium text-sm"
               style={{ backgroundColor: theme.primary }}
             >
-              Create Contact
+              New Contact
             </motion.button>
           </div>
           <SearchBar
             onSearch={handleSearch}
-            placeholder="Search by name or mobile..."
+            placeholder="Search contacts..."
           />
         </motion.div>
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-1 gap-3"
+          className="flex flex-col gap-3"
         >
           {filteredContacts.map((contact) => (
             <motion.div key={contact.id} {...fadeIn}>
               <ContactCard
                 contact={contact}
-                onClick={() => handleContactClick(contact)}
+                onClick={() => {
+                  const peerId = contact.peerId || contact.registeredUserId || contact.id;
+                  if (onSelectChat && peerId) {
+                    onSelectChat(peerId);
+                  } else {
+                    handleContactClick(contact);
+                  }
+                }}
                 onPin={handlePinContact}
                 onUnpin={handleUnpinContact}
                 onForward={handleForwardMessage}
                 onEdit={(c) => {}}
                 onDelete={(id) => {}}
                 theme={theme}
+                active={selectedChatId === (contact.peerId || contact.registeredUserId || contact.id)}
               />
             </motion.div>
           ))}
@@ -167,7 +177,7 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
             animate={{ opacity: 1 }}
             className="text-center py-12"
           >
-            <p className={`text-lg ${textMuted}`}>No contacts found</p>
+            <p className={`text-sm ${textMuted}`}>No contacts found</p>
           </motion.div>
         )}
         {showContactModal && selectedContact && (
@@ -246,7 +256,8 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                     const peer = (selectedContact as any).registeredUserId
                     if (peer) {
                       closeContactModal()
-                      router.push(`/chat/${peer}`)
+                      if (onSelectChat) onSelectChat(peer)
+                      else router.push(`/chat/${peer}`)
                       return
                     }
                     try {
@@ -259,7 +270,8 @@ export default function ChatHome({ user, theme, onLogout }: ChatHomeProps) {
                       const data = await res.json()
                       if (res.ok && data?.id) {
                         closeContactModal()
-                        router.push(`/chat/${data.id}`)
+                        if (onSelectChat) onSelectChat(data.id)
+                        else router.push(`/chat/${data.id}`)
                       } else {
                         closeContactModal()
                         alert('Unable to open chat. Please check mobile number.')

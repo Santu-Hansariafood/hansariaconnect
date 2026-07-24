@@ -9,6 +9,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { identifier, password } = body;
 
+    console.log("Admin login attempt, identifier:", identifier);
+
     if (!identifier || !password) {
       return NextResponse.json(
         { success: false, error: "Identifier and password are required" },
@@ -18,8 +20,10 @@ export async function POST(req: NextRequest) {
 
     // Find admin by userId or email
     const admin = await Admin.findOne({
-      $or: [{ userId: identifier }, { email: identifier }],
+      $or: [{ userId: identifier }, { email: identifier.toLowerCase() }],
     });
+
+    console.log("Found admin:", admin ? admin.userId : "none");
 
     if (!admin) {
       return NextResponse.json(
@@ -30,6 +34,7 @@ export async function POST(req: NextRequest) {
 
     // Verify password
     const isPasswordValid = await admin.comparePassword(password);
+    console.log("Password valid:", isPasswordValid);
     if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },

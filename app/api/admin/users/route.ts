@@ -3,11 +3,11 @@ import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import Profile from "@/models/profile/Profile";
 import AccessControl from "@/models/access/AccessControl";
-import { requireAdmin } from "@/lib/adminAuth";
+import { requireSuperAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: NextRequest) {
   try {
-    const authResult = await requireAdmin(req);
+    const authResult = await requireSuperAdmin(req);
     if ("error" in authResult) {
       return NextResponse.json(
         { error: authResult.error },

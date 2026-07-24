@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ShieldCheck, Lock, User, Loader2 } from "lucide-react";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -15,7 +16,24 @@ export default function AdminLoginPage() {
     // Check if we're on super. subdomain
     const host = window.location.host;
     setIsSuperSubdomain(/^super\./i.test(host));
-  }, []);
+
+    // Check if user is already logged in
+    const checkExistingSession = async () => {
+      try {
+        const res = await fetch("/api/admin/me", {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            router.replace("/admin");
+          }
+        }
+      } catch {}
+    };
+
+    checkExistingSession();
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,57 +69,101 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4"
-         style={{ background: "radial-gradient(1200px 600px at 10% 10%, #ecfeff 0%, transparent 60%), radial-gradient(1200px 600px at 90% 90%, #eef2ff 0%, transparent 60%), linear-gradient(135deg, #f8fafc 0%, #ffffff 100%)" }}>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      {/* Background decorations */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-24 -left-24 w-80 h-80 rounded-full blur-3xl opacity-40" style={{ background: "conic-gradient(from 180deg at 50% 50%, #10b981, #3b82f6, #f59e0b, #ec4899, #10b981)" }} />
-        <div className="absolute -bottom-24 -right-24 w-[26rem] h-[26rem] rounded-full blur-3xl opacity-30" style={{ background: "conic-gradient(from 90deg at 50% 50%, #8b5cf6, #06b6d4, #22c55e, #f97316, #8b5cf6)" }} />
+        <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-emerald-400/20 to-transparent rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] bg-gradient-to-tr from-blue-500/20 to-transparent rounded-full blur-3xl transform translate-x-1/3 translate-y-1/3" />
       </div>
 
-      <div className="w-full max-w-md relative bg-white/80 backdrop-blur-xl rounded-3xl border border-white/60 shadow-[0_10px_40px_rgba(16,185,129,0.15)] p-6 sm:p-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl" style={{ background: "linear-gradient(135deg, #10b981, #3b82f6)" }} />
-          <h1 className="text-2xl font-extrabold tracking-tight" style={{ background: "linear-gradient(90deg, #0ea5e9, #22c55e, #f59e0b)", WebkitBackgroundClip: "text", color: "transparent" }}>
-            HansariaConnect {isSuperSubdomain ? "Super Admin" : "Admin"}
-          </h1>
-        </div>
-        <p className="text-sm text-gray-600 mb-6">
-          {isSuperSubdomain ? "Sign in as Super Admin" : "Sign in with User ID or Email and Password"}
-        </p>
+      <div className="w-full max-w-md relative z-10">
+        {/* Card */}
+        <div className="bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-8 sm:p-10">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <ShieldCheck className="w-8 h-8 text-white" />
+              </div>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-700 via-emerald-600 to-amber-500 bg-clip-text text-transparent">
+              HansariaConnect
+            </h1>
+            <p className="text-lg font-semibold text-slate-700 mt-2">
+              {isSuperSubdomain ? "Super Admin Portal" : "Admin Portal"}
+            </p>
+            <p className="text-sm text-slate-500 mt-1">
+              Sign in to access the admin dashboard
+            </p>
+          </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">User ID or Email</label>
-            <input
-              type="text"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="Enter User ID or Email"
-              required
-            />
+          {error && (
+            <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <User className="w-4 h-4 text-slate-500" />
+                User ID or Email
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="admin or superadmin"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-slate-500" />
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type="password"
+                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 rounded-2xl text-white font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Signing in...
+                </div>
+              ) : (
+                "Sign In"
+              )}
+            </button>
+          </form>
+
+          {/* Footer hint */}
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-400">
+              {isSuperSubdomain
+                ? "Use superadmin credentials to access this portal"
+                : "Use admin credentials to access this portal"}
+            </p>
           </div>
-          <div>
-            <label className="block text-sm text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white/70 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-          {error && <p className="text-red-600 text-sm">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-2xl text-white font-semibold shadow-lg disabled:opacity-60"
-            style={{ background: "linear-gradient(90deg, #10b981, #06b6d4)" }}
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   );
