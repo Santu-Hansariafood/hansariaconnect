@@ -10,9 +10,10 @@ import {
   Link as LinkIcon,
   Check,
   CheckCheck,
+  Forward,
 } from "lucide-react"
 import Image from "next/image"
-import React from "react"
+import React, { useState } from "react"
 import {
   extractLinks,
   validateUrl,
@@ -56,6 +57,7 @@ interface MessageBubbleProps {
   user: User
   contact: Contact
   theme: Theme
+  onForward?: () => void
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -63,9 +65,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   user,
   contact,
   theme,
+  onForward,
 }) => {
   const isSent = message.sender === "me"
   const senderName = isSent ? user.name : contact.name
+  const [isHovered, setIsHovered] = useState(false)
 
   const textContent = message.text || ""
 
@@ -81,11 +85,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`flex ${isSent ? "justify-end" : "justify-start"}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         className={`flex gap-2 max-w-md ${
           isSent ? "flex-row-reverse" : "flex-row"
-        }`}
+        } items-start`}
       >
         {!isSent && (
           <Image
@@ -97,16 +103,26 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           />
         )}
 
-        <div>
-          {!isSent && (
-            <p
-              className={`text-xs text-gray-600 mb-1 ml-2 ${
-                theme.textSize || "text-sm"
-              }`}
+        <div className="flex items-start gap-2">
+          {isHovered && onForward && (
+            <button
+              onClick={onForward}
+              className="p-1 hover:bg-gray-200 rounded-full transition-colors mt-1"
             >
-              {senderName}
-            </p>
+              <Forward className="w-4 h-4 text-gray-500" />
+            </button>
           )}
+
+          <div>
+            {!isSent && (
+              <p
+                className={`text-xs text-gray-600 mb-1 ml-2 ${
+                  theme.textSize || "text-sm"
+                }`}
+              >
+                {senderName}
+              </p>
+            )}
 
           <div
             className={`px-4 py-2 rounded-2xl ${

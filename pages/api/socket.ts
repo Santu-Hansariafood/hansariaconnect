@@ -17,6 +17,7 @@ export const config = {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log("Socket API route hit, method:", req.method);
   const httpServer: HTTPServer = (res.socket as any).server;
   if (!(httpServer as any).io) {
     console.log("Initializing Socket.IO server...");
@@ -26,24 +27,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cors: {
         origin: "*",
         methods: ["GET", "POST"],
+        credentials: true,
       },
+      allowEIO3: true,
     });
 
     (httpServer as any).io = io;
 
     io.on("connection", async (socket) => {
-      console.log("Client connected");
+      console.log("Client connected, socket id:", socket.id);
+      console.log("Incoming cookies:", socket.request.headers.cookie);
 
       const raw = socket.request.headers.cookie || "";
       const parsed = cookie.parse(raw);
       let session: any = null;
       try {
         session = JSON.parse(parsed["user_session"] || "");
-      } catch {}
+        console.log("Parsed session:", session);
+      } catch (err) {
+        console.error("Failed to parse user_session cookie:", err);
+      }
 
       const userId = session?.id;
       if (!userId) {
-        console.log("No session. Disconnecting");
+        console.log("No userId in session. Disconnecting socket:", socket.id);
         socket.disconnect();
         return;
       }

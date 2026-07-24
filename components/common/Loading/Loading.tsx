@@ -34,7 +34,7 @@ export default function Loading() {
           className="relative"
         >
           <Image
-            src="/images/hansaria-connect-logo.png"
+            src="/logo/removebg.png"
             alt="Hansaria Food Connect"
             width={130}
             height={130}

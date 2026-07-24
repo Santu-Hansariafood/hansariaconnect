@@ -15,8 +15,11 @@ import {
   Search as SearchIcon,
   Ban,
   CircleUserRound,
+  Smile,
+  Forward,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import Picker from "emoji-picker-react";
 import { useChatSocket } from "@/hooks/chatwindow/useChatSocket"
 import { useUnreadBehavior } from "@/hooks/chatwindow/useUnreadBehavior"
 import { useInfiniteScroll } from "@/hooks/chatwindow/useInfiniteScroll"
@@ -24,6 +27,7 @@ const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/Messag
 const MediaPicker = dynamic(() => import("@/components/ui/MediaPicker/MediaPicker"));
 const SearchBar = dynamic(() => import("@/components/common/SearchBar/SearchBar"));
 const Loading = dynamic(() => import("@/components/common/Loading/Loading"));
+const ForwardModal = dynamic(() => import("@/components/ui/ForwardModal/ForwardModal"));
 
 interface Theme {
   primary: string;
@@ -60,6 +64,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [message, setMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [allowAttachments, setAllowAttachments] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -76,30 +81,46 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editName, setEditName] = useState("")
   const [editError, setEditError] = useState("")
-  
-  useEffect(() => {
-    const loadContact = async () => {
-      try {
-        const res = await fetch('/api/contacts', { credentials: 'include' })
-        const data = await res.json()
-        if (Array.isArray(data?.contacts)) {
-          const found = data.contacts.find((c: any) => c.registeredUserId === id)
-          if (found) setContact(found)
-          else {
-            try {
-              const uRes = await fetch(`/api/users/${id}`, { credentials: 'include' })
-              const uData = await uRes.json()
-              if (uRes.ok && (uData?.mobile || uData?.name || uData?.avatar)) {
-                setContact({ name: uData?.name || uData?.mobile || "User", avatar: uData?.avatar || "", mobile: uData?.mobile || "" })
-              }
-            } catch {}
-          }
-        }
-      } catch {}
-    }
-    loadContact()
-  }, [id])
+  const [showForwardModal, setShowForwardModal] = useState(false)
+  const [messageToForward, setMessageToForward] = useState<any>(null)
+  const [contacts, setContacts] = useState<any[]>([])
 
+  const handleEmojiClick = (emojiObject: any) => {
+    setMessage((prev) => prev + emojiObject.emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const handleForwardMessage = (msg: any) => {
+    setMessageToForward(msg)
+    setShowForwardModal(true)
+  }
+
+  const handleForwardSubmit = async (selectedContactIds: string[], text: string) => {
+    for (const contactId of selectedContactIds) {
+      // Send the message to each selected contact
+      const payload = {
+        type: messageToForward?.type || "text",
+        text: text || messageToForward?.text || "",
+        mediaUrl: messageToForward?.mediaUrl || messageToForward?.media || "",
+        fileName: messageToForward?.fileName,
+        fileSize: messageToForward?.fileSize,
+      }
+
+      if (socket) {
+        socket.emit("message:send", { to: contactId, ...payload }, () => {})
+      } else {
+        await fetch(`/api/messages/${contactId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload),
+        })
+      }
+    }
+    setShowForwardModal(false)
+    setMessageToForward(null)
+  }
+  
   const mergeUnique = (prev: any[], incoming: any[]) => {
     const map = new Map<string, any>()
     for (const m of prev) {
@@ -125,12 +146,48 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
   }, [chatMessages, unreadOnOpen]);
 
   useEffect(() => {
-    const load = async () => {
+    const loadAllInitialData = async () => {
       try {
-        const res = await fetch(`/api/messages/${id}?all=true&last=true`, { credentials: 'include' })
-        const data = await res.json()
-        if (Array.isArray(data?.messages)) setChatMessages(mergeUnique([], data.messages))
+        setInitialLoading(true)
         
+        // Load all data in parallel for maximum speed
+        const [contactsRes, messagesRes, accessRes] = await Promise.all([
+          fetch('/api/contacts', { credentials: 'include' }),
+          fetch(`/api/messages/${id}?all=true&last=true`, { credentials: 'include' }),
+          fetch("/api/access/me", { cache: "no-store" }),
+        ])
+        
+        // Process contacts
+        try {
+          const contactsData = await contactsRes.json()
+          if (Array.isArray(contactsData?.contacts)) {
+            setContacts(contactsData.contacts)
+            const found = contactsData.contacts.find((c: any) => c.registeredUserId === id)
+            if (found) setContact(found)
+            else {
+              // Fallback to fetch user if not in contacts
+              const uRes = await fetch(`/api/users/${id}`, { credentials: 'include' })
+              const uData = await uRes.json()
+              if (uRes.ok && (uData?.mobile || uData?.name || uData?.avatar)) {
+                setContact({ name: uData?.name || uData?.mobile || "User", avatar: uData?.avatar || "", mobile: uData?.mobile || "" })
+              }
+            }
+          }
+        } catch {}
+        
+        // Process messages
+        try {
+          const messagesData = await messagesRes.json()
+          if (Array.isArray(messagesData?.messages)) setChatMessages(mergeUnique([], messagesData.messages))
+        } catch {}
+        
+        // Process access control
+        try {
+          const accessData = await accessRes.json()
+          if (accessRes.ok && accessData?.permissions) setAllowAttachments(!!accessData.permissions.attachments)
+        } catch {}
+        
+        // Mark as read
         try {
           await fetch('/api/read-receipts', {
             method: 'POST',
@@ -139,26 +196,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
             body: JSON.stringify({ peerId: id })
           })
         } catch {}
-      } catch {}
-      setInitialLoading(false)
+        
+      } catch {} finally {
+        setInitialLoading(false)
+      }
     }
-    load()
+    loadAllInitialData()
   }, [id])
-  useEffect(() => {
-    let mounted = true
-    const run = async () => {
-      try {
-        const res = await fetch("/api/access/me", { cache: "no-store" })
-        const data = await res.json()
-        if (!mounted) return
-        if (res.ok && data?.permissions) setAllowAttachments(!!data.permissions.attachments)
-      } catch {}
-    }
-    run()
-    return () => {
-      mounted = false
-    }
-  }, [])
 
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
@@ -719,19 +763,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                   </div>
                 )}
                 <MessageBubble
-                  message={{
-                    sender: isIncoming ? "contact" : "me",
-                    type: msg.type,
-                    text: msg.text,
-                    media: msg.mediaUrl,
-                    url: msg.mediaUrl || undefined,
-                    timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
-                    status: msg.status || "sent",
-                  } as any}
-                  user={user}
-                  contact={{ id, name: headerName, avatar: headerAvatar } as any}
-                  theme={theme}
-                />
+              message={{
+                sender: isIncoming ? "contact" : "me",
+                type: msg.type,
+                text: msg.text,
+                media: msg.mediaUrl,
+                url: msg.mediaUrl || undefined,
+                timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
+                status: msg.status || "sent",
+              } as any}
+              user={user}
+              contact={{ id, name: headerName, avatar: headerAvatar } as any}
+              theme={theme}
+              onForward={() => handleForwardMessage(msg)}
+            />
               </React.Fragment>
             )
           })}
@@ -741,7 +786,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white border-t border-gray-200 p-4"
+        className="bg-white border-t border-gray-200 p-4 relative"
       >
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           <button
@@ -750,6 +795,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
             className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110 disabled:opacity-50"
           >
             <ImageIcon className="w-6 h-6 text-gray-600" />
+          </button>
+
+          <button
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110"
+          >
+            <Smile className="w-6 h-6 text-gray-600" />
           </button>
 
           <input
@@ -772,6 +824,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
             <Send className="w-5 h-5" />
           </motion.button>
         </div>
+
+        {showEmojiPicker && (
+          <div className="absolute bottom-full left-4 mb-2 z-50">
+            <Picker onEmojiClick={handleEmojiClick} />
+          </div>
+        )}
 
         {showMediaPicker && allowAttachments && (
           <MediaPicker

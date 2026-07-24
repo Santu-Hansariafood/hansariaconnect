@@ -11,17 +11,20 @@ export const useChatSocket = (
   useEffect(() => {
     let s: any
     const connect = async () => {
-      try { await fetch('/api/socket') } catch {}
-      const isVercel = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
-      const transports = isVercel ? ["polling"] : ["websocket", "polling"]
+      try {
+        const cacheBuster = new Date().getTime();
+        await fetch(`/api/socket?t=${cacheBuster}`)
+      } catch {}
       
-      s = io({ 
+      const url = typeof window !== 'undefined' ? window.location.origin : undefined
+      
+      s = io(url, { 
         path: "/api/socket", 
-        transports, 
+        transports: ["polling"], 
         withCredentials: true,
         reconnection: true,
         reconnectionAttempts: 10,
-        reconnectionDelay: 1000,
+        reconnectionDelay: 500, // Faster reconnection
         reconnectionDelayMax: 5000,
         randomizationFactor: 0.5,
         timeout: 20000,
@@ -29,29 +32,14 @@ export const useChatSocket = (
       
       setSocket(s)
       
-      s.on("connect", () => {
-        console.log("Socket connected")
-      })
-
-      s.on("disconnect", (reason: string) => {
-        console.log("Socket disconnected:", reason)
-      })
-
-      s.on("connect_error", (err: any) => {
-        console.error("Socket connection error:", err)
-      })
-
-      s.on("reconnect_attempt", (attemptNumber: number) => {
-        console.log(`Socket reconnecting, attempt ${attemptNumber}`)
-      })
-
-      s.on("reconnect", () => {
-        console.log("Socket reconnected successfully")
-      })
+      // Optional: Uncomment these for debugging
+      // s.on("connect", () => console.log("Socket connected"))
+      // s.on("disconnect", (reason) => console.log("Socket disconnected:", reason))
+      // s.on("connect_error", (err) => console.error("Socket connection error:", err))
 
       s.on("message:new", (msg: any) => {
         if (msg?.from?.toString?.() === id || String(msg?.from) === id) {
-          setChatMessages((prev) => mergeUnique(prev, [msg]))
+          setChatMessages((prev) => mergeUnique(prev, [msg]));
           try {
             s.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {
               if (ack?.ok && ack?.message?._id) {
