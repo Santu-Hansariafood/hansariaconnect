@@ -263,8 +263,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                       <p className="font-semibold text-gray-800">{contact.name}</p>
                       <p className="text-sm text-gray-500">{contact.mobile}</p>
                     </div>
-                    {contact.registered ? (
-                      isSelected ? (
+                    {isSelected ? (
                         <div
                           className="w-6 h-6 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: theme.primary }}
@@ -273,12 +272,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                         </div>
                       ) : (
                         <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                      )
-                    ) : (
-                      <span className="text-xs font-medium text-gray-400">
-                        Not registered
-                      </span>
-                    )}
+                      )}
                   </motion.button>
                 );
               })}

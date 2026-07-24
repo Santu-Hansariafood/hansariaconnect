@@ -312,11 +312,7 @@ export default function Contacts({ user, theme }: Props) {
                       <div className="text-lg font-semibold">{c.name}</div>
                       <div className="text-sm text-gray-500">{c.mobile}</div>
 
-                      {c.registered && (
-                        <div className="flex items-center text-emerald-600 text-xs mt-1">
-                          <CheckCircle2 className="w-4 h-4 mr-1" /> Registered
-                        </div>
-                      )}
+
                     </div>
                     <div className="ml-auto flex items-center gap-2">
                       <button

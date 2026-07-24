@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSocket } from "../useSocket";
 
 export interface Contact {
   id: string;
@@ -24,6 +25,7 @@ export interface Contact {
 export const useContacts = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const { onlineUserIds } = useSocket();
 
   useEffect(() => {
     const loadConversations = async () => {
@@ -81,14 +83,21 @@ export const useContacts = () => {
 
           setContacts(mapped);
         }
-      } catch {
-      } finally {
+      } catch {} finally {
         setLoading(false);
       }
     };
 
     loadConversations();
   }, []);
+
+  // Update contacts' active status based on onlineUserIds
+  useEffect(() => {
+    setContacts(prev => prev.map(contact => ({
+      ...contact,
+      active: onlineUserIds.includes(contact.registeredUserId || contact.peerId || contact.id)
+    })));
+  }, [onlineUserIds]);
 
   const updateContact = (contactId: string, updates: Partial<Contact>) => {
     setContacts((prev) =>

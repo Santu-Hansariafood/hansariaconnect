@@ -48,7 +48,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
   }
 
   const handleForward = () => {
-    if (selectedContacts.length > 0 && message.trim()) {
+    if (selectedContacts.length > 0) {
       onForward(selectedContacts, message)
       onClose()
     }
@@ -87,7 +87,8 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
             onChange={(e: ChangeEvent<HTMLInputElement>) =>
               setSearchQuery(e.target.value)
             }
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2"
+            style={{ "--tw-ring-color": theme.primary }}
           />
         </div>
 
@@ -100,9 +101,10 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               onClick={() => toggleContactSelection(contact.id)}
               className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
                 selectedContacts.includes(contact.id)
-                  ? "bg-emerald-100 border-2 border-emerald-500"
+                  ? "border-2"
                   : "bg-gray-50 hover:bg-gray-100 border-2 border-transparent"
               }`}
+              style={selectedContacts.includes(contact.id) ? { borderColor: theme.primary, backgroundColor: `${theme.primary}10` } : undefined}
             >
               <div className="relative">
                 <Image
@@ -113,7 +115,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
                   className="rounded-full object-cover"
                 />
                 {selectedContacts.includes(contact.id) && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                  <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: theme.primary }}>
                     <svg
                       className="w-3 h-3 text-white"
                       fill="currentColor"
@@ -138,12 +140,13 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
         </div>
         <div className="space-y-4">
           <textarea
-            placeholder="Enter message to forward..."
+            placeholder="Enter a message (optional)..."
             value={message}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
               setMessage(e.target.value)
             }
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 resize-none"
+            style={{ "--tw-ring-color": theme.primary }}
             rows={3}
           />
 
@@ -161,12 +164,13 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleForward}
-              disabled={selectedContacts.length === 0 || !message.trim()}
+              disabled={selectedContacts.length === 0}
               className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
-                selectedContacts.length === 0 || !message.trim()
+                selectedContacts.length === 0
                   ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-emerald-500 text-white hover:bg-emerald-600"
+                  : "text-white"
               }`}
+              style={selectedContacts.length > 0 ? { backgroundColor: theme.primary } : undefined}
             >
               <Send className="w-5 h-5" />
               Forward ({selectedContacts.length})

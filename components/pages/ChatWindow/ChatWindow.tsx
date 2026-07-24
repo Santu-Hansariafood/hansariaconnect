@@ -18,9 +18,11 @@ import {
   Smile,
   Forward,
 } from "lucide-react";
+import { format, isSameDay } from "date-fns";
 import dynamic from "next/dynamic";
 import Picker from "emoji-picker-react";
-import { useChatSocket } from "@/hooks/chatwindow/useChatSocket"
+import { useChatSocket } from "@/hooks/chatwindow/useChatSocket";
+import { useSocket } from "@/hooks/useSocket";
 import { useUnreadBehavior } from "@/hooks/chatwindow/useUnreadBehavior"
 import { useInfiniteScroll } from "@/hooks/chatwindow/useInfiniteScroll"
 const MessageBubble = dynamic(() => import("@/components/ui/MessageBubble/MessageBubble"));
@@ -204,6 +206,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
     loadAllInitialData()
   }, [id])
 
+  const { onlineUserIds } = useSocket();
+  const isContactOnline = onlineUserIds.includes(id)
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
   const maskedId = (() => {
@@ -454,19 +458,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       await sendViaRest(payload, optimisticMessage)
     }
 
+    const uploadFile = async (file: File, fileType: string) => {
+      const fd = new FormData()
+      fd.append("file", file)
+      fd.append("kind", fileType === "image" ? "image" : fileType === "video" ? "video" : "raw")
+      try {
+        const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
+        const data = await res.json()
+        if (data?.url) {
+          const payload = { 
+            type: fileType, 
+            mediaUrl: data.url, 
+            fileName: file.name, 
+            fileSize: `${(file.size / (1024*1024)).toFixed(2)} MB` 
+          }
+          await sendMediaWithOptimistic(payload)
+        }
+      } catch {}
+    }
+
     if (type === "image" || type === "video") {
       if (fileOrData instanceof File) {
-        const fd = new FormData()
-        fd.append("file", fileOrData)
-        fd.append("kind", type === "video" ? "video" : "image")
-        try {
-          const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
-          const data = await res.json()
-          if (data?.url) {
-            const payload = { type: "image", mediaUrl: data.url }
-            await sendMediaWithOptimistic(payload)
-          }
-        } catch {}
+        await uploadFile(fileOrData, type)
       } else {
         const payload = { type, mediaUrl: fileOrData.url }
         await sendMediaWithOptimistic(payload)
@@ -476,36 +489,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
       await sendMediaWithOptimistic(payload)
     } else if (type === "voice") {
       if (fileOrData instanceof File) {
-        const fd = new FormData()
-        fd.append("file", fileOrData)
-        fd.append("kind", "video")
-        try {
-          const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
-          const data = await res.json()
-          if (data?.url) {
-            const payload = { type: "voice", mediaUrl: data.url }
-            await sendMediaWithOptimistic(payload)
-          }
-        } catch {}
+        await uploadFile(fileOrData, type)
       }
-    } else if (type === "pdf" || type === "excel") {
+    } else if (type === "pdf" || type === "excel" || type === "file") {
       if (fileOrData instanceof File) {
-        const fd = new FormData()
-        fd.append("file", fileOrData)
-        fd.append("kind", "raw")
-        try {
-          const res = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
-          const data = await res.json()
-          if (data?.url) {
-            const payload = { 
-              type, 
-              mediaUrl: data.url, 
-              fileName: fileOrData.name, 
-              fileSize: `${(fileOrData.size / (1024*1024)).toFixed(2)} MB` 
-            }
-            await sendMediaWithOptimistic(payload)
-          }
-        } catch {}
+        await uploadFile(fileOrData, type)
       }
     }
   };
@@ -566,7 +554,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
                 className="w-10 h-10 rounded-full object-cover"
               />
 
-              {contact?.online && (
+              {isContactOnline && (
                 <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
               )}
             </div>
@@ -755,11 +743,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
               }
               return -1
             })()
+            
+            // Check if we need a date divider
+            const currentDate = new Date(msg.timestamp || msg.createdAt || Date.now())
+            const prevMsg = idx > 0 ? arr[idx - 1] : null
+            const prevDate = prevMsg ? new Date(prevMsg.timestamp || prevMsg.createdAt || Date.now()) : null
+            const showDateDivider = !prevDate || !isSameDay(currentDate, prevDate)
+
             return (
               <React.Fragment key={(msg._id?.toString?.()) || `${msg.from}-${msg.to}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ''}`}>
+                {showDateDivider && (
+                  <div className="flex justify-center my-4">
+                    <span className="text-xs px-4 py-1 bg-gray-200 text-gray-700 rounded-full font-medium">
+                      {format(currentDate, "MMMM d, yyyy")}
+                    </span>
+                  </div>
+                )}
                 {idx === firstUnread && firstUnread >= 0 && (
                   <div className="flex justify-center my-2" ref={unreadDividerRef}>
-                    <span className="text-xs px-3 py-1 bg-gray-200 rounded-full text-gray-700">Unread messages</span>
+                    <span className="text-xs px-3 py-1 bg-yellow-200 rounded-full text-yellow-800 font-medium">Unread messages</span>
                   </div>
                 )}
                 <MessageBubble
@@ -832,11 +834,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme }) => {
         )}
 
         {showMediaPicker && allowAttachments && (
-          <MediaPicker
-            onSelect={handleMediaSelect}
-            onClose={() => setShowMediaPicker(false)}
-          />
-        )}
+            <MediaPicker
+              onSelect={handleMediaSelect}
+              onClose={() => setShowMediaPicker(false)}
+            />
+          )}
+        {showForwardModal && (
+            <ForwardModal
+              contacts={contacts.map((c: any) => ({
+                id: c.registeredUserId,
+                name: c.name,
+                mobile: c.mobile || "",
+                avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
+              }))}
+              theme={theme}
+              onClose={() => {
+                setShowForwardModal(false);
+                setMessageToForward(null);
+              }}
+              onForward={handleForwardSubmit}
+            />
+          )}
       </motion.div>
     </div>
   );

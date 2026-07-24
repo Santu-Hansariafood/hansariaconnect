@@ -19,6 +19,12 @@ export const config = {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("Socket API route hit, method:", req.method);
   const httpServer: HTTPServer = (res.socket as any).server;
+  
+  // Initialize online users map if not exists
+  if (!(httpServer as any).onlineUsers) {
+    (httpServer as any).onlineUsers = new Set();
+  }
+  
   if (!(httpServer as any).io) {
     console.log("Initializing Socket.IO server...");
 
@@ -57,6 +63,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       await connectDB();
       socket.join(userId);
+      
+      // Add user to online users and broadcast to all
+      (httpServer as any).onlineUsers.add(userId);
+      io.emit("users:online", Array.from((httpServer as any).onlineUsers));
 
       socket.on("message:send", async (payload, cb) => {
         try {
@@ -113,7 +123,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           );
 
           if (updatedMessage) {
-            // Emit to the sender that the message status has been updated
             io.to(String(updatedMessage.from)).emit("message:status:update", {
               id: updatedMessage._id.toString(),
               status,
@@ -171,8 +180,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       });
 
-      socket.on("disconnect", () => {
-        console.log("Client disconnected");
+      socket.on("disconnect", (reason: string) => {
+        console.log("Client disconnected, socket id:", socket.id, "reason:", reason, "userId:", userId);
+        (httpServer as any).onlineUsers.delete(userId);
+        io.emit("users:online", Array.from((httpServer as any).onlineUsers));
       });
     });
   }

@@ -167,11 +167,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
           </motion.div>
         )}
       </div>
-      <div className="mt-1">
-        <span className={`text-xs px-2 py-1 rounded-full ${contact.registered ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}>
-          {contact.registered ? "Registered" : "Not Registered"}
-        </span>
-      </div>
+
       {contextMenu.visible && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
