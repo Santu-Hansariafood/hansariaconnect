@@ -3,7 +3,6 @@ import { connectDB } from "@/lib/db/db";
 import Admin from "@/models/admin/Admin";
 import { requireSuperAdmin } from "@/lib/adminAuth";
 
-// Get all admins (super admin only)
 export async function GET(req: NextRequest) {
   try {
     const authResult = await requireSuperAdmin(req);
@@ -15,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
-    const admins = await Admin.find({}, { password: 0 }); // Exclude password
+    const admins = await Admin.find({}, { password: 0 });
     return NextResponse.json({ success: true, admins });
   } catch (error: any) {
     console.error("Get admins error:", error);
@@ -26,7 +25,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Create new admin (super admin only)
 export async function POST(req: NextRequest) {
   try {
     const authResult = await requireSuperAdmin(req);
@@ -48,7 +46,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if userId or email already exists
     const existingAdmin = await Admin.findOne({
       $or: [{ userId }, { email }],
     });
@@ -69,7 +66,6 @@ export async function POST(req: NextRequest) {
 
     await newAdmin.save();
 
-    // Return without password
     const { password: _, ...adminWithoutPassword } = newAdmin.toObject();
     return NextResponse.json({ success: true, admin: adminWithoutPassword });
   } catch (error: any) {

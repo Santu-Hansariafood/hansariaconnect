@@ -46,9 +46,13 @@ interface Theme {
 }
 
 interface User {
-  name: string
+  id?: string | number
+  name?: string
+  photo?: string
   avatar?: string
   email?: string
+  mobile?: string
+  step?: string
 }
 
 interface ChatHomeProps {
@@ -115,38 +119,43 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
   }
 
   return (
-    <div className={`flex-1 flex flex-col overflow-hidden ${theme.wallpaper}`}>
+    <div className={`flex-1 flex flex-col overflow-hidden bg-white`}>
       <Navbar user={user} onLogout={onLogout} />
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-4"
+          className="px-3 py-2 bg-white"
         >
-          <div className="flex items-center justify-between mb-2">
-            <h1 className={`text-2xl font-bold ${textColor} ${theme.textSize}`}>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h1 className={`text-xl font-semibold text-gray-800 ${theme.textSize}`}>
               Chats
             </h1>
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setShowCreateModal(true)}
-              className="px-3 py-2 text-white rounded-xl shadow-sm font-medium text-sm"
-              style={{ backgroundColor: theme.primary }}
+              className="p-2.5 text-white rounded-full shadow-sm"
+              style={{ background: "linear-gradient(135deg, #00a884 0%, #008069 100%)" }}
+              title="New Contact"
             >
-              New Contact
+              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
             </motion.button>
           </div>
-          <SearchBar
-            onSearch={handleSearch}
-            placeholder="Search contacts..."
-          />
+          <div className="px-1">
+            <SearchBar
+              onSearch={handleSearch}
+              placeholder="Search or start new chat..."
+            />
+          </div>
         </motion.div>
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="flex flex-col gap-3"
+          className="flex flex-col"
         >
           {filteredContacts.map((contact) => (
             <motion.div key={contact.id} {...fadeIn}>

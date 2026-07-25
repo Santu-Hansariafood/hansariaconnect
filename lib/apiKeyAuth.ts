@@ -1,9 +1,9 @@
 import { connectDB } from "./db/db";
-import ApiKey from "@/models/apiKey/ApiKey";
+import ApiKey, { IApiKey } from "@/models/apiKey/ApiKey";
 import crypto from "crypto";
 import { NextRequest } from "next/server";
 
-export async function validateApiKey(req: NextRequest, requiredPermission?: keyof ApiKey["permissions"]) {
+export async function validateApiKey(req: NextRequest, requiredPermission?: keyof IApiKey["permissions"]) {
   await connectDB();
 
   const authHeader = req.headers.get("authorization");

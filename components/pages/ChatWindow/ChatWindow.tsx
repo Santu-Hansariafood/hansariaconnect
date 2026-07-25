@@ -208,10 +208,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     loadAllInitialData()
   }, [id])
 
-  const { onlineUserIds } = useSocket();
+  const { onlineUserIds, addOnlineListener, removeOnlineListener } = useSocket();
   const isContactOnline = onlineUserIds.includes(id)
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
+  const [lastSeenText, setLastSeenText] = useState<string>("")
+
+  useEffect(() => {
+    if (isContactOnline) {
+      setLastSeenText("online")
+    } else {
+      const ls = contact?.lastSeen
+      if (ls) {
+        try {
+          const d = new Date(ls)
+          if (!isNaN(d.getTime())) {
+            const now = new Date()
+            const diffMin = Math.floor((now.getTime() - d.getTime()) / 60000)
+            if (diffMin < 1) setLastSeenText("last seen just now")
+            else if (diffMin < 60) setLastSeenText(`last seen ${diffMin} minute${diffMin > 1 ? 's' : ''} ago`)
+            else if (diffMin < 1440) setLastSeenText(`last seen at ${format(d, "h:mm a")}`)
+            else setLastSeenText(`last seen ${format(d, "MMM d, h:mm a")}`)
+          } else {
+            setLastSeenText("last seen recently")
+          }
+        } catch {
+          setLastSeenText("last seen recently")
+        }
+      } else {
+        setLastSeenText("last seen recently")
+      }
+    }
+  }, [isContactOnline, contact?.lastSeen])
+
   const maskedId = (() => {
     const s = String(id || "")
     const last4 = s.slice(-4)
@@ -532,22 +561,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-[#efeae2]">
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4 shadow-sm"
-        style={{ backgroundColor: `${theme.primary}10` }}
+        className="bg-[#f0f2f5] border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 shadow-sm"
       >
         <button
             onClick={onBack || (() => router.push("/"))}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110"
+            className="p-2 hover:bg-gray-200/70 rounded-full transition-all duration-200"
           >
-          <ArrowLeft className="w-6 h-6" style={{ color: theme.primary }} />
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
         </button>
 
-        <div className="flex items-center gap-3 flex-1">
-            <div className="relative">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="relative flex-shrink-0">
               <Image
                 src={headerAvatar || "/logo/logo.png"}
                 alt={headerName}
@@ -557,20 +585,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
               />
 
               {isContactOnline && (
-                <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#f0f2f5] rounded-full" />
               )}
             </div>
-          <h2 className={`font-semibold text-gray-800 ${theme.textSize}`}>
-            {headerName}
-          </h2>
+          <div className="flex flex-col min-w-0">
+            <h2 className={`font-semibold text-gray-800 text-[15px] truncate ${theme.textSize}`}>
+              {headerName}
+            </h2>
+            <span className={`text-[12px] truncate ${
+              isContactOnline ? "text-green-600" : "text-gray-500"
+            }`}>
+              {lastSeenText}
+            </span>
+          </div>
           {showUnreadBanner && unreadOnOpen > 0 && (
-            <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">Unread: {unreadOnOpen}</span>
+            <span className="text-[11px] px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full ml-2 flex-shrink-0">
+              {unreadOnOpen} unread
+            </span>
           )}
         </div>
         <div className="relative">
           <button
             onClick={() => setShowOptionsMenu((prev) => !prev)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110"
+            className="p-2 hover:bg-gray-200/70 rounded-full transition-all duration-200"
           >
             <MoreVertical className="w-5 h-5 text-gray-600" />
           </button>
@@ -708,8 +745,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
           </div>
         </div>
       )}
-      <div ref={containerRef} onScroll={handleScroll} className={`flex-1 overflow-y-auto p-4 ${theme.wallpaper}`}>
-        <div className="max-w-4xl mx-auto space-y-3">
+      <div 
+        ref={containerRef} 
+        onScroll={handleScroll} 
+        className={`flex-1 overflow-y-auto px-[8%] py-4 ${
+          theme.wallpaper || "bg-[#efeae2]"
+        }`}
+        style={
+          !theme.wallpaper
+            ? {
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cg fill='%23d4cfc4' fill-opacity='0.3'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E")`,
+              }
+            : undefined
+        }
+      >
+        <div className="max-w-4xl mx-auto space-y-1.5">
           {chatMessages.length === 0 && (
             <div className="text-center text-gray-600 py-6">
               <p className="text-sm">New chat with {contact?.name || "user"}. Start typing or send media.</p>
@@ -790,22 +840,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-white border-t border-gray-200 p-4 relative"
+        className="bg-[#f0f2f5] border-t border-gray-200 px-4 py-2.5 relative"
       >
-        <div className="max-w-4xl mx-auto flex items-center gap-3">
+        <div className="max-w-4xl mx-auto flex items-center gap-2">
           <button
             onClick={() => allowAttachments && setShowMediaPicker((prev) => !prev)}
             disabled={!allowAttachments}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110 disabled:opacity-50"
+            className="p-2.5 hover:bg-gray-200/70 rounded-full transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Attach"
           >
-            <ImageIcon className="w-6 h-6 text-gray-600" />
+            <ImageIcon className="w-5 h-5 text-gray-500" />
           </button>
 
           <button
             onClick={() => setShowEmojiPicker((prev) => !prev)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-all duration-300 hover:scale-110"
+            className="p-2.5 hover:bg-gray-200/70 rounded-full transition-all duration-200"
+            title="Emoji"
           >
-            <Smile className="w-6 h-6 text-gray-600" />
+            <Smile className="w-5 h-5 text-gray-500" />
           </button>
 
           <input
@@ -814,16 +866,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type a message..."
-            className={`w-full px-4 py-3 bg-gray-100 rounded-full focus:outline-none focus:ring-2 ${theme.textSize}`}
-            style={{ "--tw-ring-color": theme.primary } as React.CSSProperties}
+            className={`w-full px-4 py-2.5 bg-white rounded-full focus:outline-none focus:ring-0 border border-transparent hover:border-gray-200 text-[15px] ${theme.textSize}`}
           />
 
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.92 }}
             onClick={handleSend}
-            className="p-3 rounded-full text-white shadow-lg"
-            style={{ backgroundColor: theme.primary }}
+            className="p-2.5 rounded-full text-white shadow-sm"
+            style={{ backgroundColor: "#00a884" }}
+            title="Send"
           >
             <Send className="w-5 h-5" />
           </motion.button>

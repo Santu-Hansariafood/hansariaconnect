@@ -5,7 +5,7 @@ import ApiKey from "@/models/apiKey/ApiKey";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } },
 ) {
   try {
     const adminResult = await requireAdmin(req);
@@ -19,9 +19,10 @@ export async function PATCH(
     await connectDB();
     const body = await req.json();
     const { isActive } = body;
+    const resolved = context.params instanceof Promise ? await context.params : context.params;
 
     const apiKey = await ApiKey.findOne({
-      _id: params.id,
+      _id: resolved.id,
       adminId: adminResult.admin._id,
     });
 
@@ -58,7 +59,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } },
 ) {
   try {
     const adminResult = await requireAdmin(req);
@@ -70,8 +71,9 @@ export async function DELETE(
     }
 
     await connectDB();
+    const resolved = context.params instanceof Promise ? await context.params : context.params;
     await ApiKey.findOneAndDelete({
-      _id: params.id,
+      _id: resolved.id,
       adminId: adminResult.admin._id,
     });
 

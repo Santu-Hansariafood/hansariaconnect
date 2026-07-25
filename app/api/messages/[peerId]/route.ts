@@ -129,7 +129,6 @@ export async function GET(
       sort = { createdAt: -1 };
     }
 
-    // Use lean() for faster querying and select only required fields
     const docs = fetchAll
       ? await Message.find(query).sort({ createdAt: 1 }).lean()
       : await Message.find(query).sort(sort).limit(limit).lean();

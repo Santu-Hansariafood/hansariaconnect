@@ -13,11 +13,8 @@ export default function AdminLoginPage() {
   const [isSuperSubdomain, setIsSuperSubdomain] = useState(false);
 
   useEffect(() => {
-    // Check if we're on super. subdomain
     const host = window.location.host;
     setIsSuperSubdomain(/^super\./i.test(host));
-
-    // Check if user is already logged in
     const checkExistingSession = async () => {
       try {
         const res = await fetch("/api/admin/me", {
@@ -54,7 +51,6 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // If on super subdomain, ensure the logged in user is a super admin
       if (isSuperSubdomain && !data.admin.isSuperAdmin) {
         setError("Only super admins can access this subdomain");
         return;
@@ -70,16 +66,13 @@ export default function AdminLoginPage() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Background decorations */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-emerald-400/20 to-transparent rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] bg-gradient-to-tr from-blue-500/20 to-transparent rounded-full blur-3xl transform translate-x-1/3 translate-y-1/3" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
-        {/* Card */}
         <div className="bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-8 sm:p-10">
-          {/* Header */}
           <div className="mb-8 text-center">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg">
@@ -154,8 +147,6 @@ export default function AdminLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Footer hint */}
           <div className="mt-8 pt-6 border-t border-slate-100 text-center">
             <p className="text-xs text-slate-400">
               {isSuperSubdomain

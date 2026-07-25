@@ -83,61 +83,62 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.15 }}
       className={`flex ${isSent ? "justify-end" : "justify-start"}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`flex gap-2 max-w-md ${
+        className={`flex gap-1.5 max-w-[65%] ${
           isSent ? "flex-row-reverse" : "flex-row"
-        } items-start`}
+        } items-end`}
       >
         {!isSent && (
           <Image
             src={contact.avatar || "/logo/logo.png"}
             alt={contact.name}
-            width={32}
-            height={32}
-            className="w-8 h-8 rounded-full object-cover"
+            width={28}
+            height={28}
+            className="w-7 h-7 rounded-full object-cover flex-shrink-0 mb-1"
           />
         )}
 
-        <div className="flex items-start gap-2">
+        <div className="flex items-end gap-1.5">
           {isHovered && onForward && (
             <button
               onClick={onForward}
-              className="p-1 hover:bg-gray-200 rounded-full transition-colors mt-1"
+              className="p-1.5 hover:bg-gray-200/80 rounded-full transition-colors mb-1 flex-shrink-0"
+              title="Forward message"
             >
-              <Forward className="w-4 h-4 text-gray-500" />
+              <Forward className="w-3.5 h-3.5 text-gray-500" />
             </button>
           )}
 
           <div>
             {!isSent && (
               <p
-                className={`text-xs text-gray-600 mb-1 ml-2 ${
-                  theme.textSize || "text-sm"
-                }`}
+                className={`text-[12.8px] font-medium text-[#111b21] mb-1 ml-2`}
               >
                 {senderName}
               </p>
             )}
 
             <div
-              className={`px-4 py-2 rounded-2xl ${
+              className={`px-2.5 pb-1.5 pt-1.5 ${
+                theme.textSize || "text-[14.2px]"
+              } ${
                 isSent
-                  ? "chat-bubble-sent text-white"
-                  : "chat-bubble-received bg-gray-100 text-gray-800"
-              } ${theme.textSize || "text-sm"} ${
+                  ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none rounded-2xl"
+                  : "bg-white text-[#111b21] rounded-tl-none rounded-2xl shadow-sm"
+              } ${
                 harmful.hasWarning
                   ? isSent
                     ? "ring-2 ring-red-300"
                     : "border-2 border-red-300"
                   : ""
-              }`}
-              style={isSent ? { backgroundColor: theme.primary } : {}}
+              } relative leading-[19px]`}
             >
               {message.type === "text" && (
                 <div className="break-words">
@@ -379,30 +380,30 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 mt-1">
+              <div className="flex items-center justify-end gap-1 mt-0.5 mb-0.5 mr-1 float-right clear-both" style={{ marginTop: "-2px" }}>
                 <span
-                  className={`text-xs ${
-                    isSent ? "text-white/80" : "text-gray-500"
+                  className={`text-[11px] ${
+                    isSent ? "text-[#667781]" : "text-[#667781]"
                   }`}
                 >
                   {format(new Date(message.timestamp), "h:mm a")}
                 </span>
                 {isSent && (
-                  <span className="flex items-center">
+                  <span className="flex items-center ml-0.5">
                     {message.status === "sending" && (
-                      <div className="w-3 h-3 border-2 border-white/40 border-t-white/80 rounded-full animate-spin" />
+                      <div className="w-3 h-3 border-2 border-gray-400/40 border-t-gray-500/80 rounded-full animate-spin" />
                     )}
                     {message.status === "failed" && (
-                      <span className="text-red-300 text-xs">Failed</span>
+                      <span className="text-red-500 text-[10px] font-medium">Failed</span>
                     )}
                     {message.status === "sent" && (
-                      <Check className="w-3 h-3 text-white/60" />
+                      <Check className="w-3.5 h-3.5 text-[#53bdeb]" strokeWidth={2.5} />
                     )}
                     {message.status === "delivered" && (
-                      <CheckCheck className="w-3 h-3 text-white/60" />
+                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" strokeWidth={2.5} />
                     )}
                     {message.status === "seen" && (
-                      <CheckCheck className="w-3 h-3 text-blue-400" />
+                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" strokeWidth={2.5} fill="#53bdeb" fillOpacity={0.15} />
                     )}
                   </span>
                 )}

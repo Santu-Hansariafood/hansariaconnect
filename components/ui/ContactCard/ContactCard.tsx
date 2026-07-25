@@ -1,7 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow, format } from "date-fns"
 import { Pin, Pencil, Trash2 } from "lucide-react"
 import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
@@ -117,58 +117,74 @@ const ContactCard: React.FC<ContactCardProps> = ({
   return (
     <motion.div
       ref={cardRef}
-      whileHover={{ scale: 1.02, x: 4 }}
-      whileTap={{ scale: 0.98 }}
+      whileTap={{ scale: 0.99 }}
       onClick={onClick}
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`rounded-2xl p-4 shadow-md hover:shadow-lg transition-all cursor-pointer relative ${active ? "border-2" : "border border-transparent"} bg-white`}
-      style={active ? {borderColor: theme.primary} : {}}
+      className={`px-4 py-3 cursor-pointer relative transition-colors ${
+        active
+          ? "bg-gray-100"
+          : "hover:bg-[#f5f6f6]"
+      } border-b border-gray-100`}
     >
-      <div className="flex items-center gap-4">
-        <div className="relative">
+      <div className="flex items-center gap-3">
+        <div className="relative flex-shrink-0">
           <Image
             src={contact.avatar}
             alt={contact.name}
-            width={56}
-            height={56}
-            className="rounded-full object-cover"
+            width={49}
+            height={49}
+            className="w-[49px] h-[49px] rounded-full object-cover"
           />
           {contact.active && (
             <span
-              className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"
-              title="Active"
+              className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"
+              title="Online"
             ></span>
           )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-2">
-              {contact.pinned && <Pin className="w-4 h-4 text-gray-600" fill="currentColor" />}
-              <h3 className={`font-semibold text-gray-800 truncate ${theme.textSize ?? "text-base"}`}>
+        <div className="flex-1 min-w-0 py-1">
+          <div className="flex items-center justify-between mb-0.5">
+            <div className="flex items-center gap-1.5 min-w-0">
+              {contact.pinned && <Pin className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" fill="currentColor" />}
+              <h3 className={`font-semibold text-gray-900 truncate text-[16px] ${theme.textSize ?? ""}`}>
                 {contact.name}
               </h3>
             </div>
-            <span className="text-xs text-gray-500">
+            <span className={`text-[12px] flex-shrink-0 ml-2 ${
+              contact.unread > 0 ? "text-[#00a884] font-medium" : "text-gray-500"
+            }`}>
               {(() => {
                 const d = new Date(contact.lastMessageTime)
-                return isNaN(d.getTime()) ? "" : formatDistanceToNow(d, { addSuffix: true })
+                if (isNaN(d.getTime())) return ""
+                const today = new Date()
+                if (d.toDateString() === today.toDateString()) {
+                  return format(d, "h:mm a")
+                }
+                const yesterday = new Date(today)
+                yesterday.setDate(yesterday.getDate() - 1)
+                if (d.toDateString() === yesterday.toDateString()) {
+                  return "Yesterday"
+                }
+                return format(d, "MM/dd/yyyy")
               })()}
             </span>
           </div>
-          <p className="text-sm text-gray-600 truncate">{contact.lastMessage}</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm text-gray-500 truncate text-[14px] leading-5">
+              {contact.lastMessage}
+            </p>
+            {contact.unread > 0 && (
+              <span
+                className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-semibold text-white"
+                style={{ backgroundColor: "#00a884" }}
+              >
+                {contact.unread > 99 ? "99+" : contact.unread}
+              </span>
+            )}
+          </div>
         </div>
-        {contact.unread > 0 && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-            style={{ backgroundColor: theme.primary }}
-          >
-            {contact.unread}
-          </motion.div>
-        )}
       </div>
 
       {contextMenu.visible && (

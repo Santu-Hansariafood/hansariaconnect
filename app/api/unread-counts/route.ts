@@ -49,7 +49,6 @@ export async function GET(req: NextRequest) {
       const peerId =
         String(conv.userA) === String(userId) ? conv.userB : conv.userA;
 
-      // Force the receipt to be treated as a single object
       const receipt = (await ReadReceipt.findOne({
         userId,
         conversationId: conv._id,

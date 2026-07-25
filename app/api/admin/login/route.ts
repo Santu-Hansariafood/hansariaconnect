@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find admin by userId or email
     const admin = await Admin.findOne({
       $or: [{ userId: identifier }, { email: identifier.toLowerCase() }],
     });
@@ -32,7 +31,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify password
     const isPasswordValid = await admin.comparePassword(password);
     console.log("Password valid:", isPasswordValid);
     if (!isPasswordValid) {
@@ -42,7 +40,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Set session cookie
     const sessionData = JSON.stringify({
       adminId: admin._id,
       userId: admin.userId,
@@ -67,7 +64,7 @@ export async function POST(req: NextRequest) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: 30 * 24 * 60 * 60,
       })
     );
 

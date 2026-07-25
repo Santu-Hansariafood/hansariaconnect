@@ -35,8 +35,6 @@ export async function POST() {
     !accessToken ||
     (user.googleTokenExpiry && Date.now() > user.googleTokenExpiry - 300000)
   ) {
-    // 5 mins before expiry
-    // Refresh token if needed
     if (user.googleRefreshToken) {
       const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
@@ -67,7 +65,6 @@ export async function POST() {
     }
   }
 
-  // Fetch contacts
   const contactsRes = await fetch(
     "https://people.googleapis.com/v1/people/me/connections?personFields=names,phoneNumbers,emailAddresses",
     {
@@ -84,7 +81,6 @@ export async function POST() {
     email: p.emailAddresses?.[0]?.value || "",
   }));
 
-  // Save contacts to DB
   for (const contact of importedContacts) {
     const hasValidMobile = contact.mobiles?.some(
       (m: string) => m.length === 10,

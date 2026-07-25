@@ -3,7 +3,6 @@ import crypto from "crypto";
 
 export const runtime = "nodejs";
 
-// Allowed file types and extensions
 const ALLOWED_MIME_TYPES = [
   "image/",
   "video/",
@@ -37,11 +36,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Validate file type and extension
     const fileName = file.name.toLowerCase();
     const fileMime = file.type.toLowerCase();
 
-    // Check blocked extensions first
     const hasBlockedExtension = BLOCKED_EXTENSIONS.some((ext) =>
       fileName.endsWith(ext),
     );
@@ -52,12 +49,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check allowed mime types
     const isAllowedMime = ALLOWED_MIME_TYPES.some((type) =>
       fileMime.startsWith(type),
     );
     if (!isAllowedMime) {
-      // Also check if it's an excel/pdf/image/video/audio by extension if mime is missing
       const isImageByExtension = [
         ".png",
         ".jpg",

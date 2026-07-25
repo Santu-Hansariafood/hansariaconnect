@@ -88,7 +88,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               setSearchQuery(e.target.value)
             }
             className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2"
-            style={{ "--tw-ring-color": theme.primary }}
+            style={{ "--tw-ring-color": theme.primary, boxShadow: `0 0 0 2px ${theme.primary}33` } as React.CSSProperties & Record<string, any>}
           />
         </div>
 
@@ -146,7 +146,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               setMessage(e.target.value)
             }
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 resize-none"
-            style={{ "--tw-ring-color": theme.primary }}
+            style={{ "--tw-ring-color": theme.primary, boxShadow: `0 0 0 2px ${theme.primary}33` } as React.CSSProperties & Record<string, any>}
             rows={3}
           />
 

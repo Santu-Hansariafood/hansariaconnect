@@ -52,7 +52,6 @@ export default function AdminDashboard() {
   const [newApiKeyExpiresDays, setNewApiKeyExpiresDays] = useState("");
   const [newlyCreatedApiKey, setNewlyCreatedApiKey] = useState<string | null>(null);
 
-  // Admin management states
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [newAdminUserId, setNewAdminUserId] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
@@ -65,7 +64,6 @@ export default function AdminDashboard() {
   const [editAdminIsSuper, setEditAdminIsSuper] = useState(false);
 
   useEffect(() => {
-    // Check if on super subdomain
     const host = window.location.host;
     setIsSuperSubdomain(/^super\./i.test(host));
   }, []);
@@ -90,7 +88,6 @@ export default function AdminDashboard() {
 
         setIsSuperAdmin(data.admin.isSuperAdmin);
 
-        // If on super subdomain, ensure user is a super admin
         if (isSuperSubdomain && !data.admin.isSuperAdmin) {
           router.replace("/admin/login");
           return;
@@ -104,20 +101,17 @@ export default function AdminDashboard() {
       }
     };
 
-    // Only run checkSession once isSuperSubdomain is known
-    // We'll use a short timeout or check if host is available immediately
     const host = window.location.host;
     if (host) {
       setIsSuperSubdomain(/^super\./i.test(host));
     }
     checkSession();
-  }, [router]); // Removed isSuperSubdomain to prevent multiple calls
+  }, [router]);
 
   const loadData = async () => {
     setLoading(true);
     setError("");
     try {
-      // Load users only if super admin OR on super subdomain
       if (isSuperAdmin || isSuperSubdomain) {
         const usersRes = await fetch("/api/admin/users", { cache: "no-store" });
         if (usersRes.status === 401) {
@@ -132,7 +126,6 @@ export default function AdminDashboard() {
         setUsers(usersData?.users || []);
       }
 
-      // Load admins if super admin OR on super subdomain
       if (isSuperAdmin || isSuperSubdomain) {
         const adminsRes = await fetch("/api/admin/admins", { cache: "no-store" });
         const adminsData = await adminsRes.json();
@@ -141,7 +134,6 @@ export default function AdminDashboard() {
         }
       }
 
-      // Load API keys
       const apiKeysRes = await fetch("/api/admin/api-keys", { cache: "no-store" });
       const apiKeysData = await apiKeysRes.json();
       if (apiKeysRes.ok) {
@@ -396,7 +388,6 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Admins Tab (Super Admin Only or super. Subdomain) */}
             {activeTab === "admins" && (isSuperAdmin || isSuperSubdomain) && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -409,7 +400,6 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                {/* Create Admin Modal */}
                 {showCreateAdmin && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md">
@@ -477,7 +467,6 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Edit Admin Modal */}
                 {editingAdmin && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md">
@@ -546,7 +535,6 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Admins List */}
                 <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="grid grid-cols-12 gap-3 px-4 py-3 text-sm font-medium text-gray-600 bg-gray-50">
                     <div className="col-span-3">User ID</div>
@@ -592,7 +580,6 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* API Keys Tab */}
             {activeTab === "api-keys" && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
@@ -605,7 +592,6 @@ export default function AdminDashboard() {
                   </button>
                 </div>
 
-                {/* New API Key Created Modal */}
                 {newlyCreatedApiKey && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md">
@@ -626,7 +612,6 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* Create API Key Modal */}
                 {showCreateApiKey && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl p-6 w-full max-w-md">
@@ -675,7 +660,6 @@ export default function AdminDashboard() {
                   </div>
                 )}
 
-                {/* API Keys List */}
                 <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="grid grid-cols-12 gap-3 px-4 py-3 text-sm font-medium text-gray-600 bg-gray-50">
                     <div className="col-span-4">Name</div>

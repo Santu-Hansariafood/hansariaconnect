@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create message
     const message = await Message.create({
       from: new Types.ObjectId(fromUserId),
       to: new Types.ObjectId(toUserId),
@@ -46,7 +45,6 @@ export async function POST(req: NextRequest) {
       status: "sent",
     });
 
-    // Update conversation
     const a = fromUserId < toUserId ? new Types.ObjectId(fromUserId) : new Types.ObjectId(toUserId);
     const b = fromUserId < toUserId ? new Types.ObjectId(toUserId) : new Types.ObjectId(fromUserId);
 
@@ -55,9 +53,6 @@ export async function POST(req: NextRequest) {
       { userA: a, userB: b, lastMessageAt: new Date() },
       { upsert: true, new: true }
     );
-
-    // Emit to Socket.IO if we can (optional, for real-time)
-    // We'll skip this for now since Socket.IO is in pages/api
 
     return NextResponse.json({
       success: true,

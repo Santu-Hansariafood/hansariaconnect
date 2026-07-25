@@ -41,7 +41,6 @@ export async function GET(req: NextRequest) {
       console.log("All existing admin users deleted!");
     }
 
-    // Upsert super admin
     const superAdminResult = await Admin.findOneAndUpdate(
       {
         $or: [
@@ -57,7 +56,6 @@ export async function GET(req: NextRequest) {
     );
     console.log("Upserted super admin:", superAdminResult.userId);
 
-    // Upsert regular admin
     const adminResult = await Admin.findOneAndUpdate(
       {
         $or: [
@@ -73,7 +71,6 @@ export async function GET(req: NextRequest) {
     );
     console.log("Upserted admin:", adminResult.userId);
 
-    // Verify passwords work after upsert
     const testSuperAdmin = await Admin.findOne({ userId: DEFAULT_SUPER_ADMIN.userId });
     if (testSuperAdmin) {
       const testPass = await testSuperAdmin.comparePassword(DEFAULT_SUPER_ADMIN.password);

@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
 
-    // Get sender's info
     const user = await User.findById(session.id);
     const profile = await Profile.findOne({ userId: session.id });
     const senderName = profile?.name || user?.name || "Someone";
@@ -59,7 +58,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build SMS text with sender's info
     const origin = process.env.NEXTAUTH_URL || "https://hansariaconnect.com";
     const loginUrl = `${origin}/login`;
     const smsText = `Hi, ${senderName}${senderMobile ? ` (+91${senderMobile})` : ""} has invited you to join HansariaConnect! Login here: ${loginUrl}`;

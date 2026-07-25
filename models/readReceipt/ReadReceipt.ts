@@ -14,8 +14,8 @@ export interface IReadReceipt extends Document {
 const ReadReceiptSchema = new Schema<IReadReceipt>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    messageId: { type: Schema.Types.ObjectId, ref: "Message", index: true },
-    groupMessageId: { type: Schema.Types.ObjectId, ref: "GroupMessage", index: true },
+    messageId: { type: Schema.Types.ObjectId, ref: "Message" },
+    groupMessageId: { type: Schema.Types.ObjectId, ref: "GroupMessage" },
     conversationId: { type: Schema.Types.ObjectId, ref: "Conversation", index: true },
     groupId: { type: Schema.Types.ObjectId, ref: "Group", index: true },
     readAt: { type: Date, default: Date.now },

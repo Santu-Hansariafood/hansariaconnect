@@ -26,7 +26,6 @@ export async function GET(req: Request) {
   if (!token.access_token)
     return NextResponse.json({ error: "Token error" }, { status: 400 });
 
-  // Get user from session
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("user_session")?.value;
   if (!sessionCookie) {
@@ -46,7 +45,6 @@ export async function GET(req: Request) {
 
   await connectDB();
 
-  // Save tokens to user
   const user = await User.findById(session.id);
   if (!user) {
     return NextResponse.redirect("/login");
@@ -61,7 +59,6 @@ export async function GET(req: Request) {
   }
   await user.save();
 
-  // Fetch and import contacts
   const contactsRes = await fetch(
     "https://people.googleapis.com/v1/people/me/connections?personFields=names,phoneNumbers,emailAddresses",
     {
@@ -78,14 +75,12 @@ export async function GET(req: Request) {
     email: p.emailAddresses?.[0]?.value || "",
   }));
 
-  // Save contacts to DB (avoid duplicates by checking mobile)
   for (const contact of importedContacts) {
     const hasValidMobile = contact.mobiles?.some(
       (m: string) => m.length === 10,
     );
     if (!hasValidMobile) continue;
 
-    // Check if contact already exists
     const existing = await Contact.findOne({
       userId: user._id,
       $or: contact.mobiles.map((m: string) => ({ mobiles: { $in: [m] } })),

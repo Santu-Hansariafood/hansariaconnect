@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { fadeIn, staggerContainer } from "@/utils/animations/animations"
 import { X, CheckCircle2, CircleUserRound, Pencil, Trash2 } from "lucide-react"
+import { useSocket } from "@/hooks/useSocket"
 
 import { FaWhatsapp, FaFacebookF, FaTwitter, FaSms } from "react-icons/fa"
 import Link from "next/link"
@@ -40,10 +41,12 @@ type Props = { user: User; theme: Theme }
 interface ContactWithLinks extends Contact {
   shareLinks?: { wa: string; fb: string; x: string; sms: string }
   shareLinksLoading?: boolean
+  online?: boolean
 }
 
 export default function Contacts({ user, theme }: Props) {
   const router = useRouter()
+  const { onlineUserIds } = useSocket()
   const [searchQuery, setSearchQuery] = useState("")
   const [contacts, setContacts] = useState<ContactWithLinks[]>([])
   const [filteredContacts, setFilteredContacts] = useState<ContactWithLinks[]>([])
@@ -59,6 +62,17 @@ export default function Contacts({ user, theme }: Props) {
   const [inviteLoading, setInviteLoading] = useState<string>("")
   const [inviteMessage, setInviteMessage] = useState<string>("")
   const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    setContacts(prev => prev.map(c => ({
+      ...c,
+      online: c.registeredUserId ? onlineUserIds.includes(c.registeredUserId) : false
+    })))
+    setFilteredContacts(prev => prev.map(c => ({
+      ...c,
+      online: c.registeredUserId ? onlineUserIds.includes(c.registeredUserId) : false
+    })))
+  }, [onlineUserIds])
 
   // Function to load share links for a contact
   const loadShareLinks = async (contactId: string) => {
@@ -294,40 +308,55 @@ export default function Contacts({ user, theme }: Props) {
             return (
               <motion.div key={c.id} {...fadeIn}>
                 <div
-                  className={`rounded-2xl p-4 shadow-md border transition ${
+                  className={`rounded-2xl p-4 shadow-sm border transition-all hover:shadow-md ${
                     c.registered
-                      ? "border-emerald-400 bg-emerald-50"
-                      : "border-gray-100 bg-white"
+                      ? "border-gray-200 bg-white"
+                      : "border-gray-200 bg-white"
                   }`}
                 >
-                  <div className="flex items-center gap-4 mb-3">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="relative flex-shrink-0">
                       <Image
                         src={c.avatar || "/logo/logo.png"}
                         alt={c.name}
-                        width={56}
-                        height={56}
-                        className="w-14 h-14 rounded-full object-cover border border-gray-200"
+                        width={52}
+                        height={52}
+                        className="w-13 h-13 rounded-full object-cover border border-gray-200"
                       />
-                    <div>
-                      <div className="text-lg font-semibold">{c.name}</div>
-                      <div className="text-sm text-gray-500">{c.mobile}</div>
-
-
+                      {c.registered && c.online && (
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
+                      )}
                     </div>
-                    <div className="ml-auto flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold text-gray-800 text-[15px] truncate">{c.name}</div>
+                        {c.registered && (
+                          <span className={`flex-shrink-0 w-2 h-2 rounded-full ${
+                            c.online ? "bg-green-500" : "bg-gray-300"
+                          }`} title={c.online ? "Online" : "Offline"} />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className="text-sm text-gray-500 truncate">{c.mobile}</div>
+                        {c.registered && c.online && (
+                          <span className="text-[11px] text-green-600 flex-shrink-0">· online</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
                       <button
                         onClick={() => setManageContact(c)}
-                        className="p-2 border rounded-xl text-gray-700 hover:bg-gray-50"
+                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
                         aria-label="Edit"
-                        title="Edit"
+                        title="Edit Contact"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setManageContact(c)}
-                        className="p-2 border rounded-xl text-red-600 hover:bg-red-50"
+                        className="p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
                         aria-label="Delete"
-                        title="Delete"
+                        title="Delete Contact"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -337,8 +366,9 @@ export default function Contacts({ user, theme }: Props) {
                   {c.registered ? (
                     <button
                       onClick={() => router.push(`/chat/${c.registeredUserId}`)}
-                      className="w-full py-2 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium"
+                      className="w-full py-2.5 mt-1 bg-[#00a884] hover:bg-[#008069] text-white rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-2"
                     >
+                      <FaWhatsapp className="w-4 h-4" />
                       Message
                     </button>
                   ) : (

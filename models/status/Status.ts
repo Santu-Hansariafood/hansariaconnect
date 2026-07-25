@@ -22,7 +22,6 @@ const StatusSchema = new Schema<IStatus>(
 );
 
 StatusSchema.index({ userId: 1, createdAt: -1 });
-StatusSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export default mongoose.models.Status ||
   mongoose.model<IStatus>("Status", StatusSchema);
