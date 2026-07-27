@@ -88,6 +88,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   const [showForwardModal, setShowForwardModal] = useState(false)
   const [messageToForward, setMessageToForward] = useState<any>(null)
   const [contacts, setContacts] = useState<any[]>([])
+  const [isGroup, setIsGroup] = useState(false)
+  const [groupMembers, setGroupMembers] = useState<any[]>([])
 
   const handleEmojiClick = (emojiObject: any) => {
     setMessage((prev) => prev + emojiObject.emoji);
@@ -154,6 +156,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       try {
         setInitialLoading(true)
         
+        // Try to fetch group first to detect if this is a group chat
+        let isGroupChat = false
+        try {
+          const groupRes = await fetch(`/api/groups/${id}`, { credentials: 'include' })
+          if (groupRes.ok) {
+            const groupData = await groupRes.json()
+            if (groupData?.group) {
+              isGroupChat = true
+              setIsGroup(true)
+              setGroupMembers(groupData.group.members || [])
+              setContact({
+                name: groupData.group.name || "Group",
+                avatar: groupData.group.avatar || "",
+                registeredUserId: id,
+              })
+            }
+          }
+        } catch {}
+        
         // Load all data in parallel for maximum speed
         const [contactsRes, messagesRes, accessRes] = await Promise.all([
           fetch('/api/contacts', { credentials: 'include' }),
@@ -161,23 +182,33 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
           fetch("/api/access/me", { cache: "no-store" }),
         ])
         
-        // Process contacts
-        try {
-          const contactsData = await contactsRes.json()
-          if (Array.isArray(contactsData?.contacts)) {
-            setContacts(contactsData.contacts)
-            const found = contactsData.contacts.find((c: any) => c.registeredUserId === id)
-            if (found) setContact(found)
-            else {
-              // Fallback to fetch user if not in contacts
-              const uRes = await fetch(`/api/users/${id}`, { credentials: 'include' })
-              const uData = await uRes.json()
-              if (uRes.ok && (uData?.mobile || uData?.name || uData?.avatar)) {
-                setContact({ name: uData?.name || uData?.mobile || "User", avatar: uData?.avatar || "", mobile: uData?.mobile || "" })
+        // Process contacts (only for 1-to-1 chats)
+        if (!isGroupChat) {
+          try {
+            const contactsData = await contactsRes.json()
+            if (Array.isArray(contactsData?.contacts)) {
+              setContacts(contactsData.contacts)
+              const found = contactsData.contacts.find((c: any) => c.registeredUserId === id)
+              if (found) setContact(found)
+              else {
+                // Fallback to fetch user if not in contacts
+                const uRes = await fetch(`/api/users/${id}`, { credentials: 'include' })
+                const uData = await uRes.json()
+                if (uRes.ok && (uData?.mobile || uData?.name || uData?.avatar)) {
+                  setContact({ name: uData?.name || uData?.mobile || "User", avatar: uData?.avatar || "", mobile: uData?.mobile || "" })
+                }
               }
             }
-          }
-        } catch {}
+          } catch {}
+        } else {
+          // For group chats, still load all contacts for forward modal
+          try {
+            const contactsData = await contactsRes.json()
+            if (Array.isArray(contactsData?.contacts)) {
+              setContacts(contactsData.contacts)
+            }
+          } catch {}
+        }
         
         // Process messages
         try {
@@ -209,13 +240,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   }, [id])
 
   const { onlineUserIds, addOnlineListener, removeOnlineListener } = useSocket();
-  const isContactOnline = onlineUserIds.includes(id)
+  const isContactOnline = !isGroup && onlineUserIds.includes(id)
   const headerName = contact?.registeredProfile?.name || contact?.name || "User"
   const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png"
   const [lastSeenText, setLastSeenText] = useState<string>("")
 
   useEffect(() => {
-    if (isContactOnline) {
+    if (isGroup) {
+      const count = groupMembers.length
+      setLastSeenText(count ? `${count} member${count > 1 ? 's' : ''}` : "Group chat")
+    } else if (isContactOnline) {
       setLastSeenText("online")
     } else {
       const ls = contact?.lastSeen
@@ -239,7 +273,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         setLastSeenText("last seen recently")
       }
     }
-  }, [isContactOnline, contact?.lastSeen])
+  }, [isGroup, groupMembers.length, isContactOnline, contact?.lastSeen])
 
   const maskedId = (() => {
     const s = String(id || "")
@@ -561,7 +595,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   }
 
   return (
-    <div className="h-screen flex flex-col bg-[#efeae2]">
+    <div className="h-screen w-screen sm:h-full sm:w-full max-w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden">
       <motion.header
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -593,7 +627,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
               {headerName}
             </h2>
             <span className={`text-[12px] truncate ${
-              isContactOnline ? "text-green-600" : "text-gray-500"
+              !isGroup && isContactOnline ? "text-green-600" : "text-gray-500"
             }`}>
               {lastSeenText}
             </span>
@@ -748,7 +782,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       <div 
         ref={containerRef} 
         onScroll={handleScroll} 
-        className={`flex-1 overflow-y-auto px-[8%] py-4 ${
+        className={`flex-1 overflow-y-auto min-w-0 min-h-0 px-[4%] sm:px-[8%] py-3 sm:py-4 ${
           theme.wallpaper || "bg-[#efeae2]"
         }`}
         style={
@@ -759,10 +793,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
             : undefined
         }
       >
-        <div className="max-w-4xl mx-auto space-y-1.5">
+        <div className="max-w-4xl mx-auto space-y-1.5 w-full min-w-0">
           {chatMessages.length === 0 && (
             <div className="text-center text-gray-600 py-6">
-              <p className="text-sm">New chat with {contact?.name || "user"}. Start typing or send media.</p>
+              <p className="text-sm">{isGroup ? `No messages in ${headerName}. Start the conversation!` : `New chat with ${contact?.name || "user"}. Start typing or send media.`}</p>
             </div>
           )}
           {hasMore && (
@@ -827,8 +861,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
                 status: msg.status || "sent",
               } as any}
               user={user}
-              contact={{ id, name: headerName, avatar: headerAvatar } as any}
+              contact={(() => {
+                if (isGroup && isIncoming) {
+                  const senderId = (typeof msg.from === 'string' ? msg.from : (msg.from?.toString?.() || msg.from?.$oid || '')) as string
+                  const member = groupMembers.find((m: any) => String(m.id) === String(senderId))
+                  if (member) {
+                    return { id: member.id, name: member.name, avatar: member.avatar } as any
+                  }
+                }
+                return { id, name: headerName, avatar: headerAvatar } as any
+              })()}
               theme={theme}
+              isGroup={isGroup}
               onForward={() => handleForwardMessage(msg)}
             />
               </React.Fragment>
@@ -840,9 +884,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-[#f0f2f5] border-t border-gray-200 px-4 py-2.5 relative"
+        className="bg-[#f0f2f5] border-t border-gray-200 px-2 sm:px-4 py-2 sm:py-2.5 relative min-w-0 w-full"
       >
-        <div className="max-w-4xl mx-auto flex items-center gap-2">
+        <div className="max-w-4xl mx-auto flex items-center gap-1 sm:gap-2 min-w-0">
           <button
             onClick={() => allowAttachments && setShowMediaPicker((prev) => !prev)}
             disabled={!allowAttachments}
@@ -866,17 +910,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             placeholder="Type a message..."
-            className={`w-full px-4 py-2.5 bg-white rounded-full focus:outline-none focus:ring-0 border border-transparent hover:border-gray-200 text-[15px] ${theme.textSize}`}
+            className={`flex-1 min-w-0 px-3 sm:px-4 py-2 sm:py-2.5 bg-white rounded-full focus:outline-none focus:ring-0 border border-transparent hover:border-gray-200 text-[14px] sm:text-[15px] ${theme.textSize}`}
           />
 
           <motion.button
             whileTap={{ scale: 0.92 }}
             onClick={handleSend}
-            className="p-2.5 rounded-full text-white shadow-sm"
+            className="p-2 sm:p-2.5 rounded-full text-white shadow-sm flex-shrink-0"
             style={{ backgroundColor: "#00a884" }}
             title="Send"
           >
-            <Send className="w-5 h-5" />
+            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
           </motion.button>
         </div>
 

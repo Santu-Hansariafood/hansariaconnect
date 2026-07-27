@@ -58,6 +58,7 @@ interface MessageBubbleProps {
   user: User
   contact: Contact
   theme: Theme
+  isGroup?: boolean
   onForward?: () => void
 }
 
@@ -66,6 +67,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   user,
   contact,
   theme,
+  isGroup = false,
   onForward,
 }) => {
   const isSent = message.sender === "me"
@@ -95,7 +97,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           isSent ? "flex-row-reverse" : "flex-row"
         } items-end`}
       >
-        {!isSent && (
+        {!isSent && isGroup && (
           <Image
             src={contact.avatar || "/logo/logo.png"}
             alt={contact.name}
@@ -117,7 +119,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
 
           <div>
-            {!isSent && (
+            {!isSent && isGroup && (
               <p
                 className={`text-[12.8px] font-medium text-[#111b21] mb-1 ml-2`}
               >
@@ -126,7 +128,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             )}
 
             <div
-              className={`px-2.5 pb-1.5 pt-1.5 ${
+              className={`px-[8px] pb-[4px] pt-[6px] ${
                 theme.textSize || "text-[14.2px]"
               } ${
                 isSent
@@ -141,12 +143,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               } relative leading-[19px]`}
             >
               {message.type === "text" && (
-                <div className="break-words">
+                <div className="break-words whitespace-pre-wrap inline">
                   {topLink && (
                     <div
                       className={`${
                         isSent ? "bg-white/10" : "bg-gray-200"
-                      } rounded-lg p-2 mb-2 flex items-center gap-2`}
+                      } rounded-lg p-2 mb-2 flex items-center gap-2 clear-both`}
                     >
                       <LinkIcon className="w-4 h-4" />
                       <a
@@ -164,10 +166,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </div>
                   )}
 
-                  <div>{rich.nodes}</div>
+                  <span>{rich.nodes}</span>
 
                   {harmful.hasWarning && (
-                    <div className="mt-2 text-xs font-medium text-red-700">
+                    <div className="mt-2 text-xs font-medium text-red-700 clear-both">
                       Harmful content detected: {harmful.warnings.join(", ")}
                     </div>
                   )}
@@ -187,10 +189,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   )}
 
                   {message.text && (
-                    <div className="break-words">
-                      {formatRichText(message.text).nodes}
+                    <div className="break-words whitespace-pre-wrap inline">
+                      <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700">
+                        <div className="mt-2 text-xs text-red-700 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -208,10 +210,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   )}
 
                   {message.text && (
-                    <div className="break-words">
-                      {formatRichText(message.text).nodes}
+                    <div className="break-words whitespace-pre-wrap inline">
+                      <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700">
+                        <div className="mt-2 text-xs text-red-700 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -240,10 +242,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </div>
 
                   {message.text && (
-                    <div className="break-words">
-                      {formatRichText(message.text).nodes}
+                    <div className="break-words whitespace-pre-wrap inline">
+                      <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700">
+                        <div className="mt-2 text-xs text-red-700 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -274,10 +276,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </div>
 
                   {message.text && (
-                    <div className="break-words">
-                      {formatRichText(message.text).nodes}
+                    <div className="break-words whitespace-pre-wrap inline">
+                      <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700">
+                        <div className="mt-2 text-xs text-red-700 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -308,8 +310,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </div>
 
                   {message.text && (
-                    <div className="break-words">
-                      {formatRichText(message.text).nodes}
+                    <div className="break-words whitespace-pre-wrap inline">
+                      <span>{formatRichText(message.text).nodes}</span>
                     </div>
                   )}
                 </div>
@@ -337,8 +339,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </div>
 
                   {message.text && (
-                    <div className="break-words">
-                      {formatRichText(message.text).nodes}
+                    <div className="break-words whitespace-pre-wrap inline">
+                      <span>{formatRichText(message.text).nodes}</span>
                     </div>
                   )}
                 </div>
@@ -375,38 +377,42 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </div>
 
                   {message.text && (
-                    <p className="break-words">{message.text}</p>
+                    <p className="break-words whitespace-pre-wrap inline">
+                      <span>{message.text}</span>
+                    </p>
                   )}
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-1 mt-0.5 mb-0.5 mr-1 float-right clear-both" style={{ marginTop: "-2px" }}>
-                <span
-                  className={`text-[11px] ${
-                    isSent ? "text-[#667781]" : "text-[#667781]"
-                  }`}
-                >
-                  {format(new Date(message.timestamp), "h:mm a")}
-                </span>
-                {isSent && (
-                  <span className="flex items-center ml-0.5">
-                    {message.status === "sending" && (
-                      <div className="w-3 h-3 border-2 border-gray-400/40 border-t-gray-500/80 rounded-full animate-spin" />
-                    )}
-                    {message.status === "failed" && (
-                      <span className="text-red-500 text-[10px] font-medium">Failed</span>
-                    )}
-                    {message.status === "sent" && (
-                      <Check className="w-3.5 h-3.5 text-[#53bdeb]" strokeWidth={2.5} />
-                    )}
-                    {message.status === "delivered" && (
-                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" strokeWidth={2.5} />
-                    )}
-                    {message.status === "seen" && (
-                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" strokeWidth={2.5} fill="#53bdeb" fillOpacity={0.15} />
-                    )}
+              <div className="inline-block float-right clear-both ml-1 mb-[-2px] mt-1 select-none">
+                <div className="flex items-center justify-end gap-0.5 h-[15px]">
+                  <span
+                    className={`text-[11px] leading-none font-normal tracking-tight ${
+                      isSent ? "text-[#667781] opacity-90" : "text-[#667781] opacity-90"
+                    }`}
+                  >
+                    {format(new Date(message.timestamp), "h:mm a").toLowerCase()}
                   </span>
-                )}
+                  {isSent && (
+                    <span className="flex items-center ml-0.5">
+                      {message.status === "sending" && (
+                        <div className="w-3 h-3 border-2 border-gray-400/40 border-t-gray-500/80 rounded-full animate-spin" />
+                      )}
+                      {message.status === "failed" && (
+                        <span className="text-red-500 text-[10px] font-medium leading-none">Failed</span>
+                      )}
+                      {message.status === "sent" && (
+                        <Check className="w-[16px] h-[16px] text-[#53bdeb] -mr-[2px]" strokeWidth={2.5} />
+                      )}
+                      {message.status === "delivered" && (
+                        <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] -mr-[2px]" strokeWidth={2.5} />
+                      )}
+                      {message.status === "seen" && (
+                        <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] -mr-[2px]" strokeWidth={2.5} fill="#53bdeb" fillOpacity={0.25} />
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

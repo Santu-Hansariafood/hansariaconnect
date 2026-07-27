@@ -1,9 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
-import { X, Phone, Clock, Ban, CheckCircle } from 'lucide-react'
+import { format } from 'date-fns'
+import {
+  X,
+  Phone,
+  Clock,
+  Ban,
+  CheckCircle,
+  MessageSquarePlus,
+  Users,
+  MoreVertical,
+  LogOut,
+  CircleUserRound,
+} from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { staggerContainer, fadeIn } from '@/utils/animations/animations'
@@ -13,7 +25,7 @@ import { useCreateContact } from '@/hooks/chathome/useCreateContact'
 import { useForwardMessage } from '@/hooks/chathome/useForwardMessage'
 import { useContactActions } from '@/hooks/chathome/useContactActions'
 import Loading from '@/components/common/Loading/Loading'
-const Navbar = dynamic(() => import('@/components/common/Navbar/Navbar'));
+import { useSocket } from '@/hooks/useSocket'
 const ContactCard = dynamic(() => import('@/components/ui/ContactCard/ContactCard'));
 const SearchBar = dynamic(() => import('@/components/common/SearchBar/SearchBar'));
 const ForwardModal = dynamic(() => import('@/components/ui/ForwardModal/ForwardModal'));
@@ -66,9 +78,30 @@ interface ChatHomeProps {
 export default function ChatHome({ user, theme, onLogout, selectedChatId, onSelectChat }: ChatHomeProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [groups, setGroups] = useState<any[]>([])
 
   const { contacts, loading, setContacts } = useContacts()
+  const { socket } = useSocket()
   const filteredContacts = useFilteredContacts({ contacts, searchQuery })
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await fetch("/api/groups", { credentials: "include" })
+        const data = await res.json()
+        if (!cancelled && res.ok && Array.isArray(data?.groups)) setGroups(data.groups)
+      } catch {}
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  const q = (searchQuery || "").trim().toLowerCase()
+  const visibleGroups = q
+    ? groups.filter((g: any) => (g?.name || "").toLowerCase().includes(q))
+    : groups
   const {
     showCreateModal,
     setShowCreateModal,
@@ -119,9 +152,130 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
   }
 
   return (
-    <div className={`flex-1 flex flex-col overflow-hidden bg-white`}>
-      <Navbar user={user} onLogout={onLogout} />
-      <div className="flex-1 overflow-y-auto">
+    <div className={`flex-1 flex flex-col overflow-hidden bg-white min-w-0`}>
+      {/* WhatsApp-style sidebar header — NO brand logo */}
+      <div className="h-14 sm:h-[60px] min-h-[56px] bg-[#f0f2f5] border-b border-gray-200 px-3 sm:px-4 flex items-center justify-between relative z-20">
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => router.push("/profile")}
+          className="flex items-center justify-center flex-shrink-0"
+          title="Profile"
+        >
+          <div className="relative">
+            {user?.photo || user?.avatar ? (
+              <Image
+                src={user.photo || user.avatar || "/logo/logo.png"}
+                alt={user.name || "User"}
+                width={40}
+                height={40}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                style={{ background: "linear-gradient(135deg, #00a884 0%, #008069 100%)" }}
+              >
+                {(user?.name || "U").charAt(0).toUpperCase()}
+              </div>
+            )}
+            <span
+              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#f0f2f5] ${
+                socket?.connected ? "bg-green-500" : "bg-gray-400"
+              }`}
+            />
+          </div>
+        </motion.button>
+
+        <div className="flex items-center gap-1 sm:gap-2 text-gray-600">
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => router.push("/status")}
+            className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+            title="Status"
+          >
+            <CircleUserRound className="w-5 h-5" />
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => router.push("/groups")}
+            className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+            title="Groups"
+          >
+            <Users className="w-5 h-5" />
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowCreateModal(true)}
+            className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+            title="New Chat"
+          >
+            <MessageSquarePlus className="w-5 h-5" />
+          </motion.button>
+
+          <div className="relative">
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setMenuOpen((v) => !v)}
+              className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+              title="Menu"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </motion.button>
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute right-0 mt-1 w-48 rounded-lg bg-white shadow-xl border border-gray-200 py-1 z-40 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      router.push("/profile")
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 flex items-center gap-3"
+                  >
+                    Profile
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      router.push("/contacts")
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 flex items-center gap-3"
+                  >
+                    Contacts
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      router.push("/status")
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 flex items-center gap-3"
+                  >
+                    Status
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false)
+                      onLogout?.()
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Log out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto min-h-0">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -179,14 +333,97 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
               />
             </motion.div>
           ))}
+
+          {visibleGroups.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="px-4 pt-4 pb-1 flex items-center gap-2"
+            >
+              <span className={`text-[11px] font-semibold uppercase tracking-wide ${textMuted}`}>
+                Groups
+              </span>
+              <span className={`flex-1 h-px ${borderColor}`} />
+            </motion.div>
+          )}
+          {visibleGroups.map((g: any) => {
+            const isActive = selectedChatId === g.id
+            let lastText = g?.lastMessage || "No messages yet"
+            if (typeof lastText !== "string") lastText = "No messages yet"
+            if (lastText.length > 50) lastText = lastText.slice(0, 49) + "…"
+            let when = ""
+            try {
+              const d = new Date(g?.lastMessageTime || g?.updatedAt || Date.now())
+              if (!isNaN(d.getTime())) when = format(d, "h:mm a").toLowerCase()
+            } catch {}
+            const memberCount = Array.isArray(g?.members) ? g.members.length : 0
+            return (
+              <motion.button
+                key={g.id || Math.random()}
+                whileTap={{ scale: 0.995 }}
+                onClick={() => {
+                  if (onSelectChat) onSelectChat(g.id)
+                  else router.push(`/chat/${g.id}`)
+                }}
+                className={`w-full text-left flex items-center gap-3 px-3 py-2.5 transition-colors border-b ${borderColor} ${
+                  isActive ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"
+                }`}
+              >
+                <div className="relative flex-shrink-0">
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shadow-sm"
+                    style={{
+                      background: g?.avatar
+                        ? undefined
+                        : "linear-gradient(135deg, #00a884 0%, #008069 100%)",
+                    }}
+                  >
+                    {g?.avatar ? (
+                      <Image
+                        src={g.avatar}
+                        alt={g.name || "Group"}
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 rounded-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display = "none"
+                        }}
+                      />
+                    ) : (
+                      <Users className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <Users className={`w-3.5 h-3.5 flex-shrink-0 ${textMuted}`} />
+                      <p className={`font-semibold text-[15.5px] truncate ${textColor}`}>
+                        {g.name || "Group"}
+                      </p>
+                    </div>
+                    <p className={`text-[13.5px] truncate mt-0.5 ${textMuted}`}>
+                      {memberCount ? `${memberCount} member${memberCount > 1 ? "s" : ""} · ` : ""}
+                      {lastText}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    {when && (
+                      <span className={`text-[11px] ${textMuted}`}>{when}</span>
+                    )}
+                  </div>
+                </div>
+              </motion.button>
+            )
+          })}
         </motion.div>
-        {filteredContacts.length === 0 && !loading && (
+        {filteredContacts.length === 0 && visibleGroups.length === 0 && !loading && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-center py-12"
           >
-            <p className={`text-sm ${textMuted}`}>No contacts found</p>
+            <p className={`text-sm ${textMuted}`}>No contacts or groups found</p>
           </motion.div>
         )}
         {showContactModal && selectedContact && (
