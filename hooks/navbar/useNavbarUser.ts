@@ -40,7 +40,7 @@ export function useNavbarUser(initialUser: User) {
     };
 
     load();
-  }, [ctxUser, initialUser]);
+  }, [ctxUser, initialUser?.name, initialUser?.photo]);
 
   return navUser;
 }

@@ -59,6 +59,7 @@ interface MessageBubbleProps {
   contact: Contact
   theme: Theme
   isGroup?: boolean
+  showSenderInfo?: boolean
   onForward?: () => void
 }
 
@@ -68,6 +69,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   contact,
   theme,
   isGroup = false,
+  showSenderInfo = false,
   onForward,
 }) => {
   const isSent = message.sender === "me"
@@ -83,6 +85,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const rich = formatRichText(textContent)
 
+  const displaySenderAvatar = !isSent && isGroup && showSenderInfo
+  const displaySenderName = !isSent && isGroup && showSenderInfo
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -97,7 +102,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           isSent ? "flex-row-reverse" : "flex-row"
         } items-end`}
       >
-        {!isSent && isGroup && (
+        {displaySenderAvatar && (
           <Image
             src={contact.avatar || "/logo/logo.png"}
             alt={contact.name}
@@ -105,6 +110,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             height={28}
             className="w-7 h-7 rounded-full object-cover flex-shrink-0 mb-1"
           />
+        )}
+        {!isSent && isGroup && !showSenderInfo && (
+          <div className="w-7 h-7 flex-shrink-0" />
         )}
 
         <div className="flex items-end gap-1.5">
@@ -119,7 +127,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
 
           <div>
-            {!isSent && isGroup && (
+            {displaySenderName && (
               <p
                 className={`text-[12.8px] font-medium text-[#111b21] mb-1 ml-2`}
               >
