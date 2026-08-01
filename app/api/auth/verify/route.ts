@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
+import { digestHex, randomBytesHex } from "@/lib/crypto";
 import {
   signUserSession,
   verifyOtpSession,
@@ -9,6 +9,7 @@ import {
   userSessionCookieOptions,
   addUserSession,
 } from "@/lib/sessionAuth";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const sessionCookie = req.cookies.get("otp_session")?.value;
-    const payload = verifyOtpSession(sessionCookie);
+    const payload = await verifyOtpSession(sessionCookie);
     if (!payload) {
       const response = NextResponse.json(
         { success: false, error: "Invalid or expired OTP session" },
@@ -47,10 +48,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const generatedHash = crypto
-      .createHash("sha256")
-      .update(code + payload.salt)
-      .digest("hex");
+    const generatedHash = await digestHex("SHA-256", code + payload.salt);
 
     if (generatedHash !== payload.hash) {
       const response = NextResponse.json(
@@ -68,7 +66,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       user = await User.create({ mobile });
     }
 
-    const sessionId = crypto.randomBytes(16).toString("hex");
+    const sessionId = await randomBytesHex(16);
     const userAgent = req.headers.get("user-agent") ?? undefined;
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
     const allowed = await addUserSession(user._id.toString(), sessionId, userAgent, ip);
@@ -103,7 +101,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     response.cookies.set(
       "user_session",
-      signUserSession({ id: user._id.toString(), sessionId, mobile }),
+      await signUserSession({ id: user._id.toString(), sessionId, mobile }),
       userSessionCookieOptions,
     );
 

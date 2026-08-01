@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { digestHex } from "@/lib/crypto";
 
 export const runtime = "nodejs";
 
@@ -108,10 +108,7 @@ export async function POST(req: NextRequest) {
     else if (kind === "raw") folder = "rawfiles";
 
     const toSign = `folder=${folder}&timestamp=${timestamp}`;
-    const signature = crypto
-      .createHash("sha1")
-      .update(toSign + CLOUDINARY_API_SECRET)
-      .digest("hex");
+    const signature = await digestHex("SHA-1", toSign + CLOUDINARY_API_SECRET);
 
     const isVideoFile = file.type.startsWith("video/");
 

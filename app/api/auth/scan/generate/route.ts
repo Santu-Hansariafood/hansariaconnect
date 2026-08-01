@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { randomBytesHex } from "@/lib/crypto";
+
+export const runtime = "nodejs";
 
 const scanTokens = new Map<
   string,
@@ -22,7 +24,7 @@ setInterval(() => {
 
 export async function POST(req: NextRequest) {
   try {
-    const token = crypto.randomBytes(32).toString("hex");
+    const token = await randomBytesHex(32);
     const scanData = {
       token,
       createdAt: Date.now(),

@@ -14,7 +14,7 @@ export interface AdminSession {
 export async function getAdminSessionFromRequest(
   req: NextRequest,
 ): Promise<AdminSession | null> {
-  const session = getAdminSession(req);
+  const session = await getAdminSession(req);
   if (!session) return null;
 
   if (

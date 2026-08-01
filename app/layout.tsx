@@ -26,16 +26,18 @@ export const metadata: Metadata = {
   },
 
   description:
-    "HansariaConnect is a secure, privacy-focused encrypted messaging platform with real-time chat and modern UI.",
+    "HansariaConnect is a secure, privacy-first encrypted messaging platform for private conversations, group chat, and encrypted file sharing.",
 
   keywords: [
     "HansariaConnect",
-    "Hansaria Chat",
-    "Encrypted Messaging App",
-    "Secure Chat App India",
-    "Indian WhatsApp Alternative",
-    "Private Messaging",
-    "HFConnect",
+    "secure chat",
+    "encrypted messaging",
+    "privacy-focused messaging",
+    "real-time chat",
+    "group chat",
+    "OTP login",
+    "single-device login",
+    "India messaging app",
   ],
 
   authors: [{ name: "Santu De", url: "https://hfconnect.in" }],
@@ -59,17 +61,17 @@ export const metadata: Metadata = {
   openGraph: {
     title: "HansariaConnect – Secure Encrypted Messaging App",
     description:
-      "A privacy-first encrypted messaging platform with real-time communication.",
+      "Privacy-first encrypted messaging with real-time chat, groups, and media sharing.",
     url: "https://hfconnect.in",
     siteName: "HansariaConnect",
     locale: "en_US",
     type: "website",
     images: [
       {
-        url: "/favicon/android-chrome-512x512.png",
+        url: "https://hfconnect.in/favicon/android-chrome-512x512.png",
         width: 1200,
         height: 630,
-        alt: "HansariaConnect Preview",
+        alt: "HansariaConnect Secure Messaging",
       },
     ],
   },
@@ -78,8 +80,9 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "HansariaConnect – Secure Encrypted Messaging App",
     description:
-      "Modern encrypted messaging app designed for privacy and speed.",
-    images: ["/favicon/android-chrome-512x512.png"],
+      "The best encrypted messaging platform for private and secure real-time chat.",
+    creator: "@HansariaConnect",
+    images: ["https://hfconnect.in/favicon/android-chrome-512x512.png"],
   },
 
   icons: {

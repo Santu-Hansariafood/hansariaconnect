@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   if (!token.access_token)
     return NextResponse.json({ error: "Token error" }, { status: 400 });
 
-  const session = getUserSession(req);
+  const session = await getUserSession(req as any);
   if (!session?.id) {
     return NextResponse.redirect("/login");
   }

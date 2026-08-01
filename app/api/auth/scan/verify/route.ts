@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import { getScanToken, setScanToken } from "../generate/route";
+import { randomBytesHex } from "@/lib/crypto";
 import {
   signUserSession,
   userSessionCookieOptions,
   addUserSession,
 } from "@/lib/sessionAuth";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
       user = await User.create({ mobile: scanData.mobile });
     }
 
-    const sessionId = crypto.randomBytes(16).toString("hex");
+    const sessionId = await randomBytesHex(16);
     const userAgent = req.headers.get("user-agent") ?? undefined;
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
     const allowed = await addUserSession(user._id.toString(), sessionId, userAgent, ip);
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     response.cookies.set(
       "user_session",
-      signUserSession({ id: user._id.toString(), sessionId, mobile: scanData.mobile }),
+      await signUserSession({ id: user._id.toString(), sessionId, mobile: scanData.mobile }),
       userSessionCookieOptions,
     );
 

@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
-import crypto from "crypto";
+import { randomBytesHex, pbkdf2Hex } from "@/lib/crypto";
 
 export interface IApiKey extends Document {
   adminId: string;
@@ -37,11 +37,9 @@ const ApiKeySchema = new Schema<IApiKey>(
 
 // Generate a unique API key and store its hash
 ApiKeySchema.methods.generateHash = async function (): Promise<string> {
-  const rawKey = crypto.randomBytes(32).toString("hex");
-  const salt = await crypto.randomBytes(16).toString("hex");
-  const hash = crypto
-    .pbkdf2Sync(rawKey, salt, 100000, 64, "sha512")
-    .toString("hex");
+  const rawKey = await randomBytesHex(32);
+  const salt = await randomBytesHex(16);
+  const hash = await pbkdf2Hex(rawKey, salt, 100000, 64, "SHA-512");
 
   // Store salt + hash (we need salt to verify later)
   this.key = `${salt}.${hash}`;

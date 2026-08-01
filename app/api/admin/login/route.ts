@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
 
     response.cookies.set(
       "admin_session",
-      signAdminSession({
+      await signAdminSession({
         adminId: admin._id.toString(),
         userId: admin.userId,
         email: admin.email,

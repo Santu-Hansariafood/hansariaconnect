@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import { hmacSha256Hex, digestHex, randomBytesHex } from "./crypto";
 import { parseCookie } from "cookie";
 import type { NextRequest } from "next/server";
 import { connectDB } from "./db/db";
@@ -36,30 +36,27 @@ const getSessionSecret = (): string => {
   return secret;
 };
 
-const computeSignature = (payload: string): string =>
-  crypto.createHmac("sha256", getSessionSecret()).update(payload).digest("hex");
+const computeSignature = async (payload: string): Promise<string> =>
+  await hmacSha256Hex(getSessionSecret(), payload);
 
-const timingSafeEqual = (a: string, b: string): boolean => {
-  try {
-    const aBuf = Buffer.from(a, "utf8");
-    const bBuf = Buffer.from(b, "utf8");
-    if (aBuf.length !== bBuf.length) {
-      return false;
-    }
-    return crypto.timingSafeEqual(aBuf, bBuf);
-  } catch {
-    return false;
+const constantTimeCompare = (a: string, b: string): boolean => {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
+  return result === 0;
 };
 
-const encodeSession = <T>(payload: T): string => {
+const encodeSession = async <T>(payload: T): Promise<string> => {
   const payloadJson = JSON.stringify(payload);
-  const signature = computeSignature(payloadJson);
+  const signature = await computeSignature(payloadJson);
   const envelope = JSON.stringify({ payload, sig: signature });
   return Buffer.from(envelope, "utf8").toString("base64url");
 };
 
-const decodeSession = <T>(raw?: string): T | null => {
+const decodeSession = async <T>(raw?: string): Promise<T | null> => {
   if (!raw) return null;
   try {
     const decoded = Buffer.from(raw, "base64url").toString("utf8");
@@ -68,8 +65,8 @@ const decodeSession = <T>(raw?: string): T | null => {
       return null;
     }
     const payload = (parsed as { payload: unknown }).payload;
-    const expectedSig = computeSignature(JSON.stringify(payload));
-    if (!timingSafeEqual(parsed.sig, expectedSig)) {
+    const expectedSig = await computeSignature(JSON.stringify(payload));
+    if (!constantTimeCompare(parsed.sig, expectedSig)) {
       return null;
     }
     return payload as T;
@@ -134,11 +131,11 @@ export const authOtpCookieOptions = {
 const isSessionExpired = (exp?: unknown): exp is number =>
   typeof exp === "number" && Date.now() > exp;
 
-export const signUserSession = (session: UserSession): string =>
+export const signUserSession = async (session: UserSession): Promise<string> =>
   encodeSession({ ...session, exp: Date.now() + userSessionCookieOptions.maxAge * 1000 });
 
-export const verifyUserSession = (raw?: string): UserSession | null => {
-  const session = decodeSession<UserSession & { exp?: number }>(raw);
+export const verifyUserSession = async (raw?: string): Promise<UserSession | null> => {
+  const session = await decodeSession<UserSession & { exp?: number }>(raw);
   if (
     !session ||
     typeof session.id !== "string" ||
@@ -154,7 +151,7 @@ export const verifyUserSession = (raw?: string): UserSession | null => {
   };
 };
 
-export const getUserSession = (req: any): UserSession | null => {
+export const getUserSession = async (req: any): Promise<UserSession | null> => {
   const raw = getCookieValue(req, "user_session");
   return verifyUserSession(raw);
 };
@@ -196,22 +193,22 @@ export const removeUserSession = async (
   });
 };
 
-export const signAdminSession = (session: AdminSession): string =>
+export const signAdminSession = async (session: AdminSession): Promise<string> =>
   encodeSession({
     ...session,
     createdAt: Date.now(),
     exp: Date.now() + adminSessionCookieOptions.maxAge * 1000,
   });
 
-export const verifyAdminSession = (raw?: string): AdminSession | null => {
-  const session = decodeSession<AdminSession & { exp?: number }>(raw);
+export const verifyAdminSession = async (raw?: string): Promise<AdminSession | null> => {
+  const session = await decodeSession<AdminSession & { exp?: number }>(raw);
   if (!session || isSessionExpired(session.exp)) return null;
   if (session.keyLogin) return session;
   if (typeof session.adminId === "string" && session.adminId.trim()) return session;
   return null;
 };
 
-export const getAdminSession = (req: any): AdminSession | null => {
+export const getAdminSession = async (req: any): Promise<AdminSession | null> => {
   const raw = getCookieValue(req, "admin_session");
   return verifyAdminSession(raw);
 };
@@ -223,11 +220,11 @@ export interface AdminOtpSessionPayload {
   exp: number;
 }
 
-export const signOtpSession = (session: OtpSessionPayload): string =>
+export const signOtpSession = async (session: OtpSessionPayload): Promise<string> =>
   encodeSession(session);
 
-export const verifyOtpSession = (raw?: string): OtpSessionPayload | null => {
-  const session = decodeSession<OtpSessionPayload>(raw);
+export const verifyOtpSession = async (raw?: string): Promise<OtpSessionPayload | null> => {
+  const session = await decodeSession<OtpSessionPayload>(raw);
   if (
     !session ||
     typeof session.mobile !== "string" ||
@@ -240,14 +237,14 @@ export const verifyOtpSession = (raw?: string): OtpSessionPayload | null => {
   return session;
 };
 
-export const signAdminOtpSession = (
+export const signAdminOtpSession = async (
   session: AdminOtpSessionPayload,
-): string => encodeSession(session);
+): Promise<string> => encodeSession(session);
 
-export const verifyAdminOtpSession = (
+export const verifyAdminOtpSession = async (
   raw?: string,
-): AdminOtpSessionPayload | null => {
-  const session = decodeSession<AdminOtpSessionPayload>(raw);
+): Promise<AdminOtpSessionPayload | null> => {
+  const session = await decodeSession<AdminOtpSessionPayload>(raw);
   if (
     !session ||
     typeof session.email !== "string" ||

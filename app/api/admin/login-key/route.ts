@@ -24,7 +24,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const response = NextResponse.json({ success: true });
     response.cookies.set(
       "admin_session",
-      signAdminSession({
+      await signAdminSession({
         keyLogin: true,
         adminId: process.env.ADMIN_LOGIN_KEY_ID || "admin-key-login",
         userId: process.env.ADMIN_LOGIN_KEY_ID || "admin-key-login",

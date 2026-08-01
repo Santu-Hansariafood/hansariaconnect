@@ -16,8 +16,8 @@ export const config = {
   },
 };
 
-const getUserIdFromSocket = (socket: any): string | null => {
-  const session = getUserSession(socket.request || socket.handshake);
+const getUserIdFromSocket = async (socket: any): Promise<string | null> => {
+  const session = await getUserSession(socket.request || socket.handshake);
   return session?.id ?? null;
 };
 
@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     io.on("connection", async (socket) => {
       try {
-        const userId = getUserIdFromSocket(socket);
+        const userId = await getUserIdFromSocket(socket);
         if (!userId) {
           socket.emit("auth:error", { message: "Invalid session" });
           socket.disconnect(true);

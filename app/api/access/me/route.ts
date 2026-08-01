@@ -4,13 +4,13 @@ import AccessControl from "@/models/access/AccessControl";
 
 import { getUserSession } from "@/lib/sessionAuth";
 
-const parseSession = (req: NextRequest) => {
-  return getUserSession(req);
+const parseSession = async (req: NextRequest) => {
+  return await getUserSession(req);
 };
 
 export async function GET(req: NextRequest) {
   try {
-    const session = parseSession(req);
+    const session = await parseSession(req);
     if (!session?.id)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     await connectDB();

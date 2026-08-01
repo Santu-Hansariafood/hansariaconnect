@@ -3,7 +3,7 @@ import { getUserSession, removeUserSession } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const session = getUserSession(req);
+    const session = await getUserSession(req);
     if (session?.id && session?.sessionId) {
       await removeUserSession(session.id, session.sessionId);
     }

@@ -1,6 +1,6 @@
 import { connectDB } from "./db/db";
 import ApiKey, { IApiKey } from "@/models/apiKey/ApiKey";
-import crypto from "crypto";
+import { pbkdf2Hex } from "./crypto";
 import { NextRequest } from "next/server";
 
 export async function validateApiKey(req: NextRequest, requiredPermission?: keyof IApiKey["permissions"]) {
@@ -19,9 +19,7 @@ export async function validateApiKey(req: NextRequest, requiredPermission?: keyo
     const [salt, storedHash] = key.key.split(".");
     if (!salt || !storedHash) continue;
 
-    const hash = crypto
-      .pbkdf2Sync(rawKey, salt, 100000, 64, "sha512")
-      .toString("hex");
+    const hash = await pbkdf2Hex(rawKey, salt, 100000, 64, "SHA-512");
 
     if (hash === storedHash) {
       // Check expiration

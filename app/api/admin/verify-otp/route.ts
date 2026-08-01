@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { digestHex } from "@/lib/crypto";
+
+export const runtime = "nodejs";
 import { connectDB } from "@/lib/db/db";
 import Admin from "@/models/admin/Admin";
 import {
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
     const sessionCookie = req.cookies.get("admin_otp_session")?.value;
-    const payload = verifyAdminOtpSession(sessionCookie);
+    const payload = await verifyAdminOtpSession(sessionCookie);
     if (!payload) {
       const res = NextResponse.json(
         { success: false, error: "Invalid or expired admin session" },
@@ -45,10 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 403 },
       );
     }
-    const hash = crypto
-      .createHash("sha256")
-      .update(code + payload.salt)
-      .digest("hex");
+    const hash = await digestHex("SHA-256", code + payload.salt);
     if (hash !== payload.hash) {
       const res = NextResponse.json(
         { success: false, error: "Incorrect code" },
@@ -71,7 +70,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     response.cookies.delete("admin_otp_session");
     response.cookies.set(
       "admin_session",
-      signAdminSession({
+      await signAdminSession({
         adminId: admin._id.toString(),
         userId: admin.userId,
         email: admin.email,

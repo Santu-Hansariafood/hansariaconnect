@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getAdminSession } from "@/lib/sessionAuth"
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { nextUrl, headers } = req
   const host = headers.get("host") || ""
   const isAdminSubdomain = /^admin\./i.test(host)
@@ -33,7 +33,7 @@ export function middleware(req: NextRequest) {
   
   // Protect admin routes
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
-    const session = getAdminSession(req);
+    const session = await getAdminSession(req);
     if (!session) {
       const url = req.nextUrl.clone()
       url.pathname = "/admin/login"

@@ -5,7 +5,7 @@ import Contact from "@/models/contact/Contact";
 import { getUserSession } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest) {
-  const session = getUserSession(req);
+  const session = await getUserSession(req);
   if (!session?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

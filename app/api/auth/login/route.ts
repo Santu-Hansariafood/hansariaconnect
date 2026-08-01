@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
+import { digestHex, randomBytesHex } from "@/lib/crypto";
+
+export const runtime = "nodejs";
 import twilio from "twilio";
 import {
   signOtpSession,
@@ -43,11 +45,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.error("Twilio Error:", error);
     }
 
-    const salt = crypto.randomBytes(16).toString("hex");
-    const hash = crypto
-      .createHash("sha256")
-      .update(otp + salt)
-      .digest("hex");
+    const salt = await randomBytesHex(16);
+    const hash = await digestHex("SHA-256", otp + salt);
 
     const payload = {
       mobile,
@@ -62,7 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
-    response.cookies.set("otp_session", signOtpSession(payload), authOtpCookieOptions);
+    response.cookies.set("otp_session", await signOtpSession(payload), authOtpCookieOptions);
 
     return response;
   } catch (error: any) {
