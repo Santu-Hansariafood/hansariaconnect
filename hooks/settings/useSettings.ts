@@ -8,6 +8,7 @@ export const useSettings = () => {
     messages: true,
     groups: true,
     enabled: true,
+    ringtone: "chime",
   });
 
   useEffect(() => {

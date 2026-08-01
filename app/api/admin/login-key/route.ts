@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { signAdminSession, adminSessionCookieOptions } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -21,13 +22,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const response = NextResponse.json({ success: true });
-    response.cookies.set("admin_session", JSON.stringify({ keyLogin: true }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    response.cookies.set(
+      "admin_session",
+      signAdminSession({
+        keyLogin: true,
+        adminId: process.env.ADMIN_LOGIN_KEY_ID || "admin-key-login",
+        userId: process.env.ADMIN_LOGIN_KEY_ID || "admin-key-login",
+        email: process.env.ADMIN_LOGIN_KEY_EMAIL || "admin-key-login@local",
+        isSuperAdmin: false,
+      }),
+      adminSessionCookieOptions,
+    );
     return response;
   } catch (e: any) {
     return NextResponse.json(

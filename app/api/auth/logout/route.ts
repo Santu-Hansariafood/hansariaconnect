@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserSession, removeUserSession } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    const session = getUserSession(req);
+    if (session?.id && session?.sessionId) {
+      await removeUserSession(session.id, session.sessionId);
+    }
+
     const response = NextResponse.json({ success: true });
 
     response.cookies.delete("user_session");

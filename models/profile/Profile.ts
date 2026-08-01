@@ -8,6 +8,7 @@ export interface IProfile extends Document {
 
   theme: {
     wallpaper: string;
+    wallpaperImage?: string;
     primary: string;
     textSize?: string;
   };
@@ -16,6 +17,7 @@ export interface IProfile extends Document {
     messages: boolean;
     groups: boolean;
     enabled: boolean;
+    ringtone: string;
   };
 
   createdAt: Date;
@@ -40,6 +42,7 @@ const ProfileSchema = new Schema<IProfile>(
 
     theme: {
       wallpaper: { type: String, default: "" },
+      wallpaperImage: { type: String, default: "" },
       primary: { type: String, default: "#10b981" },
       textSize: { type: String, default: "text-base" },
     },
@@ -48,6 +51,7 @@ const ProfileSchema = new Schema<IProfile>(
       messages: { type: Boolean, default: true },
       groups: { type: Boolean, default: true },
       enabled: { type: Boolean, default: true },
+      ringtone: { type: String, default: "chime" },
     },
   },
   { timestamps: true }

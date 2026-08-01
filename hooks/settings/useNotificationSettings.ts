@@ -5,10 +5,7 @@ import { useState } from "react";
 export const useNotificationSettings = (notifications: any, setNotifications: any) => {
   const [loading, setLoading] = useState(false);
 
-  const toggleNotification = async (key: "messages" | "groups" | "enabled") => {
-    const updated = { ...notifications, [key]: !notifications[key] };
-    setNotifications(updated);
-
+  const saveNotifications = async (updated: any) => {
     setLoading(true);
     try {
       await fetch("/api/settings", {
@@ -23,5 +20,21 @@ export const useNotificationSettings = (notifications: any, setNotifications: an
     setLoading(false);
   };
 
-  return { toggleNotification, loading };
+  const toggleNotification = async (key: "messages" | "groups" | "enabled") => {
+    const updated = { ...notifications, [key]: !notifications[key] };
+    setNotifications(updated);
+    await saveNotifications(updated);
+
+    if (key === "enabled" && updated.enabled && typeof window !== "undefined" && "Notification" in window) {
+      Notification.requestPermission().catch(() => {});
+    }
+  };
+
+  const setRingtone = async (ringtone: string) => {
+    const updated = { ...notifications, ringtone };
+    setNotifications(updated);
+    await saveNotifications(updated);
+  };
+
+  return { toggleNotification, setRingtone, loading };
 };

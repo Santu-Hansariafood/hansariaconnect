@@ -1,4 +1,4 @@
-import NextAuth, { AuthOptions } from "next-auth";
+import NextAuth, { AuthOptions, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
@@ -10,8 +10,8 @@ declare module "next-auth" {
     mobile: string;
   }
 
-  interface Session {
-    user: {
+  interface Session extends DefaultSession {
+    user: DefaultSession["user"] & {
       id: string;
       mobile: string;
     };
@@ -25,35 +25,53 @@ declare module "next-auth/jwt" {
   }
 }
 
+const normalizeMobile = (input: unknown): string =>
+  String(input ?? "").replace(/\D/g, "");
+
+const isValidMobile = (mobile: string): boolean => /^\d{10}$/.test(mobile);
+const isValidOtp = (otp: string): boolean => /^\d{6}$/.test(otp);
+
 const authOptions: AuthOptions = {
   session: {
     strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60,
   },
 
   providers: [
     CredentialsProvider({
       name: "OTP Login",
       credentials: {
-        mobile: { label: "Mobile", type: "text" },
-        otp: { label: "OTP", type: "text" },
+        mobile: { label: "Mobile", type: "text", placeholder: "9876543210" },
+        otp: { label: "OTP", type: "text", placeholder: "123456" },
       },
 
       async authorize(credentials) {
-        if (!credentials?.mobile || !credentials.otp) return null;
+        const mobile = normalizeMobile(credentials?.mobile);
+        const otp = String(credentials?.otp ?? "").trim();
+
+        if (!isValidMobile(mobile) || !isValidOtp(otp)) {
+          return null;
+        }
 
         await connectDB();
 
         const validOtp = await Otp.findOne({
-          mobile: credentials.mobile,
-          otp: credentials.otp,
+          mobile,
+          otp,
           expiresAt: { $gt: new Date() },
         });
 
-        if (!validOtp) return null;
+        if (!validOtp) {
+          return null;
+        }
 
-        const user = await User.findOne({ mobile: credentials.mobile });
+        await Otp.deleteMany({ mobile });
 
-        if (!user) return null;
+        const user = await User.findOneAndUpdate(
+          { mobile },
+          { $setOnInsert: { mobile } },
+          { new: true, upsert: true },
+        );
 
         return {
           id: user._id.toString(),
@@ -79,6 +97,10 @@ const authOptions: AuthOptions = {
       }
       return session;
     },
+  },
+
+  pages: {
+    signIn: "/login",
   },
 
   secret: process.env.NEXTAUTH_SECRET,

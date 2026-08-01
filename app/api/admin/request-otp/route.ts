@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import { connectDB } from "@/lib/db/db";
+import Admin from "@/models/admin/Admin";
+import {
+  signAdminOtpSession,
+  authOtpCookieOptions,
+} from "@/lib/sessionAuth";
 
 const ADMINS = new Set(["santude1997@gmail.com", "test@gmail.com"]);
 
@@ -29,6 +35,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .toLowerCase()
       .trim();
     if (!email || !ADMINS.has(email)) {
+      return NextResponse.json(
+        { success: false, error: "Not allowed" },
+        { status: 403 },
+      );
+    }
+
+    await connectDB();
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
       return NextResponse.json(
         { success: false, error: "Not allowed" },
         { status: 403 },
@@ -68,13 +83,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     };
 
     const response = NextResponse.json({ success: true });
-    response.cookies.set("admin_otp_session", JSON.stringify(payload), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 5 * 60,
-    });
+    response.cookies.set("admin_otp_session", signAdminOtpSession(payload), authOtpCookieOptions);
     return response;
   } catch (e: any) {
     return NextResponse.json(

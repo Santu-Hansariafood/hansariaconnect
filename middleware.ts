@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { getAdminSession } from "@/lib/sessionAuth"
 
 export function middleware(req: NextRequest) {
   const { nextUrl, headers } = req
@@ -32,30 +33,19 @@ export function middleware(req: NextRequest) {
   
   // Protect admin routes
   if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
-    const session = req.cookies.get("admin_session")?.value
+    const session = getAdminSession(req);
     if (!session) {
       const url = req.nextUrl.clone()
       url.pathname = "/admin/login"
       url.search = ""
       return NextResponse.redirect(url)
     }
-    
-    // If on super subdomain, ensure session is a super admin
-    if (isSuperSubdomain) {
-      try {
-        const sessionData = JSON.parse(session)
-        if (!sessionData.isSuperAdmin) {
-          const url = req.nextUrl.clone()
-          url.pathname = "/admin/login"
-          url.search = ""
-          return NextResponse.redirect(url)
-        }
-      } catch {
-        const url = req.nextUrl.clone()
-        url.pathname = "/admin/login"
-        url.search = ""
-        return NextResponse.redirect(url)
-      }
+
+    if (isSuperSubdomain && !session.isSuperAdmin) {
+      const url = req.nextUrl.clone()
+      url.pathname = "/admin/login"
+      url.search = ""
+      return NextResponse.redirect(url)
     }
   }
   

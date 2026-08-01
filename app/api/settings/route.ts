@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         theme: {
           wallpaper: "",
+          wallpaperImage: "",
           primary: "#10b981",
           textSize: "text-base",
         },
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
           messages: true,
           groups: true,
           enabled: true,
+          ringtone: "chime",
         },
       });
     }
@@ -42,6 +44,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       theme: (profile as any).theme || {
         wallpaper: "",
+        wallpaperImage: "",
         primary: "#10b981",
         textSize: "text-base",
       },
@@ -49,6 +52,7 @@ export async function GET(req: NextRequest) {
         messages: true,
         groups: true,
         enabled: true,
+        ringtone: "chime",
       },
     });
   } catch (error: unknown) {
@@ -72,10 +76,21 @@ export async function POST(req: NextRequest) {
 
     const updateData: any = {};
     if (theme) {
-      updateData.theme = theme;
+      updateData.theme = {
+        ...theme,
+        wallpaper: theme.wallpaper || "",
+        wallpaperImage: theme.wallpaperImage || "",
+        primary: theme.primary || "#10b981",
+        textSize: theme.textSize || "text-base",
+      };
     }
     if (notifications) {
-      updateData.notifications = notifications;
+      updateData.notifications = {
+        messages: notifications.messages,
+        groups: notifications.groups,
+        enabled: notifications.enabled,
+        ringtone: notifications.ringtone || "chime",
+      };
     }
 
     const updated = await Profile.findOneAndUpdate(

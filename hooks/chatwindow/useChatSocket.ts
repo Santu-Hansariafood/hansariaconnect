@@ -5,11 +5,13 @@ export const useChatSocket = (
   id: string,
   setChatMessages: (updater: (prev: any[]) => any[]) => void,
   mergeUnique: (prev: any[], incoming: any[]) => any[],
+  onIncomingMessage?: (msg: any) => void,
 ) => {
   const { socket, addListener, removeListener } = useSocket()
 
   const handleNewMessage = useCallback((msg: any) => {
     if (msg?.from?.toString?.() === id || String(msg?.from) === id) {
+      onIncomingMessage?.(msg);
       setChatMessages((prev) => mergeUnique(prev, [msg]));
       try {
         socket?.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {

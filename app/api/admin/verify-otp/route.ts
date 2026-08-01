@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { connectDB } from "@/lib/db/db";
+import Admin from "@/models/admin/Admin";
+import {
+  verifyAdminOtpSession,
+  signAdminSession,
+  adminSessionCookieOptions,
+} from "@/lib/sessionAuth";
 
 const ADMINS = new Set(["santude1997@gmail.com", "test@gmail.com"]);
 
@@ -23,29 +30,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
     const sessionCookie = req.cookies.get("admin_otp_session")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json(
-        { success: false, error: "Session missing" },
-        { status: 403 },
-      );
-    }
-    let payload: {
-      email: string;
-      hash: string;
-      salt: string;
-      exp: number;
-    } | null = null;
-    try {
-      payload = JSON.parse(sessionCookie);
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "Bad session" },
-        { status: 400 },
-      );
-    }
-    if (!payload || Date.now() > payload.exp) {
+    const payload = verifyAdminOtpSession(sessionCookie);
+    if (!payload) {
       const res = NextResponse.json(
-        { success: false, error: "Expired" },
+        { success: false, error: "Invalid or expired admin session" },
         { status: 403 },
       );
       res.cookies.delete("admin_otp_session");
@@ -69,15 +57,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       res.cookies.delete("admin_otp_session");
       return res;
     }
+
+    await connectDB();
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 403 },
+      );
+    }
+
     const response = NextResponse.json({ success: true });
     response.cookies.delete("admin_otp_session");
-    response.cookies.set("admin_session", JSON.stringify({ email }), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    response.cookies.set(
+      "admin_session",
+      signAdminSession({
+        adminId: admin._id.toString(),
+        userId: admin.userId,
+        email: admin.email,
+        isSuperAdmin: admin.isSuperAdmin,
+      }),
+      adminSessionCookieOptions,
+    );
     return response;
   } catch (e: any) {
     return NextResponse.json(

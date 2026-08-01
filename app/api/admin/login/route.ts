@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import Admin from "@/models/admin/Admin";
-import cookie from "cookie";
+import { signAdminSession, adminSessionCookieOptions } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,15 +57,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    response.headers.set(
-      "Set-Cookie",
-      cookie.serialize("admin_session", sessionData, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 30 * 24 * 60 * 60,
-      })
+    response.cookies.set(
+      "admin_session",
+      signAdminSession({
+        adminId: admin._id.toString(),
+        userId: admin.userId,
+        email: admin.email,
+        isSuperAdmin: admin.isSuperAdmin,
+      }),
+      adminSessionCookieOptions,
     );
 
     return response;

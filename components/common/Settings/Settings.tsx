@@ -37,6 +37,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
 
   const {
     toggleNotification,
+    setRingtone,
     loading: notificationLoading,
   } = useNotificationSettings(notifications, setNotifications);
 
@@ -78,8 +79,23 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       mounted = false;
     };
   }, []);
+
+  const ringtoneOptions = [
+    { value: "chime", name: "Chime" },
+    { value: "pulse", name: "Pulse" },
+    { value: "spark", name: "Spark" },
+    { value: "none", name: "Silent" },
+  ];
+  const backgroundStyle = localTheme?.wallpaperImage
+    ? {
+        backgroundImage: `url(${localTheme.wallpaperImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }
+    : undefined;
+
   return (
-    <div className={`min-h-screen ${localTheme?.wallpaper}`}>
+    <div className={`min-h-screen ${!localTheme?.wallpaperImage ? localTheme?.wallpaper : ""}`} style={backgroundStyle}>
       <Navbar user={user} onLogout={onLogout} />
 
       <div className="max-w-4xl mx-auto px-4 py-6">
@@ -143,9 +159,9 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
             {wallpaperOptions.map((wp) => (
               <button
                 key={wp.name}
-                onClick={() => updateTheme({ wallpaper: wp.value })}
+                onClick={() => updateTheme({ wallpaper: wp.value, wallpaperImage: "" })}
                 className={`h-24 rounded-xl border-4 ${wp.value} ${
-                  localTheme?.wallpaper === wp.value
+                  localTheme?.wallpaper === wp.value && !localTheme?.wallpaperImage
                     ? "border-emerald-500"
                     : "border-gray-200"
                 }`}
@@ -153,6 +169,31 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                 <span className="text-xs font-medium text-gray-700">{wp.name}</span>
               </button>
             ))}
+          </div>
+
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Custom Wallpaper URL
+            </label>
+            <div className="flex gap-3 items-center">
+              <input
+                type="text"
+                value={localTheme?.wallpaperImage || ""}
+                onChange={(e) => updateTheme({ wallpaperImage: e.target.value, wallpaper: "" })}
+                placeholder="https://example.com/wallpaper.jpg"
+                className="w-full px-4 py-3 border rounded-xl"
+              />
+              <button
+                type="button"
+                onClick={() => updateTheme({ wallpaperImage: "", wallpaper: localTheme?.wallpaper || "bg-white" })}
+                className="px-4 py-3 rounded-xl bg-gray-100 text-gray-700"
+              >
+                Clear
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mt-2">
+              Paste a wallpaper image URL to use a custom chat background.
+            </p>
           </div>
         </motion.div>
 
@@ -219,6 +260,28 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
               </button>
             </div>
           ))}
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Notification Ringtone
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {ringtoneOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRingtone(option.value)}
+                  className={`px-4 py-3 rounded-xl text-left border transition ${
+                    notifications.ringtone === option.value
+                      ? "bg-emerald-50 border-emerald-300"
+                      : "bg-white border-gray-200 hover:bg-gray-50"
+                  }`}
+                >
+                  <p className="font-medium text-gray-800">{option.name}</p>
+                </button>
+              ))}
+            </div>
+          </div>
         </motion.div>
 
         <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">

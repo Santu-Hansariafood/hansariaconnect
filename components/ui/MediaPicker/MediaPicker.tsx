@@ -12,9 +12,10 @@ import {
   Paperclip,
 } from "lucide-react"
 import React, { useState, useRef } from "react"
+import { MessageType } from "@/components/pages/ChatWindow/ChatWindowTypes"
 
 interface MediaPickerProps {
-  onSelect: (file: File | { url: string }, type: string) => void
+  onSelect: (file: File | { url: string }, type: MessageType) => void
   onClose: () => void
 }
 
@@ -24,7 +25,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null)
   const recordingInterval = useRef<NodeJS.Timeout | null>(null)
   
-  const handleFileSelect = (type: string, accept: string) => {
+  const handleFileSelect = (type: MessageType, accept: string) => {
     const input = document.createElement("input")
     input.type = "file"
     input.accept = accept
@@ -83,7 +84,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
     if (url) onSelect({ url }, "link")
   }
 
-  const determineFileType = (file: File): string => {
+  const determineFileType = (file: File): MessageType => {
     const type = file.type
     if (type.startsWith("image/")) return "image"
     if (type.startsWith("video/")) return "video"

@@ -1,24 +1,11 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import Contact from "@/models/contact/Contact";
+import { getUserSession } from "@/lib/sessionAuth";
 
-export async function POST() {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("user_session")?.value;
-
-  if (!sessionCookie) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let session;
-  try {
-    session = JSON.parse(sessionCookie);
-  } catch {
-    return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-  }
-
+export async function POST(req: NextRequest) {
+  const session = getUserSession(req);
   if (!session?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -2,16 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import AccessControl from "@/models/access/AccessControl";
 
+import { getUserSession } from "@/lib/sessionAuth";
+
 const parseSession = (req: NextRequest) => {
-  const raw = req.cookies.get("user_session")?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.id) return null;
-    return parsed as { id: string };
-  } catch {
-    return null;
-  }
+  return getUserSession(req);
 };
 
 export async function GET(req: NextRequest) {

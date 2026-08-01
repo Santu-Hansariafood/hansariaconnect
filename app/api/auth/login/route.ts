@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import twilio from "twilio";
+import {
+  signOtpSession,
+  authOtpCookieOptions,
+} from "@/lib/sessionAuth";
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
 const authToken = process.env.TWILIO_AUTH_TOKEN!;
@@ -58,13 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
-    response.cookies.set("otp_session", JSON.stringify(payload), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 5 * 60,
-    });
+    response.cookies.set("otp_session", signOtpSession(payload), authOtpCookieOptions);
 
     return response;
   } catch (error: any) {

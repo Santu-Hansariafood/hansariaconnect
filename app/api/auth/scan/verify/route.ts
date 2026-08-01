@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import { getScanToken, setScanToken } from "../generate/route";
+import {
+  signUserSession,
+  userSessionCookieOptions,
+  addUserSession,
+} from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,12 +50,30 @@ export async function POST(req: NextRequest) {
       user = await User.create({ mobile: scanData.mobile });
     }
 
+    const sessionId = crypto.randomBytes(16).toString("hex");
+    const userAgent = req.headers.get("user-agent") ?? undefined;
+    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const allowed = await addUserSession(user._id.toString(), sessionId, userAgent, ip);
+    if (!allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Maximum active logins reached. Sign out from another device and try again.",
+        },
+        { status: 403 },
+      );
+    }
+
     setScanToken(token, { ...scanData, used: true });
 
-    const sessionData = JSON.stringify({
-      id: user._id.toString(),
-      mobile: scanData.mobile,
-    });
+    // update last login info
+    try {
+      await User.findByIdAndUpdate(user._id, {
+        $set: { lastLoginIp: ip ?? null, lastLoginAt: new Date() },
+      });
+    } catch (e) {
+      console.error("Failed to update last login info", e);
+    }
 
     const response = NextResponse.json({
       success: true,
@@ -57,13 +81,11 @@ export async function POST(req: NextRequest) {
       mobile: scanData.mobile,
     });
 
-    response.cookies.set("user_session", sessionData, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 30 * 24 * 60 * 60,
-    });
+    response.cookies.set(
+      "user_session",
+      signUserSession({ id: user._id.toString(), sessionId, mobile: scanData.mobile }),
+      userSessionCookieOptions,
+    );
 
     return response;
   } catch (error) {

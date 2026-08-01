@@ -3,6 +3,10 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
+import {
+  signOtpSession,
+  authOtpCookieOptions,
+} from "@/lib/sessionAuth";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -105,13 +109,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
-    response.cookies.set("otp_session", JSON.stringify(payload), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 5 * 60,
-    });
+    response.cookies.set("otp_session", signOtpSession(payload), authOtpCookieOptions);
 
     return response;
   } catch (error: any) {

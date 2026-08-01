@@ -1,5 +1,12 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+export interface IUserSessionRecord {
+  sessionId: string;
+  createdAt: number;
+  userAgent?: string;
+  ip?: string;
+}
+
 export interface IUser extends Document {
   mobile: string;
   name?: string;
@@ -10,6 +17,9 @@ export interface IUser extends Document {
   googleAccessToken?: string;
   googleRefreshToken?: string;
   googleTokenExpiry?: number;
+  lastLoginIp?: string;
+  lastLoginAt?: Date;
+  sessions?: IUserSessionRecord[];
   createdAt: Date;
 }
 
@@ -24,6 +34,16 @@ const UserSchema = new Schema<IUser>(
     googleAccessToken: { type: String },
     googleRefreshToken: { type: String },
     googleTokenExpiry: { type: Number },
+    lastLoginIp: { type: String },
+    lastLoginAt: { type: Date },
+    sessions: [
+      {
+        sessionId: { type: String, required: true },
+        createdAt: { type: Number, required: true },
+        userAgent: { type: String },
+        ip: { type: String },
+      },
+    ],
   },
   { timestamps: true }
 );

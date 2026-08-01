@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import Contact from "@/models/contact/Contact";
+import { getUserSession } from "@/lib/sessionAuth";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -26,19 +26,7 @@ export async function GET(req: Request) {
   if (!token.access_token)
     return NextResponse.json({ error: "Token error" }, { status: 400 });
 
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get("user_session")?.value;
-  if (!sessionCookie) {
-    return NextResponse.redirect("/login");
-  }
-
-  let session;
-  try {
-    session = JSON.parse(sessionCookie);
-  } catch {
-    return NextResponse.redirect("/login");
-  }
-
+  const session = getUserSession(req);
   if (!session?.id) {
     return NextResponse.redirect("/login");
   }

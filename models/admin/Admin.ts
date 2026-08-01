@@ -22,11 +22,11 @@ const AdminSchema = new Schema<IAdmin>(
 );
 
 // Hash password before saving
-AdminSchema.pre("save", async function (next) {
+AdminSchema.pre("save", async function (this: IAdmin, next: any) {
   if (!this.isModified("password")) return next();
 
   // If the password already looks like a bcrypt hash (starts with $2b$...), skip hashing
-  if (this.password.startsWith("$2b$")) {
+  if (this.password && this.password.startsWith("$2b$")) {
     return next();
   }
 

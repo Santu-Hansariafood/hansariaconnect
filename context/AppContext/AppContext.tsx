@@ -14,6 +14,7 @@ interface Theme {
   primary: string
   secondary: string
   wallpaper: string
+  wallpaperImage?: string
   textSize: string
 }
 

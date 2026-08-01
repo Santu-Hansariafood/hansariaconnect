@@ -20,8 +20,7 @@ interface User {
 interface Theme {
   primary: string;
   secondary: string;
-  wallpaper: string;
-  textSize: string;
+  wallpaper: string;  wallpaperImage?: string;  textSize: string;
 }
 
 export default function SettingsPage() {
