@@ -61,7 +61,11 @@ const decodeSession = async <T>(raw?: string): Promise<T | null> => {
   try {
     const decoded = Buffer.from(raw, "base64url").toString("utf8");
     const parsed = JSON.parse(decoded);
-    if (!parsed || typeof parsed !== "object" || typeof parsed.sig !== "string") {
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      typeof parsed.sig !== "string"
+    ) {
       return null;
     }
     const payload = (parsed as { payload: unknown }).payload;
@@ -132,9 +136,14 @@ const isSessionExpired = (exp?: unknown): exp is number =>
   typeof exp === "number" && Date.now() > exp;
 
 export const signUserSession = async (session: UserSession): Promise<string> =>
-  encodeSession({ ...session, exp: Date.now() + userSessionCookieOptions.maxAge * 1000 });
+  encodeSession({
+    ...session,
+    exp: Date.now() + userSessionCookieOptions.maxAge * 1000,
+  });
 
-export const verifyUserSession = async (raw?: string): Promise<UserSession | null> => {
+export const verifyUserSession = async (
+  raw?: string,
+): Promise<UserSession | null> => {
   const session = await decodeSession<UserSession & { exp?: number }>(raw);
   if (
     !session ||
@@ -193,22 +202,29 @@ export const removeUserSession = async (
   });
 };
 
-export const signAdminSession = async (session: AdminSession): Promise<string> =>
+export const signAdminSession = async (
+  session: AdminSession,
+): Promise<string> =>
   encodeSession({
     ...session,
     createdAt: Date.now(),
     exp: Date.now() + adminSessionCookieOptions.maxAge * 1000,
   });
 
-export const verifyAdminSession = async (raw?: string): Promise<AdminSession | null> => {
+export const verifyAdminSession = async (
+  raw?: string,
+): Promise<AdminSession | null> => {
   const session = await decodeSession<AdminSession & { exp?: number }>(raw);
   if (!session || isSessionExpired(session.exp)) return null;
   if (session.keyLogin) return session;
-  if (typeof session.adminId === "string" && session.adminId.trim()) return session;
+  if (typeof session.adminId === "string" && session.adminId.trim())
+    return session;
   return null;
 };
 
-export const getAdminSession = async (req: any): Promise<AdminSession | null> => {
+export const getAdminSession = async (
+  req: any,
+): Promise<AdminSession | null> => {
   const raw = getCookieValue(req, "admin_session");
   return verifyAdminSession(raw);
 };
@@ -220,10 +236,13 @@ export interface AdminOtpSessionPayload {
   exp: number;
 }
 
-export const signOtpSession = async (session: OtpSessionPayload): Promise<string> =>
-  encodeSession(session);
+export const signOtpSession = async (
+  session: OtpSessionPayload,
+): Promise<string> => encodeSession(session);
 
-export const verifyOtpSession = async (raw?: string): Promise<OtpSessionPayload | null> => {
+export const verifyOtpSession = async (
+  raw?: string,
+): Promise<OtpSessionPayload | null> => {
   const session = await decodeSession<OtpSessionPayload>(raw);
   if (
     !session ||
