@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db/db";
 import Group, { IGroup, IGroupMember } from "@/models/group/Group";
 import User from "@/models/user/User";
 import Profile from "@/models/profile/Profile";
+import { getUserSession } from "@/lib/sessionAuth";
 
 const normalizeId = (val: unknown): string => {
   if (typeof val === "string") return val;
@@ -18,18 +19,6 @@ const normalizeId = (val: unknown): string => {
     }
   }
   return "";
-};
-
-const parseSession = (req: NextRequest) => {
-  const raw = req.cookies.get("user_session")?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.id) return null;
-    return parsed as { id: string; mobile?: string };
-  } catch {
-    return null;
-  }
 };
 
 const resolveParams = async (
@@ -115,7 +104,7 @@ export async function POST(
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
-    const session = parseSession(req);
+    const session = await getUserSession(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -218,7 +207,7 @@ export async function DELETE(
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
-    const session = parseSession(req);
+    const session = await getUserSession(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -298,7 +287,7 @@ export async function PATCH(
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
-    const session = parseSession(req);
+    const session = await getUserSession(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

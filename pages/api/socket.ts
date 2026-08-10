@@ -9,6 +9,12 @@ import Group from "@/models/group/Group";
 import { Types } from "mongoose";
 import AccessControl from "@/models/access/AccessControl";
 import { getUserSession } from "@/lib/sessionAuth";
+import {
+  encryptDirectMessageContent,
+  decryptDirectMessageContent,
+  encryptGroupMessageContent,
+  decryptGroupMessageContent,
+} from "@/lib/crypto";
 
 export const config = {
   api: {
@@ -82,17 +88,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               return cb?.({ ok: false, error: "Attachments not allowed" });
             }
 
+            const userIdStr = String(fromId);
+            const toIdStr = String(toId);
+
             const doc = await Message.create({
               from: fromId,
               to: toId,
               type,
-              text: String(payload?.text ?? ""),
-              mediaUrl: String(payload?.mediaUrl ?? ""),
-              fileName: String(payload?.fileName ?? ""),
-              fileSize: Number(payload?.fileSize ?? 0),
+              text: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.text ?? "")),
+              mediaUrl: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.mediaUrl ?? "")),
+              fileName: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.fileName ?? "")),
+              fileSize: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.fileSize ?? "")),
               duration: Number(payload?.duration ?? 0),
-              linkTitle: String(payload?.linkTitle ?? ""),
-              linkDescription: String(payload?.linkDescription ?? ""),
+              linkTitle: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.linkTitle ?? "")),
+              linkDescription: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.linkDescription ?? "")),
             });
 
             const a = String(fromId);
@@ -106,8 +115,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               { upsert: true },
             );
 
-            io.to(to).emit("message:new", doc);
-            cb?.({ ok: true, message: doc });
+            const decryptedForSender: any = {
+              ...doc.toObject(),
+              text: decryptDirectMessageContent(userIdStr, toIdStr, doc.text || ""),
+              mediaUrl: decryptDirectMessageContent(userIdStr, toIdStr, doc.mediaUrl || ""),
+              fileName: decryptDirectMessageContent(userIdStr, toIdStr, doc.fileName || ""),
+              fileSize: decryptDirectMessageContent(userIdStr, toIdStr, doc.fileSize || ""),
+              linkTitle: decryptDirectMessageContent(userIdStr, toIdStr, doc.linkTitle || ""),
+              linkDescription: decryptDirectMessageContent(userIdStr, toIdStr, doc.linkDescription || ""),
+            };
+
+            const decryptedForRecipient: any = {
+              ...doc.toObject(),
+              text: decryptDirectMessageContent(toIdStr, userIdStr, doc.text || ""),
+              mediaUrl: decryptDirectMessageContent(toIdStr, userIdStr, doc.mediaUrl || ""),
+              fileName: decryptDirectMessageContent(toIdStr, userIdStr, doc.fileName || ""),
+              fileSize: decryptDirectMessageContent(toIdStr, userIdStr, doc.fileSize || ""),
+              linkTitle: decryptDirectMessageContent(toIdStr, userIdStr, doc.linkTitle || ""),
+              linkDescription: decryptDirectMessageContent(toIdStr, userIdStr, doc.linkDescription || ""),
+            };
+
+            io.to(to).emit("message:new", decryptedForRecipient);
+            cb?.({ ok: true, message: decryptedForSender });
           } catch (err: any) {
             cb?.({ ok: false, error: err.message || "Error sending message" });
           }
@@ -171,26 +200,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               return cb?.({ ok: false, error: "Attachments not allowed" });
             }
 
+            const groupIdStr = String(groupId);
+
             const msg = await GroupMessage.create({
               groupId: new Types.ObjectId(groupId),
               from: fromId,
               type,
-              text: String(payload?.text ?? ""),
-              mediaUrl: String(payload?.mediaUrl ?? ""),
-              fileName: String(payload?.fileName ?? ""),
-              fileSize: Number(payload?.fileSize ?? 0),
+              text: encryptGroupMessageContent(groupIdStr, String(payload?.text ?? "")),
+              mediaUrl: encryptGroupMessageContent(groupIdStr, String(payload?.mediaUrl ?? "")),
+              fileName: encryptGroupMessageContent(groupIdStr, String(payload?.fileName ?? "")),
+              fileSize: encryptGroupMessageContent(groupIdStr, String(payload?.fileSize ?? "")),
               duration: Number(payload?.duration ?? 0),
-              linkTitle: String(payload?.linkTitle ?? ""),
-              linkDescription: String(payload?.linkDescription ?? ""),
+              linkTitle: encryptGroupMessageContent(groupIdStr, String(payload?.linkTitle ?? "")),
+              linkDescription: encryptGroupMessageContent(groupIdStr, String(payload?.linkDescription ?? "")),
             });
+
+            const decryptedMsg: any = {
+              ...msg.toObject(),
+              text: decryptGroupMessageContent(groupIdStr, msg.text || ""),
+              mediaUrl: decryptGroupMessageContent(groupIdStr, msg.mediaUrl || ""),
+              fileName: decryptGroupMessageContent(groupIdStr, msg.fileName || ""),
+              fileSize: decryptGroupMessageContent(groupIdStr, msg.fileSize || ""),
+              linkTitle: decryptGroupMessageContent(groupIdStr, msg.linkTitle || ""),
+              linkDescription: decryptGroupMessageContent(groupIdStr, msg.linkDescription || ""),
+            };
 
             members.forEach((member: any) => {
               if (String(member.userId) !== userId) {
-                io.to(String(member.userId)).emit("group:message:new", msg);
+                io.to(String(member.userId)).emit("group:message:new", decryptedMsg);
               }
             });
 
-            cb?.({ ok: true, message: msg });
+            cb?.({ ok: true, message: decryptedMsg });
           } catch (err: any) {
             cb?.({ ok: false, error: err.message || "Error sending group message" });
           }

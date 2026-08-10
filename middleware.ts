@@ -65,6 +65,22 @@ function isProtectedUserPath(pathname: string): boolean {
   return false;
 }
 
+function extractChatId(pathname: string): string | null {
+  const chatMatch = pathname.match(/^\/chat\/([^/?#]+)/);
+  if (chatMatch) return chatMatch[1];
+  return null;
+}
+
+function extractGroupSettingsId(pathname: string): string | null {
+  const groupMatch = pathname.match(/^\/group-settings\/([^/?#]+)/);
+  if (groupMatch) return groupMatch[1];
+  return null;
+}
+
+const isValidObjectId = (id: string): boolean => {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+};
+
 export async function middleware(req: NextRequest) {
   const { nextUrl, headers } = req;
 
@@ -144,6 +160,22 @@ export async function middleware(req: NextRequest) {
     if (!userSession) {
       const url = req.nextUrl.clone();
       url.pathname = "/login";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    const chatId = extractChatId(pathname);
+    if (chatId && !isValidObjectId(chatId)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/chats";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    const groupSettingsId = extractGroupSettingsId(pathname);
+    if (groupSettingsId && !isValidObjectId(groupSettingsId)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/groups";
       url.search = "";
       return NextResponse.redirect(url);
     }

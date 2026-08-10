@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db/db";
 import Message from "@/models/message/Message";
 import Conversation from "@/models/conversation/Conversation";
 import User from "@/models/user/User";
+import { getUserSession } from "@/lib/sessionAuth";
+import { encryptDirectMessageContent, decryptDirectMessageContent } from "@/lib/crypto";
 
 export const runtime = "nodejs";
 
@@ -52,54 +54,35 @@ export async function GET(
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
 
-    const sessionCookie = req.cookies.get("user_session")?.value;
-    if (!sessionCookie)
+    const session = await getUserSession(req);
+    if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    let session: { id?: unknown } | null = null;
-    try {
-      session = JSON.parse(sessionCookie) as { id?: unknown };
-    } catch {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
-    if (!session?.id)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const rawUserId = normalizeId((session as any).id);
+    const rawUserId = normalizeId(session.id);
     const rawPeerId = normalizeId(resolvedParams.peerId);
 
     if (!Types.ObjectId.isValid(rawUserId)) {
-      console.error("Invalid user ID:", {
-        rawUserId,
-        sessionId: (session as any).id,
-        sessionIdType: typeof (session as any).id,
-        peerId: rawPeerId,
-      });
       return NextResponse.json(
-        {
-          error: "Invalid user id",
-          details: { userId: rawUserId, peerId: rawPeerId },
-        },
+        { error: "Invalid user id" },
         { status: 400 },
       );
     }
     if (!Types.ObjectId.isValid(rawPeerId)) {
-      console.error("Invalid peer ID:", {
-        rawPeerId,
-        paramsPeerId: resolvedParams.peerId,
-        userId: rawUserId,
-      });
       return NextResponse.json(
-        {
-          error: "Invalid peer id",
-          details: { userId: rawUserId, peerId: rawPeerId },
-        },
+        { error: "Invalid peer id" },
         { status: 400 },
       );
     }
     const userId = new Types.ObjectId(rawUserId);
     const peerId = new Types.ObjectId(rawPeerId);
+
+    await connectDB();
+
+    const peerExists = await User.exists({ _id: peerId });
+    if (!peerExists) {
+      return NextResponse.json({ error: "Peer not found" }, { status: 404 });
+    }
 
     const { searchParams } = new URL(req.url);
 
@@ -110,8 +93,6 @@ export async function GET(
     const before = searchParams.get("before");
     const fetchAll = searchParams.get("all") === "true";
     const fetchLast = searchParams.get("last") === "true";
-
-    await connectDB();
 
     const query: any = {
       $or: [
@@ -135,18 +116,21 @@ export async function GET(
 
     const ordered = (fetchLast && !fetchAll) || before ? docs.reverse() : docs;
 
+    const userIdStr = String(userId);
+    const peerIdStr = String(peerId);
+
     const messages = ordered.map((msg: any) => ({
       id: String(msg._id),
       from: String(msg.from),
       to: String(msg.to),
       type: msg.type,
-      text: msg.text || "",
-      mediaUrl: msg.mediaUrl || "",
-      fileName: msg.fileName || "",
-      fileSize: msg.fileSize || "",
+      text: decryptDirectMessageContent(userIdStr, peerIdStr, msg.text || ""),
+      mediaUrl: decryptDirectMessageContent(userIdStr, peerIdStr, msg.mediaUrl || ""),
+      fileName: decryptDirectMessageContent(userIdStr, peerIdStr, msg.fileName || ""),
+      fileSize: decryptDirectMessageContent(userIdStr, peerIdStr, msg.fileSize || ""),
       duration: msg.duration || undefined,
-      linkTitle: msg.linkTitle || "",
-      linkDescription: msg.linkDescription || "",
+      linkTitle: decryptDirectMessageContent(userIdStr, peerIdStr, msg.linkTitle || ""),
+      linkDescription: decryptDirectMessageContent(userIdStr, peerIdStr, msg.linkDescription || ""),
       timestamp: msg.createdAt,
       status: msg.status || "sent",
     }));
@@ -175,40 +159,23 @@ export async function POST(
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
 
-    const sessionCookie = req.cookies.get("user_session")?.value;
-    if (!sessionCookie)
+    const session = await getUserSession(req);
+    if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    let session: any;
-    try {
-      session = JSON.parse(sessionCookie);
-    } catch {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
-
-    if (!session?.id)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const rawUserId = normalizeId(session.id);
     const rawPeerId = normalizeId(resolvedParams.peerId);
 
     if (!Types.ObjectId.isValid(rawUserId)) {
-      console.error("POST: Invalid user ID:", {
-        rawUserId,
-        sessionId: session.id,
-      });
       return NextResponse.json(
-        { error: "Invalid user id", details: { userId: rawUserId } },
+        { error: "Invalid user id" },
         { status: 400 },
       );
     }
     if (!Types.ObjectId.isValid(rawPeerId)) {
-      console.error("POST: Invalid peer ID:", {
-        rawPeerId,
-        paramsPeerId: resolvedParams.peerId,
-      });
       return NextResponse.json(
-        { error: "Invalid peer id", details: { peerId: rawPeerId } },
+        { error: "Invalid peer id" },
         { status: 400 },
       );
     }
@@ -224,17 +191,20 @@ export async function POST(
     if (!exists)
       return NextResponse.json({ error: "Peer not found" }, { status: 404 });
 
+    const userIdStr = String(userId);
+    const peerIdStr = String(peerId);
+
     const saved = await Message.create({
       from: userId,
       to: peerId,
       type,
-      text: body?.text || "",
-      mediaUrl: body?.mediaUrl || "",
-      fileName: body?.fileName || "",
-      fileSize: body?.fileSize || "",
+      text: encryptDirectMessageContent(userIdStr, peerIdStr, body?.text || ""),
+      mediaUrl: encryptDirectMessageContent(userIdStr, peerIdStr, body?.mediaUrl || ""),
+      fileName: encryptDirectMessageContent(userIdStr, peerIdStr, body?.fileName || ""),
+      fileSize: encryptDirectMessageContent(userIdStr, peerIdStr, body?.fileSize || ""),
       duration: body?.duration || undefined,
-      linkTitle: body?.linkTitle || "",
-      linkDescription: body?.linkDescription || "",
+      linkTitle: encryptDirectMessageContent(userIdStr, peerIdStr, body?.linkTitle || ""),
+      linkDescription: encryptDirectMessageContent(userIdStr, peerIdStr, body?.linkDescription || ""),
     });
 
     try {
@@ -255,13 +225,13 @@ export async function POST(
       from: String(saved.from),
       to: String(saved.to),
       type: saved.type,
-      text: saved.text || "",
-      mediaUrl: saved.mediaUrl || "",
-      fileName: saved.fileName || "",
-      fileSize: saved.fileSize || "",
+      text: decryptDirectMessageContent(userIdStr, peerIdStr, saved.text || ""),
+      mediaUrl: decryptDirectMessageContent(userIdStr, peerIdStr, saved.mediaUrl || ""),
+      fileName: decryptDirectMessageContent(userIdStr, peerIdStr, saved.fileName || ""),
+      fileSize: decryptDirectMessageContent(userIdStr, peerIdStr, saved.fileSize || ""),
       duration: saved.duration || undefined,
-      linkTitle: saved.linkTitle || "",
-      linkDescription: saved.linkDescription || "",
+      linkTitle: decryptDirectMessageContent(userIdStr, peerIdStr, saved.linkTitle || ""),
+      linkDescription: decryptDirectMessageContent(userIdStr, peerIdStr, saved.linkDescription || ""),
       timestamp: saved.createdAt,
       status: "sent",
     };

@@ -5,6 +5,7 @@ export const useInfiniteScroll = (
   chatMessages: any[],
   setChatMessages: (updater: (prev: any[]) => any[]) => void,
   mergeUnique: (prev: any[], incoming: any[]) => any[],
+  isGroup: boolean = false,
 ) => {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [hasMore, setHasMore] = useState(false)
@@ -23,7 +24,10 @@ export const useInfiniteScroll = (
       const oldest = chatMessages[0]
       const tsRaw = oldest.createdAt || oldest.timestamp
       const ts = typeof tsRaw === "string" ? tsRaw : new Date(tsRaw).toISOString()
-      const res = await fetch(`/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`, { credentials: 'include' })
+      const endpoint = isGroup
+        ? `/api/groups/${id}/messages?limit=10&before=${encodeURIComponent(ts)}`
+        : `/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`
+      const res = await fetch(endpoint, { credentials: 'include' })
       const data = await res.json()
       if (Array.isArray(data?.messages) && data.messages.length) {
         setChatMessages((prev) => mergeUnique(prev, data.messages))
@@ -71,4 +75,3 @@ export const useInfiniteScroll = (
 
   return { containerRef, hasMore, loadingMore, loadMore, handleScroll }
 }
-

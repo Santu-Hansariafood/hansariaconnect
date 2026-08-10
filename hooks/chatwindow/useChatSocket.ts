@@ -6,10 +6,12 @@ export const useChatSocket = (
   setChatMessages: (updater: (prev: any[]) => any[]) => void,
   mergeUnique: (prev: any[], incoming: any[]) => any[],
   onIncomingMessage?: (msg: any) => void,
+  isGroup: boolean = false,
 ) => {
   const { socket, addListener, removeListener } = useSocket()
 
-  const handleNewMessage = useCallback((msg: any) => {
+  const handleNewDirectMessage = useCallback((msg: any) => {
+    if (isGroup) return
     if (msg?.from?.toString?.() === id || String(msg?.from) === id) {
       onIncomingMessage?.(msg);
       setChatMessages((prev) => mergeUnique(prev, [msg]));
@@ -49,7 +51,23 @@ export const useChatSocket = (
         } catch {}
       } catch {}
     }
-  }, [id, setChatMessages, mergeUnique, socket])
+  }, [id, setChatMessages, mergeUnique, socket, isGroup, onIncomingMessage])
+
+  const handleNewGroupMessage = useCallback((msg: any) => {
+    if (!isGroup) return
+    if (String(msg?.groupId) === id) {
+      onIncomingMessage?.(msg);
+      setChatMessages((prev) => mergeUnique(prev, [msg]));
+      try {
+        fetch('/api/read-receipts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ groupId: id })
+        })
+      } catch {}
+    }
+  }, [id, setChatMessages, mergeUnique, isGroup, onIncomingMessage])
 
   const handleStatusUpdate = useCallback((data: any) => {
     if (data?.id) {
@@ -62,14 +80,16 @@ export const useChatSocket = (
   }, [setChatMessages])
 
   useEffect(() => {
-    addListener("message:new", handleNewMessage)
+    addListener("message:new", handleNewDirectMessage)
+    addListener("group:message:new", handleNewGroupMessage)
     addListener("message:status:update", handleStatusUpdate)
 
     return () => {
-      removeListener("message:new", handleNewMessage)
+      removeListener("message:new", handleNewDirectMessage)
+      removeListener("group:message:new", handleNewGroupMessage)
       removeListener("message:status:update", handleStatusUpdate)
     }
-  }, [addListener, removeListener, handleNewMessage, handleStatusUpdate])
+  }, [addListener, removeListener, handleNewDirectMessage, handleNewGroupMessage, handleStatusUpdate])
 
   return socket
 }

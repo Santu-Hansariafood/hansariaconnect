@@ -4,7 +4,14 @@ import Conversation from "@/models/conversation/Conversation";
 import User from "@/models/user/User";
 import Profile from "@/models/profile/Profile";
 import Message from "@/models/message/Message";
+import Group from "@/models/group/Group";
+import GroupMessage from "@/models/group/GroupMessage";
 import { Types } from "mongoose";
+import { getUserSession } from "@/lib/sessionAuth";
+import {
+  decryptDirectMessageContent,
+  decryptGroupMessageContent,
+} from "@/lib/crypto";
 
 interface IUser {
   _id: string;
@@ -26,6 +33,15 @@ interface IMessage {
   from: string | Types.ObjectId;
   to: string | Types.ObjectId;
   status?: string;
+  createdAt: Date;
+}
+
+interface IGroupMessage {
+  _id: string;
+  text?: string;
+  type: string;
+  from: string | Types.ObjectId;
+  groupId: string | Types.ObjectId;
   createdAt: Date;
 }
 
@@ -56,18 +72,7 @@ const normalizeId = (val: unknown): string => {
 
 export async function GET(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get("user_session")?.value;
-
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let session: any;
-    try {
-      session = JSON.parse(sessionCookie);
-    } catch {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const session = await getUserSession(req);
 
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -79,6 +84,7 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = new Types.ObjectId(rawUserId);
+    const userIdStr = String(userId);
 
     await connectDB();
 
@@ -87,10 +93,6 @@ export async function GET(req: NextRequest) {
     })
       .sort({ lastMessageAt: -1 })
       .lean()) as unknown as IConversation[];
-
-    if (!conversations.length) {
-      return NextResponse.json({ conversations: [] });
-    }
 
     const conversationResults: any[] = [];
 
@@ -113,6 +115,19 @@ export async function GET(req: NextRequest) {
 
       if (!peerUser) continue;
 
+      const peerIdStr = String(peerId);
+      const decryptedLastMessage = lastMessage
+        ? {
+            id: String(lastMessage._id),
+            type: lastMessage.type,
+            text: decryptDirectMessageContent(userIdStr, peerIdStr, lastMessage.text || ""),
+            from: String(lastMessage.from),
+            to: String(lastMessage.to),
+            timestamp: lastMessage.createdAt,
+            status: lastMessage.status ?? "sent",
+          }
+        : null;
+
       conversationResults.push({
         id: String(peerId),
         peerId: String(peerId),
@@ -120,20 +135,54 @@ export async function GET(req: NextRequest) {
         name: peerProfile?.name || peerUser.mobile || "Unknown",
         avatar: peerProfile?.photo || "",
         lastMessageAt: conv.lastMessageAt || conv.createdAt || new Date(),
+        lastMessage: decryptedLastMessage,
+      });
+    }
 
-        lastMessage: lastMessage
+    const groups = (await Group.find({
+      "members.userId": userId,
+    })
+      .sort({ lastMessageAt: -1 })
+      .lean()) as any[];
+
+    for (const group of groups) {
+      const groupIdStr = String(group._id);
+      const lastGroupMsg = (await GroupMessage.findOne({
+        groupId: group._id,
+      })
+        .sort({ createdAt: -1 })
+        .lean()) as IGroupMessage | null;
+
+      const members = Array.isArray(group.members) ? group.members : [];
+
+      conversationResults.push({
+        id: groupIdStr,
+        peerId: groupIdStr,
+        groupId: groupIdStr,
+        isGroup: true,
+        mobile: "",
+        name: group.name || "Group",
+        avatar: group.avatar || "",
+        memberCount: members.length,
+        lastMessageAt: group.lastMessageAt || group.updatedAt || group.createdAt || new Date(),
+        lastMessage: lastGroupMsg
           ? {
-              id: String(lastMessage._id),
-              type: lastMessage.type,
-              text: lastMessage.text || "",
-              from: String(lastMessage.from),
-              to: String(lastMessage.to),
-              timestamp: lastMessage.createdAt,
-              status: lastMessage.status ?? "sent",
+              id: String(lastGroupMsg._id),
+              type: lastGroupMsg.type,
+              text: decryptGroupMessageContent(groupIdStr, lastGroupMsg.text || ""),
+              from: String(lastGroupMsg.from),
+              groupId: groupIdStr,
+              timestamp: lastGroupMsg.createdAt,
             }
           : null,
       });
     }
+
+    conversationResults.sort((a, b) => {
+      const timeA = new Date(a.lastMessageAt).getTime();
+      const timeB = new Date(b.lastMessageAt).getTime();
+      return timeB - timeA;
+    });
 
     return NextResponse.json({ conversations: conversationResults });
   } catch (error: any) {

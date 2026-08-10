@@ -3,6 +3,8 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db/db";
 import Group from "@/models/group/Group";
 import GroupMessage from "@/models/group/GroupMessage";
+import { getUserSession } from "@/lib/sessionAuth";
+import { encryptGroupMessageContent, decryptGroupMessageContent } from "@/lib/crypto";
 
 interface GroupMember {
   userId: Types.ObjectId | string;
@@ -28,18 +30,6 @@ const normalizeId = (val: unknown): string => {
     }
   }
   return "";
-};
-
-const parseSession = (req: NextRequest) => {
-  const raw = req.cookies.get("user_session")?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.id) return null;
-    return parsed as { id: string };
-  } catch {
-    return null;
-  }
 };
 
 const resolveParams = async (
@@ -74,8 +64,8 @@ export async function GET(
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
-    const session = parseSession(req);
-    if (!session) {
+    const session = await getUserSession(req);
+    if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -91,6 +81,7 @@ export async function GET(
 
     const groupId = new Types.ObjectId(id);
     const userId = new Types.ObjectId(normalizedUser);
+    const groupIdStr = String(groupId);
 
     await connectDB();
 
@@ -141,13 +132,13 @@ export async function GET(
       groupId: String(msg.groupId),
       from: String(msg.from),
       type: msg.type,
-      text: msg.text || "",
-      mediaUrl: msg.mediaUrl || "",
-      fileName: msg.fileName || "",
-      fileSize: msg.fileSize || "",
+      text: decryptGroupMessageContent(groupIdStr, msg.text || ""),
+      mediaUrl: decryptGroupMessageContent(groupIdStr, msg.mediaUrl || ""),
+      fileName: decryptGroupMessageContent(groupIdStr, msg.fileName || ""),
+      fileSize: decryptGroupMessageContent(groupIdStr, msg.fileSize || ""),
       duration: msg.duration || undefined,
-      linkTitle: msg.linkTitle || "",
-      linkDescription: msg.linkDescription || "",
+      linkTitle: decryptGroupMessageContent(groupIdStr, msg.linkTitle || ""),
+      linkDescription: decryptGroupMessageContent(groupIdStr, msg.linkDescription || ""),
       timestamp: msg.createdAt,
     }));
 
@@ -171,8 +162,8 @@ export async function POST(
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
-    const session = parseSession(req);
-    if (!session) {
+    const session = await getUserSession(req);
+    if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -188,6 +179,7 @@ export async function POST(
 
     const groupId = new Types.ObjectId(id);
     const userId = new Types.ObjectId(normalizedUser);
+    const groupIdStr = String(groupId);
 
     const body = await req.json();
     const type = String(body?.type || "text");
@@ -206,13 +198,13 @@ export async function POST(
       groupId,
       from: userId,
       type,
-      text: body?.text || "",
-      mediaUrl: body?.mediaUrl || "",
-      fileName: body?.fileName || "",
-      fileSize: body?.fileSize || "",
+      text: encryptGroupMessageContent(groupIdStr, body?.text || ""),
+      mediaUrl: encryptGroupMessageContent(groupIdStr, body?.mediaUrl || ""),
+      fileName: encryptGroupMessageContent(groupIdStr, body?.fileName || ""),
+      fileSize: encryptGroupMessageContent(groupIdStr, body?.fileSize || ""),
       duration: body?.duration || undefined,
-      linkTitle: body?.linkTitle || "",
-      linkDescription: body?.linkDescription || "",
+      linkTitle: encryptGroupMessageContent(groupIdStr, body?.linkTitle || ""),
+      linkDescription: encryptGroupMessageContent(groupIdStr, body?.linkDescription || ""),
     });
 
     await Group.findByIdAndUpdate(groupId, {
@@ -225,13 +217,13 @@ export async function POST(
       groupId: String(saved.groupId),
       from: String(saved.from),
       type: saved.type,
-      text: saved.text || "",
-      mediaUrl: saved.mediaUrl || "",
-      fileName: saved.fileName || "",
-      fileSize: saved.fileSize || "",
+      text: decryptGroupMessageContent(groupIdStr, saved.text || ""),
+      mediaUrl: decryptGroupMessageContent(groupIdStr, saved.mediaUrl || ""),
+      fileName: decryptGroupMessageContent(groupIdStr, saved.fileName || ""),
+      fileSize: decryptGroupMessageContent(groupIdStr, saved.fileSize || ""),
       duration: saved.duration || undefined,
-      linkTitle: saved.linkTitle || "",
-      linkDescription: saved.linkDescription || "",
+      linkTitle: decryptGroupMessageContent(groupIdStr, saved.linkTitle || ""),
+      linkDescription: decryptGroupMessageContent(groupIdStr, saved.linkDescription || ""),
       timestamp: saved.createdAt,
     };
 

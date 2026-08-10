@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -118,14 +118,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         }
       },
       [chatId, headerName, playRingtone, preferences.enabled, preferences.messages, preferences.ringtone, user.id]
-    )
+    ),
+    isGroup
   );
 
   const { containerRef, handleScroll } = useInfiniteScroll(
     chatId,
     chatMessages,
     setChatMessages,
-    mergeUnique
+    mergeUnique,
+    isGroup
   );
 
   const { unreadOnOpen, showUnreadBanner, unreadDividerRef, hasScrolledToUnreadRef } = useUnreadBehavior(
@@ -152,30 +154,51 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     const loadInitialData = async () => {
       setInitialLoading(true);
       try {
-        let isGroupChat = false;
+        const accessCheckRes = await fetch(`/api/chat-access?chatId=${encodeURIComponent(chatId)}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
 
-        try {
-          const groupRes = await fetch(`/api/groups/${chatId}`, { credentials: "include" });
-          if (groupRes.ok) {
-            const groupData = await groupRes.json();
-            if (groupData?.group) {
-              isGroupChat = true;
-              setIsGroup(true);
-              setGroupMembers(groupData.group.members || []);
-              setContact({
-                name: groupData.group.name || "Group",
-                avatar: groupData.group.avatar || "/logo/logo.png",
-                registeredUserId: chatId,
-              });
-            }
-          }
-        } catch {
-          // ignore group fetch errors
+        if (!accessCheckRes.ok) {
+          router.replace("/chats");
+          return;
         }
+
+        const accessData = await accessCheckRes.json();
+        if (!accessData?.access) {
+          router.replace("/chats");
+          return;
+        }
+
+        let isGroupChat = accessData?.type === "group";
+
+        if (isGroupChat) {
+          try {
+            const groupRes = await fetch(`/api/groups/${chatId}`, { credentials: "include" });
+            if (groupRes.ok) {
+              const groupData = await groupRes.json();
+              if (groupData?.group) {
+                setIsGroup(true);
+                setGroupMembers(groupData.group.members || []);
+                setContact({
+                  name: groupData.group.name || "Group",
+                  avatar: groupData.group.avatar || "/logo/logo.png",
+                  registeredUserId: chatId,
+                });
+              }
+            }
+          } catch {
+            // ignore group fetch errors
+          }
+        }
+
+        const messagesEndpoint = isGroupChat
+          ? `/api/groups/${chatId}/messages?all=true&last=true`
+          : `/api/messages/${chatId}?all=true&last=true`;
 
         const [contactsRes, messagesRes, accessRes] = await Promise.all([
           fetch("/api/contacts", { credentials: "include" }),
-          fetch(`/api/messages/${chatId}?all=true&last=true`, { credentials: "include" }),
+          fetch(messagesEndpoint, { credentials: "include" }),
           fetch("/api/access/me", { cache: "no-store" }),
         ]);
 
@@ -244,11 +267,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         }
 
         try {
+          const receiptBody = isGroup
+            ? { groupId: chatId }
+            : { peerId: chatId };
           await fetch("/api/read-receipts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ peerId: chatId }),
+            body: JSON.stringify(receiptBody),
           });
         } catch {
           // ignore marking as read failures
@@ -352,7 +378,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
   const sendViaRest = async (payload: OutboundMessagePayload, tempMessage?: ChatMessage) => {
     try {
-      const res = await fetch(`/api/messages/${chatId}`, {
+      const endpoint = isGroup
+        ? `/api/groups/${chatId}/messages`
+        : `/api/messages/${chatId}`;
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -390,7 +419,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     if (!socket) return false;
 
     return new Promise<boolean>((resolve) => {
-      socket.emit("message:send", { to: chatId, ...payload }, (ack: { ok?: boolean; message?: ChatMessage }) => {
+      const eventName = isGroup ? "group:message:send" : "message:send";
+      const socketPayload = isGroup
+        ? { groupId: chatId, ...payload }
+        : { to: chatId, ...payload };
+
+      socket.emit(eventName, socketPayload, (ack: { ok?: boolean; message?: ChatMessage }) => {
         const ackMessage = ack?.ok && ack?.message ? ack.message : undefined;
         if (ackMessage) {
           const tempId = getMessageId(tempMessage);

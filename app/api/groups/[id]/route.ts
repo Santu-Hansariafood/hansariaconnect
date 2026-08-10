@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db/db";
 import Group from "@/models/group/Group";
 import Profile from "@/models/profile/Profile";
+import { getUserSession } from "@/lib/sessionAuth";
 
 type GroupMember = {
   userId: any;
@@ -34,18 +35,6 @@ const normalizeId = (val: unknown): string => {
     }
   }
   return "";
-};
-
-const parseSession = (req: NextRequest) => {
-  const raw = req.cookies.get("user_session")?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.id) return null;
-    return parsed as { id: string; mobile?: string };
-  } catch {
-    return null;
-  }
 };
 
 const resolveParams = async (
@@ -99,7 +88,7 @@ export async function GET(
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
-    const session = parseSession(req);
+    const session = await getUserSession(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -151,7 +140,7 @@ export async function PATCH(
   context: { params: { id: string } | Promise<{ id: string }> },
 ) {
   try {
-    const session = parseSession(req);
+    const session = await getUserSession(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
