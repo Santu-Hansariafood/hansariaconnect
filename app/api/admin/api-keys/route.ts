@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     if ("error" in adminResult) {
       return NextResponse.json(
         { error: adminResult.error },
-        { status: adminResult.status }
+        { status: adminResult.status },
       );
     }
 
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { error: "Failed to fetch API keys" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if ("error" in adminResult) {
       return NextResponse.json(
         { error: adminResult.error },
-        { status: adminResult.status }
+        { status: adminResult.status },
       );
     }
 
@@ -52,10 +52,7 @@ export async function POST(req: NextRequest) {
     const { name, expiresDays } = body;
 
     if (!name) {
-      return NextResponse.json(
-        { error: "Name is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
     const apiKey = new ApiKey({
@@ -85,7 +82,7 @@ export async function POST(req: NextRequest) {
     console.error(error);
     return NextResponse.json(
       { error: "Failed to create API key" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

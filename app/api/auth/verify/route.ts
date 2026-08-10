@@ -79,7 +79,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const response = NextResponse.json(
         {
           success: false,
-          error: "No email registered. Please update your profile or contact support.",
+          error:
+            "No email registered. Please update your profile or contact support.",
         },
         { status: 400 },
       );
@@ -90,12 +91,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const sessionId = await randomBytesHex(16);
     const userAgent = req.headers.get("user-agent") ?? undefined;
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
-    const allowed = await addUserSession(user._id.toString(), sessionId, userAgent, ip);
+    const allowed = await addUserSession(
+      user._id.toString(),
+      sessionId,
+      userAgent,
+      ip,
+    );
     if (!allowed) {
       const response = NextResponse.json(
         {
           success: false,
-          error: "Maximum active logins reached. Sign out from another device and try again.",
+          error:
+            "Maximum active logins reached. Sign out from another device and try again.",
         },
         { status: 403 },
       );

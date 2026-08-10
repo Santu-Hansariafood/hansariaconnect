@@ -19,7 +19,8 @@ export async function PATCH(
     await connectDB();
     const body = await req.json();
     const { userId, email, password, isSuperAdmin } = body;
-    const resolved = context.params instanceof Promise ? await context.params : context.params;
+    const resolved =
+      context.params instanceof Promise ? await context.params : context.params;
     const id = String(resolved.id || "");
 
     if (authResult.admin._id.toString() === id && isSuperAdmin !== undefined) {
@@ -84,7 +85,8 @@ export async function DELETE(
     }
 
     await connectDB();
-    const resolved = context.params instanceof Promise ? await context.params : context.params;
+    const resolved =
+      context.params instanceof Promise ? await context.params : context.params;
     const id = String(resolved.id || "");
 
     if (authResult.admin._id.toString() === id) {

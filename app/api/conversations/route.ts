@@ -120,7 +120,11 @@ export async function GET(req: NextRequest) {
         ? {
             id: String(lastMessage._id),
             type: lastMessage.type,
-            text: decryptDirectMessageContent(userIdStr, peerIdStr, lastMessage.text || ""),
+            text: decryptDirectMessageContent(
+              userIdStr,
+              peerIdStr,
+              lastMessage.text || "",
+            ),
             from: String(lastMessage.from),
             to: String(lastMessage.to),
             timestamp: lastMessage.createdAt,
@@ -164,12 +168,19 @@ export async function GET(req: NextRequest) {
         name: group.name || "Group",
         avatar: group.avatar || "",
         memberCount: members.length,
-        lastMessageAt: group.lastMessageAt || group.updatedAt || group.createdAt || new Date(),
+        lastMessageAt:
+          group.lastMessageAt ||
+          group.updatedAt ||
+          group.createdAt ||
+          new Date(),
         lastMessage: lastGroupMsg
           ? {
               id: String(lastGroupMsg._id),
               type: lastGroupMsg.type,
-              text: decryptGroupMessageContent(groupIdStr, lastGroupMsg.text || ""),
+              text: decryptGroupMessageContent(
+                groupIdStr,
+                lastGroupMsg.text || "",
+              ),
               from: String(lastGroupMsg.from),
               groupId: groupIdStr,
               timestamp: lastGroupMsg.createdAt,

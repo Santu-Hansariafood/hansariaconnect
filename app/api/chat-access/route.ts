@@ -22,9 +22,7 @@ const normalizeId = (val: unknown): string => {
   return "";
 };
 
-export async function GET(
-  req: NextRequest,
-) {
+export async function GET(req: NextRequest) {
   try {
     const session = await getUserSession(req);
     if (!session?.id) {

@@ -12,14 +12,15 @@ export async function PATCH(
     if ("error" in adminResult) {
       return NextResponse.json(
         { error: adminResult.error },
-        { status: adminResult.status }
+        { status: adminResult.status },
       );
     }
 
     await connectDB();
     const body = await req.json();
     const { isActive } = body;
-    const resolved = context.params instanceof Promise ? await context.params : context.params;
+    const resolved =
+      context.params instanceof Promise ? await context.params : context.params;
 
     const apiKey = await ApiKey.findOne({
       _id: resolved.id,
@@ -52,7 +53,7 @@ export async function PATCH(
     console.error(error);
     return NextResponse.json(
       { error: "Failed to update API key" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -66,12 +67,13 @@ export async function DELETE(
     if ("error" in adminResult) {
       return NextResponse.json(
         { error: adminResult.error },
-        { status: adminResult.status }
+        { status: adminResult.status },
       );
     }
 
     await connectDB();
-    const resolved = context.params instanceof Promise ? await context.params : context.params;
+    const resolved =
+      context.params instanceof Promise ? await context.params : context.params;
     await ApiKey.findOneAndDelete({
       _id: resolved.id,
       adminId: adminResult.admin._id,
@@ -82,7 +84,7 @@ export async function DELETE(
     console.error(error);
     return NextResponse.json(
       { error: "Failed to delete API key" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

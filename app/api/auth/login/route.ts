@@ -5,10 +5,7 @@ export const runtime = "nodejs";
 import nodemailer from "nodemailer";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
-import {
-  signOtpSession,
-  authOtpCookieOptions,
-} from "@/lib/sessionAuth";
+import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -54,7 +51,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         {
           success: false,
-          error: "No email registered. Please update your profile or contact support.",
+          error:
+            "No email registered. Please update your profile or contact support.",
         },
         { status: 400 },
       );
@@ -63,12 +61,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const otp = generateOtp();
 
     if (process.env.NODE_ENV !== "production") {
-      console.log(`[LOGIN OTP] Mobile: ${mobile}, Email: ${user.email}, OTP: ${otp}`);
+      console.log(
+        `[LOGIN OTP] Mobile: ${mobile}, Email: ${user.email}, OTP: ${otp}`,
+      );
     }
 
     try {
       await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.EMAIL_USER || "no-reply@hansariaconnect.com",
+        from:
+          process.env.SMTP_FROM ||
+          process.env.EMAIL_USER ||
+          "no-reply@hansariaconnect.com",
         to: user.email,
         subject: "Your OTP for HansariaConnect",
         text: `Hello ${user.name || "User"},\n\nYour OTP for HansariaConnect is: ${otp}\n\nThis OTP is valid for 5 minutes.\n\nBest regards,\nHansariaConnect Team`,
@@ -77,7 +80,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } catch (emailError) {
       console.error("Email send error:", emailError);
       return NextResponse.json(
-        { success: false, error: "Failed to send OTP email. Please try again." },
+        {
+          success: false,
+          error: "Failed to send OTP email. Please try again.",
+        },
         { status: 500 },
       );
     }
@@ -99,13 +105,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
-    response.cookies.set("otp_session", await signOtpSession(payload), authOtpCookieOptions);
+    response.cookies.set(
+      "otp_session",
+      await signOtpSession(payload),
+      authOtpCookieOptions,
+    );
 
     return response;
   } catch (error: any) {
     console.error("Login Error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to process login", details: error.message },
+      {
+        success: false,
+        error: "Failed to process login",
+        details: error.message,
+      },
       { status: 500 },
     );
   }

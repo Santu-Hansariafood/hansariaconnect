@@ -4,7 +4,10 @@ import { connectDB } from "@/lib/db/db";
 import Group from "@/models/group/Group";
 import GroupMessage from "@/models/group/GroupMessage";
 import { getUserSession } from "@/lib/sessionAuth";
-import { encryptGroupMessageContent, decryptGroupMessageContent } from "@/lib/crypto";
+import {
+  encryptGroupMessageContent,
+  decryptGroupMessageContent,
+} from "@/lib/crypto";
 
 interface GroupMember {
   userId: Types.ObjectId | string;
@@ -138,7 +141,10 @@ export async function GET(
       fileSize: decryptGroupMessageContent(groupIdStr, msg.fileSize || ""),
       duration: msg.duration || undefined,
       linkTitle: decryptGroupMessageContent(groupIdStr, msg.linkTitle || ""),
-      linkDescription: decryptGroupMessageContent(groupIdStr, msg.linkDescription || ""),
+      linkDescription: decryptGroupMessageContent(
+        groupIdStr,
+        msg.linkDescription || "",
+      ),
       timestamp: msg.createdAt,
     }));
 
@@ -204,7 +210,10 @@ export async function POST(
       fileSize: encryptGroupMessageContent(groupIdStr, body?.fileSize || ""),
       duration: body?.duration || undefined,
       linkTitle: encryptGroupMessageContent(groupIdStr, body?.linkTitle || ""),
-      linkDescription: encryptGroupMessageContent(groupIdStr, body?.linkDescription || ""),
+      linkDescription: encryptGroupMessageContent(
+        groupIdStr,
+        body?.linkDescription || "",
+      ),
     });
 
     await Group.findByIdAndUpdate(groupId, {
@@ -223,7 +232,10 @@ export async function POST(
       fileSize: decryptGroupMessageContent(groupIdStr, saved.fileSize || ""),
       duration: saved.duration || undefined,
       linkTitle: decryptGroupMessageContent(groupIdStr, saved.linkTitle || ""),
-      linkDescription: decryptGroupMessageContent(groupIdStr, saved.linkDescription || ""),
+      linkDescription: decryptGroupMessageContent(
+        groupIdStr,
+        saved.linkDescription || "",
+      ),
       timestamp: saved.createdAt,
     };
 

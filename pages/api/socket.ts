@@ -27,7 +27,10 @@ const getUserIdFromSocket = async (socket: any): Promise<string | null> => {
   return session?.id ?? null;
 };
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
   const httpServer: HTTPServer = (res.socket as any).server;
 
   if (!(httpServer as any).userConnections) {
@@ -48,7 +51,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     (httpServer as any).io = io;
 
     const getOnlineUserIds = () =>
-      Array.from(((httpServer as any).userConnections as Map<string, number>).keys());
+      Array.from(
+        ((httpServer as any).userConnections as Map<string, number>).keys(),
+      );
 
     const broadcastOnlineUsers = () => {
       io.emit("users:online", getOnlineUserIds());
@@ -67,7 +72,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         socket.join(userId);
 
-        const userConnections = (httpServer as any).userConnections as Map<string, number>;
+        const userConnections = (httpServer as any).userConnections as Map<
+          string,
+          number
+        >;
         userConnections.set(userId, (userConnections.get(userId) ?? 0) + 1);
         broadcastOnlineUsers();
 
@@ -81,8 +89,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             const fromId = new Types.ObjectId(userId);
             const toId = new Types.ObjectId(to);
-            const access = await AccessControl.findOne({ userId: fromId }).lean();
-            const allowAttachments = !!(access as any)?.permissions?.attachments;
+            const access = await AccessControl.findOne({
+              userId: fromId,
+            }).lean();
+            const allowAttachments = !!(access as any)?.permissions
+              ?.attachments;
             const isText = type === "text";
             if (!isText && !allowAttachments) {
               return cb?.({ ok: false, error: "Attachments not allowed" });
@@ -95,13 +106,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               from: fromId,
               to: toId,
               type,
-              text: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.text ?? "")),
-              mediaUrl: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.mediaUrl ?? "")),
-              fileName: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.fileName ?? "")),
-              fileSize: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.fileSize ?? "")),
+              text: encryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                String(payload?.text ?? ""),
+              ),
+              mediaUrl: encryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                String(payload?.mediaUrl ?? ""),
+              ),
+              fileName: encryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                String(payload?.fileName ?? ""),
+              ),
+              fileSize: encryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                String(payload?.fileSize ?? ""),
+              ),
               duration: Number(payload?.duration ?? 0),
-              linkTitle: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.linkTitle ?? "")),
-              linkDescription: encryptDirectMessageContent(userIdStr, toIdStr, String(payload?.linkDescription ?? "")),
+              linkTitle: encryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                String(payload?.linkTitle ?? ""),
+              ),
+              linkDescription: encryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                String(payload?.linkDescription ?? ""),
+              ),
             });
 
             const a = String(fromId);
@@ -117,22 +152,70 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             const decryptedForSender: any = {
               ...doc.toObject(),
-              text: decryptDirectMessageContent(userIdStr, toIdStr, doc.text || ""),
-              mediaUrl: decryptDirectMessageContent(userIdStr, toIdStr, doc.mediaUrl || ""),
-              fileName: decryptDirectMessageContent(userIdStr, toIdStr, doc.fileName || ""),
-              fileSize: decryptDirectMessageContent(userIdStr, toIdStr, doc.fileSize || ""),
-              linkTitle: decryptDirectMessageContent(userIdStr, toIdStr, doc.linkTitle || ""),
-              linkDescription: decryptDirectMessageContent(userIdStr, toIdStr, doc.linkDescription || ""),
+              text: decryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                doc.text || "",
+              ),
+              mediaUrl: decryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                doc.mediaUrl || "",
+              ),
+              fileName: decryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                doc.fileName || "",
+              ),
+              fileSize: decryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                doc.fileSize || "",
+              ),
+              linkTitle: decryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                doc.linkTitle || "",
+              ),
+              linkDescription: decryptDirectMessageContent(
+                userIdStr,
+                toIdStr,
+                doc.linkDescription || "",
+              ),
             };
 
             const decryptedForRecipient: any = {
               ...doc.toObject(),
-              text: decryptDirectMessageContent(toIdStr, userIdStr, doc.text || ""),
-              mediaUrl: decryptDirectMessageContent(toIdStr, userIdStr, doc.mediaUrl || ""),
-              fileName: decryptDirectMessageContent(toIdStr, userIdStr, doc.fileName || ""),
-              fileSize: decryptDirectMessageContent(toIdStr, userIdStr, doc.fileSize || ""),
-              linkTitle: decryptDirectMessageContent(toIdStr, userIdStr, doc.linkTitle || ""),
-              linkDescription: decryptDirectMessageContent(toIdStr, userIdStr, doc.linkDescription || ""),
+              text: decryptDirectMessageContent(
+                toIdStr,
+                userIdStr,
+                doc.text || "",
+              ),
+              mediaUrl: decryptDirectMessageContent(
+                toIdStr,
+                userIdStr,
+                doc.mediaUrl || "",
+              ),
+              fileName: decryptDirectMessageContent(
+                toIdStr,
+                userIdStr,
+                doc.fileName || "",
+              ),
+              fileSize: decryptDirectMessageContent(
+                toIdStr,
+                userIdStr,
+                doc.fileSize || "",
+              ),
+              linkTitle: decryptDirectMessageContent(
+                toIdStr,
+                userIdStr,
+                doc.linkTitle || "",
+              ),
+              linkDescription: decryptDirectMessageContent(
+                toIdStr,
+                userIdStr,
+                doc.linkDescription || "",
+              ),
             };
 
             io.to(to).emit("message:new", decryptedForRecipient);
@@ -145,7 +228,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         socket.on("message:status", async (payload, cb) => {
           try {
             const id = String(payload?.id ?? "");
-            const status = String(payload?.status ?? "") as "sent" | "delivered" | "seen";
+            const status = String(payload?.status ?? "") as
+              | "sent"
+              | "delivered"
+              | "seen";
             if (!id || !Types.ObjectId.isValid(id)) {
               return cb?.({ ok: false, error: "Invalid message id" });
             }
@@ -188,13 +274,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
 
             const members = group.members || [];
-            const isMember = members.some((m: any) => String(m.userId) === userId);
+            const isMember = members.some(
+              (m: any) => String(m.userId) === userId,
+            );
             if (!isMember) {
               return cb?.({ ok: false, error: "Forbidden" });
             }
 
-            const access = await AccessControl.findOne({ userId: fromId }).lean();
-            const allowAttachments = !!(access as any)?.permissions?.attachments;
+            const access = await AccessControl.findOne({
+              userId: fromId,
+            }).lean();
+            const allowAttachments = !!(access as any)?.permissions
+              ?.attachments;
             const isText = type === "text";
             if (!isText && !allowAttachments) {
               return cb?.({ ok: false, error: "Attachments not allowed" });
@@ -206,39 +297,81 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
               groupId: new Types.ObjectId(groupId),
               from: fromId,
               type,
-              text: encryptGroupMessageContent(groupIdStr, String(payload?.text ?? "")),
-              mediaUrl: encryptGroupMessageContent(groupIdStr, String(payload?.mediaUrl ?? "")),
-              fileName: encryptGroupMessageContent(groupIdStr, String(payload?.fileName ?? "")),
-              fileSize: encryptGroupMessageContent(groupIdStr, String(payload?.fileSize ?? "")),
+              text: encryptGroupMessageContent(
+                groupIdStr,
+                String(payload?.text ?? ""),
+              ),
+              mediaUrl: encryptGroupMessageContent(
+                groupIdStr,
+                String(payload?.mediaUrl ?? ""),
+              ),
+              fileName: encryptGroupMessageContent(
+                groupIdStr,
+                String(payload?.fileName ?? ""),
+              ),
+              fileSize: encryptGroupMessageContent(
+                groupIdStr,
+                String(payload?.fileSize ?? ""),
+              ),
               duration: Number(payload?.duration ?? 0),
-              linkTitle: encryptGroupMessageContent(groupIdStr, String(payload?.linkTitle ?? "")),
-              linkDescription: encryptGroupMessageContent(groupIdStr, String(payload?.linkDescription ?? "")),
+              linkTitle: encryptGroupMessageContent(
+                groupIdStr,
+                String(payload?.linkTitle ?? ""),
+              ),
+              linkDescription: encryptGroupMessageContent(
+                groupIdStr,
+                String(payload?.linkDescription ?? ""),
+              ),
             });
 
             const decryptedMsg: any = {
               ...msg.toObject(),
               text: decryptGroupMessageContent(groupIdStr, msg.text || ""),
-              mediaUrl: decryptGroupMessageContent(groupIdStr, msg.mediaUrl || ""),
-              fileName: decryptGroupMessageContent(groupIdStr, msg.fileName || ""),
-              fileSize: decryptGroupMessageContent(groupIdStr, msg.fileSize || ""),
-              linkTitle: decryptGroupMessageContent(groupIdStr, msg.linkTitle || ""),
-              linkDescription: decryptGroupMessageContent(groupIdStr, msg.linkDescription || ""),
+              mediaUrl: decryptGroupMessageContent(
+                groupIdStr,
+                msg.mediaUrl || "",
+              ),
+              fileName: decryptGroupMessageContent(
+                groupIdStr,
+                msg.fileName || "",
+              ),
+              fileSize: decryptGroupMessageContent(
+                groupIdStr,
+                msg.fileSize || "",
+              ),
+              linkTitle: decryptGroupMessageContent(
+                groupIdStr,
+                msg.linkTitle || "",
+              ),
+              linkDescription: decryptGroupMessageContent(
+                groupIdStr,
+                msg.linkDescription || "",
+              ),
             };
 
             members.forEach((member: any) => {
               if (String(member.userId) !== userId) {
-                io.to(String(member.userId)).emit("group:message:new", decryptedMsg);
+                io.to(String(member.userId)).emit(
+                  "group:message:new",
+                  decryptedMsg,
+                );
               }
             });
 
             cb?.({ ok: true, message: decryptedMsg });
           } catch (err: any) {
-            cb?.({ ok: false, error: err.message || "Error sending group message" });
+            cb?.({
+              ok: false,
+              error: err.message || "Error sending group message",
+            });
           }
         });
 
         socket.on("disconnect", () => {
-          const userConnections = (httpServer as any).userConnections as Map<string, number>;
+          const userConnections = (httpServer as any).userConnections as Map<
+            string,
+            number
+          >;
           const count = userConnections.get(userId) ?? 0;
           if (count <= 1) {
             userConnections.delete(userId);

@@ -5,7 +5,10 @@ import Message from "@/models/message/Message";
 import Conversation from "@/models/conversation/Conversation";
 import User from "@/models/user/User";
 import { getUserSession } from "@/lib/sessionAuth";
-import { encryptDirectMessageContent, decryptDirectMessageContent } from "@/lib/crypto";
+import {
+  encryptDirectMessageContent,
+  decryptDirectMessageContent,
+} from "@/lib/crypto";
 
 export const runtime = "nodejs";
 
@@ -63,16 +66,10 @@ export async function GET(
     const rawPeerId = normalizeId(resolvedParams.peerId);
 
     if (!Types.ObjectId.isValid(rawUserId)) {
-      return NextResponse.json(
-        { error: "Invalid user id" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
     }
     if (!Types.ObjectId.isValid(rawPeerId)) {
-      return NextResponse.json(
-        { error: "Invalid peer id" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid peer id" }, { status: 400 });
     }
     const userId = new Types.ObjectId(rawUserId);
     const peerId = new Types.ObjectId(rawPeerId);
@@ -125,12 +122,32 @@ export async function GET(
       to: String(msg.to),
       type: msg.type,
       text: decryptDirectMessageContent(userIdStr, peerIdStr, msg.text || ""),
-      mediaUrl: decryptDirectMessageContent(userIdStr, peerIdStr, msg.mediaUrl || ""),
-      fileName: decryptDirectMessageContent(userIdStr, peerIdStr, msg.fileName || ""),
-      fileSize: decryptDirectMessageContent(userIdStr, peerIdStr, msg.fileSize || ""),
+      mediaUrl: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        msg.mediaUrl || "",
+      ),
+      fileName: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        msg.fileName || "",
+      ),
+      fileSize: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        msg.fileSize || "",
+      ),
       duration: msg.duration || undefined,
-      linkTitle: decryptDirectMessageContent(userIdStr, peerIdStr, msg.linkTitle || ""),
-      linkDescription: decryptDirectMessageContent(userIdStr, peerIdStr, msg.linkDescription || ""),
+      linkTitle: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        msg.linkTitle || "",
+      ),
+      linkDescription: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        msg.linkDescription || "",
+      ),
       timestamp: msg.createdAt,
       status: msg.status || "sent",
     }));
@@ -168,16 +185,10 @@ export async function POST(
     const rawPeerId = normalizeId(resolvedParams.peerId);
 
     if (!Types.ObjectId.isValid(rawUserId)) {
-      return NextResponse.json(
-        { error: "Invalid user id" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
     }
     if (!Types.ObjectId.isValid(rawPeerId)) {
-      return NextResponse.json(
-        { error: "Invalid peer id" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid peer id" }, { status: 400 });
     }
     const userId = new Types.ObjectId(rawUserId);
     const peerId = new Types.ObjectId(rawPeerId);
@@ -199,12 +210,32 @@ export async function POST(
       to: peerId,
       type,
       text: encryptDirectMessageContent(userIdStr, peerIdStr, body?.text || ""),
-      mediaUrl: encryptDirectMessageContent(userIdStr, peerIdStr, body?.mediaUrl || ""),
-      fileName: encryptDirectMessageContent(userIdStr, peerIdStr, body?.fileName || ""),
-      fileSize: encryptDirectMessageContent(userIdStr, peerIdStr, body?.fileSize || ""),
+      mediaUrl: encryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        body?.mediaUrl || "",
+      ),
+      fileName: encryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        body?.fileName || "",
+      ),
+      fileSize: encryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        body?.fileSize || "",
+      ),
       duration: body?.duration || undefined,
-      linkTitle: encryptDirectMessageContent(userIdStr, peerIdStr, body?.linkTitle || ""),
-      linkDescription: encryptDirectMessageContent(userIdStr, peerIdStr, body?.linkDescription || ""),
+      linkTitle: encryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        body?.linkTitle || "",
+      ),
+      linkDescription: encryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        body?.linkDescription || "",
+      ),
     });
 
     try {
@@ -226,12 +257,32 @@ export async function POST(
       to: String(saved.to),
       type: saved.type,
       text: decryptDirectMessageContent(userIdStr, peerIdStr, saved.text || ""),
-      mediaUrl: decryptDirectMessageContent(userIdStr, peerIdStr, saved.mediaUrl || ""),
-      fileName: decryptDirectMessageContent(userIdStr, peerIdStr, saved.fileName || ""),
-      fileSize: decryptDirectMessageContent(userIdStr, peerIdStr, saved.fileSize || ""),
+      mediaUrl: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        saved.mediaUrl || "",
+      ),
+      fileName: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        saved.fileName || "",
+      ),
+      fileSize: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        saved.fileSize || "",
+      ),
       duration: saved.duration || undefined,
-      linkTitle: decryptDirectMessageContent(userIdStr, peerIdStr, saved.linkTitle || ""),
-      linkDescription: decryptDirectMessageContent(userIdStr, peerIdStr, saved.linkDescription || ""),
+      linkTitle: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        saved.linkTitle || "",
+      ),
+      linkDescription: decryptDirectMessageContent(
+        userIdStr,
+        peerIdStr,
+        saved.linkDescription || "",
+      ),
       timestamp: saved.createdAt,
       status: "sent",
     };

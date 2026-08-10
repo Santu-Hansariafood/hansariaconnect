@@ -107,7 +107,6 @@ export async function GET(
 
     await connectDB();
 
-    // ---- TYPE FIX HERE ----
     const group = (await Group.findById(id).lean()) as GroupDoc | null;
 
     if (!group) {

@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     if ("error" in authResult) {
       return NextResponse.json(
         { success: false, error: authResult.error },
-        { status: authResult.status }
+        { status: authResult.status },
       );
     }
 
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     console.error("Get admins error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     if ("error" in authResult) {
       return NextResponse.json(
         { success: false, error: authResult.error },
-        { status: authResult.status }
+        { status: authResult.status },
       );
     }
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     if (!userId || !email || !password) {
       return NextResponse.json(
         { success: false, error: "User ID, email, and password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     if (existingAdmin) {
       return NextResponse.json(
         { success: false, error: "User ID or email already exists" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     console.error("Create admin error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

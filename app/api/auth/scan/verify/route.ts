@@ -54,12 +54,18 @@ export async function POST(req: NextRequest) {
     const sessionId = await randomBytesHex(16);
     const userAgent = req.headers.get("user-agent") ?? undefined;
     const ip = req.headers.get("x-forwarded-for") ?? undefined;
-    const allowed = await addUserSession(user._id.toString(), sessionId, userAgent, ip);
+    const allowed = await addUserSession(
+      user._id.toString(),
+      sessionId,
+      userAgent,
+      ip,
+    );
     if (!allowed) {
       return NextResponse.json(
         {
           success: false,
-          error: "Maximum active logins reached. Sign out from another device and try again.",
+          error:
+            "Maximum active logins reached. Sign out from another device and try again.",
         },
         { status: 403 },
       );
@@ -67,7 +73,6 @@ export async function POST(req: NextRequest) {
 
     setScanToken(token, { ...scanData, used: true });
 
-    // update last login info
     try {
       await User.findByIdAndUpdate(user._id, {
         $set: { lastLoginIp: ip ?? null, lastLoginAt: new Date() },
@@ -84,7 +89,11 @@ export async function POST(req: NextRequest) {
 
     response.cookies.set(
       "user_session",
-      await signUserSession({ id: user._id.toString(), sessionId, mobile: scanData.mobile }),
+      await signUserSession({
+        id: user._id.toString(),
+        sessionId,
+        mobile: scanData.mobile,
+      }),
       userSessionCookieOptions,
     );
 

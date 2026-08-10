@@ -5,10 +5,7 @@ export const runtime = "nodejs";
 import nodemailer from "nodemailer";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
-import {
-  signOtpSession,
-  authOtpCookieOptions,
-} from "@/lib/sessionAuth";
+import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -77,7 +74,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const otp = generateOtp();
 
     if (process.env.NODE_ENV !== "production") {
-      console.log(`[REGISTER OTP] Mobile: ${mobile}, Email: ${email}, OTP: ${otp}`);
+      console.log(
+        `[REGISTER OTP] Mobile: ${mobile}, Email: ${email}, OTP: ${otp}`,
+      );
     }
 
     try {
@@ -108,7 +107,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
-    response.cookies.set("otp_session", await signOtpSession(payload), authOtpCookieOptions);
+    response.cookies.set(
+      "otp_session",
+      await signOtpSession(payload),
+      authOtpCookieOptions,
+    );
 
     return response;
   } catch (error: any) {

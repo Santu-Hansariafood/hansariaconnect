@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     if (!identifier || !password) {
       return NextResponse.json(
         { success: false, error: "Identifier and password are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     if (!admin) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
     if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     console.error("Admin login error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

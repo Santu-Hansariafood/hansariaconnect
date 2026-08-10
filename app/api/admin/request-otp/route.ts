@@ -3,10 +3,7 @@ import nodemailer from "nodemailer";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
 import { connectDB } from "@/lib/db/db";
 import Admin from "@/models/admin/Admin";
-import {
-  signAdminOtpSession,
-  authOtpCookieOptions,
-} from "@/lib/sessionAuth";
+import { signAdminOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 
 export const runtime = "nodejs";
 const ADMINS = new Set(["santude1997@gmail.com", "test@gmail.com"]);
@@ -81,7 +78,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     };
 
     const response = NextResponse.json({ success: true });
-    response.cookies.set("admin_otp_session", await signAdminOtpSession(payload), authOtpCookieOptions);
+    response.cookies.set(
+      "admin_otp_session",
+      await signAdminOtpSession(payload),
+      authOtpCookieOptions,
+    );
     return response;
   } catch (e: any) {
     return NextResponse.json(

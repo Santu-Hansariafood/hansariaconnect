@@ -1,6 +1,13 @@
 import "server-only";
 
-import { createHash, createHmac, pbkdf2Sync, randomBytes, createCipheriv, createDecipheriv } from "crypto";
+import {
+  createHash,
+  createHmac,
+  pbkdf2Sync,
+  randomBytes,
+  createCipheriv,
+  createDecipheriv,
+} from "crypto";
 
 export function digestHex(
   algorithm: "SHA-1" | "SHA-256",
@@ -33,9 +40,14 @@ export function randomBytesHex(size: number): string {
 }
 
 const getEncryptionSecret = (): string => {
-  const secret = process.env.ENCRYPTION_SECRET || process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET;
+  const secret =
+    process.env.ENCRYPTION_SECRET ||
+    process.env.SESSION_SECRET ||
+    process.env.NEXTAUTH_SECRET;
   if (!secret) {
-    throw new Error("ENCRYPTION_SECRET, SESSION_SECRET, or NEXTAUTH_SECRET must be configured");
+    throw new Error(
+      "ENCRYPTION_SECRET, SESSION_SECRET, or NEXTAUTH_SECRET must be configured",
+    );
   }
   return secret;
 };

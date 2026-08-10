@@ -63,10 +63,7 @@ function constantTimeCompare(a: string, b: string): boolean {
   return result === 0;
 }
 
-async function hmacSha256Hex(
-  key: string,
-  message: string,
-): Promise<string> {
+async function hmacSha256Hex(key: string, message: string): Promise<string> {
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
     textEncoder.encode(key),
@@ -88,29 +85,20 @@ async function hmacSha256Hex(
 }
 
 function getSessionSecret(): string {
-  const secret =
-    process.env.SESSION_SECRET ||
-    process.env.NEXTAUTH_SECRET;
+  const secret = process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET;
 
   if (!secret) {
-    throw new Error(
-      "SESSION_SECRET or NEXTAUTH_SECRET must be configured",
-    );
+    throw new Error("SESSION_SECRET or NEXTAUTH_SECRET must be configured");
   }
 
   return secret;
 }
 
-function getCookieValue(
-  req: NextRequest,
-  name: string,
-): string | undefined {
+function getCookieValue(req: NextRequest, name: string): string | undefined {
   return req.cookies.get(name)?.value;
 }
 
-async function decodeSession<T>(
-  raw: string | undefined,
-): Promise<T | null> {
+async function decodeSession<T>(raw: string | undefined): Promise<T | null> {
   if (!raw) {
     return null;
   }
@@ -139,12 +127,7 @@ async function decodeSession<T>(
       payloadJson,
     );
 
-    if (
-      !constantTimeCompare(
-        parsed.sig,
-        expectedSignature,
-      )
-    ) {
+    if (!constantTimeCompare(parsed.sig, expectedSignature)) {
       return null;
     }
 
@@ -159,17 +142,13 @@ export async function getAdminSession(
 ): Promise<EdgeAdminSession | null> {
   const raw = getCookieValue(req, "admin_session");
 
-  const session =
-    await decodeSession<EdgeAdminSession>(raw);
+  const session = await decodeSession<EdgeAdminSession>(raw);
 
   if (!session) {
     return null;
   }
 
-  if (
-    typeof session.exp !== "number" ||
-    Date.now() > session.exp
-  ) {
+  if (typeof session.exp !== "number" || Date.now() > session.exp) {
     return null;
   }
 
@@ -177,10 +156,7 @@ export async function getAdminSession(
     return session;
   }
 
-  if (
-    typeof session.adminId === "string" &&
-    session.adminId.trim()
-  ) {
+  if (typeof session.adminId === "string" && session.adminId.trim()) {
     return session;
   }
 
@@ -192,17 +168,13 @@ export async function getUserSession(
 ): Promise<EdgeUserSession | null> {
   const raw = getCookieValue(req, "user_session");
 
-  const session =
-    await decodeSession<EdgeUserSession>(raw);
+  const session = await decodeSession<EdgeUserSession>(raw);
 
   if (!session) {
     return null;
   }
 
-  if (
-    typeof session.exp !== "number" ||
-    Date.now() > session.exp
-  ) {
+  if (typeof session.exp !== "number" || Date.now() > session.exp) {
     return null;
   }
 

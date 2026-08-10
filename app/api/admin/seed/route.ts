@@ -29,10 +29,16 @@ export async function GET(req: NextRequest) {
 
     // Hash passwords manually
     const saltRounds = 10;
-    const hashedSuperAdminPassword = await bcrypt.hash(DEFAULT_SUPER_ADMIN.password, saltRounds);
+    const hashedSuperAdminPassword = await bcrypt.hash(
+      DEFAULT_SUPER_ADMIN.password,
+      saltRounds,
+    );
     console.log("Hashed super admin password:", hashedSuperAdminPassword);
 
-    const hashedAdminPassword = await bcrypt.hash(DEFAULT_ADMIN.password, saltRounds);
+    const hashedAdminPassword = await bcrypt.hash(
+      DEFAULT_ADMIN.password,
+      saltRounds,
+    );
     console.log("Hashed admin password:", hashedAdminPassword);
 
     if (shouldReset) {
@@ -52,28 +58,29 @@ export async function GET(req: NextRequest) {
         ...DEFAULT_SUPER_ADMIN,
         password: hashedSuperAdminPassword,
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
     console.log("Upserted super admin:", superAdminResult.userId);
 
     const adminResult = await Admin.findOneAndUpdate(
       {
-        $or: [
-          { userId: DEFAULT_ADMIN.userId },
-          { email: DEFAULT_ADMIN.email },
-        ],
+        $or: [{ userId: DEFAULT_ADMIN.userId }, { email: DEFAULT_ADMIN.email }],
       },
       {
         ...DEFAULT_ADMIN,
         password: hashedAdminPassword,
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true },
     );
     console.log("Upserted admin:", adminResult.userId);
 
-    const testSuperAdmin = await Admin.findOne({ userId: DEFAULT_SUPER_ADMIN.userId });
+    const testSuperAdmin = await Admin.findOne({
+      userId: DEFAULT_SUPER_ADMIN.userId,
+    });
     if (testSuperAdmin) {
-      const testPass = await testSuperAdmin.comparePassword(DEFAULT_SUPER_ADMIN.password);
+      const testPass = await testSuperAdmin.comparePassword(
+        DEFAULT_SUPER_ADMIN.password,
+      );
       console.log("Super admin password test passed?", testPass);
     }
     const testAdmin = await Admin.findOne({ userId: DEFAULT_ADMIN.userId });
@@ -101,8 +108,12 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Error seeding admin users:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to seed admin users", details: error.message },
-      { status: 500 }
+      {
+        success: false,
+        error: "Failed to seed admin users",
+        details: error.message,
+      },
+      { status: 500 },
     );
   }
 }
