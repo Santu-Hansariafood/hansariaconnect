@@ -61,9 +61,30 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await connectDB();
 
-    let user = await User.findOne({ mobile });
+    const user = await User.findOne({ mobile });
     if (!user) {
-      user = await User.create({ mobile });
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: "User not registered. Please create an account first.",
+          notRegistered: true,
+        },
+        { status: 404 },
+      );
+      response.cookies.delete("otp_session");
+      return response;
+    }
+
+    if (!user.email) {
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: "No email registered. Please update your profile or contact support.",
+        },
+        { status: 400 },
+      );
+      response.cookies.delete("otp_session");
+      return response;
     }
 
     const sessionId = await randomBytesHex(16);
@@ -82,7 +103,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return response;
     }
 
-    // update last login info
     try {
       await User.findByIdAndUpdate(user._id, {
         $set: { lastLoginIp: ip ?? null, lastLoginAt: new Date() },

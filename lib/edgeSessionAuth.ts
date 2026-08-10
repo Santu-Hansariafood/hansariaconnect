@@ -10,6 +10,13 @@ export interface EdgeAdminSession {
   exp?: number;
 }
 
+export interface EdgeUserSession {
+  id: string;
+  sessionId: string;
+  mobile?: string;
+  exp?: number;
+}
+
 const textEncoder = new TextEncoder();
 
 function bytesToHex(bytes: Uint8Array): string {
@@ -173,6 +180,37 @@ export async function getAdminSession(
   if (
     typeof session.adminId === "string" &&
     session.adminId.trim()
+  ) {
+    return session;
+  }
+
+  return null;
+}
+
+export async function getUserSession(
+  req: NextRequest,
+): Promise<EdgeUserSession | null> {
+  const raw = getCookieValue(req, "user_session");
+
+  const session =
+    await decodeSession<EdgeUserSession>(raw);
+
+  if (!session) {
+    return null;
+  }
+
+  if (
+    typeof session.exp !== "number" ||
+    Date.now() > session.exp
+  ) {
+    return null;
+  }
+
+  if (
+    typeof session.id === "string" &&
+    session.id.trim() &&
+    typeof session.sessionId === "string" &&
+    session.sessionId.trim()
   ) {
     return session;
   }

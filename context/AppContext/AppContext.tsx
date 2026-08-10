@@ -28,6 +28,18 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
+const validateServerSession = async (): Promise<boolean> => {
+  try {
+    const res = await fetch("/api/auth/me", {
+      method: "GET",
+      credentials: "include",
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [theme, setTheme] = useState<Theme>({
@@ -36,12 +48,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     wallpaper: "bg-gradient-to-br from-emerald-50 to-teal-50",
     textSize: "text-base",
   })
+  const [sessionChecked, setSessionChecked] = useState(false)
 
   useEffect(() => {
     const savedUser = localStorage.getItem("hansariaUser")
     const savedTheme = localStorage.getItem("hansariaTheme")
-    if (savedUser) setUser(JSON.parse(savedUser))
     if (savedTheme) setTheme(JSON.parse(savedTheme))
+
+    const init = async () => {
+      if (savedUser) {
+        const parsed = JSON.parse(savedUser) as User
+        const valid = await validateServerSession()
+        if (valid) {
+          setUser(parsed)
+        } else {
+          localStorage.removeItem("hansariaUser")
+          setUser(null)
+        }
+      }
+      setSessionChecked(true)
+    }
+
+    init()
   }, [])
 
   const updateTheme = (newTheme: Theme) => {
@@ -59,7 +87,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AppContext.Provider value={{ user, setUser, theme, updateTheme, logout }}>
-      {children}
+      {sessionChecked ? children : null}
     </AppContext.Provider>
   )
 }

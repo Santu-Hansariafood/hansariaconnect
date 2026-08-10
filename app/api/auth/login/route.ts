@@ -2,18 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
 
 export const runtime = "nodejs";
-import twilio from "twilio";
+import nodemailer from "nodemailer";
+import { connectDB } from "@/lib/db/db";
+import User from "@/models/user/User";
 import {
   signOtpSession,
   authOtpCookieOptions,
 } from "@/lib/sessionAuth";
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-const authToken = process.env.TWILIO_AUTH_TOKEN!;
-const client = twilio(accountSid, authToken);
-
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587"),
+  secure: (process.env.SMTP_SECURE || process.env.EMAIL_SECURE) === "true",
+  auth: {
+    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
+  },
+});
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -27,22 +35,51 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    await connectDB();
+
+    const user = await User.findOne({ mobile });
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User not registered. Please create an account first.",
+          notRegistered: true,
+        },
+        { status: 404 },
+      );
+    }
+
+    if (!user.email) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "No email registered. Please update your profile or contact support.",
+        },
+        { status: 400 },
+      );
+    }
+
     const otp = generateOtp();
 
     if (process.env.NODE_ENV !== "production") {
-      console.log(`[LOGIN OTP] Mobile: ${mobile}, OTP: ${otp}`);
+      console.log(`[LOGIN OTP] Mobile: ${mobile}, Email: ${user.email}, OTP: ${otp}`);
     }
 
-    const toNumber = `+91${mobile}`;
-
     try {
-      await client.messages.create({
-        body: `Your OTP is: ${otp}`,
-        from: process.env.TWILIO_PHONE_NUMBER!,
-        to: toNumber,
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.EMAIL_USER || "no-reply@hansariaconnect.com",
+        to: user.email,
+        subject: "Your OTP for HansariaConnect",
+        text: `Hello ${user.name || "User"},\n\nYour OTP for HansariaConnect is: ${otp}\n\nThis OTP is valid for 5 minutes.\n\nBest regards,\nHansariaConnect Team`,
+        html: `<p>Hello ${user.name || "User"},</p><p>Your OTP for HansariaConnect is: <strong>${otp}</strong></p><p>This OTP is valid for 5 minutes.</p><p>Best regards,<br/>HansariaConnect Team</p>`,
       });
-    } catch (error) {
-      console.error("Twilio Error:", error);
+    } catch (emailError) {
+      console.error("Email send error:", emailError);
+      return NextResponse.json(
+        { success: false, error: "Failed to send OTP email. Please try again." },
+        { status: 500 },
+      );
     }
 
     const salt = await randomBytesHex(16);
@@ -57,7 +94,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const response = NextResponse.json({
       success: true,
-      message: "OTP sent successfully",
+      message: "OTP sent successfully to your email",
+      email: user.email,
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
@@ -65,9 +103,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return response;
   } catch (error: any) {
-    console.error("Twilio Error:", error);
+    console.error("Login Error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to send OTP", details: error.message },
+      { success: false, error: "Failed to process login", details: error.message },
       { status: 500 },
     );
   }

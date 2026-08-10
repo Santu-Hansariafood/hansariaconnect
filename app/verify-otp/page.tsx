@@ -49,7 +49,11 @@ function VerifyOtpInner() {
 
           router.push("/profile");
         } else {
-          setServerError(data.error || "Invalid code");
+          if (data.notRegistered) {
+            router.replace(`/login?mobile=${mobile}&reason=not-registered`);
+          } else {
+            setServerError(data.error || "Invalid code");
+          }
         }
       } catch {
         setServerError("Invalid code");

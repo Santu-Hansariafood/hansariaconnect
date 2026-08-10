@@ -3,35 +3,51 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Phone, User, Mail, Calendar, Check, X, QrCode, RefreshCw, ArrowLeft } from "lucide-react";
+import { Phone, User, Mail, Calendar, Check, X, QrCode, RefreshCw, ArrowLeft, AlertCircle } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 
-const Login = () => {
+type LoginProps = {
+  prefillMobile?: string;
+  reason?: string;
+};
+
+const Login = ({ prefillMobile, reason }: LoginProps) => {
   const router = useRouter();
   const [host, setHost] = useState("");
   const [isWebSubdomain, setIsWebSubdomain] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [mobile, setMobile] = useState("");
+  const [mobile, setMobile] = useState(prefillMobile || "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [registerMobile, setRegisterMobile] = useState("");
+  const [registerMobile, setRegisterMobile] = useState(prefillMobile || "");
   const [sex, setSex] = useState<"male" | "female" | "other" | "">("");
   const [dob, setDob] = useState("");
   const [terms, setTerms] = useState(false);
+  const [infoBanner, setInfoBanner] = useState(reason === "not-registered" ? "You don't have an account yet. Please create one below." : "");
 
   const [scanToken, setScanToken] = useState<string | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
 
-  // Detect host/subdomain on client side
   useEffect(() => {
     const currentHost = window.location.host;
     setHost(currentHost);
     setIsWebSubdomain(/^web\./i.test(currentHost));
   }, []);
+
+  useEffect(() => {
+    if (prefillMobile) {
+      setMobile(prefillMobile);
+      setRegisterMobile(prefillMobile);
+    }
+    if (reason === "not-registered") {
+      setMode("register");
+      setInfoBanner("You don't have an account yet. Please create one below.");
+    }
+  }, [prefillMobile, reason]);
 
   const generateScanToken = async () => {
     setScanLoading(true);
@@ -91,6 +107,7 @@ const Login = () => {
 
     setLoading(true);
     setError("");
+    setInfoBanner("");
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -102,9 +119,17 @@ const Login = () => {
       const data = await res.json();
       if (data.success) {
         if (data.devOtp) console.log("OTP:", data.devOtp);
-        router.push(`/verify-otp?mobile=${mobile}`);
+        const queryEmail = data.email ? `&email=${encodeURIComponent(data.email)}` : "";
+        router.push(`/verify-otp?mobile=${mobile}${queryEmail}`);
       } else {
-        setError(data.error || "Something went wrong");
+        if (data.notRegistered) {
+          setError("");
+          setInfoBanner("You don't have an account yet. Please create one below.");
+          setRegisterMobile(mobile);
+          setMode("register");
+        } else {
+          setError(data.error || "Something went wrong");
+        }
       }
     } catch {
       setError("Something went wrong");
@@ -133,6 +158,7 @@ const Login = () => {
 
     setLoading(true);
     setError("");
+    setInfoBanner("");
 
     try {
       const res = await fetch("/api/auth/register", {
@@ -150,7 +176,7 @@ const Login = () => {
       const data = await res.json();
       if (data.success) {
         if (data.devOtp) console.log("OTP:", data.devOtp);
-        router.push(`/verify-otp?mobile=${registerMobile}&email=${email}`);
+        router.push(`/verify-otp?mobile=${registerMobile}&email=${encodeURIComponent(email)}`);
       } else {
         setError(data.error || "Something went wrong");
       }
@@ -161,7 +187,6 @@ const Login = () => {
     }
   };
 
-  // If web subdomain, show only QR code
   if (isWebSubdomain) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
@@ -217,7 +242,6 @@ const Login = () => {
     );
   }
 
-  // Main domain: login/register
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
       <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg">
@@ -255,6 +279,7 @@ const Login = () => {
                     onChange={(e) => {
                       setMobile(e.target.value);
                       setError("");
+                      setInfoBanner("");
                     }}
                     placeholder="Enter 10-digit mobile number"
                     className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
@@ -281,7 +306,8 @@ const Login = () => {
                   onClick={() => {
                     setMode("register");
                     setError("");
-                    setRegisterMobile(mobile); // Pre-fill mobile from login
+                    setInfoBanner("");
+                    setRegisterMobile(mobile);
                   }}
                   className="text-emerald-600 font-semibold hover:underline"
                 >
@@ -297,12 +323,24 @@ const Login = () => {
               onClick={() => {
                 setMode("login");
                 setError("");
+                setInfoBanner("");
               }}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4"
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Login
             </button>
+
+            {infoBanner && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl"
+              >
+                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800">{infoBanner}</p>
+              </motion.div>
+            )}
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
@@ -326,7 +364,7 @@ const Login = () => {
                   type="email"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                  placeholder="Enter your email"
+                  placeholder="Enter your email (OTP will be sent here)"
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                 />
               </div>

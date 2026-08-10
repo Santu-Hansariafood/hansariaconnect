@@ -604,6 +604,9 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
                           onChange={(e) => updateMobileField(idx, e.target.value)}
                           className={`flex-1 px-4 py-3 border-2 rounded-xl transition-colors ${inputBg} ${textColor}`}
                           placeholder="10-digit number"
+                          maxLength={10}
+                          pattern="[0-9]{10}"
+                          title="Enter a valid 10-digit number"
                         />
                         {newMobiles.length > 1 && (
                           <button
