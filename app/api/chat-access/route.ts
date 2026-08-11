@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
-import Group from "@/models/group/Group";
+import Group, { IGroupMember } from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
 
 export const runtime = "nodejs";
+
+type GroupDoc = {
+  _id: any;
+  name: string;
+  members: IGroupMember[];
+};
 
 const normalizeId = (val: unknown): string => {
   if (typeof val === "string") return val.trim();
@@ -52,7 +58,7 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    const group = await Group.findById(chatObjectId).lean();
+    const group = (await Group.findById(chatObjectId).lean()) as GroupDoc | null;
     if (group) {
       const members = Array.isArray(group.members) ? group.members : [];
       const isMember = members.some(
