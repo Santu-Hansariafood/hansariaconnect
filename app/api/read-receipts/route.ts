@@ -36,6 +36,10 @@ interface ConversationLean {
   userB: Types.ObjectId;
 }
 
+interface ReadReceiptLean {
+  readAt?: Date;
+}
+
 // ---------- Helpers ----------
 const isValidObjectId = (v: unknown): v is string =>
   typeof v === "string" && Types.ObjectId.isValid(v);
@@ -77,10 +81,15 @@ export async function POST(req: NextRequest) {
     }
     const userId = toObjectId(session.id);
 
-    const body = await req.json().catch(() => ({}));
-    const { messageId, groupMessageId, conversationId, groupId, peerId } = body;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+    const messageId = typeof body.messageId === "string" ? body.messageId : undefined;
+    const groupMessageId = typeof body.groupMessageId === "string" ? body.groupMessageId : undefined;
+    const conversationId = typeof body.conversationId === "string" ? body.conversationId : undefined;
+    const groupId = typeof body.groupId === "string" ? body.groupId : undefined;
+    const peerId = typeof body.peerId === "string" ? body.peerId : undefined;
 
-    const provided = [messageId, groupMessageId, conversationId, groupId, peerId].filter(Boolean);
+    const identifiers = { messageId, groupMessageId, conversationId, groupId, peerId };
+    const provided = Object.values(identifiers).filter(Boolean);
     if (provided.length === 0) {
       return NextResponse.json({ error: "No identifier provided" }, { status: 400 });
     }
@@ -186,12 +195,11 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      // FIX: explicitly cast to avoid union type issue
-      const receipt = await ReadReceipt.findOneAndUpdate(
+      const receipt = (await ReadReceipt.findOneAndUpdate(
         { userId, conversationId: toObjectId(conversationId) },
         { userId, conversationId: toObjectId(conversationId), readAt: now },
         { upsert: true, new: true, setDefaultsOnInsert: true },
-      ).lean() as { readAt?: Date } | null;
+      ).lean()) as ReadReceiptLean | null;
 
       const other = String(conversation.userA) === String(userId)
         ? String(conversation.userB)
@@ -312,10 +320,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      const receipt = await ReadReceipt.findOne({
+      const receipt = (await ReadReceipt.findOne({
         userId,
         conversationId: toObjectId(conversationId),
-      }).lean();
+      }).lean()) as ReadReceiptLean | null;
       return NextResponse.json({ readAt: receipt?.readAt ?? null });
     }
 
@@ -333,10 +341,10 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      const receipt = await ReadReceipt.findOne({
+      const receipt = (await ReadReceipt.findOne({
         userId,
         groupId: toObjectId(groupId),
-      }).lean();
+      }).lean()) as ReadReceiptLean | null;
       return NextResponse.json({ readAt: receipt?.readAt ?? null });
     }
 
