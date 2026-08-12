@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
+import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
 import nodemailer from "nodemailer";
@@ -66,16 +67,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const template = buildOtpEmailTemplate(user.name || "User", otp);
+
     try {
       await transporter.sendMail({
         from:
           process.env.SMTP_FROM ||
+          process.env.EMAIL_FROM ||
           process.env.EMAIL_USER ||
           "no-reply@hansariaconnect.com",
         to: user.email,
-        subject: "Your OTP for HansariaConnect",
-        text: `Hello ${user.name || "User"},\n\nYour OTP for HansariaConnect is: ${otp}\n\nThis OTP is valid for 5 minutes.\n\nBest regards,\nHansariaConnect Team`,
-        html: `<p>Hello ${user.name || "User"},</p><p>Your OTP for HansariaConnect is: <strong>${otp}</strong></p><p>This OTP is valid for 5 minutes.</p><p>Best regards,<br/>HansariaConnect Team</p>`,
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
       });
     } catch (emailError) {
       console.error("Email send error:", emailError);

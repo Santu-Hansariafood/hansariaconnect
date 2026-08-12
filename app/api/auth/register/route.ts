@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
+import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
 import nodemailer from "nodemailer";
@@ -11,12 +12,12 @@ const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || "587"),
-  secure: process.env.SMTP_SECURE === "true",
+  host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587"),
+  secure: (process.env.SMTP_SECURE || process.env.EMAIL_SECURE) === "true",
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
   },
 });
 
@@ -62,15 +63,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const user = await User.create({
-      name,
-      email,
-      mobile,
-      sex,
-      dateOfBirth: new Date(dateOfBirth),
-      termsAccepted,
-    });
-
     const otp = generateOtp();
 
     if (process.env.NODE_ENV !== "production") {
@@ -79,24 +71,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const template = buildOtpEmailTemplate(name, otp);
+
     try {
       await transporter.sendMail({
-        from: process.env.SMTP_FROM || "no-reply@hansariaconnect.com",
+        from:
+          process.env.SMTP_FROM || process.env.EMAIL_FROM ||
+          process.env.EMAIL_USER || "no-reply@hansariaconnect.com",
         to: email,
-        subject: "Your OTP for HansariaConnect",
-        text: `Hello ${name},\n\nYour OTP for HansariaConnect is: ${otp}\n\nThis OTP is valid for 5 minutes.\n\nBest regards,\nHansariaConnect Team`,
-        html: `<p>Hello ${name},</p><p>Your OTP for HansariaConnect is: <strong>${otp}</strong></p><p>This OTP is valid for 5 minutes.</p><p>Best regards,<br/>HansariaConnect Team</p>`,
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
       });
     } catch (emailError) {
       console.error("Email send error:", emailError);
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to send OTP email. Please check your email address and try again.",
+          error: "Failed to send OTP email. Please check your email address and SMTP configuration.",
         },
         { status: 500 },
       );
     }
+
+    const user = await User.create({
+      name,
+      email,
+      mobile,
+      sex,
+      dateOfBirth: new Date(dateOfBirth),
+      termsAccepted,
+    });
 
     const salt = await randomBytesHex(16);
     const hash = await digestHex("SHA-256", otp + salt);
