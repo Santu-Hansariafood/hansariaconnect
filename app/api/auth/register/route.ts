@@ -89,6 +89,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
     } catch (emailError) {
       console.error("Email send error:", emailError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to send OTP email. Please check your email address and try again.",
+        },
+        { status: 500 },
+      );
     }
 
     const salt = await randomBytesHex(16);

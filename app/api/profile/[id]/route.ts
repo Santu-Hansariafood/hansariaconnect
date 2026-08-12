@@ -1,23 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import Profile from "@/models/profile/Profile";
+import { getUserSession } from "@/lib/sessionAuth";
 
 export const runtime = "nodejs";
 
-interface SessionData {
-  id: string;
-}
-
-const getSession = (req: NextRequest): SessionData | null => {
-  const raw = req.cookies.get("user_session")?.value;
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw);
-    return parsed?.id ? parsed : null;
-  } catch {
-    return null;
-  }
+const validateSession = async (req: NextRequest, id: string) => {
+  const session = await getUserSession(req);
+  if (!session?.id || session.id !== id) return null;
+  return session;
 };
 
 export async function GET(
@@ -28,7 +19,7 @@ export async function GET(
     const { id } = await context.params;
     await connectDB();
 
-    const session = getSession(req);
+    const session = await validateSession(req, id);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -51,7 +42,7 @@ export async function POST(
     const { id } = await context.params;
     await connectDB();
 
-    const session = getSession(req);
+    const session = await validateSession(req, id);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -89,7 +80,7 @@ export async function DELETE(
     const { id } = await context.params;
     await connectDB();
 
-    const session = getSession(req);
+    const session = await validateSession(req, id);
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
