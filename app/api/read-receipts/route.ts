@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
      */
 
     if (messageId && Types.ObjectId.isValid(messageId)) {
-      const message = await Message.findById(messageId).lean();
+      const message = (await Message.findById(messageId).lean()) as any;
 
       if (!message) {
         return NextResponse.json(
