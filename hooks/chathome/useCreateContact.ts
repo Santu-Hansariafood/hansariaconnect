@@ -49,6 +49,7 @@ export const useCreateContact = ({
       const res = await fetch("/api/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           name: newName.trim(),
           mobiles: mobilesClean,

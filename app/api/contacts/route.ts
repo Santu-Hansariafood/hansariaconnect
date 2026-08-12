@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
+import { getUserSession } from "@/lib/sessionAuth";
 import Contact from "@/models/contact/Contact";
 import Profile from "@/models/profile/Profile";
 import User from "@/models/user/User";
-
-interface SessionCookie {
-  id: string;
-  mobile: string;
-}
 
 interface ContactPayload {
   name: string;
@@ -15,24 +11,16 @@ interface ContactPayload {
   email?: string;
 }
 
+const getSession = async (req: NextRequest) => {
+  const session = await getUserSession(req);
+  if (!session?.id) return null;
+  return session;
+};
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
-    const sessionCookie = req.cookies.get("user_session")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let session: SessionCookie;
-    try {
-      session = JSON.parse(sessionCookie) as SessionCookie;
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid session format" },
-        { status: 401 },
-      );
-    }
-
-    if (!session.id) {
+    const session = await getSession(req);
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -131,22 +119,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    const sessionCookie = req.cookies.get("user_session")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let session: SessionCookie;
-    try {
-      session = JSON.parse(sessionCookie) as SessionCookie;
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid session format" },
-        { status: 401 },
-      );
-    }
-
-    if (!session?.id) {
+    const session = await getSession(req);
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -201,22 +175,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   try {
-    const sessionCookie = req.cookies.get("user_session")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let session: SessionCookie;
-    try {
-      session = JSON.parse(sessionCookie) as SessionCookie;
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid session format" },
-        { status: 401 },
-      );
-    }
-
-    if (!session?.id) {
+    const session = await getSession(req);
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -258,22 +218,8 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
 export async function DELETE(req: NextRequest): Promise<NextResponse> {
   try {
-    const sessionCookie = req.cookies.get("user_session")?.value;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let session: SessionCookie;
-    try {
-      session = JSON.parse(sessionCookie) as SessionCookie;
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid session format" },
-        { status: 401 },
-      );
-    }
-
-    if (!session?.id) {
+    const session = await getSession(req);
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
