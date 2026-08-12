@@ -486,6 +486,8 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
             </motion.button>
           </form>
         )}
+      </div>
+    </div>
       </motion.div>
     </div>
   );

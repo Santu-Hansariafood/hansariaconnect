@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next"
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://hfconnect.in"
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://hfconnect.in").replace(/\/$/, "")
   const now = new Date()
   const urls = [
     "/",
@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/verify-otp",
     "/otp",
     "/name-entry",
+    "/terms",
   ]
   return urls.map((path) => ({
     url: `${base}${path}`,

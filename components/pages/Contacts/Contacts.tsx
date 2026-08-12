@@ -9,7 +9,7 @@ import { fadeIn, staggerContainer } from "@/utils/animations/animations"
 import { X, CheckCircle2, CircleUserRound, Pencil, Trash2 } from "lucide-react"
 import { useSocket } from "@/hooks/useSocket"
 
-import { FaWhatsapp, FaFacebookF, FaTwitter, FaSms } from "react-icons/fa"
+import { FaGoogle, FaWhatsapp, FaFacebookF, FaTwitter, FaSms } from "react-icons/fa"
 import Link from "next/link"
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"))
@@ -62,6 +62,7 @@ export default function Contacts({ user, theme }: Props) {
   const [inviteLoading, setInviteLoading] = useState<string>("")
   const [inviteMessage, setInviteMessage] = useState<string>("")
   const [syncing, setSyncing] = useState(false)
+  const googleAuthUrl = "/api/google/contacts/auth"
 
   useEffect(() => {
     setContacts(prev => prev.map(c => ({
@@ -279,19 +280,21 @@ export default function Contacts({ user, theme }: Props) {
           <div className="flex items-center justify-between">
             <h1 className={`text-3xl font-bold ${theme.textSize}`}>Contacts</h1>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <button
-                onClick={() => window.location.href = "/api/google/contacts/auth"}
-                className="px-4 py-2 rounded-xl text-white font-medium shadow bg-blue-600 hover:bg-blue-700"
+                onClick={() => window.location.href = googleAuthUrl}
+                className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm border border-slate-200 transition hover:bg-slate-50"
               >
-                Import Google Contacts
+                <FaGoogle className="w-4 h-4" />
+                Import from Google
+                {syncing && <span className="ml-2 text-xs text-slate-500">Syncing...</span>}
               </button>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="px-5 py-2 rounded-xl text-white font-medium shadow"
-                style={{ backgroundColor: theme.primary }}
+                className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
               >
-                + New Contact
+                <CircleUserRound className="w-4 h-4" />
+                <span>New Contact</span>
               </button>
             </div>
           </div>
@@ -308,105 +311,101 @@ export default function Contacts({ user, theme }: Props) {
           animate="show"
           className="space-y-4 mt-6"
         >
-          {filteredContacts.map((c) => (
-            <motion.div key={c.id} {...fadeIn}>
-              <div className="rounded-3xl p-4 shadow-sm border border-gray-200 bg-white transition hover:shadow-md">
-                <div className="flex items-center gap-4">
-                  <div className="relative flex-shrink-0">
-                    <Image
-                      src={c.avatar || "/logo/logo.png"}
-                      alt={c.name}
-                      width={56}
-                      height={56}
-                      className="w-14 h-14 rounded-full object-cover"
-                    />
-                    {c.registered && c.online && (
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-900 text-base truncate">{c.name}</p>
-                        <p className="text-sm text-gray-500 truncate">{c.mobile}</p>
+          {inviteMessage && (
+            <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              {inviteMessage}
+            </div>
+          )}
+
+          {filteredContacts.length > 0 ? (
+            filteredContacts.map((c) => (
+              <motion.div key={c.id} {...fadeIn}>
+                <div className="rounded-3xl p-5 shadow-sm border border-gray-200 bg-white transition hover:shadow-lg">
+                  <div className="flex items-center gap-4">
+                    <div className="relative shrink-0">
+                      <Image
+                        src={c.avatar || "/logo/logo.png"}
+                        alt={c.name}
+                        width={64}
+                        height={64}
+                        className="w-16 h-16 rounded-full object-cover"
+                      />
+                      {c.registered && c.online && (
+                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-lg font-semibold text-gray-900 truncate">{c.name}</p>
+                          <p className="text-sm text-gray-500 truncate">{c.email || c.mobile}</p>
+                        </div>
+                        {c.registered && (
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${c.online ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}>
+                            {c.online ? "Online" : "Offline"}
+                          </span>
+                        )}
                       </div>
-                      {c.registered && (
-                        <span className={`text-xs font-semibold ${c.online ? "text-green-600" : "text-gray-400"}`}>
-                          {c.online ? "Online" : "Offline"}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {c.registered ? (
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {c.registered ? (
+                          <button
+                            onClick={() => router.push(`/chat/${c.registeredUserId}`)}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00a884] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#008069]"
+                          >
+                            <FaWhatsapp className="w-4 h-4" />
+                            Send Message
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (!c.shareLinks && !c.shareLinksLoading) loadShareLinks(c.id)
+                              setInviteMessage("Invitation ready. Share the contact link below.")
+                            }}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-black"
+                            disabled={c.shareLinksLoading}
+                          >
+                            {c.shareLinksLoading ? "Preparing invite..." : "Invite to Hansaria"}
+                          </button>
+                        )}
                         <button
-                          onClick={() => router.push(`/chat/${c.registeredUserId}`)}
-                          className="inline-flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#008069]"
+                          onClick={() => setManageContact(c)}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                         >
-                          <FaWhatsapp className="w-4 h-4" />
-                          Message
+                          <Pencil className="w-4 h-4" />
+                          Manage
                         </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            if (!c.shareLinks && !c.shareLinksLoading) loadShareLinks(c.id)
-                            setInviteMessage("Invitation prepared.")
-                          }}
-                          className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-black"
-                          disabled={c.shareLinksLoading}
-                        >
-                          {c.shareLinksLoading ? "Preparing invite..." : "Invite"}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setManageContact(c)}
-                        className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-                    <>
-                      <button
-                        onClick={() => {
-                          // Load share links when invite button is clicked
-                          if (!c.shareLinks && !c.shareLinksLoading) {
-                            loadShareLinks(c.id)
-                          }
-                          setInviteMessage("Invitation prepared.")
-                        }}
-                        className="w-full py-2 bg-gray-800 text-white rounded-xl font-medium hover:bg-black"
-                        disabled={c.shareLinksLoading}
-                      >
-                        {c.shareLinksLoading ? "Preparing invite..." : "Invite"}
-                      </button>
+                      </div>
 
                       {c.shareLinks && (
-                        <div className="flex gap-3 mt-3">
-                          <Link href={c.shareLinks.wa} target="_blank" className="p-2 bg-green-500 rounded-full text-white">
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <span className="text-xs uppercase tracking-[0.15em] text-gray-400">Share via</span>
+                          <Link href={c.shareLinks.wa} target="_blank" className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 text-white">
                             <FaWhatsapp />
                           </Link>
-                          <Link href={c.shareLinks.fb} target="_blank" className="p-2 bg-blue-600 rounded-full text-white">
+                          <Link href={c.shareLinks.fb} target="_blank" className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white">
                             <FaFacebookF />
                           </Link>
-                          <Link href={c.shareLinks.x} target="_blank" className="p-2 bg-black rounded-full text-white">
+                          <Link href={c.shareLinks.x} target="_blank" className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-black text-white">
                             <FaTwitter />
                           </Link>
-                          <Link href={c.shareLinks.sms} className="p-2 bg-gray-500 rounded-full text-white">
+                          <Link href={c.shareLinks.sms} className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-500 text-white">
                             <FaSms />
                           </Link>
                         </div>
                       )}
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
               </motion.div>
-            )
-          })}
+            ))
+          ) : (
+            <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
+              <p className="text-lg font-semibold text-gray-900">No contacts found yet</p>
+              <p className="mt-2 text-sm">Add your first contact or import from Google to start chatting.</p>
+            </div>
+          )}
         </motion.div>
         {filteredContacts.length === 0 && (
           <div className="text-center py-12 text-gray-500 text-lg">
