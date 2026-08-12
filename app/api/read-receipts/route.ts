@@ -9,7 +9,7 @@ import Conversation from "@/models/conversation/Conversation";
 import Group from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
 
-// ---------- Lean interfaces (consistent with our schema) ----------
+// ---------- Lean interfaces ----------
 interface MessageLean {
   _id: Types.ObjectId;
   from?: Types.ObjectId;
@@ -42,7 +42,7 @@ const isValidObjectId = (v: unknown): v is string =>
 
 const toObjectId = (v: string): Types.ObjectId => new Types.ObjectId(v);
 
-// Safe socket emit – never crashes the request
+// Safe socket emit
 const safeEmitToUser = (userId: string, event: string, payload: any) => {
   try {
     const io = (globalThis as any).__io;
@@ -65,7 +65,7 @@ const safeEmitToUsers = (userIds: string[], event: string, payload: any) => {
   }
 };
 
-// ---------- POST: Mark read / get read status ----------
+// ---------- POST ----------
 export async function POST(req: NextRequest) {
   try {
     const session = await getUserSession(req);
@@ -80,31 +80,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const { messageId, groupMessageId, conversationId, groupId, peerId } = body;
 
-    // Exactly one identifier is required
-    const provided = [
-      messageId,
-      groupMessageId,
-      conversationId,
-      groupId,
-      peerId,
-    ].filter(Boolean);
+    const provided = [messageId, groupMessageId, conversationId, groupId, peerId].filter(Boolean);
     if (provided.length === 0) {
-      return NextResponse.json(
-        { error: "No identifier provided" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "No identifier provided" }, { status: 400 });
     }
     if (provided.length > 1) {
-      return NextResponse.json(
-        { error: "Provide only one identifier" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Provide only one identifier" }, { status: 400 });
     }
 
     await connectDB();
     const now = new Date();
 
-    // 1) Direct message read
+    // 1) Direct message
     if (messageId && isValidObjectId(messageId)) {
       const message = (await Message.findById(messageId)
         .select("from to")
@@ -112,10 +99,7 @@ export async function POST(req: NextRequest) {
         .exec()) as MessageLean | null;
 
       if (!message) {
-        return NextResponse.json(
-          { error: "Message not found" },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: "Message not found" }, { status: 404 });
       }
       if (String(message.to) !== String(userId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -135,7 +119,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, readAt: now });
     }
 
-    // 2) Group message read
+    // 2) Group message
     if (groupMessageId && isValidObjectId(groupMessageId)) {
       const gm = (await GroupMessage.findById(groupMessageId)
         .select("groupId")
@@ -143,16 +127,10 @@ export async function POST(req: NextRequest) {
         .exec()) as GroupMessageLean | null;
 
       if (!gm || !gm.groupId) {
-        return NextResponse.json(
-          { error: "Group message not found" },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: "Group message not found" }, { status: 404 });
       }
       if (!isValidObjectId(gm.groupId)) {
-        return NextResponse.json(
-          { error: "Invalid group ID" },
-          { status: 400 },
-        );
+        return NextResponse.json({ error: "Invalid group ID" }, { status: 400 });
       }
 
       const group = (await Group.findById(gm.groupId)
@@ -163,9 +141,7 @@ export async function POST(req: NextRequest) {
       if (!group) {
         return NextResponse.json({ error: "Group not found" }, { status: 404 });
       }
-      const isMember =
-        group.members?.some((m) => String(m.userId) === String(userId)) ??
-        false;
+      const isMember = group.members?.some((m) => String(m.userId) === String(userId)) ?? false;
       if (!isMember) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
@@ -193,7 +169,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, readAt: now });
     }
 
-    // 3) Conversation read by conversation ID (marks entire conversation read)
+    // 3) Conversation (mark entire conversation read)
     if (conversationId && isValidObjectId(conversationId)) {
       const conversation = (await Conversation.findById(conversationId)
         .select("userA userB")
@@ -201,10 +177,7 @@ export async function POST(req: NextRequest) {
         .exec()) as ConversationLean | null;
 
       if (!conversation) {
-        return NextResponse.json(
-          { error: "Conversation not found" },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
       }
       const isParticipant =
         String(conversation.userA) === String(userId) ||
@@ -213,30 +186,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      // Upsert a read receipt for the entire conversation
+      // FIX: explicitly cast to avoid union type issue
       const receipt = await ReadReceipt.findOneAndUpdate(
         { userId, conversationId: toObjectId(conversationId) },
         { userId, conversationId: toObjectId(conversationId), readAt: now },
         { upsert: true, new: true, setDefaultsOnInsert: true },
-      ).lean();
+      ).lean() as { readAt?: Date } | null;
 
-      // Notify the other participant (best effort)
-      const other =
-        String(conversation.userA) === String(userId)
-          ? String(conversation.userB)
-          : String(conversation.userA);
+      const other = String(conversation.userA) === String(userId)
+        ? String(conversation.userB)
+        : String(conversation.userA);
       safeEmitToUser(other, "conversation:read", {
         conversationId: String(conversation._id),
         userId: String(userId),
       });
 
-      return NextResponse.json({
-        success: true,
-        readAt: receipt?.readAt ?? now,
-      });
+      return NextResponse.json({ success: true, readAt: receipt?.readAt ?? now });
     }
 
-    // 4) Group-level read (mark all messages in the group read)
+    // 4) Group-level read
     if (groupId && isValidObjectId(groupId)) {
       const group = (await Group.findById(groupId)
         .select("members")
@@ -246,9 +214,7 @@ export async function POST(req: NextRequest) {
       if (!group) {
         return NextResponse.json({ error: "Group not found" }, { status: 404 });
       }
-      const isMember =
-        group.members?.some((m) => String(m.userId) === String(userId)) ??
-        false;
+      const isMember = group.members?.some((m) => String(m.userId) === String(userId)) ?? false;
       if (!isMember) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
@@ -270,7 +236,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, readAt: now });
     }
 
-    // 5) Peer-based conversation read (convenience)
+    // 5) Peer-based conversation
     if (peerId && isValidObjectId(peerId)) {
       const peerObjectId = toObjectId(peerId);
       const currentId = String(userId);
@@ -284,26 +250,18 @@ export async function POST(req: NextRequest) {
         .exec()) as ConversationLean | null;
 
       if (!conversation) {
-        return NextResponse.json(
-          { error: "Conversation not found" },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
       }
 
       await ReadReceipt.findOneAndUpdate(
         { userId, conversationId: toObjectId(String(conversation._id)) },
-        {
-          userId,
-          conversationId: toObjectId(String(conversation._id)),
-          readAt: now,
-        },
+        { userId, conversationId: toObjectId(String(conversation._id)), readAt: now },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
-      const other =
-        String(conversation.userA) === String(userId)
-          ? String(conversation.userB)
-          : String(conversation.userA);
+      const other = String(conversation.userA) === String(userId)
+        ? String(conversation.userB)
+        : String(conversation.userA);
       safeEmitToUser(other, "conversation:read", {
         conversationId: String(conversation._id),
         userId: String(userId),
@@ -315,13 +273,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   } catch (error: unknown) {
     console.error("POST /api/read-receipts error →", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
+    const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
-// ---------- GET: Fetch read status only ----------
+// ---------- GET ----------
 export async function GET(req: NextRequest) {
   try {
     const session = await getUserSession(req);
@@ -346,10 +303,7 @@ export async function GET(req: NextRequest) {
         .exec()) as ConversationLean | null;
 
       if (!conversation) {
-        return NextResponse.json(
-          { error: "Conversation not found" },
-          { status: 404 },
-        );
+        return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
       }
       const isParticipant =
         String(conversation.userA) === String(userId) ||
@@ -374,9 +328,7 @@ export async function GET(req: NextRequest) {
       if (!group) {
         return NextResponse.json({ error: "Group not found" }, { status: 404 });
       }
-      const isMember =
-        group.members?.some((m) => String(m.userId) === String(userId)) ??
-        false;
+      const isMember = group.members?.some((m) => String(m.userId) === String(userId)) ?? false;
       if (!isMember) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
@@ -391,8 +343,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   } catch (error: unknown) {
     console.error("GET /api/read-receipts error →", error);
-    const message =
-      error instanceof Error ? error.message : "Internal server error";
+    const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
