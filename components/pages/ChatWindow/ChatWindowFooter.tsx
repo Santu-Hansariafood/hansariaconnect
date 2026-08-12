@@ -81,8 +81,8 @@ export default function ChatWindowFooter({
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={handleSend}
-          className="p-2 sm:p-2.5 rounded-full text-white shadow-sm shrink-0"
-          style={{ backgroundColor: "#00a884" }}
+          className="p-2 sm:p-2.5 rounded-full text-white shadow-sm shrink-0 hover:shadow-lg transition-shadow"
+          style={{ backgroundColor: theme.primary || "#00a884" }}
           title="Send"
         >
           <Send className="w-4 h-4 sm:w-5 sm:h-5" />

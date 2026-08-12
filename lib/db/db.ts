@@ -61,15 +61,24 @@ export async function connectDB() {
   }
 
   if (!cached.promise) {
+    const isProduction = process.env.NODE_ENV === "production";
+    const defaultMaxPoolSize = isProduction ? 40 : 50;
+    const defaultMinPoolSize = isProduction ? 5 : 0;
     const opts = {
       bufferCommands: false,
-      maxPoolSize: 200,
-      minPoolSize: 50,
+      maxPoolSize: process.env.MONGODB_POOL_SIZE
+        ? Number(process.env.MONGODB_POOL_SIZE)
+        : defaultMaxPoolSize,
+      minPoolSize: process.env.MONGODB_MIN_POOL_SIZE
+        ? Number(process.env.MONGODB_MIN_POOL_SIZE)
+        : defaultMinPoolSize,
       socketTimeoutMS: 45000,
-      serverSelectionTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 10000,
       heartbeatFrequencyMS: 10000,
       connectTimeoutMS: 30000,
       maxIdleTimeMS: 60000,
+      family: 4,
+      autoCreate: false,
     };
 
     cached.promise = mongoose

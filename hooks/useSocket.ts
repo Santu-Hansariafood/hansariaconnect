@@ -25,27 +25,42 @@ export const useSocket = () => {
     const url = typeof window !== "undefined" ? window.location.origin : undefined;
     const s = io(url, {
       path: "/api/socket",
-      transports: ["polling"],
+      transports: ["websocket", "polling"],
       withCredentials: true,
       reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 500,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 800,
       reconnectionDelayMax: 5000,
-      randomizationFactor: 0.5,
+      randomizationFactor: 0.2,
       timeout: 20000,
+      upgrade: true,
+      autoConnect: true,
+      forceNew: false,
     });
 
     socketInstance = s;
     setSocket(s);
 
-    s.on("connect", () => {
-      console.log("Socket connected");
-    });
     s.on("disconnect", (reason: string) => {
-      console.log("Socket disconnected:", reason);
+      if (reason === "io server disconnect") {
+        s.connect();
+      }
     });
-    s.on("connect_error", (err: any) => {
-      console.error("Socket connection error:", err);
+
+    s.on("connect_error", (_err: any) => {
+      // Silent fallback: keep reconnecting without exposing internal errors
+    });
+
+    s.on("reconnect_attempt", (_attempt: number) => {
+      // Silent reconnection attempt
+    });
+
+    s.on("reconnect_error", (_err: any) => {
+      // Silent fallback for reconnect errors
+    });
+
+    s.on("reconnect_failed", () => {
+      // Keep socket alive for later retry
     });
 
     // Handle users:online

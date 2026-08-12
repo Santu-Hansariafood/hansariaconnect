@@ -73,6 +73,20 @@ export function useNotifications() {
     if (ringtone === "none") return;
     if (!preferences.enabled) return;
 
+    const isUrl = /^https?:\/\//i.test(ringtone) || ringtone.startsWith("blob:");
+    if (isUrl) {
+      try {
+        const audio = new Audio(ringtone);
+        audio.volume = 0.35;
+        audio.play().catch(() => {
+          // ignore playback failure
+        });
+      } catch {
+        // ignore custom audio play failure
+      }
+      return;
+    }
+
     const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
 
@@ -107,23 +121,28 @@ export function useNotifications() {
     if (!preferences.enabled) return;
     if (typeof window === "undefined" || !("Notification" in window)) return;
 
+    const createNotification = () => {
+      try {
+        new Notification(title, {
+          body,
+          icon: "/logo/logo.png",
+          tag,
+          badge: "/logo/logo.png",
+        });
+      } catch {
+        // Ignore notification creation failure
+      }
+    };
+
     if (Notification.permission === "granted") {
-      new Notification(title, {
-        body,
-        icon: "/logo/logo.png",
-        tag,
-        badge: "/logo/logo.png",
-      });
+      createNotification();
     } else if (Notification.permission !== "denied") {
       Notification.requestPermission().then((permission) => {
         if (permission === "granted") {
-          new Notification(title, {
-            body,
-            icon: "/logo/logo.png",
-            tag,
-            badge: "/logo/logo.png",
-          });
+          createNotification();
         }
+      }).catch(() => {
+        // ignore permission request failure
       });
     }
   };

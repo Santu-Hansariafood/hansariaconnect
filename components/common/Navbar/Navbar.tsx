@@ -91,7 +91,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                   <span className="text-sm hidden lg:inline">{item.label}</span>
 
                   {hasUnread && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-[#00a884] text-white text-[10px] rounded-full flex items-center justify-center font-bold min-w-[18px] h-[18px] px-1">
+                    <span className="absolute -top-0.5 -right-0.5 bg-[#00a884] text-white text-[10px] rounded-full flex items-center justify-center font-bold min-w-4.5 h-4.5 px-1">
                       {item.count > 99 ? "99+" : item.count}
                     </span>
                   )}
@@ -124,14 +124,16 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                   </div>
                 )}
                 <span
-                  className={`absolute bottom-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full border-2 border-[#f0f2f5] ${
-                    isSelfOnline ? "bg-green-500" : "bg-gray-400"
+                  className={`absolute bottom-0 right-0 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full ring-2 ring-white ${
+                    isSelfOnline
+                      ? "bg-emerald-500 animate-pulse"
+                      : "bg-gray-400"
                   }`}
                   title={isSelfOnline ? "Online" : "Offline"}
                 />
               </div>
 
-              <div className="hidden md:flex flex-col items-start min-w-0 max-w-[140px]">
+              <div className="hidden md:flex flex-col items-start min-w-0 max-w-35">
                 <span className="font-medium text-gray-800 text-sm leading-tight truncate w-full">
                   {navUser.name || "User"}
                 </span>
@@ -167,7 +169,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 key={item.path}
                 whileTap={{ scale: 0.92 }}
                 onClick={() => router.push(item.path)}
-                className={`relative flex flex-col items-center gap-0.5 p-1.5 sm:p-2 rounded-lg transition-all duration-200 flex-1 min-w-[52px] ${
+                className={`relative flex flex-col items-center gap-0.5 p-1.5 sm:p-2 rounded-lg transition-all duration-200 flex-1 min-w-13 ${
                   isActive ? "" : "text-gray-600 hover:bg-gray-200/50"
                 }`}
                 style={
@@ -179,11 +181,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                     : undefined
                 }
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span className="text-[10px] sm:text-[11px] font-medium truncate max-w-[64px]">{item.label}</span>
+                <Icon className="w-5 h-5 shrink-0" />
+                <span className="text-[10px] sm:text-[11px] font-medium truncate max-w-16">{item.label}</span>
 
                 {hasUnread && (
-                  <span className="absolute top-0 right-0.5 bg-[#00a884] text-white text-[9px] rounded-full flex items-center justify-center font-bold min-w-[16px] h-[16px] px-1">
+                  <span className="absolute top-0 right-0.5 bg-[#00a884] text-white text-[9px] rounded-full flex items-center justify-center font-bold min-w-4 h-4 px-1">
                     {item.count > 9 ? "9+" : item.count}
                   </span>
                 )}

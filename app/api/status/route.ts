@@ -3,22 +3,11 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db/db";
 import Status from "@/models/status/Status";
 import Contact from "@/models/contact/Contact";
-
-const parseSession = (req: NextRequest) => {
-  const raw = req.cookies.get("user_session")?.value;
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.id) return null;
-    return parsed as { id: string };
-  } catch {
-    return null;
-  }
-};
+import { getUserSession } from "@/lib/sessionAuth";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = parseSession(req);
+    const session = await getUserSession(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -91,7 +80,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = parseSession(req);
+    const session = await getUserSession(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

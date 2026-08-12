@@ -41,6 +41,9 @@ function VerifyOtpInner() {
           const userData = {
             id: data.userId as string,
             mobile,
+            name: data.name || undefined,
+            photo: data.photo || undefined,
+            email: data.email || undefined,
             step: "complete" as const,
           };
 

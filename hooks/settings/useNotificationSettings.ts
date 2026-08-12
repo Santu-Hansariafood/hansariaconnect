@@ -15,7 +15,7 @@ export const useNotificationSettings = (notifications: any, setNotifications: an
         body: JSON.stringify({ notifications: updated }),
       });
     } catch {
-      console.log("Notification update failed");
+      // Ignore update failure; maintain app stability without console output.
     }
     setLoading(false);
   };

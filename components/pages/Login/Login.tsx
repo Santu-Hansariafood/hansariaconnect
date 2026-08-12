@@ -245,28 +245,62 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
-      <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg">
-        <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="inline-flex items-center justify-center w-28 h-28 rounded-full mb-4"
-          >
-            <Image
-              src="/logo/logo.png"
-              alt="HansariaConnect Logo"
-              width={70}
-              height={70}
-              className="rounded-full"
-            />
-          </motion.div>
+      <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-4 md:p-6 w-full max-w-6xl overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.9fr] gap-6">
+          <div className="hidden lg:flex flex-col justify-center rounded-3xl bg-gradient-to-br from-emerald-600 to-cyan-500 p-10 text-white">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-14 h-14 rounded-3xl bg-white/15 flex items-center justify-center shadow-lg">
+                <Image
+                  src="/logo/logo.png"
+                  alt="HansariaConnect Logo"
+                  width={44}
+                  height={44}
+                  className="object-cover"
+                />
+              </div>
+              <div>
+                <p className="text-sm uppercase tracking-[0.3em] text-white/80">HansariaConnect</p>
+                <h2 className="text-3xl font-semibold">Secure chat across devices</h2>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="rounded-3xl bg-white/10 p-5 border border-white/20">
+                <h3 className="text-lg font-semibold">Simple login</h3>
+                <p className="mt-2 text-sm text-white/80">Use your mobile number to authenticate with OTP.</p>
+              </div>
+              <div className="rounded-3xl bg-white/10 p-5 border border-white/20">
+                <h3 className="text-lg font-semibold">Professional layout</h3>
+                <p className="mt-2 text-sm text-white/80">Clean, responsive design inspired by modern messaging apps.</p>
+              </div>
+              <div className="rounded-3xl bg-white/10 p-5 border border-white/20">
+                <h3 className="text-lg font-semibold">Email OTP</h3>
+                <p className="mt-2 text-sm text-white/80">Your code is delivered securely to the email you provide.</p>
+              </div>
+            </div>
+          </div>
 
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">HansariaConnect</h1>
-          <p className="text-gray-600">Connect with your world</p>
-        </div>
+          <div className="py-6 px-5 sm:px-8">
+            <div className="text-center mb-8">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 bg-gradient-to-br from-emerald-500 to-cyan-500 shadow-lg"
+              >
+                <Image
+                  src="/logo/logo.png"
+                  alt="HansariaConnect Logo"
+                  width={56}
+                  height={56}
+                  className="rounded-full"
+                />
+              </motion.div>
 
-        {mode === "login" ? (
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">HansariaConnect</h1>
+              <p className="text-gray-600">Fast, secure messaging with email OTP login.</p>
+            </div>
+
+            {mode === "login" ? (
           <div className="space-y-6">
             <form onSubmit={handleLoginSubmit} className="space-y-6">
               <div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fadeIn } from "@/utils/animations/animations";
 import {
   Palette,
@@ -64,6 +64,13 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   ];
 
   const [perm, setPerm] = useState<{ contacts: boolean; groups: boolean; status: boolean; attachments: boolean } | null>(null);
+  const [wallpaperUploading, setWallpaperUploading] = useState(false);
+  const [wallpaperUploadError, setWallpaperUploadError] = useState<string | null>(null);
+  const [ringtoneUploading, setRingtoneUploading] = useState(false);
+  const [ringtoneUploadError, setRingtoneUploadError] = useState<string | null>(null);
+  const wallpaperInputRef = useRef<HTMLInputElement | null>(null);
+  const ringtoneInputRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     let mounted = true;
     const run = async () => {
@@ -86,6 +93,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
     { value: "spark", name: "Spark" },
     { value: "none", name: "Silent" },
   ];
+  const customRingtoneActive = notifications?.ringtone && !ringtoneOptions.some((option) => option.value === notifications.ringtone);
   const backgroundStyle = localTheme?.wallpaperImage
     ? {
         backgroundImage: `url(${localTheme.wallpaperImage})`,
@@ -93,6 +101,71 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
         backgroundPosition: "center",
       }
     : undefined;
+
+  const triggerWallpaperUpload = () => wallpaperInputRef.current?.click();
+  const triggerRingtoneUpload = () => ringtoneInputRef.current?.click();
+
+  const handleWallpaperUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    setWallpaperUploadError(null);
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setWallpaperUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", "image");
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: form,
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.url) {
+        setWallpaperUploadError(data?.error || "Unable to upload wallpaper.");
+        return;
+      }
+
+      updateTheme({ wallpaperImage: data.url, wallpaper: "" });
+    } catch (err: unknown) {
+      setWallpaperUploadError("Upload failed. Please try again.");
+    } finally {
+      setWallpaperUploading(false);
+    }
+  };
+
+  const handleRingtoneUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRingtoneUploadError(null);
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setRingtoneUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", "audio");
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: form,
+        credentials: "include",
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.url) {
+        setRingtoneUploadError(data?.error || "Unable to upload ringtone.");
+        return;
+      }
+
+      setRingtone(data.url);
+    } catch {
+      setRingtoneUploadError("Upload failed. Please try again.");
+    } finally {
+      setRingtoneUploading(false);
+    }
+  };
 
   return (
     <div className={`min-h-screen ${!localTheme?.wallpaperImage ? localTheme?.wallpaper : ""}`} style={backgroundStyle}>
@@ -175,7 +248,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Custom Wallpaper URL
             </label>
-            <div className="flex gap-3 items-center">
+            <div className="flex gap-3 items-center mb-3">
               <input
                 type="text"
                 value={localTheme?.wallpaperImage || ""}
@@ -191,8 +264,30 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                 Clear
               </button>
             </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <button
+                type="button"
+                onClick={triggerWallpaperUpload}
+                className="px-4 py-3 rounded-xl bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition"
+              >
+                {wallpaperUploading ? "Uploading…" : "Upload from gallery"}
+              </button>
+              <span className="text-sm text-gray-500">
+                Choose an image file from your device to set as chat wallpaper.
+              </span>
+            </div>
+            {wallpaperUploadError && (
+              <p className="text-red-500 text-sm mt-2">{wallpaperUploadError}</p>
+            )}
+            <input
+              ref={wallpaperInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleWallpaperUpload}
+            />
             <p className="text-sm text-gray-500 mt-2">
-              Paste a wallpaper image URL to use a custom chat background.
+              Paste a wallpaper image URL or upload one from your gallery.
             </p>
           </div>
         </motion.div>
@@ -280,6 +375,49 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                   <p className="font-medium text-gray-800">{option.name}</p>
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={triggerRingtoneUpload}
+                className={`px-4 py-3 rounded-xl text-left border transition ${
+                  customRingtoneActive
+                    ? "bg-emerald-50 border-emerald-300"
+                    : "bg-white border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <p className="font-medium text-gray-800">Upload Audio</p>
+              </button>
+            </div>
+            <div className="mt-4 flex flex-col gap-3">
+              <label className="block text-sm font-medium text-gray-700">Custom Ringtone URL</label>
+              <input
+                type="text"
+                value={notifications?.ringtone || ""}
+                onChange={(e) => setRingtone(e.target.value)}
+                placeholder="https://example.com/ringtone.mp3"
+                className="w-full px-4 py-3 border rounded-xl"
+              />
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={triggerRingtoneUpload}
+                  className="px-4 py-3 rounded-xl bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 transition"
+                >
+                  {ringtoneUploading ? "Uploading…" : "Upload Custom Ringtone"}
+                </button>
+                {ringtoneUploadError && (
+                  <span className="text-sm text-red-500">{ringtoneUploadError}</span>
+                )}
+              </div>
+              <input
+                ref={ringtoneInputRef}
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                onChange={handleRingtoneUpload}
+              />
+              <p className="text-sm text-gray-500">
+                Upload a local ringtone file or paste a remote audio URL.
+              </p>
             </div>
           </div>
         </motion.div>

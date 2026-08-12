@@ -204,9 +204,13 @@ export default function Contacts({ user, theme }: Props) {
     }
 
     filtered = [...filtered].sort((a, b) => {
-      const aName = (a.name || "").toLowerCase()
-      const bName = (b.name || "").toLowerCase()
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      const aName = (a.name || "").trim().toLowerCase()
+      const bName = (b.name || "").trim().toLowerCase()
       if (aName && bName && aName !== bName) return aName.localeCompare(bName)
+      if (aName && !bName) return -1
+      if (!aName && bName) return 1
       const aMobile = (a.mobile || "")
       const bMobile = (b.mobile || "")
       return aMobile.localeCompare(bMobile)
@@ -302,76 +306,70 @@ export default function Contacts({ user, theme }: Props) {
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6"
+          className="space-y-4 mt-6"
         >
-          {filteredContacts.map((c) => {
-            return (
-              <motion.div key={c.id} {...fadeIn}>
-                <div
-                  className={`rounded-2xl p-4 shadow-sm border transition-all hover:shadow-md ${
-                    c.registered
-                      ? "border-gray-200 bg-white"
-                      : "border-gray-200 bg-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="relative flex-shrink-0">
-                      <Image
-                        src={c.avatar || "/logo/logo.png"}
-                        alt={c.name}
-                        width={52}
-                        height={52}
-                        className="w-13 h-13 rounded-full object-cover border border-gray-200"
-                      />
-                      {c.registered && c.online && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
+          {filteredContacts.map((c) => (
+            <motion.div key={c.id} {...fadeIn}>
+              <div className="rounded-3xl p-4 shadow-sm border border-gray-200 bg-white transition hover:shadow-md">
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-shrink-0">
+                    <Image
+                      src={c.avatar || "/logo/logo.png"}
+                      alt={c.name}
+                      width={56}
+                      height={56}
+                      className="w-14 h-14 rounded-full object-cover"
+                    />
+                    {c.registered && c.online && (
+                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-900 text-base truncate">{c.name}</p>
+                        <p className="text-sm text-gray-500 truncate">{c.mobile}</p>
+                      </div>
+                      {c.registered && (
+                        <span className={`text-xs font-semibold ${c.online ? "text-green-600" : "text-gray-400"}`}>
+                          {c.online ? "Online" : "Offline"}
+                        </span>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <div className="font-semibold text-gray-800 text-[15px] truncate">{c.name}</div>
-                        {c.registered && (
-                          <span className={`flex-shrink-0 w-2 h-2 rounded-full ${
-                            c.online ? "bg-green-500" : "bg-gray-300"
-                          }`} title={c.online ? "Online" : "Offline"} />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="text-sm text-gray-500 truncate">{c.mobile}</div>
-                        {c.registered && c.online && (
-                          <span className="text-[11px] text-green-600 flex-shrink-0">· online</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {c.registered ? (
+                        <button
+                          onClick={() => router.push(`/chat/${c.registeredUserId}`)}
+                          className="inline-flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#008069]"
+                        >
+                          <FaWhatsapp className="w-4 h-4" />
+                          Message
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (!c.shareLinks && !c.shareLinksLoading) loadShareLinks(c.id)
+                            setInviteMessage("Invitation prepared.")
+                          }}
+                          className="inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-black"
+                          disabled={c.shareLinksLoading}
+                        >
+                          {c.shareLinksLoading ? "Preparing invite..." : "Invite"}
+                        </button>
+                      )}
                       <button
                         onClick={() => setManageContact(c)}
-                        className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
-                        aria-label="Edit"
-                        title="Edit Contact"
+                        className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                       >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setManageContact(c)}
-                        className="p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors"
-                        aria-label="Delete"
-                        title="Delete Contact"
-                      >
-                        <Trash2 className="w-4 h-4" />
+                        Edit
                       </button>
                     </div>
                   </div>
-
-                  {c.registered ? (
-                    <button
-                      onClick={() => router.push(`/chat/${c.registeredUserId}`)}
-                      className="w-full py-2.5 mt-1 bg-[#00a884] hover:bg-[#008069] text-white rounded-xl font-medium text-sm transition-colors flex items-center justify-center gap-2"
-                    >
-                      <FaWhatsapp className="w-4 h-4" />
-                      Message
-                    </button>
-                  ) : (
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
                     <>
                       <button
                         onClick={() => {

@@ -122,6 +122,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       success: true,
       userId: user._id.toString(),
       mobile,
+      name: user.name || "",
+      photo: user.photo || (user as any).avatar || "",
+      email: user.email || "",
     });
 
     response.cookies.delete("otp_session");

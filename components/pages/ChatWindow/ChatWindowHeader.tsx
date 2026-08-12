@@ -55,7 +55,8 @@ export default function ChatWindowHeader({
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="bg-[#f0f2f5] border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 shadow-sm"
+      className="border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 shadow-sm"
+      style={{ backgroundColor: `${theme.primary || "#00a884"}19` }}
     >
       <button
         onClick={onBack}
@@ -65,7 +66,7 @@ export default function ChatWindowHeader({
       </button>
 
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className="relative flex-shrink-0">
+        <div className="relative shrink-0">
           <Image
             src={headerAvatar || "/logo/logo.png"}
             alt={headerName}

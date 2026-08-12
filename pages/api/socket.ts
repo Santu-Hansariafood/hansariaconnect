@@ -385,8 +385,8 @@ export default async function handler(
       }
     });
 
-    io.on("error", (err) => {
-      console.error("Socket.IO error", err);
+    io.on("error", () => {
+      // Silent socket server error handling to avoid runtime exceptions.
     });
   }
 
