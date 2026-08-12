@@ -9,47 +9,47 @@ import Conversation from "@/models/conversation/Conversation";
 import Group from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
 
-// Minimal lean types used locally to satisfy TypeScript while keeping queries small
+// ---------- Lean interfaces (consistent with our schema) ----------
 interface MessageLean {
-  _id: Types.ObjectId | string;
-  from?: Types.ObjectId | string;
-  to?: Types.ObjectId | string;
+  _id: Types.ObjectId;
+  from?: Types.ObjectId;
+  to?: Types.ObjectId;
 }
 
 interface GroupMessageLean {
-  _id: Types.ObjectId | string;
-  groupId?: Types.ObjectId | string;
+  _id: Types.ObjectId;
+  groupId?: Types.ObjectId;
 }
 
 interface GroupMemberLean {
-  userId: Types.ObjectId | string;
+  userId: Types.ObjectId;
 }
 
 interface GroupLean {
-  _id: Types.ObjectId | string;
+  _id: Types.ObjectId;
   members?: GroupMemberLean[];
 }
 
 interface ConversationLean {
-  _id: Types.ObjectId | string;
-  userA?: Types.ObjectId | string;
-  userB?: Types.ObjectId | string;
+  _id: Types.ObjectId;
+  userA: Types.ObjectId;
+  userB: Types.ObjectId;
 }
 
-// Safe socket emit helpers — do not throw if socket server unavailable
+// ---------- Helpers ----------
+const isValidObjectId = (v: unknown): v is string =>
+  typeof v === "string" && Types.ObjectId.isValid(v);
+
+const toObjectId = (v: string): Types.ObjectId => new Types.ObjectId(v);
+
+// Safe socket emit – never crashes the request
 const safeEmitToUser = (userId: string, event: string, payload: any) => {
   try {
     const io = (globalThis as any).__io;
-    if (!io) {
-      // Socket server might run in another process — log for monitoring
-      console.warn("socket.io unavailable for emit", event, userId);
-      return false;
-    }
-    if (!userId) return false;
+    if (!io || !userId) return false;
     io.to(userId).emit(event, payload);
     return true;
-  } catch (err) {
-    console.error("safeEmitToUser error", err);
+  } catch {
     return false;
   }
 };
@@ -57,152 +57,257 @@ const safeEmitToUser = (userId: string, event: string, payload: any) => {
 const safeEmitToUsers = (userIds: string[], event: string, payload: any) => {
   try {
     const io = (globalThis as any).__io;
-    if (!io) {
-      console.warn("socket.io unavailable for emit", event);
-      return false;
-    }
-    userIds.forEach((id) => {
-      if (id) io.to(id).emit(event, payload);
-    });
+    if (!io) return false;
+    userIds.forEach((id) => id && io.to(id).emit(event, payload));
     return true;
-  } catch (err) {
-    console.error("safeEmitToUsers error", err);
+  } catch {
     return false;
   }
 };
 
-const isValidId = (v: unknown) => typeof v === "string" && Types.ObjectId.isValid(v);
-
+// ---------- POST: Mark read / get read status ----------
 export async function POST(req: NextRequest) {
   try {
     const session = await getUserSession(req);
-    if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const normalizedId = String(session.id);
-    if (!Types.ObjectId.isValid(normalizedId)) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    const userId = new Types.ObjectId(normalizedId);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isValidObjectId(session.id)) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+    const userId = toObjectId(session.id);
 
     const body = await req.json().catch(() => ({}));
-    const { messageId, groupMessageId, conversationId, groupId, peerId } = body ?? {};
+    const { messageId, groupMessageId, conversationId, groupId, peerId } = body;
 
-    // Require exactly one identifier to avoid ambiguity
-    const provided = [messageId, groupMessageId, conversationId, groupId, peerId].filter(Boolean);
-    if (provided.length === 0) return NextResponse.json({ error: "No identifier provided" }, { status: 400 });
-    if (provided.length > 1) return NextResponse.json({ error: "Provide only one identifier" }, { status: 400 });
+    // Exactly one identifier is required
+    const provided = [
+      messageId,
+      groupMessageId,
+      conversationId,
+      groupId,
+      peerId,
+    ].filter(Boolean);
+    if (provided.length === 0) {
+      return NextResponse.json(
+        { error: "No identifier provided" },
+        { status: 400 },
+      );
+    }
+    if (provided.length > 1) {
+      return NextResponse.json(
+        { error: "Provide only one identifier" },
+        { status: 400 },
+      );
+    }
 
     await connectDB();
-
     const now = new Date();
 
     // 1) Direct message read
-    if (messageId && isValidId(messageId)) {
-      const message = (await Message.findById(String(messageId)).select("from to").lean().exec()) as MessageLean | null;
-      if (!message) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    if (messageId && isValidObjectId(messageId)) {
+      const message = (await Message.findById(messageId)
+        .select("from to")
+        .lean()
+        .exec()) as MessageLean | null;
 
-      // Only recipient may mark as read
-      if (String(message.to) !== String(userId)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      if (!message) {
+        return NextResponse.json(
+          { error: "Message not found" },
+          { status: 404 },
+        );
+      }
+      if (String(message.to) !== String(userId)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
       await ReadReceipt.findOneAndUpdate(
-        { userId, messageId: new Types.ObjectId(String(messageId)) },
-        { userId, messageId: new Types.ObjectId(String(messageId)), readAt: now },
+        { userId, messageId: toObjectId(messageId) },
+        { userId, messageId: toObjectId(messageId), readAt: now },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
-      // Notify sender (best-effort)
-      safeEmitToUser(String(message.from ?? ""), "message:status:update", { id: String(message._id), status: "seen" });
+      safeEmitToUser(String(message.from ?? ""), "message:status:update", {
+        id: String(message._id),
+        status: "seen",
+      });
 
       return NextResponse.json({ success: true, readAt: now });
     }
 
     // 2) Group message read
-    if (groupMessageId && isValidId(groupMessageId)) {
-      const gm = (await GroupMessage.findById(String(groupMessageId)).select("groupId").lean().exec()) as GroupMessageLean | null;
-      if (!gm) return NextResponse.json({ error: "Group message not found" }, { status: 404 });
-      if (!gm.groupId) return NextResponse.json({ error: "Group ID missing" }, { status: 400 });
+    if (groupMessageId && isValidObjectId(groupMessageId)) {
+      const gm = (await GroupMessage.findById(groupMessageId)
+        .select("groupId")
+        .lean()
+        .exec()) as GroupMessageLean | null;
 
-      const normalizedGroupId = String(gm.groupId);
-      if (!Types.ObjectId.isValid(normalizedGroupId)) return NextResponse.json({ error: "Invalid group ID" }, { status: 400 });
+      if (!gm || !gm.groupId) {
+        return NextResponse.json(
+          { error: "Group message not found" },
+          { status: 404 },
+        );
+      }
+      if (!isValidObjectId(gm.groupId)) {
+        return NextResponse.json(
+          { error: "Invalid group ID" },
+          { status: 400 },
+        );
+      }
 
-      // Ensure membership
-      const group = (await Group.findById(normalizedGroupId).select("members").lean().exec()) as GroupLean | null;
-      if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
-      const isMember = Array.isArray(group.members) && group.members.some((m) => String(m.userId) === String(userId));
-      if (!isMember) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      const group = (await Group.findById(gm.groupId)
+        .select("members")
+        .lean()
+        .exec()) as GroupLean | null;
+
+      if (!group) {
+        return NextResponse.json({ error: "Group not found" }, { status: 404 });
+      }
+      const isMember =
+        group.members?.some((m) => String(m.userId) === String(userId)) ??
+        false;
+      if (!isMember) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
       await ReadReceipt.findOneAndUpdate(
-        { userId, groupMessageId: new Types.ObjectId(String(groupMessageId)) },
-        { userId, groupMessageId: new Types.ObjectId(String(groupMessageId)), groupId: new Types.ObjectId(normalizedGroupId), readAt: now },
+        { userId, groupMessageId: toObjectId(groupMessageId) },
+        {
+          userId,
+          groupMessageId: toObjectId(groupMessageId),
+          groupId: toObjectId(String(gm.groupId)),
+          readAt: now,
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
-      // Notify other connected group members (best-effort)
-      const targets = (group.members || []).map((m) => String(m.userId)).filter((id) => id && id !== String(userId));
-      safeEmitToUsers(targets, "group:message:read", { groupMessageId: String(groupMessageId), groupId: normalizedGroupId, userId: String(userId) });
+      const targets = (group.members ?? [])
+        .map((m) => String(m.userId))
+        .filter((id) => id && id !== String(userId));
+      safeEmitToUsers(targets, "group:message:read", {
+        groupMessageId: String(groupMessageId),
+        groupId: String(gm.groupId),
+        userId: String(userId),
+      });
 
       return NextResponse.json({ success: true, readAt: now });
     }
 
-    // 3) Conversation read (by conversation id)
-    if (conversationId && isValidId(conversationId)) {
-      const conversation = (await Conversation.findById(String(conversationId)).select("userA userB").lean().exec()) as ConversationLean | null;
-      if (!conversation) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
-      const userIsParticipant = String(conversation.userA) === String(userId) || String(conversation.userB) === String(userId);
-      if (!userIsParticipant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // 3) Conversation read by conversation ID (marks entire conversation read)
+    if (conversationId && isValidObjectId(conversationId)) {
+      const conversation = (await Conversation.findById(conversationId)
+        .select("userA userB")
+        .lean()
+        .exec()) as ConversationLean | null;
+
+      if (!conversation) {
+        return NextResponse.json(
+          { error: "Conversation not found" },
+          { status: 404 },
+        );
+      }
+      const isParticipant =
+        String(conversation.userA) === String(userId) ||
+        String(conversation.userB) === String(userId);
+      if (!isParticipant) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      // Upsert a read receipt for the entire conversation
+      const receipt = await ReadReceipt.findOneAndUpdate(
+        { userId, conversationId: toObjectId(conversationId) },
+        { userId, conversationId: toObjectId(conversationId), readAt: now },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).lean();
+
+      // Notify the other participant (best effort)
+      const other =
+        String(conversation.userA) === String(userId)
+          ? String(conversation.userB)
+          : String(conversation.userA);
+      safeEmitToUser(other, "conversation:read", {
+        conversationId: String(conversation._id),
+        userId: String(userId),
+      });
+
+      return NextResponse.json({
+        success: true,
+        readAt: receipt?.readAt ?? now,
+      });
+    }
+
+    // 4) Group-level read (mark all messages in the group read)
+    if (groupId && isValidObjectId(groupId)) {
+      const group = (await Group.findById(groupId)
+        .select("members")
+        .lean()
+        .exec()) as GroupLean | null;
+
+      if (!group) {
+        return NextResponse.json({ error: "Group not found" }, { status: 404 });
+      }
+      const isMember =
+        group.members?.some((m) => String(m.userId) === String(userId)) ??
+        false;
+      if (!isMember) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
 
       await ReadReceipt.findOneAndUpdate(
-        { userId, conversationId: new Types.ObjectId(String(conversationId)) },
-        { userId, conversationId: new Types.ObjectId(String(conversationId)), readAt: now },
+        { userId, groupId: toObjectId(String(groupId)) },
+        { userId, groupId: toObjectId(String(groupId)), readAt: now },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
-      const a = String(conversation.userA);
-      const b = String(conversation.userB);
-      const other = a === String(userId) ? b : a;
-      safeEmitToUser(other, "conversation:read", { conversationId: String(conversationId), userId: String(userId) });
+      const targets = (group.members ?? [])
+        .map((m) => String(m.userId))
+        .filter((id) => id && id !== String(userId));
+      safeEmitToUsers(targets, "group:read", {
+        groupId: String(groupId),
+        userId: String(userId),
+      });
 
       return NextResponse.json({ success: true, readAt: now });
     }
 
-    // 4) Group-level read (mark group read)
-    if (groupId && isValidId(groupId)) {
-      const group = (await Group.findById(String(groupId)).select("members").lean().exec()) as GroupLean | null;
-      if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
-      const isMember = Array.isArray(group.members) && group.members.some((m) => String(m.userId) === String(userId));
-      if (!isMember) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-
-      await ReadReceipt.findOneAndUpdate(
-        { userId, groupId: new Types.ObjectId(String(groupId)) },
-        { userId, groupId: new Types.ObjectId(String(groupId)), readAt: now },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
-
-      const targets = (group.members || []).map((m) => String(m.userId)).filter((id) => id && id !== String(userId));
-      safeEmitToUsers(targets, "group:read", { groupId: String(groupId), userId: String(userId) });
-
-      return NextResponse.json({ success: true, readAt: now });
-    }
-
-    // 5) Peer-based conversation by peerId (convenience)
-    if (peerId && isValidId(peerId)) {
-      const peerObjectId = new Types.ObjectId(String(peerId));
+    // 5) Peer-based conversation read (convenience)
+    if (peerId && isValidObjectId(peerId)) {
+      const peerObjectId = toObjectId(peerId);
       const currentId = String(userId);
       const peerString = String(peerObjectId);
       const userA = currentId < peerString ? userId : peerObjectId;
       const userB = currentId < peerString ? peerObjectId : userId;
 
-      const conversation = (await Conversation.findOne({ userA, userB }).select("_id userA userB").lean().exec()) as ConversationLean | null;
-      if (!conversation) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+      const conversation = (await Conversation.findOne({ userA, userB })
+        .select("_id userA userB")
+        .lean()
+        .exec()) as ConversationLean | null;
+
+      if (!conversation) {
+        return NextResponse.json(
+          { error: "Conversation not found" },
+          { status: 404 },
+        );
+      }
 
       await ReadReceipt.findOneAndUpdate(
-        { userId, conversationId: new Types.ObjectId(String(conversation._id)) },
-        { userId, conversationId: new Types.ObjectId(String(conversation._id)), readAt: now },
+        { userId, conversationId: toObjectId(String(conversation._id)) },
+        {
+          userId,
+          conversationId: toObjectId(String(conversation._id)),
+          readAt: now,
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
-      const a = String(conversation.userA);
-      const b = String(conversation.userB);
-      const other = a === String(userId) ? b : a;
-      safeEmitToUser(other, "conversation:read", { conversationId: String(conversation._id), userId: String(userId) });
+      const other =
+        String(conversation.userA) === String(userId)
+          ? String(conversation.userB)
+          : String(conversation.userA);
+      safeEmitToUser(other, "conversation:read", {
+        conversationId: String(conversation._id),
+        userId: String(userId),
+      });
 
       return NextResponse.json({ success: true, readAt: now });
     }
@@ -210,19 +315,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   } catch (error: unknown) {
     console.error("POST /api/read-receipts error →", error);
-    const message = error instanceof Error ? error.message : "Server error";
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
+// ---------- GET: Fetch read status only ----------
 export async function GET(req: NextRequest) {
   try {
     const session = await getUserSession(req);
-    if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const normalizedId = String(session.id);
-    if (!Types.ObjectId.isValid(normalizedId)) return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    const userId = new Types.ObjectId(normalizedId);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isValidObjectId(session.id)) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+    const userId = toObjectId(session.id);
 
     const { searchParams } = new URL(req.url);
     const conversationId = searchParams.get("conversationId");
@@ -230,30 +339,60 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    if (conversationId && Types.ObjectId.isValid(conversationId)) {
-      const conversation = await Conversation.findById(String(conversationId)).select("userA userB").lean().exec();
-      if (!conversation) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
-      const isParticipant = String(conversation.userA) === String(userId) || String(conversation.userB) === String(userId);
-      if (!isParticipant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (conversationId && isValidObjectId(conversationId)) {
+      const conversation = (await Conversation.findById(conversationId)
+        .select("userA userB")
+        .lean()
+        .exec()) as ConversationLean | null;
 
-      const receipt = await ReadReceipt.findOne({ userId, conversationId: new Types.ObjectId(String(conversationId)) }).lean();
+      if (!conversation) {
+        return NextResponse.json(
+          { error: "Conversation not found" },
+          { status: 404 },
+        );
+      }
+      const isParticipant =
+        String(conversation.userA) === String(userId) ||
+        String(conversation.userB) === String(userId);
+      if (!isParticipant) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const receipt = await ReadReceipt.findOne({
+        userId,
+        conversationId: toObjectId(conversationId),
+      }).lean();
       return NextResponse.json({ readAt: receipt?.readAt ?? null });
     }
 
-    if (groupId && Types.ObjectId.isValid(groupId)) {
-      const group = (await Group.findById(String(groupId)).select("members").lean().exec()) as GroupLean | null;
-      if (!group) return NextResponse.json({ error: "Group not found" }, { status: 404 });
-      const isMember = Array.isArray(group.members) && group.members.some((m) => String(m.userId) === String(userId));
-      if (!isMember) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (groupId && isValidObjectId(groupId)) {
+      const group = (await Group.findById(groupId)
+        .select("members")
+        .lean()
+        .exec()) as GroupLean | null;
 
-      const receipt = await ReadReceipt.findOne({ userId, groupId: new Types.ObjectId(String(groupId)) }).lean();
+      if (!group) {
+        return NextResponse.json({ error: "Group not found" }, { status: 404 });
+      }
+      const isMember =
+        group.members?.some((m) => String(m.userId) === String(userId)) ??
+        false;
+      if (!isMember) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      const receipt = await ReadReceipt.findOne({
+        userId,
+        groupId: toObjectId(groupId),
+      }).lean();
       return NextResponse.json({ readAt: receipt?.readAt ?? null });
     }
 
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   } catch (error: unknown) {
     console.error("GET /api/read-receipts error →", error);
-    const message = error instanceof Error ? error.message : "Server error";
+    const message =
+      error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
