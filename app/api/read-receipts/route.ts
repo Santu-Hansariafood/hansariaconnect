@@ -23,6 +23,48 @@ interface GroupLean {
   members?: GroupMemberLean[];
 }
 
+interface MessageLean {
+  _id: Types.ObjectId;
+  from?: Types.ObjectId | string;
+  to?: Types.ObjectId | string;
+}
+
+// Helper: emit to a single user room if socket is available
+const safeEmitToUser = (userId: string, event: string, payload: any) => {
+  try {
+    const io = (globalThis as any).__io;
+    if (!io) {
+      // Socket server unavailable in this process (may be running in a different instance)
+      console.warn("Socket IO not available to emit", event, userId);
+      return false;
+    }
+    if (!userId) return false;
+    io.to(userId).emit(event, payload);
+    return true;
+  } catch (err) {
+    console.error("safeEmitToUser error", err);
+    return false;
+  }
+};
+
+// Helper: emit to multiple user ids
+const safeEmitToUsers = (userIds: string[], event: string, payload: any) => {
+  try {
+    const io = (globalThis as any).__io;
+    if (!io) {
+      console.warn("Socket IO not available to emit", event);
+      return false;
+    }
+    userIds.forEach((id) => {
+      if (id) io.to(id).emit(event, payload);
+    });
+    return true;
+  } catch (err) {
+    console.error("safeEmitToUsers error", err);
+    return false;
+  }
+};
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getUserSession(req);
@@ -43,16 +85,21 @@ export async function POST(req: NextRequest) {
 
     const { messageId, groupMessageId, conversationId, groupId, peerId } = body;
 
+    // Basic request validation: ensure fields are strings when present
+    const provided = [messageId, groupMessageId, conversationId, groupId, peerId].filter(Boolean);
+    if (provided.length === 0) {
+      return NextResponse.json({ error: "No identifier provided" }, { status: 400 });
+    }
+    if (provided.length > 1) {
+      // Require a single identifier per request to avoid ambiguity
+      return NextResponse.json({ error: "Provide only one identifier" }, { status: 400 });
+    }
+
     await connectDB();
 
-    /*
-     * ---------------------------------------------------------
-     * 1. INDIVIDUAL MESSAGE
-     * ---------------------------------------------------------
-     */
-
+  
     if (messageId && Types.ObjectId.isValid(messageId)) {
-      const message = (await Message.findById(messageId).lean()) as any;
+      const message = (await Message.findById(messageId).lean()) as MessageLean | null;
 
       if (!message) {
         return NextResponse.json(
@@ -61,11 +108,11 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Only recipient can mark the message as read
       if (String(message.to) !== String(userId)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
+      const now = new Date();
       await ReadReceipt.findOneAndUpdate(
         {
           userId,
@@ -74,7 +121,7 @@ export async function POST(req: NextRequest) {
         {
           userId,
           messageId: new Types.ObjectId(messageId),
-          readAt: new Date(),
+          readAt: now,
         },
         {
           upsert: true,
@@ -83,41 +130,17 @@ export async function POST(req: NextRequest) {
         },
       );
 
-      /*
-       * Notify sender
-       */
       try {
-        const senderId = String(message.from);
-        const io = (globalThis as any).__io;
-
-        if (io && senderId) {
-          io.to(senderId).emit("message:status:update", {
-            id: String(message._id),
-            status: "seen",
-          });
-        }
+        safeEmitToUser(String(message.from ?? ""), "message:status:update", {
+          id: String(message._id),
+          status: "seen",
+        });
       } catch (socketError) {
-        console.error(
-          "Individual message socket notification failed:",
-          socketError,
-        );
+        console.error("Individual message socket notification failed:", socketError);
       }
     } else if (groupMessageId && Types.ObjectId.isValid(groupMessageId)) {
 
-    /*
-     * ---------------------------------------------------------
-     * 2. GROUP MESSAGE
-     * ---------------------------------------------------------
-     */
-      /*
-       * Cast the lean result to our local type.
-       *
-       * This fixes the TypeScript error:
-       * Property 'groupId' does not exist...
-       */
-      const gm = (await GroupMessage.findById(groupMessageId)
-        .lean()
-        .exec()) as GroupMessageLean | null;
+      const gm = (await GroupMessage.findById(groupMessageId).lean().exec()) as GroupMessageLean | null;
 
       if (!gm) {
         return NextResponse.json(
@@ -146,9 +169,8 @@ export async function POST(req: NextRequest) {
        * Check that the current user actually belongs
        * to the group.
        */
-      const group = (await Group.findById(normalizedGroupId)
-        .lean()
-        .exec()) as GroupLean | null;
+      // Only fetch group members to minimize payload
+      const group = (await Group.findById(normalizedGroupId).select("members").lean().exec()) as GroupLean | null;
 
       if (!group) {
         return NextResponse.json({ error: "Group not found" }, { status: 404 });
@@ -164,9 +186,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      /*
-       * Save read receipt
-       */
       await ReadReceipt.findOneAndUpdate(
         {
           userId,
@@ -185,36 +204,21 @@ export async function POST(req: NextRequest) {
         },
       );
 
-      /*
-       * Notify other group members
-       */
       try {
-        const io = (globalThis as any).__io;
-
-        if (io && Array.isArray(group.members)) {
-          group.members.forEach((member) => {
-            const memberId = String(member.userId);
-
-            if (memberId && memberId !== String(userId)) {
-              io.to(memberId).emit("group:message:read", {
-                groupMessageId: String(groupMessageId),
-                groupId: normalizedGroupId,
-                userId: String(userId),
-              });
-            }
-          });
-        }
+        const targetIds = (group.members || [])
+          .map((m) => String(m.userId))
+          .filter((id) => id && id !== String(userId));
+        safeEmitToUsers(targetIds, "group:message:read", {
+          groupMessageId: String(groupMessageId),
+          groupId: normalizedGroupId,
+          userId: String(userId),
+        });
       } catch (socketError) {
         console.error("Group message socket notification failed:", socketError);
       }
     } else if (conversationId && Types.ObjectId.isValid(conversationId)) {
 
-    /*
-     * ---------------------------------------------------------
-     * 3. CONVERSATION
-     * ---------------------------------------------------------
-     */
-      const conversation = await Conversation.findById(conversationId).lean();
+      const conversation = await Conversation.findById(conversationId).select("userA userB").lean();
 
       if (!conversation) {
         return NextResponse.json(
@@ -223,10 +227,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      /*
-       * Ensure the current user actually belongs
-       * to this conversation.
-       */
       const userIsParticipant =
         String(conversation.userA) === String(userId) ||
         String(conversation.userB) === String(userId);
@@ -235,6 +235,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
+      const now = new Date();
       await ReadReceipt.findOneAndUpdate(
         {
           userId,
@@ -243,7 +244,7 @@ export async function POST(req: NextRequest) {
         {
           userId,
           conversationId: new Types.ObjectId(conversationId),
-          readAt: new Date(),
+          readAt: now,
         },
         {
           upsert: true,
@@ -252,36 +253,20 @@ export async function POST(req: NextRequest) {
         },
       );
 
-      /*
-       * Notify the other participant
-       */
       try {
         const a = String(conversation.userA);
         const b = String(conversation.userB);
-
         const other = a === String(userId) ? b : a;
-
-        const io = (globalThis as any).__io;
-
-        if (io && other) {
-          io.to(other).emit("conversation:read", {
-            conversationId: String(conversationId),
-            userId: String(userId),
-          });
-        }
+        safeEmitToUser(other, "conversation:read", {
+          conversationId: String(conversationId),
+          userId: String(userId),
+        });
       } catch (socketError) {
         console.error("Conversation socket notification failed:", socketError);
       }
     } else if (groupId && Types.ObjectId.isValid(groupId)) {
 
-    /*
-     * ---------------------------------------------------------
-     * 4. GROUP
-     * ---------------------------------------------------------
-     */
-      const group = (await Group.findById(groupId)
-        .lean()
-        .exec()) as GroupLean | null;
+      const group = (await Group.findById(groupId).select("members").lean().exec()) as GroupLean | null;
 
       if (!group) {
         return NextResponse.json({ error: "Group not found" }, { status: 404 });
@@ -314,34 +299,14 @@ export async function POST(req: NextRequest) {
         },
       );
 
-      /*
-       * Notify other group members
-       */
       try {
-        const io = (globalThis as any).__io;
-
-        if (io && Array.isArray(group.members)) {
-          group.members.forEach((member) => {
-            const memberId = String(member.userId);
-
-            if (memberId && memberId !== String(userId)) {
-              io.to(memberId).emit("group:read", {
-                groupId: String(groupId),
-                userId: String(userId),
-              });
-            }
-          });
-        }
+        const targetIds = (group.members || []).map((m) => String(m.userId)).filter((id) => id && id !== String(userId));
+        safeEmitToUsers(targetIds, "group:read", { groupId: String(groupId), userId: String(userId) });
       } catch (socketError) {
         console.error("Group read socket notification failed:", socketError);
       }
     } else if (peerId && Types.ObjectId.isValid(peerId)) {
 
-    /*
-     * ---------------------------------------------------------
-     * 5. PEER
-     * ---------------------------------------------------------
-     */
       const peerObjectId = new Types.ObjectId(peerId);
 
       const currentId = String(userId);
@@ -364,6 +329,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      const now = new Date();
       await ReadReceipt.findOneAndUpdate(
         {
           userId,
@@ -372,7 +338,7 @@ export async function POST(req: NextRequest) {
         {
           userId,
           conversationId: new Types.ObjectId(String(conversation._id)),
-          readAt: new Date(),
+          readAt: now,
         },
         {
           upsert: true,
@@ -382,11 +348,6 @@ export async function POST(req: NextRequest) {
       );
     } else {
 
-    /*
-     * ---------------------------------------------------------
-     * INVALID REQUEST
-     * ---------------------------------------------------------
-     */
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
@@ -402,11 +363,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/*
- * =========================================================
- * GET READ RECEIPT
- * =========================================================
- */
 
 export async function GET(req: NextRequest) {
   try {
@@ -432,9 +388,6 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    /*
-     * Conversation receipt
-     */
     if (conversationId && Types.ObjectId.isValid(conversationId)) {
       const conversation = await Conversation.findById(conversationId).lean();
 
@@ -463,9 +416,6 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    /*
-     * Group receipt
-     */
     if (groupId && Types.ObjectId.isValid(groupId)) {
       const group = (await Group.findById(groupId)
         .lean()
