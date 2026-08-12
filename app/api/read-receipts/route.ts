@@ -30,6 +30,12 @@ interface GroupLean {
   members?: GroupMemberLean[];
 }
 
+interface ConversationLean {
+  _id: Types.ObjectId | string;
+  userA?: Types.ObjectId | string;
+  userB?: Types.ObjectId | string;
+}
+
 // Safe socket emit helpers — do not throw if socket server unavailable
 const safeEmitToUser = (userId: string, event: string, payload: any) => {
   try {
@@ -138,7 +144,7 @@ export async function POST(req: NextRequest) {
 
     // 3) Conversation read (by conversation id)
     if (conversationId && isValidId(conversationId)) {
-      const conversation = await Conversation.findById(String(conversationId)).select("userA userB").lean().exec();
+      const conversation = (await Conversation.findById(String(conversationId)).select("userA userB").lean().exec()) as ConversationLean | null;
       if (!conversation) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
       const userIsParticipant = String(conversation.userA) === String(userId) || String(conversation.userB) === String(userId);
       if (!userIsParticipant) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -184,7 +190,7 @@ export async function POST(req: NextRequest) {
       const userA = currentId < peerString ? userId : peerObjectId;
       const userB = currentId < peerString ? peerObjectId : userId;
 
-      const conversation = await Conversation.findOne({ userA, userB }).select("_id userA userB").lean().exec();
+      const conversation = (await Conversation.findOne({ userA, userB }).select("_id userA userB").lean().exec()) as ConversationLean | null;
       if (!conversation) return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
 
       await ReadReceipt.findOneAndUpdate(
