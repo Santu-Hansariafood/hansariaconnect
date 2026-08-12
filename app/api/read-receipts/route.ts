@@ -4,6 +4,8 @@ import { connectDB } from "@/lib/db/db";
 import ReadReceipt from "@/models/readReceipt/ReadReceipt";
 import Message from "@/models/message/Message";
 import GroupMessage from "@/models/group/GroupMessage";
+import Conversation from "@/models/conversation/Conversation";
+import Group from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest) {
@@ -44,6 +46,14 @@ export async function POST(req: NextRequest) {
         },
         { upsert: true },
       );
+      // notify sender that this message was read
+      try {
+        const senderId = String(message.from);
+        const io = (globalThis as any).__io;
+        if (io && senderId) {
+          io.to(senderId).emit("message:status:update", { id: message._id.toString(), status: "seen" });
+        }
+      } catch {}
     } else if (groupMessageId && Types.ObjectId.isValid(groupMessageId)) {
       await ReadReceipt.findOneAndUpdate(
         { userId, groupMessageId: new Types.ObjectId(groupMessageId) },
@@ -54,6 +64,22 @@ export async function POST(req: NextRequest) {
         },
         { upsert: true },
       );
+      // notify group members that this group message was read by user
+      try {
+        const gm = await GroupMessage.findById(groupMessageId).lean();
+        if (gm) {
+          const group = await Group.findById(gm.groupId).lean();
+          const io = (globalThis as any).__io;
+          if (io && group && Array.isArray(group.members)) {
+            group.members.forEach((m: any) => {
+              const mid = String(m.userId);
+              if (mid && mid !== String(userId)) {
+                io.to(mid).emit("group:message:read", { groupMessageId, userId: String(userId) });
+              }
+            });
+          }
+        }
+      } catch {}
     } else if (conversationId && Types.ObjectId.isValid(conversationId)) {
       await ReadReceipt.findOneAndUpdate(
         { userId, conversationId: new Types.ObjectId(conversationId) },
@@ -64,12 +90,38 @@ export async function POST(req: NextRequest) {
         },
         { upsert: true },
       );
+      // notify the other conversation participant that this conversation was read
+      try {
+        const conv = await Conversation.findById(conversationId).lean();
+        if (conv) {
+          const a = String(conv.userA);
+          const b = String(conv.userB);
+          const other = a === String(userId) ? b : a;
+          const io = (globalThis as any).__io;
+          if (io && other) {
+            io.to(other).emit("conversation:read", { conversationId: String(conversationId), userId: String(userId) });
+          }
+        }
+      } catch {}
     } else if (groupId && Types.ObjectId.isValid(groupId)) {
       await ReadReceipt.findOneAndUpdate(
         { userId, groupId: new Types.ObjectId(groupId) },
         { userId, groupId: new Types.ObjectId(groupId), readAt: new Date() },
         { upsert: true },
       );
+      // notify group members that this group was read by the user
+      try {
+        const group = await Group.findById(groupId).lean();
+        const io = (globalThis as any).__io;
+        if (io && group && Array.isArray(group.members)) {
+          group.members.forEach((m: any) => {
+            const mid = String(m.userId);
+            if (mid && mid !== String(userId)) {
+              io.to(mid).emit("group:read", { groupId: String(groupId), userId: String(userId) });
+            }
+          });
+        }
+      } catch {}
     } else if (peerId && Types.ObjectId.isValid(peerId)) {
       const a = String(userId);
       const b = String(peerId);

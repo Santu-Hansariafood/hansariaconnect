@@ -49,6 +49,11 @@ export default async function handler(
     });
 
     (httpServer as any).io = io;
+    // expose io and userConnections for other server routes to emit events
+    try {
+      (globalThis as any).__io = io;
+      (globalThis as any).__userConnections = (httpServer as any).userConnections;
+    } catch {}
 
     const getOnlineUserIds = () =>
       Array.from(

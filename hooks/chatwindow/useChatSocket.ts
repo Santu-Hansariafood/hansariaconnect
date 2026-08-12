@@ -91,5 +91,35 @@ export const useChatSocket = (
     }
   }, [addListener, removeListener, handleNewDirectMessage, handleNewGroupMessage, handleStatusUpdate])
 
+  // Polling fallback: periodically fetch latest messages in case socket events are missed
+  useEffect(() => {
+    if (!id) return;
+
+    let interval: any = null;
+    const fetchLatest = async () => {
+      try {
+        const endpoint = isGroup
+          ? `/api/groups/${id}/messages?all=true&last=true`
+          : `/api/messages/${id}?all=true&last=true`;
+        const res = await fetch(`${endpoint}&t=${Date.now()}`, { credentials: "include", cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data?.messages) && data.messages.length > 0) {
+          setChatMessages((prev) => mergeUnique(prev, data.messages));
+        }
+      } catch (e) {
+        // ignore polling errors silently
+      }
+    };
+
+    // initial fetch and then poll every 5s
+    fetchLatest();
+    interval = setInterval(fetchLatest, 5000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [id, isGroup, setChatMessages, mergeUnique]);
+
   return socket
 }

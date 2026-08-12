@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSocket } from "@/hooks/useSocket";
 
 type UnreadResponse = {
   total?: number;
@@ -13,6 +14,7 @@ export function useUnreadCounts() {
     chats: 0,
     groups: 0,
   });
+  const { addListener, removeListener } = useSocket();
 
   useEffect(() => {
     const loadUnread = async () => {
@@ -49,7 +51,17 @@ export function useUnreadCounts() {
     loadUnread();
     const interval = setInterval(loadUnread, 10000);
 
-    return () => clearInterval(interval);
+    // listen for server-side read events to refresh counts immediately
+    const onConversationRead = () => loadUnread();
+    const onGroupRead = () => loadUnread();
+    addListener("conversation:read", onConversationRead);
+    addListener("group:read", onGroupRead);
+
+    return () => {
+      clearInterval(interval);
+      removeListener("conversation:read", onConversationRead);
+      removeListener("group:read", onGroupRead);
+    };
   }, []);
 
   return counts;
