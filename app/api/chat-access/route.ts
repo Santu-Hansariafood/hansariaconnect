@@ -13,9 +13,6 @@ type GroupDoc = {
   members: IGroupMember[];
 };
 
-/**
- * Convert different MongoDB/session ID formats into a string.
- */
 const normalizeId = (val: unknown): string => {
   if (typeof val === "string") {
     return val.trim();
@@ -39,12 +36,10 @@ const normalizeId = (val: unknown): string => {
       $oid?: unknown;
     };
 
-    // Handle MongoDB Extended JSON ObjectId
     if (typeof obj.$oid === "string") {
       return obj.$oid;
     }
 
-    // Handle ObjectId and similar objects
     if (typeof obj.toString === "function") {
       const value = obj.toString();
 
@@ -59,9 +54,6 @@ const normalizeId = (val: unknown): string => {
 
 export async function GET(req: NextRequest) {
   try {
-    // -----------------------------------------
-    // Get current logged-in user's session
-    // -----------------------------------------
     const session = await getUserSession(req);
 
     if (!session?.id) {
@@ -76,16 +68,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // -----------------------------------------
-    // Get chatId from query parameters
-    // -----------------------------------------
     const { searchParams } = new URL(req.url);
 
     const chatId = searchParams.get("chatId") || "";
 
-    // -----------------------------------------
-    // Validate chat ID
-    // -----------------------------------------
     if (!chatId || !Types.ObjectId.isValid(chatId)) {
       return NextResponse.json(
         {
@@ -98,9 +84,6 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // -----------------------------------------
-    // Normalize session user ID
-    // -----------------------------------------
     const normalizedUserId = normalizeId(session.id);
 
     if (!Types.ObjectId.isValid(normalizedUserId)) {
@@ -115,37 +98,22 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // -----------------------------------------
-    // Convert IDs to MongoDB ObjectId
-    // -----------------------------------------
     const userId = new Types.ObjectId(normalizedUserId);
     const chatObjectId = new Types.ObjectId(chatId);
 
-    // -----------------------------------------
-    // Connect to MongoDB
-    // -----------------------------------------
     await connectDB();
 
-    // =========================================================
-    // 1. CHECK IF chatId BELONGS TO A GROUP
-    // =========================================================
-
-    const group = (await Group.findById(chatObjectId).lean()) as
-      | GroupDoc
-      | null;
+    const group = (await Group.findById(
+      chatObjectId,
+    ).lean()) as GroupDoc | null;
 
     if (group) {
-      const members = Array.isArray(group.members)
-        ? group.members
-        : [];
+      const members = Array.isArray(group.members) ? group.members : [];
 
-      // Check whether current user is a member of this group
       const isMember = members.some(
-        (member: IGroupMember) =>
-          String(member.userId) === String(userId),
+        (member: IGroupMember) => String(member.userId) === String(userId),
       );
 
-      // User is not a member of this group
       if (!isMember) {
         return NextResponse.json(
           {
@@ -159,7 +127,6 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      // User is a group member
       return NextResponse.json({
         access: true,
         type: "group",
@@ -167,13 +134,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // =========================================================
-    // 2. CHECK IF chatId BELONGS TO A DIRECT USER
-    // =========================================================
-
     const peerUser = await User.findById(chatObjectId).lean();
 
-    // Direct-chat user does not exist
     if (!peerUser) {
       return NextResponse.json(
         {
@@ -186,17 +148,19 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // =========================================================
-    // DIRECT CHAT ACCESS: Restrict to participants only
-    // =========================================================
-    // Allow access only if one of the following is true:
-    // - There is an existing Conversation between the current user and peer
-    // - The peer user is saved in the current user's contacts
-    // - The current user is the same as the peer (self-chat)
-    // This prevents arbitrary users from opening another user's chat UI
-    // and potentially seeing encrypted payloads or sending unsolicited requests.
+    if (Array.isArray(peerUser)) {
+      return NextResponse.json(
+        {
+          error: "Unexpected data format",
+          access: false,
+        },
+        { status: 500 },
+      );
+    }
 
-    const Conversation = (await import("@/models/conversation/Conversation")).default;
+    const peerUserDoc = peerUser as { mobile?: string; _id: any };
+    const Conversation = (await import("@/models/conversation/Conversation"))
+      .default;
     const Contact = (await import("@/models/contact/Contact")).default;
 
     const isSelf = String(userId) === String(chatObjectId);
@@ -212,7 +176,7 @@ export async function GET(req: NextRequest) {
       userId: userId,
       $or: [
         { registeredUserId: String(chatObjectId) },
-        { mobiles: { $in: [peerUser.mobile || ""] } },
+        { mobiles: { $in: [peerUserDoc.mobile || ""] } }, // ✅ now uses peerUserDoc
       ],
     });
 
@@ -234,11 +198,7 @@ export async function GET(req: NextRequest) {
       peerId: String(chatObjectId),
     });
   } catch (err: unknown) {
-    // -----------------------------------------
-    // Error handling
-    // -----------------------------------------
-    const message =
-      err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : String(err);
 
     console.error("Chat access error:", err);
 
