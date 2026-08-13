@@ -120,19 +120,36 @@ export default function Contacts({ user, theme }: Props) {
     )
   }
 
-  // Auto sync Google Contacts on mount if tokens exist
-  useEffect(() => {
-    const autoSync = async () => {
-      setSyncing(true)
-      try {
-        await fetch("/api/google/contacts/sync", {
-          method: "POST",
-          credentials: "include",
-        })
-        // Refresh contacts list
-        const res = await fetch("/api/contacts", { cache: "no-store", credentials: "include" })
-        const data = await res.json()
+  // If OAuth callback redirected with google_connected=1, prompt user to import contacts
+  const [showGoogleImportPrompt, setShowGoogleImportPrompt] = useState(false)
 
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return
+      const params = new URLSearchParams(window.location.search)
+      if (params.get("google_connected") === "1") {
+        setShowGoogleImportPrompt(true)
+        // remove the param from URL so it doesn't prompt again
+        const url = new URL(window.location.href)
+        url.searchParams.delete("google_connected")
+        window.history.replaceState({}, document.title, url.toString())
+      }
+    } catch {}
+  }, [])
+
+  const importGoogleContacts = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch("/api/google/contacts/sync", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      })
+
+      if (res.ok) {
+        const listRes = await fetch("/api/contacts", { cache: "no-store", credentials: "include" })
+        const data = await listRes.json()
         if (Array.isArray(data?.contacts)) {
           const mapped = data.contacts.map((c: any) => ({
             id: c._id,
@@ -153,14 +170,11 @@ export default function Contacts({ user, theme }: Props) {
 
           setContacts(mapped)
         }
-      } catch (err) {
-        // Ignore errors (e.g., no tokens)
-      } finally {
-        setSyncing(false)
       }
-    }
-    autoSync()
-  }, [])
+    } catch {}
+    setSyncing(false)
+    setShowGoogleImportPrompt(false)
+  }
 
   useEffect(() => {
     const loadContacts = async () => {
@@ -512,6 +526,19 @@ export default function Contacts({ user, theme }: Props) {
             </motion.div>
           </div>
         )}
+        {showGoogleImportPrompt && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white max-w-md w-full p-6 rounded-2xl">
+              <h2 className="text-lg font-bold mb-2">Import Google Contacts?</h2>
+              <p className="text-sm text-gray-600 mb-4">We found a connected Google account. Do you want to import contacts from it? This will add contacts to your account.</p>
+              <div className="flex gap-3">
+                <button onClick={importGoogleContacts} className="flex-1 py-2 text-white rounded-xl" style={{ backgroundColor: theme.primary }}>{syncing ? 'Importing...' : 'Import'}</button>
+                <button onClick={() => setShowGoogleImportPrompt(false)} className="flex-1 py-2 bg-gray-200 rounded-xl">Cancel</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {manageContact && (
           <ManageContactModal
             contact={{ id: manageContact.id, name: manageContact.name }}

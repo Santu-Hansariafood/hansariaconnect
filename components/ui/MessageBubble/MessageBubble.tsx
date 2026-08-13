@@ -98,7 +98,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`flex gap-1.5 max-w-[65%] ${
+        className={`flex gap-1.5 max-w-[80%] sm:max-w-[70%] md:max-w-[65%] ${
           isSent ? "flex-row-reverse" : "flex-row"
         } items-end`}
       >

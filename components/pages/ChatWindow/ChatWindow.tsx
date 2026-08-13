@@ -234,17 +234,34 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
                   String(c.id) === chatId
               );
               if (found) {
-                setContact(found);
+                const normalized = {
+                  id: String(found.registeredUserId || found._id || found.id || ""),
+                  name:
+                    found.registeredProfile?.name || found.name ||
+                    (Array.isArray(found.mobiles) ? found.mobiles[0] : (found.mobile || undefined)) ||
+                    "Unknown",
+                  mobile: Array.isArray(found.mobiles) ? found.mobiles[0] || "" : (found.mobile || ""),
+                  avatar: found.registeredProfile?.photo || found.avatar || "/logo/logo.png",
+                  registered: !!found.registered,
+                  registeredUserId: found.registeredUserId || "",
+                  registeredProfile: found.registeredProfile || null,
+                  _raw: found,
+                } as any;
+
+                setContact(normalized as any);
               } else {
                 try {
                   const userRes = await fetch(`/api/users/${chatId}`, { credentials: "include" });
                   if (userRes.ok) {
                     const userData = await userRes.json();
+                    const u = userData?.user || userData?.data || userData || {};
                     setContact({
-                      name: userData?.name || userData?.mobile || "User",
-                      avatar: userData?.avatar || "/logo/logo.png",
-                      mobile: userData?.mobile || "",
-                    });
+                      name: u?.name || u?.fullName || u?.mobile || "Unknown",
+                      avatar: u?.avatar || u?.photo || u?.profilePhoto || "/logo/logo.png",
+                      mobile: u?.mobile || u?.phone || "",
+                      registered: true,
+                      registeredUserId: u?.id || u?._id || chatId,
+                    } as any);
                   }
                 } catch {
                   // ignore fallback user fetch errors
@@ -609,7 +626,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   }
 
   return (
-    <div className="h-screen w-screen sm:h-full sm:w-full max-w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden h-screen">
       <ChatWindowHeader
         theme={theme}
         onBack={onBack || (() => router.push("/"))}
@@ -617,6 +634,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         headerAvatar={headerAvatar}
         isContactOnline={isContactOnline}
         isGroup={isGroup}
+        onOpenGroup={() => router.push(`/group-settings/${chatId}`)}
         showUnreadBanner={showUnreadBanner}
         unreadOnOpen={unreadOnOpen}
         showOptionsMenu={showOptionsMenu}
@@ -641,7 +659,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto min-w-0 min-h-0 px-[4%] sm:px-[8%] py-3 sm:py-4 ${
+        className={`flex-1 overflow-y-auto min-w-0 min-h-0 px-4 sm:px-6 md:px-8 py-3 sm:py-4 ${
           !theme.wallpaperImage ? theme.wallpaper || "bg-[#efeae2]" : ""
         }`}
         style={

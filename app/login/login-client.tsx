@@ -14,7 +14,7 @@ function LoginClientInner() {
   const reason = searchParams?.get("reason") ?? ""
 
   useEffect(() => {
-    if (user?.step === "complete") router.push("/profile")
+    if (user?.step === "complete") router.push("/chats")
   }, [user, router])
 
   return <Login prefillMobile={prefillMobile} reason={reason || undefined} />

@@ -3,6 +3,7 @@
 import { useState, ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
+const StatusViewer = dynamic(() => import("@/components/common/StatusViewer/StatusViewer"), { ssr: false });
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
 import {
@@ -161,6 +162,22 @@ export default function StatusPage({
     } catch {}
   };
 
+  const [viewerItems, setViewerItems] = useState<{
+    id: string;
+    media: string;
+    type: "image" | "video";
+    user?: string;
+  }[] | null>(null);
+
+  const [viewerStart, setViewerStart] = useState(0);
+
+  const openViewer = (userId: string, startIdx: number) => {
+    const list = contactStatuses[userId] || [];
+    const items = list.map((s) => ({ id: s.id, media: s.media, type: s.type, user: s.name }));
+    setViewerItems(items);
+    setViewerStart(startIdx);
+  };
+
   return (
     <div className={`min-h-screen ${theme.wallpaper}`}>
       <Navbar user={user} onLogout={onLogout} />
@@ -253,7 +270,7 @@ export default function StatusPage({
               Recent Updates
             </h2>
 
-            <div className="space-y-4">
+              <div className="space-y-4">
               {loadingStatuses ? (
                 <p className="text-gray-500 text-center py-8">Loading status updates...</p>
               ) : statusError ? (
@@ -263,31 +280,40 @@ export default function StatusPage({
                   No status updates from your contacts
                 </p>
               ) : (
-                Object.entries(contactStatuses).map(([, statuses]) =>
-                  statuses.map((status: StatusItem) => (
-                    <div
-                      key={status.id}
-                      onClick={() => handleStatusView(status.id)}
-                      className="cursor-pointer"
-                    >
-                      <StatusCard
-                        status={{
-                          user: status.name,
-                          avatar: status.avatar,
-                          type: status.type,
-                          timestamp: status.timestamp,
-                          views: status.views,
-                        }}
-                        theme={theme}
-                      />
+                Object.entries(contactStatuses).map(([uid, statuses]) => (
+                  <div key={uid}>
+                    <h4 className="text-sm text-gray-500 mb-2">{statuses[0]?.name || uid}</h4>
+                    <div className="space-y-2">
+                      {statuses.map((status: StatusItem, idx: number) => (
+                        <div
+                          key={status.id}
+                          onClick={() => openViewer(uid, idx)}
+                          className="cursor-pointer"
+                        >
+                          <StatusCard
+                            status={{
+                              user: status.name,
+                              avatar: status.avatar,
+                              type: status.type,
+                              timestamp: status.timestamp,
+                              views: status.views,
+                            }}
+                            theme={theme}
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))
-                )
+                  </div>
+                ))
               )}
             </div>
           </motion.div>
         </motion.div>
       </div>
+      {viewerItems && (
+        // @ts-ignore
+        <StatusViewer items={viewerItems} startIndex={viewerStart} onClose={() => setViewerItems(null)} />
+      )}
     </div>
   );
 }

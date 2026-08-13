@@ -30,6 +30,7 @@ interface ChatWindowHeaderProps {
   onSearch: () => void;
   onBlockToggle: () => void;
   maskedUrl: string;
+  onOpenGroup?: () => void;
 }
 
 export default function ChatWindowHeader({
@@ -39,6 +40,7 @@ export default function ChatWindowHeader({
   headerAvatar,
   isContactOnline,
   isGroup,
+  onOpenGroup,
   showUnreadBanner,
   unreadOnOpen,
   showOptionsMenu,
@@ -55,7 +57,7 @@ export default function ChatWindowHeader({
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 shadow-sm"
+      className="sticky top-0 z-30 border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 shadow-sm backdrop-blur bg-white/70"
       style={{ backgroundColor: `${theme.primary || "#00a884"}19` }}
     >
       <button
@@ -67,13 +69,35 @@ export default function ChatWindowHeader({
 
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="relative shrink-0">
-          <Image
-            src={headerAvatar || "/logo/logo.png"}
-            alt={headerName}
-            width={40}
-            height={40}
-            className="w-10 h-10 rounded-full object-cover"
-          />
+          {isGroup && onOpenGroup ? (
+            <button onClick={onOpenGroup} className="p-0 rounded-full">
+              <Image
+                src={headerAvatar || "/logo/logo.png"}
+                alt={headerName}
+                width={40}
+                height={40}
+                className="w-10 h-10 rounded-full object-cover"
+                onError={(e) => {
+                  try {
+                    (e.currentTarget as HTMLImageElement).src = "/logo/logo.png";
+                  } catch {}
+                }}
+              />
+            </button>
+          ) : (
+            <Image
+              src={headerAvatar || "/logo/logo.png"}
+              alt={headerName}
+              width={40}
+              height={40}
+              className="w-10 h-10 rounded-full object-cover"
+              onError={(e) => {
+                try {
+                  (e.currentTarget as HTMLImageElement).src = "/logo/logo.png";
+                } catch {}
+              }}
+            />
+          )}
 
           {isContactOnline && (
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-[#f0f2f5] rounded-full" />

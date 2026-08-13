@@ -43,7 +43,7 @@ export default function ChatWindowMessageList({
   const renderMessages = messages;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-1.5 w-full min-w-0">
+    <div className="w-full mx-auto space-y-1.5 w-full min-w-0">
       {renderMessages.length === 0 && (
         <div className="text-center text-gray-600 py-6">
           <p className="text-sm">

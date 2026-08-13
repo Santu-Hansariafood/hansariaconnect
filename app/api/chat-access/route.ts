@@ -187,19 +187,46 @@ export async function GET(req: NextRequest) {
     }
 
     // =========================================================
-    // DIRECT CHAT ACCESS GRANTED
+    // DIRECT CHAT ACCESS: Restrict to participants only
     // =========================================================
-    //
-    // IMPORTANT:
-    // We use chatObjectId instead of peerUser._id.
-    //
-    // This avoids the TypeScript error:
-    //
-    // Property '_id' does not exist on type '...[]'
-    //
-    // Since User.findById(chatObjectId) searches by this exact ID,
-    // chatObjectId is already the peer user's ID.
-    // =========================================================
+    // Allow access only if one of the following is true:
+    // - There is an existing Conversation between the current user and peer
+    // - The peer user is saved in the current user's contacts
+    // - The current user is the same as the peer (self-chat)
+    // This prevents arbitrary users from opening another user's chat UI
+    // and potentially seeing encrypted payloads or sending unsolicited requests.
+
+    const Conversation = (await import("@/models/conversation/Conversation")).default;
+    const Contact = (await import("@/models/contact/Contact")).default;
+
+    const isSelf = String(userId) === String(chatObjectId);
+
+    const convExists = await Conversation.exists({
+      $or: [
+        { userA: userId, userB: chatObjectId },
+        { userA: chatObjectId, userB: userId },
+      ],
+    });
+
+    const contactExists = await Contact.exists({
+      userId: userId,
+      $or: [
+        { registeredUserId: String(chatObjectId) },
+        { mobiles: { $in: [peerUser.mobile || ""] } },
+      ],
+    });
+
+    if (!isSelf && !convExists && !contactExists) {
+      return NextResponse.json(
+        {
+          error: "Access denied",
+          access: false,
+        },
+        {
+          status: 403,
+        },
+      );
+    }
 
     return NextResponse.json({
       access: true,

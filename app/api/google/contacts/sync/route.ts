@@ -52,6 +52,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Require explicit confirmation from client before importing contacts.
+  // This prevents automatic imports from occurring without user consent.
+  let confirmed = false;
+  try {
+    const body = await req.json();
+    confirmed = Boolean(body?.confirm === true);
+  } catch {}
+
+  if (!confirmed) {
+    return NextResponse.json({ error: "Import not confirmed" }, { status: 400 });
+  }
+
   const contactsRes = await fetch(
     "https://people.googleapis.com/v1/people/me/connections?personFields=names,phoneNumbers,emailAddresses",
     {

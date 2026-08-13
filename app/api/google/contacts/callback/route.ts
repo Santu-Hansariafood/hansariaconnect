@@ -47,41 +47,8 @@ export async function GET(req: Request) {
   }
   await user.save();
 
-  const contactsRes = await fetch(
-    "https://people.googleapis.com/v1/people/me/connections?personFields=names,phoneNumbers,emailAddresses",
-    {
-      headers: { Authorization: `Bearer ${token.access_token}` },
-    },
-  );
-
-  const contactsData = await contactsRes.json();
-  const importedContacts = (contactsData.connections || []).map((p: any) => ({
-    name: p.names?.[0]?.displayName || "Unknown",
-    mobiles:
-      p.phoneNumbers?.map((ph: any) => (ph.value || "").replace(/\D/g, "")) ||
-      [],
-    email: p.emailAddresses?.[0]?.value || "",
-  }));
-
-  for (const contact of importedContacts) {
-    const hasValidMobile = contact.mobiles?.some(
-      (m: string) => m.length === 10,
-    );
-    if (!hasValidMobile) continue;
-
-    const existing = await Contact.findOne({
-      userId: user._id,
-      $or: contact.mobiles.map((m: string) => ({ mobiles: { $in: [m] } })),
-    });
-    if (existing) continue;
-
-    await Contact.create({
-      userId: user._id,
-      name: contact.name,
-      mobiles: contact.mobiles,
-      email: contact.email,
-    });
-  }
-
-  return NextResponse.redirect("/contacts");
+  // Save tokens and redirect user back to contacts page.
+  // Contacts import should only happen after an explicit user confirmation
+  // to avoid automatic import from Google address book.
+  return NextResponse.redirect("/contacts?google_connected=1");
 }
