@@ -3,6 +3,7 @@
 import React from "react";
 import { format, isSameDay } from "date-fns";
 import MessageBubble from "@/components/ui/MessageBubble/MessageBubble";
+import TypingIndicator from "@/components/ui/TypingIndicator/TypingIndicator";
 import { ChatMessage, GroupMember, Theme, User } from "./ChatWindowTypes";
 
 interface ChatWindowMessageListProps {
@@ -18,6 +19,7 @@ interface ChatWindowMessageListProps {
   showUnreadBanner: boolean;
   unreadOnOpen: number;
   unreadDividerRef: React.RefObject<HTMLDivElement | null>;
+  typingUsers?: string[];
 }
 
 function toSenderId(from?: string | { toString?: () => string }) {
@@ -39,6 +41,7 @@ export default function ChatWindowMessageList({
   showUnreadBanner,
   unreadOnOpen,
   unreadDividerRef,
+  typingUsers = [],
 }: ChatWindowMessageListProps) {
   const renderMessages = messages;
 
@@ -129,6 +132,8 @@ export default function ChatWindowMessageList({
           </React.Fragment>
         );
       })}
+
+      {typingUsers.length > 0 && <TypingIndicator typingUsers={typingUsers} isGroup={isGroup} />}
 
       <div ref={unreadDividerRef} />
     </div>

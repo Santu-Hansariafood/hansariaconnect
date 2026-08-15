@@ -152,9 +152,8 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
   }
 
   return (
-    <div className={`flex-1 flex flex-col overflow-hidden bg-white min-w-0`}>
-      {/* WhatsApp-style sidebar header — NO brand logo */}
-      <div className="h-14 sm:h-[60px] min-h-[56px] bg-[#f0f2f5] border-b border-gray-200 px-3 sm:px-4 flex items-center justify-between relative z-20">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f0f2f5] min-w-0">
+      <div className="h-14 sm:h-[60px] min-h-[56px] px-3 sm:px-4 flex items-center justify-between relative z-20 shadow-sm" style={{backgroundColor: theme.primary}}>
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => router.push("/profile")}
@@ -168,29 +167,30 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
                 alt={user.name || "User"}
                 width={40}
                 height={40}
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ring-white/20"
               />
             ) : (
               <div
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-                style={{ background: "linear-gradient(135deg, #00a884 0%, #008069 100%)" }}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ring-2 ring-white/20"
+                style={{ background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primary}cc 100%)` }}
               >
                 {(user?.name || "U").charAt(0).toUpperCase()}
               </div>
             )}
             <span
-              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-[#f0f2f5] ${
+              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 ${
                 socket?.connected ? "bg-green-500" : "bg-gray-400"
               }`}
+              style={{borderColor: theme.primary}}
             />
           </div>
         </motion.button>
 
-        <div className="flex items-center gap-1 sm:gap-2 text-gray-600">
+        <div className="flex items-center gap-1 sm:gap-2 text-white">
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => router.push("/status")}
-            className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+            className="p-2 rounded-full hover:bg-white/10 transition-colors"
             title="Status"
           >
             <CircleUserRound className="w-5 h-5" />
@@ -199,7 +199,7 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => router.push("/groups")}
-            className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+            className="p-2 rounded-full hover:bg-white/10 transition-colors"
             title="Groups"
           >
             <Users className="w-5 h-5" />
@@ -208,7 +208,7 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowCreateModal(true)}
-            className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+            className="p-2 rounded-full hover:bg-white/10 transition-colors"
             title="New Chat"
           >
             <MessageSquarePlus className="w-5 h-5" />
@@ -218,7 +218,7 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={() => setMenuOpen((v) => !v)}
-              className="p-2 rounded-full hover:bg-gray-200/70 transition-colors"
+              className="p-2 rounded-full hover:bg-white/10 transition-colors"
               title="Menu"
             >
               <MoreVertical className="w-5 h-5" />
@@ -279,21 +279,21 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="px-3 py-2 bg-white"
+          className="bg-[#f0f2f5] px-3 py-2 shadow-[inset_0_-1px_0_#e9edef]"
         >
-          <div className="flex items-center justify-between mb-2 px-1">
-            <h1 className={`text-xl font-semibold text-gray-800 ${theme.textSize}`}>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <h1 className="text-xl font-semibold text-[#111b21]">
               Chats
             </h1>
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setShowCreateModal(true)}
-              className="p-2.5 text-white rounded-full shadow-sm"
-              style={{ background: "linear-gradient(135deg, #00a884 0%, #008069 100%)" }}
+              style={{ backgroundColor: theme.primary }}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm"
               title="New Contact"
             >
-              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
             </motion.button>

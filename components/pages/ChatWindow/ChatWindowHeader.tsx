@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -11,6 +10,32 @@ import {
   CircleUserRound,
 } from "lucide-react";
 import { Theme } from "./ChatWindowTypes";
+
+const getSafeAvatarUrl = (value?: string | null) => {
+  if (!value || typeof value !== "string") {
+    return "/logo/logo.png";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "/logo/logo.png";
+  }
+
+  const normalized = trimmed.replace(/^\s+|\s+$/g, "");
+  if (!normalized || normalized === "null" || normalized === "undefined") {
+    return "/logo/logo.png";
+  }
+
+  if (normalized.startsWith("data:image/") || normalized.startsWith("blob:")) {
+    return normalized;
+  }
+
+  if (/^(https?:)?\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  return normalized;
+};
 
 interface ChatWindowHeaderProps {
   theme: Theme;
@@ -31,6 +56,7 @@ interface ChatWindowHeaderProps {
   onBlockToggle: () => void;
   maskedUrl: string;
   onOpenGroup?: () => void;
+  lastSeenStatus?: string;
 }
 
 export default function ChatWindowHeader({
@@ -52,49 +78,63 @@ export default function ChatWindowHeader({
   onSearch,
   onBlockToggle,
   maskedUrl,
+  lastSeenStatus,
 }: ChatWindowHeaderProps) {
+  const primaryColor = theme.primary || "#0CA678";
+  const borderColor = theme.primary ? theme.primary + "80" : "#0b4d45";
+
   return (
     <motion.header
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="sticky top-0 z-30 border-b border-gray-200 px-4 py-2.5 flex items-center gap-3 shadow-sm backdrop-blur bg-white/70"
-      style={{ backgroundColor: `${theme.primary || "#00a884"}19` }}
+      style={{
+        backgroundColor: primaryColor,
+        borderBottomColor: borderColor,
+      }}
+      className="sticky top-0 z-30 flex items-center gap-3 border-b px-2 py-2 text-white shadow-sm sm:px-3"
     >
       <button
         onClick={onBack}
-        className="p-2 hover:bg-gray-200/70 rounded-full transition-all duration-200"
+        className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-all duration-200 hover:bg-white/10"
+        aria-label="Back to chats"
       >
-        <ArrowLeft className="w-5 h-5 text-gray-600" />
+        <ArrowLeft className="h-5 w-5" />
       </button>
 
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <div className="relative shrink-0">
           {isGroup && onOpenGroup ? (
             <button onClick={onOpenGroup} className="p-0 rounded-full">
-              <Image
-                src={headerAvatar || "/logo/logo.png"}
+              <img
+                src={getSafeAvatarUrl(headerAvatar)}
                 alt={headerName}
                 width={40}
                 height={40}
-                className="w-10 h-10 rounded-full object-cover"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                className="h-10 w-10 rounded-full object-cover ring-2 ring-white/20"
                 onError={(e) => {
-                  try {
-                    (e.currentTarget as HTMLImageElement).src = "/logo/logo.png";
-                  } catch {}
+                  const target = e.currentTarget as HTMLImageElement;
+                  target.onerror = null;
+                  target.src = "/logo/logo.png";
                 }}
               />
             </button>
           ) : (
-            <Image
-              src={headerAvatar || "/logo/logo.png"}
+            <img
+              src={getSafeAvatarUrl(headerAvatar)}
               alt={headerName}
               width={40}
               height={40}
-              className="w-10 h-10 rounded-full object-cover"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              className="h-10 w-10 rounded-full object-cover ring-2 ring-white/20"
               onError={(e) => {
-                try {
-                  (e.currentTarget as HTMLImageElement).src = "/logo/logo.png";
-                } catch {}
+                const target = e.currentTarget as HTMLImageElement;
+                target.onerror = null;
+                target.src = "/logo/logo.png";
               }}
             />
           )}
@@ -105,11 +145,15 @@ export default function ChatWindowHeader({
         </div>
 
         <div className="flex flex-col min-w-0">
-          <h2 className="font-semibold text-gray-800 text-[15px] truncate">
+          <h2 className="truncate text-[15px] font-semibold text-white">
             {headerName}
           </h2>
-          <span className={`text-[12px] truncate ${!isGroup && isContactOnline ? "text-green-600" : "text-gray-500"}`}>
-            {isGroup ? "Group chat" : isContactOnline ? "online" : "Offline"}
+          <span className={`truncate text-[12px] ${
+            !isGroup && (isContactOnline || lastSeenStatus?.includes("online"))
+              ? "text-emerald-200"
+              : "text-gray-200"
+          }`}>
+            {isGroup ? "Group chat" : lastSeenStatus || (isContactOnline ? "online" : "offline")}
           </span>
         </div>
 
@@ -123,9 +167,9 @@ export default function ChatWindowHeader({
       <div className="relative">
         <button
           onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-          className="p-2 hover:bg-gray-200/70 rounded-full transition-all duration-200"
+          className="rounded-full p-2 text-white transition-all duration-200 hover:bg-white/10"
         >
-          <MoreVertical className="w-5 h-5 text-gray-600" />
+          <MoreVertical className="h-5 w-5" />
         </button>
 
         {showOptionsMenu && (

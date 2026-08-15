@@ -12,9 +12,11 @@ import {
   CheckCheck,
   Forward,
   Paperclip,
+  Smile,
 } from "lucide-react"
 import Image from "next/image"
 import React, { useState } from "react"
+import ReactionPicker from "@/components/ui/ReactionPicker/ReactionPicker"
 import {
   extractLinks,
   validateUrl,
@@ -36,6 +38,7 @@ interface Message {
   linkDescription?: string
   timestamp: string | Date
   status?: "sent" | "delivered" | "seen" | "sending" | "failed"
+  reactions?: Record<string, number>
   duration?: number
 }
 
@@ -75,6 +78,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const isSent = message.sender === "me"
   const senderName = isSent ? user.name : contact.name
   const [isHovered, setIsHovered] = useState(false)
+  const [showReactions, setShowReactions] = useState(false)
+  const [localReactions, setLocalReactions] = useState<Record<string, number>>(message.reactions || {})
 
   const textContent = message.text || ""
 
@@ -87,6 +92,44 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const displaySenderAvatar = !isSent && isGroup && showSenderInfo
   const displaySenderName = !isSent && isGroup && showSenderInfo
+
+  const renderStatusIcon = () => {
+    if (message.status === "sending") {
+      return <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400/40 border-t-gray-500/80" />
+    }
+
+    if (message.status === "failed") {
+      return <span className="text-[10px] font-medium leading-none text-red-500">Failed</span>
+    }
+
+    if (message.status === "seen") {
+      return (
+        <div className="flex items-center">
+          <Check className="h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} />
+          <Check className="-ml-1.5 h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} />
+        </div>
+      )
+    }
+
+    if (message.status === "delivered") {
+      return (
+        <div className="flex items-center">
+          <Check className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
+          <Check className="-ml-1.5 h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
+        </div>
+      )
+    }
+
+    return <Check className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
+  }
+
+  const handleReaction = (emoji: string) => {
+    setLocalReactions((prev) => ({
+      ...prev,
+      [emoji]: (prev[emoji] ?? 0) + 1,
+    }))
+    setShowReactions(false)
+  }
 
   return (
     <motion.div
@@ -119,14 +162,24 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           {isHovered && onForward && (
             <button
               onClick={onForward}
-              className="p-1.5 hover:bg-gray-200/80 rounded-full transition-colors mb-1 flex-shrink-0"
+              className="mb-1 flex-shrink-0 rounded-full p-1.5 transition-colors hover:bg-gray-200/80"
               title="Forward message"
             >
-              <Forward className="w-3.5 h-3.5 text-gray-500" />
+              <Forward className="h-3.5 w-3.5 text-gray-500" />
             </button>
           )}
 
-          <div>
+          {isHovered && (
+            <button
+              onClick={() => setShowReactions((prev) => !prev)}
+              className="mb-1 flex-shrink-0 rounded-full p-1.5 transition-colors hover:bg-gray-200/80"
+              title="Add reaction"
+            >
+              <Smile className="h-3.5 w-3.5 text-gray-500" />
+            </button>
+          )}
+
+          <div className="relative">
             {displaySenderName && (
               <p
                 className={`text-[12.8px] font-medium text-[#111b21] mb-1 ml-2`}
@@ -136,12 +189,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             )}
 
             <div
-              className={`px-[8px] pb-[4px] pt-[6px] ${
+              onClick={() => setShowReactions((prev) => !prev)}
+              className={`cursor-pointer px-[10px] pb-[6px] pt-[7px] ${
                 theme.textSize || "text-[14.2px]"
               } ${
                 isSent
-                  ? "bg-[#d9fdd3] text-[#111b21] rounded-tr-none rounded-2xl"
-                  : "bg-white text-[#111b21] rounded-tl-none rounded-2xl shadow-sm"
+                  ? "rounded-2xl rounded-tr-md bg-[#d9fdd3] text-[#111b21]"
+                  : "rounded-2xl rounded-tl-md bg-white text-[#111b21] shadow-sm"
               } ${
                 harmful.hasWarning
                   ? isSent
@@ -392,33 +446,36 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              <div className="inline-block float-right clear-both ml-1 mb-[-2px] mt-1 select-none">
-                <div className="flex items-center justify-end gap-0.5 h-[15px]">
-                  <span
-                    className={`text-[11px] leading-none font-normal tracking-tight ${
-                      isSent ? "text-[#667781] opacity-90" : "text-[#667781] opacity-90"
-                    }`}
-                  >
+              {Object.keys(localReactions).length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {Object.entries(localReactions).map(([emoji, count]) => (
+                    <motion.span
+                      key={emoji}
+                      whileHover={{ scale: 1.1 }}
+                      className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white/90 px-1.5 py-0.5 text-[11px] shadow-sm cursor-pointer hover:bg-white"
+                    >
+                      <span>{emoji}</span>
+                      {count > 1 && <span className="ml-0.5 font-medium">{count}</span>}
+                    </motion.span>
+                  ))}
+                </div>
+              )}
+
+              {showReactions && (
+                <ReactionPicker
+                  onReactionSelect={handleReaction}
+                  onClose={() => setShowReactions(false)}
+                  position="top"
+                />
+              )}
+
+              <div className="float-right clear-both ml-1 mb-[-2px] mt-1 inline-block select-none">
+                <div className="flex h-[15px] items-center justify-end gap-0.5">
+                  <span className="text-[11px] font-normal leading-none tracking-tight text-[#667781] opacity-90">
                     {format(new Date(message.timestamp), "h:mm a").toLowerCase()}
                   </span>
                   {isSent && (
-                    <span className="flex items-center ml-0.5">
-                      {message.status === "sending" && (
-                        <div className="w-3 h-3 border-2 border-gray-400/40 border-t-gray-500/80 rounded-full animate-spin" />
-                      )}
-                      {message.status === "failed" && (
-                        <span className="text-red-500 text-[10px] font-medium leading-none">Failed</span>
-                      )}
-                      {message.status === "sent" && (
-                        <Check className="w-[16px] h-[16px] text-[#53bdeb] -mr-[2px]" strokeWidth={2.5} />
-                      )}
-                      {message.status === "delivered" && (
-                        <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] -mr-[2px]" strokeWidth={2.5} />
-                      )}
-                      {message.status === "seen" && (
-                        <CheckCheck className="w-[16px] h-[16px] text-[#53bdeb] -mr-[2px]" strokeWidth={2.5} fill="#53bdeb" fillOpacity={0.25} />
-                      )}
-                    </span>
+                    <span className="ml-0.5 flex items-center">{renderStatusIcon()}</span>
                   )}
                 </div>
               </div>

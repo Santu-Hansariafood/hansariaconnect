@@ -12,45 +12,64 @@ export const useChatSocket = (
 
   const handleNewDirectMessage = useCallback((msg: any) => {
     if (isGroup) return
-    if (msg?.from?.toString?.() === id || String(msg?.from) === id) {
-      onIncomingMessage?.(msg);
-      setChatMessages((prev) => mergeUnique(prev, [msg]));
-      try {
-        socket?.emit("message:status", { id: msg?._id?.toString?.(), status: "delivered" }, (ack: any) => {
+
+    const senderId = msg?.from?.toString?.() ?? String(msg?.from ?? "")
+    const recipientId = msg?.to?.toString?.() ?? String(msg?.to ?? "")
+    const matchesChat = senderId === id || recipientId === id
+
+    if (!matchesChat) return
+
+    onIncomingMessage?.(msg)
+    setChatMessages((prev) => mergeUnique(prev, [msg]))
+
+    try {
+      socket?.emit(
+        "message:status",
+        { id: msg?._id?.toString?.(), status: "delivered" },
+        (ack: any) => {
           if (ack?.ok && ack?.message?._id) {
             const mid = ack.message._id?.toString?.()
             if (mid) {
-              setChatMessages((prev) => prev.map((m: any) => {
-                const idStr = m?._id?.toString?.()
-                if (idStr && idStr === mid) return { ...m, status: ack.message.status }
-                return m
-              }))
+              setChatMessages((prev) =>
+                prev.map((m: any) => {
+                  const idStr = m?._id?.toString?.()
+                  if (idStr && idStr === mid) return { ...m, status: ack.message.status }
+                  return m
+                })
+              )
             }
           }
-        })
-        setTimeout(() => {
-          socket?.emit("message:status", { id: msg?._id?.toString?.(), status: "seen" }, (ack: any) => {
+        }
+      )
+
+      setTimeout(() => {
+        socket?.emit(
+          "message:status",
+          { id: msg?._id?.toString?.(), status: "seen" },
+          (ack: any) => {
             if (ack?.ok && ack?.message?._id) {
               const mid = ack.message._id?.toString?.()
               if (mid) {
-                setChatMessages((prev) => prev.map((m: any) => {
-                  const idStr = m?._id?.toString?.()
-                  if (idStr && idStr === mid) return { ...m, status: ack.message.status }
-                }))
+                setChatMessages((prev) =>
+                  prev.map((m: any) => {
+                    const idStr = m?._id?.toString?.()
+                    if (idStr && idStr === mid) return { ...m, status: ack.message.status }
+                    return m
+                  })
+                )
               }
             }
-          })
-        }, 500)
-        try {
-          fetch('/api/read-receipts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ peerId: id })
-          })
-        } catch {}
-      } catch {}
-    }
+          }
+        )
+      }, 500)
+
+      fetch('/api/read-receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ peerId: id })
+      }).catch(() => {})
+    } catch {}
   }, [id, setChatMessages, mergeUnique, socket, isGroup, onIncomingMessage])
 
   const handleNewGroupMessage = useCallback((msg: any) => {

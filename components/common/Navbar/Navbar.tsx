@@ -38,9 +38,13 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
     <motion.nav
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="bg-[#f0f2f5] border-b border-gray-200 shadow-sm sticky top-0 z-50"
+      style={{
+        backgroundColor: theme.primary,
+        borderBottomColor: theme.primary + "80",
+      }}
+      className="border-b shadow-md sticky top-0 z-50"
     >
-      <div className="max-w-7xl mx-auto px-2 sm:px-4">
+      <div className="px-2 sm:px-4">
         <div className="flex items-center justify-between h-14 sm:h-16">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <motion.button
@@ -48,7 +52,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden shadow-md ring-1 ring-black/5"
+              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden shadow-md ring-1 ring-white/20"
             >
               <Image
                 src="/logo/logo.png"
@@ -59,6 +63,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 priority
               />
             </motion.button>
+
+            <h1 className="text-white font-bold text-base sm:text-lg">HansariaConnect</h1>
           </div>
 
           <div className="hidden md:flex items-center gap-1">
@@ -75,14 +81,13 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                   onClick={() => router.push(item.path)}
                   className={`relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                     isActive
-                      ? ""
-                      : "text-gray-600 hover:bg-gray-200/60"
+                      ? "text-white"
+                      : "text-gray-100 hover:bg-white/10"
                   }`}
                   style={
                     isActive
                       ? {
-                          backgroundColor: `#d1fae5`,
-                          color: `#047857`,
+                          backgroundColor: `rgba(255, 255, 255, 0.2)`,
                         }
                       : undefined
                   }
@@ -91,7 +96,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                   <span className="text-sm hidden lg:inline">{item.label}</span>
 
                   {hasUnread && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-[#00a884] text-white text-[10px] rounded-full flex items-center justify-center font-bold min-w-4.5 h-4.5 px-1">
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold min-w-4.5 h-4.5 px-1">
                       {item.count > 99 ? "99+" : item.count}
                     </span>
                   )}
@@ -101,10 +106,16 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            {isSelfOnline && (
+              <span className="hidden sm:inline text-xs text-white px-2 py-1 rounded-full" style={{backgroundColor: theme.primary + "60"}}>
+                Online
+              </span>
+            )}
+
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => router.push("/profile")}
-              className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 py-1.5 rounded-lg hover:bg-gray-200/60 transition-all duration-200"
+              className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-all duration-200"
             >
               <div className="relative flex-shrink-0">
                 {navUser.photo ? (
@@ -113,12 +124,12 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                     alt={navUser.name || "User"}
                     width={34}
                     height={34}
-                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover"
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-white/20"
                   />
                 ) : (
                   <div
-                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm"
-                    style={{ background: `linear-gradient(135deg, #00a884 0%, #008069 100%)` }}
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm bg-white/20 ring-2 ring-white/20"
+                    style={{ background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primary}cc 100%)` }}
                   >
                     {(navUser.name || "U").charAt(0).toUpperCase()}
                   </div>
@@ -134,11 +145,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               </div>
 
               <div className="hidden md:flex flex-col items-start min-w-0 max-w-35">
-                <span className="font-medium text-gray-800 text-sm leading-tight truncate w-full">
+                <span className="font-medium text-white text-sm leading-tight truncate w-full">
                   {navUser.name || "User"}
                 </span>
                 <span className={`text-[11px] leading-tight truncate w-full ${
-                  isSelfOnline ? "text-green-600" : "text-gray-500"
+                  isSelfOnline ? "text-emerald-100" : "text-gray-200"
                 }`}>
                   {isSelfOnline ? "online" : "offline"}
                 </span>
@@ -149,7 +160,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               <motion.button
                 whileTap={{ scale: 0.92 }}
                 onClick={onLogout}
-                className="p-2 text-gray-600 hover:bg-gray-200/60 rounded-lg transition-all duration-200"
+                className="p-2 text-white/70 hover:bg-white/10 rounded-lg transition-all duration-200"
                 title="Logout"
               >
                 <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -158,7 +169,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           </div>
         </div>
 
-        <div className="md:hidden flex items-center justify-around py-1.5 border-t border-gray-200 bg-[#f0f2f5] overflow-x-auto">
+        <div className="md:hidden flex items-center justify-around py-1.5 border-t overflow-x-auto" style={{borderTopColor: theme.primary + "80", backgroundColor: theme.primary}}>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.path;
@@ -170,22 +181,14 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 whileTap={{ scale: 0.92 }}
                 onClick={() => router.push(item.path)}
                 className={`relative flex flex-col items-center gap-0.5 p-1.5 sm:p-2 rounded-lg transition-all duration-200 flex-1 min-w-13 ${
-                  isActive ? "" : "text-gray-600 hover:bg-gray-200/50"
+                  isActive ? "text-white bg-white/20" : "text-gray-100 hover:bg-white/10"
                 }`}
-                style={
-                  isActive
-                    ? {
-                        color: "#047857",
-                        backgroundColor: `#d1fae5`,
-                      }
-                    : undefined
-                }
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 <span className="text-[10px] sm:text-[11px] font-medium truncate max-w-16">{item.label}</span>
 
                 {hasUnread && (
-                  <span className="absolute top-0 right-0.5 bg-[#00a884] text-white text-[9px] rounded-full flex items-center justify-center font-bold min-w-4 h-4 px-1">
+                  <span className="absolute top-0 right-0.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold min-w-4 h-4 px-1">
                     {item.count > 9 ? "9+" : item.count}
                   </span>
                 )}

@@ -51,6 +51,7 @@ export interface ChatMessage {
   linkDescription?: string
   duration?: number
   status?: "sent" | "delivered" | "seen" | "sending" | "failed"
+  reactions?: Record<string, number>
   createdAt?: string | Date
   timestamp?: string | Date
 }

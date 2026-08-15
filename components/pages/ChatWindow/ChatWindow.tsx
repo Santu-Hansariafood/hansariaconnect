@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation";
 import { useChatSocket } from "@/hooks/chatwindow/useChatSocket";
 import { useSocket } from "@/hooks/useSocket";
+import { useLastSeen } from "@/hooks/useLastSeen";
 import { useUnreadBehavior } from "@/hooks/chatwindow/useUnreadBehavior";
 import { useInfiniteScroll } from "@/hooks/chatwindow/useInfiniteScroll";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -617,6 +618,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     [chatMessages, searchQuery, searchResults, showSearch]
   );
 
+  const { statusText: lastSeenStatus } = useLastSeen(!isGroup ? chatId : undefined);
+
   if (initialLoading) {
     return (
       <div className={`min-h-screen ${theme.wallpaper || ""}`}>
@@ -626,7 +629,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   }
 
   return (
-    <div className="min-h-screen w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden h-screen">
+    <div className="h-full w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden">
       <ChatWindowHeader
         theme={theme}
         onBack={onBack || (() => router.push("/"))}
@@ -646,6 +649,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         onSearch={() => setShowSearch(true)}
         onBlockToggle={handleBlockToggle}
         maskedUrl={maskedUrl}
+        lastSeenStatus={lastSeenStatus}
       />
 
       {showSearch && (

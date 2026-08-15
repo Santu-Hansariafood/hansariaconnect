@@ -122,11 +122,9 @@ const ContactCard: React.FC<ContactCardProps> = ({
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`px-4 py-3 cursor-pointer relative transition-colors ${
-        active
-          ? "bg-gray-100"
-          : "hover:bg-[#f5f6f6]"
-      } border-b border-gray-100`}
+      className={`relative cursor-pointer px-4 py-3 transition-colors ${
+        active ? "bg-[#ebebeb]" : "hover:bg-[#f5f6f6]"
+      } border-b border-[#ececec]`}
     >
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
@@ -147,13 +145,13 @@ const ContactCard: React.FC<ContactCardProps> = ({
         <div className="flex-1 min-w-0 py-1">
           <div className="flex items-center justify-between mb-0.5">
             <div className="flex items-center gap-1.5 min-w-0">
-              {contact.pinned && <Pin className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" fill="currentColor" />}
-              <h3 className={`font-semibold text-gray-900 truncate text-[16px] ${theme.textSize ?? ""}`}>
+              {contact.pinned && <Pin className="w-3.5 h-3.5 text-[#667781] flex-shrink-0" fill="currentColor" />}
+              <h3 className={`truncate text-[16px] font-semibold text-[#111b21] ${theme.textSize ?? ""}`}>
                 {contact.name}
               </h3>
             </div>
-            <span className={`text-[12px] flex-shrink-0 ml-2 ${
-              contact.unread > 0 ? "text-[#00a884] font-medium" : "text-gray-500"
+            <span className={`ml-2 flex-shrink-0 text-[12px] ${
+              contact.unread > 0 ? "font-medium text-[#0a9488]" : "text-[#667781]"
             }`}>
               {(() => {
                 const d = new Date(contact.lastMessageTime)
@@ -172,14 +170,11 @@ const ContactCard: React.FC<ContactCardProps> = ({
             </span>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm text-gray-500 truncate text-[14px] leading-5">
+            <p className="truncate text-[14px] leading-5 text-[#667781]">
               {contact.lastMessage}
             </p>
             {contact.unread > 0 && (
-              <span
-                className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center text-[11px] font-semibold text-white"
-                style={{ backgroundColor: "#00a884" }}
-              >
+              <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
                 {contact.unread > 99 ? "99+" : contact.unread}
               </span>
             )}

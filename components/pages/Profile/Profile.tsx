@@ -234,7 +234,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                   onClick={handleSave}
                   disabled={!hasChanges || isSaving}
                   className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{ backgroundColor: "#00a884" }}
+                  style={{ backgroundColor: theme.primary }}
                 >
                   {isSaving ? (
                     <LoaderCircle className="h-4 w-4 animate-spin" />

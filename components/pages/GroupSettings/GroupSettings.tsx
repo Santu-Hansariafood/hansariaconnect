@@ -5,13 +5,13 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Camera,
   Edit2,
   UserPlus,
   UserMinus,
   Shield,
 } from "lucide-react";
+import WhatsAppHeader from "@/components/common/WhatsAppHeader/WhatsAppHeader";
 import { groups, contacts } from "@/data/mockData";
 import { fadeIn } from "@/utils/animations/animations";
 type Theme = {
@@ -73,25 +73,13 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
 
   return (
     <div className={`min-h-screen ${theme.wallpaper}`}>
-      <motion.header
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="bg-white border-b border-gray-200 px-4 py-4 shadow-sm"
-      >
-        <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <button
-            onClick={() => router.push("/groups")}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" style={{ color: theme.primary }} />
-          </button>
-          <h1
-            className={`text-2xl font-bold text-gray-800 ${theme.textSize || ""}`}
-          >
-            Group Settings
-          </h1>
-        </div>
-      </motion.header>
+      <WhatsAppHeader
+        title={groupData.name}
+        subtitle={`${groupData.members.length} members`}
+        avatar={groupData.avatar}
+        onBack={() => router.push("/groups")}
+        showMoreButton={isAdmin}
+      />
       <div className="max-w-4xl mx-auto px-4 py-6">
         <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mb-6">
           <div className="flex items-center gap-6 mb-6">

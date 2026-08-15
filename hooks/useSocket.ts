@@ -78,7 +78,14 @@ export const useSocket = () => {
   }, []);
 
   const addListener = useCallback((type: string, handler: (...args: any[]) => void) => {
-    socketListeners.push({ type, handler });
+    const alreadyRegistered = socketListeners.some(
+      (listener) => listener.type === type && listener.handler === handler
+    );
+
+    if (!alreadyRegistered) {
+      socketListeners.push({ type, handler });
+    }
+
     if (socketInstance) {
       socketInstance.on(type, handler);
     }

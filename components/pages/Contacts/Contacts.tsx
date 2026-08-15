@@ -366,7 +366,8 @@ export default function Contacts({ user, theme }: Props) {
                         {c.registered ? (
                           <button
                             onClick={() => router.push(`/chat/${c.registeredUserId}`)}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00a884] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#008069]"
+                            style={{ backgroundColor: theme.primary }}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
                           >
                             <FaWhatsapp className="w-4 h-4" />
                             Send Message
