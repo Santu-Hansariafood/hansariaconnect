@@ -48,9 +48,17 @@ export default function ChatWindowModals({
     <>
       {showSaveModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Save Contact</h3>
-            {saveError && <div className="text-red-600 text-sm mb-2">{saveError}</div>}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Save Contact
+            </h3>
+            {saveError && (
+              <div className="text-red-600 text-sm mb-2">{saveError}</div>
+            )}
             <div className="space-y-3">
               <label className="text-sm font-medium text-gray-700">Name</label>
               <input
@@ -61,7 +69,12 @@ export default function ChatWindowModals({
               />
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowSaveModal(false)} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700">Cancel</button>
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700"
+              >
+                Cancel
+              </button>
               <button
                 onClick={onSaveContact}
                 disabled={savingContact}
@@ -77,9 +90,17 @@ export default function ChatWindowModals({
 
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Edit Contact Name</h3>
-            {editError && <div className="text-red-600 text-sm mb-2">{editError}</div>}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Edit Contact Name
+            </h3>
+            {editError && (
+              <div className="text-red-600 text-sm mb-2">{editError}</div>
+            )}
             <div className="space-y-3">
               <label className="text-sm font-medium text-gray-700">Name</label>
               <input
@@ -90,7 +111,12 @@ export default function ChatWindowModals({
               />
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700">Cancel</button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700"
+              >
+                Cancel
+              </button>
               <button
                 onClick={onEditContact}
                 className="px-4 py-2 rounded-xl text-white"
@@ -105,13 +131,25 @@ export default function ChatWindowModals({
 
       {showClearConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Clear Chat</h3>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Clear Chat
+            </h3>
             <p className="text-sm text-gray-600">
-              This will remove all messages from this conversation locally. Are you sure?
+              This will remove all messages from this conversation locally. Are
+              you sure?
             </p>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowClearConfirm(false)} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700">Cancel</button>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700"
+              >
+                Cancel
+              </button>
               <button
                 onClick={() => {
                   onClearChat();

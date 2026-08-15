@@ -50,7 +50,9 @@ export default function ChatWindowMessageList({
       {renderMessages.length === 0 && (
         <div className="text-center text-gray-600 py-6">
           <p className="text-sm">
-            {isGroup ? `No messages in ${headerName}. Start the conversation!` : `New chat with ${headerName}. Start typing or send media.`}
+            {isGroup
+              ? `No messages in ${headerName}. Start the conversation!`
+              : `New chat with ${headerName}. Start typing or send media.`}
           </p>
         </div>
       )}
@@ -67,9 +69,13 @@ export default function ChatWindowMessageList({
         const fromStr = toSenderId(msg.from);
         const isIncoming = fromStr === id;
 
-        const currentDate = new Date(msg.timestamp || msg.createdAt || Date.now());
+        const currentDate = new Date(
+          msg.timestamp || msg.createdAt || Date.now(),
+        );
         const prevMsg = idx > 0 ? arr[idx - 1] : null;
-        const prevDate = prevMsg ? new Date(prevMsg.timestamp || prevMsg.createdAt || Date.now()) : null;
+        const prevDate = prevMsg
+          ? new Date(prevMsg.timestamp || prevMsg.createdAt || Date.now())
+          : null;
         const showDateDivider = !prevDate || !isSameDay(currentDate, prevDate);
 
         const firstUnread = arr.findIndex((m) => {
@@ -80,9 +86,15 @@ export default function ChatWindowMessageList({
         const bubbleContact = (() => {
           if (isGroup && isIncoming) {
             const senderId = fromStr;
-            const member = groupMembers.find((memberItem) => String(memberItem.id) === String(senderId));
+            const member = groupMembers.find(
+              (memberItem) => String(memberItem.id) === String(senderId),
+            );
             if (member) {
-              return { id: member.id, name: member.name, avatar: member.avatar || "/logo/logo.png" };
+              return {
+                id: member.id,
+                name: member.name,
+                avatar: member.avatar || "/logo/logo.png",
+              };
             }
           }
           return { id, name: headerName, avatar: headerAvatar };
@@ -90,7 +102,10 @@ export default function ChatWindowMessageList({
 
         return (
           <React.Fragment
-            key={msg._id?.toString() || `${fromStr}-${msg.to || ""}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ""}`}
+            key={
+              msg._id?.toString() ||
+              `${fromStr}-${msg.to || ""}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ""}`
+            }
           >
             {showDateDivider && (
               <div className="flex justify-center my-4">
@@ -115,7 +130,8 @@ export default function ChatWindowMessageList({
                 text: msg.text,
                 media: msg.mediaUrl,
                 url: msg.mediaUrl || undefined,
-                timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
+                timestamp:
+                  msg.timestamp || msg.createdAt || new Date().toISOString(),
                 status: msg.status || "sent",
                 duration: msg.duration,
                 fileName: msg.fileName,
@@ -133,7 +149,9 @@ export default function ChatWindowMessageList({
         );
       })}
 
-      {typingUsers.length > 0 && <TypingIndicator typingUsers={typingUsers} isGroup={isGroup} />}
+      {typingUsers.length > 0 && (
+        <TypingIndicator typingUsers={typingUsers} isGroup={isGroup} />
+      )}
 
       <div ref={unreadDividerRef} />
     </div>

@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from "react"
-import { useSocket } from "../useSocket"
+import { useEffect, useCallback } from "react";
+import { useSocket } from "../useSocket";
 
 export const useChatSocket = (
   id: string,
@@ -8,109 +8,128 @@ export const useChatSocket = (
   onIncomingMessage?: (msg: any) => void,
   isGroup: boolean = false,
 ) => {
-  const { socket, addListener, removeListener } = useSocket()
+  const { socket, addListener, removeListener } = useSocket();
 
-  const handleNewDirectMessage = useCallback((msg: any) => {
-    if (isGroup) return
+  const handleNewDirectMessage = useCallback(
+    (msg: any) => {
+      if (isGroup) return;
 
-    const senderId = msg?.from?.toString?.() ?? String(msg?.from ?? "")
-    const recipientId = msg?.to?.toString?.() ?? String(msg?.to ?? "")
-    const matchesChat = senderId === id || recipientId === id
+      const senderId = msg?.from?.toString?.() ?? String(msg?.from ?? "");
+      const recipientId = msg?.to?.toString?.() ?? String(msg?.to ?? "");
+      const matchesChat = senderId === id || recipientId === id;
 
-    if (!matchesChat) return
+      if (!matchesChat) return;
 
-    onIncomingMessage?.(msg)
-    setChatMessages((prev) => mergeUnique(prev, [msg]))
+      onIncomingMessage?.(msg);
+      setChatMessages((prev) => mergeUnique(prev, [msg]));
 
-    try {
-      socket?.emit(
-        "message:status",
-        { id: msg?._id?.toString?.(), status: "delivered" },
-        (ack: any) => {
-          if (ack?.ok && ack?.message?._id) {
-            const mid = ack.message._id?.toString?.()
-            if (mid) {
-              setChatMessages((prev) =>
-                prev.map((m: any) => {
-                  const idStr = m?._id?.toString?.()
-                  if (idStr && idStr === mid) return { ...m, status: ack.message.status }
-                  return m
-                })
-              )
-            }
-          }
-        }
-      )
-
-      setTimeout(() => {
+      try {
         socket?.emit(
           "message:status",
-          { id: msg?._id?.toString?.(), status: "seen" },
+          { id: msg?._id?.toString?.(), status: "delivered" },
           (ack: any) => {
             if (ack?.ok && ack?.message?._id) {
-              const mid = ack.message._id?.toString?.()
+              const mid = ack.message._id?.toString?.();
               if (mid) {
                 setChatMessages((prev) =>
                   prev.map((m: any) => {
-                    const idStr = m?._id?.toString?.()
-                    if (idStr && idStr === mid) return { ...m, status: ack.message.status }
-                    return m
-                  })
-                )
+                    const idStr = m?._id?.toString?.();
+                    if (idStr && idStr === mid)
+                      return { ...m, status: ack.message.status };
+                    return m;
+                  }),
+                );
               }
             }
-          }
-        )
-      }, 500)
+          },
+        );
 
-      fetch('/api/read-receipts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ peerId: id })
-      }).catch(() => {})
-    } catch {}
-  }, [id, setChatMessages, mergeUnique, socket, isGroup, onIncomingMessage])
+        setTimeout(() => {
+          socket?.emit(
+            "message:status",
+            { id: msg?._id?.toString?.(), status: "seen" },
+            (ack: any) => {
+              if (ack?.ok && ack?.message?._id) {
+                const mid = ack.message._id?.toString?.();
+                if (mid) {
+                  setChatMessages((prev) =>
+                    prev.map((m: any) => {
+                      const idStr = m?._id?.toString?.();
+                      if (idStr && idStr === mid)
+                        return { ...m, status: ack.message.status };
+                      return m;
+                    }),
+                  );
+                }
+              }
+            },
+          );
+        }, 500);
 
-  const handleNewGroupMessage = useCallback((msg: any) => {
-    if (!isGroup) return
-    if (String(msg?.groupId) === id) {
-      onIncomingMessage?.(msg);
-      setChatMessages((prev) => mergeUnique(prev, [msg]));
-      try {
-        fetch('/api/read-receipts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ groupId: id })
-        })
+        fetch("/api/read-receipts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ peerId: id }),
+        }).catch(() => {});
       } catch {}
-    }
-  }, [id, setChatMessages, mergeUnique, isGroup, onIncomingMessage])
+    },
+    [id, setChatMessages, mergeUnique, socket, isGroup, onIncomingMessage],
+  );
 
-  const handleStatusUpdate = useCallback((data: any) => {
-    if (data?.id) {
-      setChatMessages((prev) => prev.map((m: any) => {
-        const idStr = m?._id?.toString?.()
-        if (idStr && idStr === data.id) return { ...m, status: data.status }
-        return m
-      }))
-    }
-  }, [setChatMessages])
+  const handleNewGroupMessage = useCallback(
+    (msg: any) => {
+      if (!isGroup) return;
+      if (String(msg?.groupId) === id) {
+        onIncomingMessage?.(msg);
+        setChatMessages((prev) => mergeUnique(prev, [msg]));
+        try {
+          fetch("/api/read-receipts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ groupId: id }),
+          });
+        } catch {}
+      }
+    },
+    [id, setChatMessages, mergeUnique, isGroup, onIncomingMessage],
+  );
+
+  const handleStatusUpdate = useCallback(
+    (data: any) => {
+      if (data?.id) {
+        setChatMessages((prev) =>
+          prev.map((m: any) => {
+            const idStr = m?._id?.toString?.();
+            if (idStr && idStr === data.id)
+              return { ...m, status: data.status };
+            return m;
+          }),
+        );
+      }
+    },
+    [setChatMessages],
+  );
 
   useEffect(() => {
-    addListener("message:new", handleNewDirectMessage)
-    addListener("group:message:new", handleNewGroupMessage)
-    addListener("message:status:update", handleStatusUpdate)
+    addListener("message:new", handleNewDirectMessage);
+    addListener("group:message:new", handleNewGroupMessage);
+    addListener("message:status:update", handleStatusUpdate);
 
     return () => {
-      removeListener("message:new", handleNewDirectMessage)
-      removeListener("group:message:new", handleNewGroupMessage)
-      removeListener("message:status:update", handleStatusUpdate)
-    }
-  }, [addListener, removeListener, handleNewDirectMessage, handleNewGroupMessage, handleStatusUpdate])
+      removeListener("message:new", handleNewDirectMessage);
+      removeListener("group:message:new", handleNewGroupMessage);
+      removeListener("message:status:update", handleStatusUpdate);
+    };
+  }, [
+    addListener,
+    removeListener,
+    handleNewDirectMessage,
+    handleNewGroupMessage,
+    handleStatusUpdate,
+  ]);
 
-  // Polling fallback: periodically fetch latest messages in case socket events are missed
   useEffect(() => {
     if (!id) return;
 
@@ -120,7 +139,10 @@ export const useChatSocket = (
         const endpoint = isGroup
           ? `/api/groups/${id}/messages?all=true&last=true`
           : `/api/messages/${id}?all=true&last=true`;
-        const res = await fetch(`${endpoint}&t=${Date.now()}`, { credentials: "include", cache: "no-store" });
+        const res = await fetch(`${endpoint}&t=${Date.now()}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
         if (!res.ok) return;
         const data = await res.json();
         if (Array.isArray(data?.messages) && data.messages.length > 0) {
@@ -131,7 +153,6 @@ export const useChatSocket = (
       }
     };
 
-    // initial fetch and then poll every 5s
     fetchLatest();
     interval = setInterval(fetchLatest, 5000);
 
@@ -140,5 +161,5 @@ export const useChatSocket = (
     };
   }, [id, isGroup, setChatMessages, mergeUnique]);
 
-  return socket
-}
+  return socket;
+};

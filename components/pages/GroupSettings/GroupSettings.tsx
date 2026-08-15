@@ -1,19 +1,18 @@
 "use client";
 
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, Suspense } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Camera,
-  Edit2,
-  UserPlus,
-  UserMinus,
-  Shield,
-} from "lucide-react";
-import WhatsAppHeader from "@/components/common/WhatsAppHeader/WhatsAppHeader";
+import { Camera, Edit2, UserPlus, UserMinus, Shield } from "lucide-react";
 import { groups, contacts } from "@/data/mockData";
 import { fadeIn } from "@/utils/animations/animations";
+import Loading from "@/components/common/Loading/Loading";
+import dynamic from "next/dynamic";
+const WhatsAppHeader = dynamic(
+  () => import("@/components/common/WhatsAppHeader/WhatsAppHeader"),
+);
+
 type Theme = {
   wallpaper: string;
   primary: string;
@@ -53,7 +52,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setGroupData((prev) =>
-          prev ? { ...prev, avatar: reader.result as string } : prev
+          prev ? { ...prev, avatar: reader.result as string } : prev,
         );
       };
       reader.readAsDataURL(file);
@@ -72,154 +71,165 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
   };
 
   return (
-    <div className={`min-h-screen ${theme.wallpaper}`}>
-      <WhatsAppHeader
-        title={groupData.name}
-        subtitle={`${groupData.members.length} members`}
-        avatar={groupData.avatar}
-        onBack={() => router.push("/groups")}
-        showMoreButton={isAdmin}
-      />
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mb-6">
-          <div className="flex items-center gap-6 mb-6">
-            <div className="relative">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-lg"
-                style={{ borderColor: theme.primary }}
-              >
-                <Image
-  src={groupData.avatar || "/logo/logo.png"}
-  alt={groupData.name}
-  width={96}
-  height={96}
-  className="w-24 h-24 rounded-full object-cover"
-/>
+    <Suspense fallback={<Loading />}>
+      <div className={`min-h-screen ${theme.wallpaper}`}>
+        <WhatsAppHeader
+          title={groupData.name}
+          subtitle={`${groupData.members.length} members`}
+          avatar={groupData.avatar}
+          onBack={() => router.push("/groups")}
+          showMoreButton={isAdmin}
+        />
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <motion.div
+            {...fadeIn}
+            className="bg-white rounded-2xl p-6 shadow-lg mb-6"
+          >
+            <div className="flex items-center gap-6 mb-6">
+              <div className="relative">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  className="w-24 h-24 rounded-full overflow-hidden border-4 shadow-lg"
+                  style={{ borderColor: theme.primary }}
+                >
+                  <Image
+                    src={groupData.avatar || "/logo/logo.png"}
+                    alt={groupData.name}
+                    width={96}
+                    height={96}
+                    className="w-24 h-24 rounded-full object-cover"
+                  />
+                </motion.div>
 
-              </motion.div>
-
+                {isAdmin && (
+                  <label
+                    className="absolute bottom-0 right-0 p-2 rounded-full cursor-pointer shadow-lg"
+                    style={{ backgroundColor: theme.primary }}
+                  >
+                    <Camera className="w-4 h-4 text-white" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+              <div className="flex-1">
+                {isEditing && isAdmin ? (
+                  <input
+                    type="text"
+                    value={groupData.name}
+                    onChange={(e) =>
+                      setGroupData({ ...groupData, name: e.target.value })
+                    }
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors text-lg font-semibold"
+                  />
+                ) : (
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    {groupData.name}
+                  </h2>
+                )}
+                <p className="text-gray-600 mt-1">
+                  {groupData.members.length} members
+                </p>
+              </div>
               {isAdmin && (
-                <label
-                  className="absolute bottom-0 right-0 p-2 rounded-full cursor-pointer shadow-lg"
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="p-3 rounded-full"
                   style={{ backgroundColor: theme.primary }}
                 >
-                  <Camera className="w-4 h-4 text-white" />
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    className="hidden"
-                  />
-                </label>
+                  <Edit2 className="w-5 h-5 text-white" />
+                </motion.button>
               )}
             </div>
-            <div className="flex-1">
-              {isEditing && isAdmin ? (
-                <input
-                  type="text"
-                  value={groupData.name}
-                  onChange={(e) =>
-                    setGroupData({ ...groupData, name: e.target.value })
-                  }
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors text-lg font-semibold"
-                />
-              ) : (
-                <h2 className="text-2xl font-bold text-gray-800">
-                  {groupData.name}
-                </h2>
-              )}
-              <p className="text-gray-600 mt-1">
-                {groupData.members.length} members
-              </p>
+          </motion.div>
+          <motion.div
+            {...fadeIn}
+            className="bg-white rounded-2xl p-6 shadow-lg"
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Members
+            </h3>
+            <div className="space-y-3">
+              {groupData.members.map((memberId) => {
+                const member = contacts.find((c) => c.mobile === memberId);
+                if (!member) return null;
+                const isMemberAdmin = groupData.admin === memberId;
+
+                return (
+                  <motion.div
+                    key={memberId}
+                    whileHover={{ scale: 1.01 }}
+                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
+                  >
+                    <Image
+                      src={member.avatar || "/logo/logo.png"}
+                      alt={member.name}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-800">
+                        {member.name}
+                      </p>
+                      <p className="text-sm text-gray-500">{member.mobile}</p>
+                    </div>
+
+                    {isMemberAdmin && (
+                      <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                        <Shield className="w-4 h-4" />
+                        Admin
+                      </div>
+                    )}
+
+                    {isAdmin && !isMemberAdmin && (
+                      <div className="flex gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => handleMakeAdmin(memberId)}
+                          className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors"
+                          title="Make Admin"
+                        >
+                          <Shield className="w-4 h-4" />
+                        </motion.button>
+
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => handleRemoveMember(memberId)}
+                          className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                          title="Remove Member"
+                        >
+                          <UserMinus className="w-4 h-4" />
+                        </motion.button>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
             {isAdmin && (
               <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsEditing(!isEditing)}
-                className="p-3 rounded-full"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white"
                 style={{ backgroundColor: theme.primary }}
               >
-                <Edit2 className="w-5 h-5 text-white" />
+                <UserPlus className="w-5 h-5" />
+                Add Members
               </motion.button>
             )}
-          </div>
-        </motion.div>
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Members</h3>
-          <div className="space-y-3">
-            {groupData.members.map((memberId) => {
-              const member = contacts.find((c) => c.mobile === memberId);
-              if (!member) return null;
-              const isMemberAdmin = groupData.admin === memberId;
-
-              return (
-                <motion.div
-                  key={memberId}
-                  whileHover={{ scale: 1.01 }}
-                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
-                >
-                  <Image
-                    src={member.avatar || "/logo/logo.png"}
-                    alt={member.name}
-                    width={48}
-                    height={48}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-800">{member.name}</p>
-                    <p className="text-sm text-gray-500">{member.mobile}</p>
-                  </div>
-
-                  {isMemberAdmin && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
-                      <Shield className="w-4 h-4" />
-                      Admin
-                    </div>
-                  )}
-
-                  {isAdmin && !isMemberAdmin && (
-                    <div className="flex gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleMakeAdmin(memberId)}
-                        className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors"
-                        title="Make Admin"
-                      >
-                        <Shield className="w-4 h-4" />
-                      </motion.button>
-
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleRemoveMember(memberId)}
-                        className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
-                        title="Remove Member"
-                      >
-                        <UserMinus className="w-4 h-4" />
-                      </motion.button>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
-          </div>
-          {isAdmin && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl font-semibold text-white"
-              style={{ backgroundColor: theme.primary }}
-            >
-              <UserPlus className="w-5 h-5" />
-              Add Members
-            </motion.button>
-          )}
-        </motion.div>
+          </motion.div>
+        </div>
       </div>
-    </div>
+    </Suspense>
   );
 };
 

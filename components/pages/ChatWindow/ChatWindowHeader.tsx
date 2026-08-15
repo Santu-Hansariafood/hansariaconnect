@@ -148,12 +148,17 @@ export default function ChatWindowHeader({
           <h2 className="truncate text-[15px] font-semibold text-white">
             {headerName}
           </h2>
-          <span className={`truncate text-[12px] ${
-            !isGroup && (isContactOnline || lastSeenStatus?.includes("online"))
-              ? "text-emerald-200"
-              : "text-gray-200"
-          }`}>
-            {isGroup ? "Group chat" : lastSeenStatus || (isContactOnline ? "online" : "offline")}
+          <span
+            className={`truncate text-[12px] ${
+              !isGroup &&
+              (isContactOnline || lastSeenStatus?.includes("online"))
+                ? "text-emerald-200"
+                : "text-gray-200"
+            }`}
+          >
+            {isGroup
+              ? "Group chat"
+              : lastSeenStatus || (isContactOnline ? "online" : "offline")}
           </span>
         </div>
 
@@ -198,7 +203,9 @@ export default function ChatWindowHeader({
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
                 >
                   <CircleUserRound className="w-5 h-5 text-emerald-600" />
-                  <span className="text-gray-700 font-medium">Save Contact</span>
+                  <span className="text-gray-700 font-medium">
+                    Save Contact
+                  </span>
                 </button>
               ) : (
                 <button
@@ -209,7 +216,9 @@ export default function ChatWindowHeader({
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
                 >
                   <CircleUserRound className="w-5 h-5 text-blue-600" />
-                  <span className="text-gray-700 font-medium">Edit Contact Name</span>
+                  <span className="text-gray-700 font-medium">
+                    Edit Contact Name
+                  </span>
                 </button>
               )}
 

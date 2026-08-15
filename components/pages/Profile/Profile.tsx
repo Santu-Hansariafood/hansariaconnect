@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import { motion } from "framer-motion";
 import {
-  Camera,
-  Check,
-  Edit2,
-  LoaderCircle,
-  Save,
-  X,
-} from "lucide-react";
+  useEffect,
+  useMemo,
+  useState,
+  Suspense,
+  type ChangeEvent,
+} from "react";
+import { motion } from "framer-motion";
+import { Camera, Check, Edit2, LoaderCircle, Save, X } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import Loading from "@/components/common/Loading/Loading";
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 
@@ -48,7 +48,9 @@ const buildProfileState = (user: User) => ({
 
 const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
   const [profile, setProfile] = useState(() => buildProfileState(user));
-  const [draftProfile, setDraftProfile] = useState(() => buildProfileState(user));
+  const [draftProfile, setDraftProfile] = useState(() =>
+    buildProfileState(user),
+  );
   const [editingField, setEditingField] = useState<EditableField>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -191,221 +193,230 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#efeae2]">
-      <Navbar user={navbarUser} onLogout={onLogout} />
+    <Suspense fallback={<Loading />}>
+      <div className="min-h-screen bg-[#efeae2]">
+        <Navbar user={navbarUser} onLogout={onLogout} />
 
-      <div className="mx-auto max-w-2xl px-4 py-5 sm:py-7">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="overflow-hidden rounded-[28px] border border-[#d9dbdf] bg-[#f7f8fa] shadow-[0_18px_45px_rgba(17,27,33,0.12)]"
-        >
-          <div
-            className="px-5 py-5 text-white sm:px-6"
-            style={{
-              background: `linear-gradient(180deg, ${accentColor} 0%, #0b141a 150%)`,
-            }}
+        <div className="mx-auto max-w-2xl px-4 py-5 sm:py-7">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="overflow-hidden rounded-[28px] border border-[#d9dbdf] bg-[#f7f8fa] shadow-[0_18px_45px_rgba(17,27,33,0.12)]"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/70">
-                  Profile
-                </p>
-                <h1 className={`mt-1 text-2xl font-semibold ${theme.textSize || ""}`}>
-                  Your info
-                </h1>
-                <p className="mt-1 text-sm text-white/80">
-                  This is how your profile appears across chats.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {hasChanges && (
-                  <button
-                    onClick={handleCancelChanges}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15"
-                    title="Cancel changes"
+            <div
+              className="px-5 py-5 text-white sm:px-6"
+              style={{
+                background: `linear-gradient(180deg, ${accentColor} 0%, #0b141a 150%)`,
+              }}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.22em] text-white/70">
+                    Profile
+                  </p>
+                  <h1
+                    className={`mt-1 text-2xl font-semibold ${theme.textSize || ""}`}
                   >
-                    <X className="h-5 w-5" />
-                  </button>
-                )}
+                    Your info
+                  </h1>
+                  <p className="mt-1 text-sm text-white/80">
+                    This is how your profile appears across chats.
+                  </p>
+                </div>
 
-                <button
-                  onClick={handleSave}
-                  disabled={!hasChanges || isSaving}
-                  className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{ backgroundColor: theme.primary }}
-                >
-                  {isSaving ? (
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Save className="h-4 w-4" />
+                <div className="flex items-center gap-2">
+                  {hasChanges && (
+                    <button
+                      onClick={handleCancelChanges}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition hover:bg-white/15"
+                      title="Cancel changes"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
                   )}
-                  Save
-                </button>
+
+                  <button
+                    onClick={handleSave}
+                    disabled={!hasChanges || isSaving}
+                    className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{ backgroundColor: theme.primary }}
+                  >
+                    {isSaving ? (
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4" />
+                    )}
+                    Save
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <motion.div {...fadeIn} className="px-4 pb-5 pt-6 sm:px-6">
-            <div className="flex flex-col items-center border-b border-[#e9edef] pb-6">
-              <div className="relative">
-                <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-lg sm:h-36 sm:w-36">
-                  <Image
-                    src={draftProfile.photo}
-                    alt="Profile"
-                    fill
-                    priority
-                    sizes="(max-width: 640px) 128px, 144px"
-                    className="object-cover"
-                  />
-                </div>
-
-                <label
-                  className="absolute bottom-1 right-1 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white shadow-lg transition hover:scale-105"
-                  style={{ backgroundColor: accentColor }}
-                >
-                  {isUploading ? (
-                    <LoaderCircle className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <Camera className="h-5 w-5" />
-                  )}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-
-              <p className="mt-4 text-lg font-semibold text-[#111b21]">
-                {draftProfile.name}
-              </p>
-              <p className="mt-1 text-sm text-[#667781]">{draftProfile.mobile}</p>
-            </div>
-
-            {statusMessage && (
-              <div className="mt-4 rounded-2xl border border-[#dfe5e7] bg-white px-4 py-3 text-sm text-[#54656f]">
-                {statusMessage}
-              </div>
-            )}
-
-            <div className="mt-4 space-y-4">
-              <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
-                      Name
-                    </p>
-                    <p className="mt-1 text-sm text-[#54656f]">
-                      This is not your username or pin. This name will be visible to your contacts.
-                    </p>
+            <motion.div {...fadeIn} className="px-4 pb-5 pt-6 sm:px-6">
+              <div className="flex flex-col items-center border-b border-[#e9edef] pb-6">
+                <div className="relative">
+                  <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-lg sm:h-36 sm:w-36">
+                    <Image
+                      src={draftProfile.photo}
+                      alt="Profile"
+                      fill
+                      priority
+                      sizes="(max-width: 640px) 128px, 144px"
+                      className="object-cover"
+                    />
                   </div>
 
-                  <button
-                    onClick={() =>
-                      setEditingField((current) =>
-                        current === "name" ? null : "name",
-                      )
-                    }
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] text-[#54656f] transition hover:bg-[#e4e7eb]"
-                    title="Edit name"
+                  <label
+                    className="absolute bottom-1 right-1 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-white shadow-lg transition hover:scale-105"
+                    style={{ backgroundColor: accentColor }}
                   >
-                    {editingField === "name" ? (
-                      <Check className="h-4 w-4" />
+                    {isUploading ? (
+                      <LoaderCircle className="h-5 w-5 animate-spin" />
                     ) : (
-                      <Edit2 className="h-4 w-4" />
+                      <Camera className="h-5 w-5" />
                     )}
-                  </button>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
 
-                {editingField === "name" ? (
-                  <input
-                    type="text"
-                    value={draftProfile.name}
-                    onChange={(e) =>
-                      setDraftProfile((prev) => ({
-                        ...prev,
-                        name: e.target.value,
-                      }))
-                    }
-                    placeholder="Enter your name"
-                    className="w-full rounded-2xl border border-[#d1d7db] bg-[#f7f8fa] px-4 py-3 text-[#111b21] outline-none transition focus:border-transparent focus:ring-2"
-                    style={{ boxShadow: `0 0 0 2px ${accentColor}22` }}
-                  />
-                ) : (
-                  <p className="text-base font-medium text-[#111b21]">
-                    {draftProfile.name}
-                  </p>
-                )}
-              </section>
-
-              <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
-                      About
-                    </p>
-                    <p className="mt-1 text-sm text-[#54656f]">
-                      Add a short line about yourself, just like WhatsApp status text.
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() =>
-                      setEditingField((current) =>
-                        current === "about" ? null : "about",
-                      )
-                    }
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] text-[#54656f] transition hover:bg-[#e4e7eb]"
-                    title="Edit about"
-                  >
-                    {editingField === "about" ? (
-                      <Check className="h-4 w-4" />
-                    ) : (
-                      <Edit2 className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-
-                {editingField === "about" ? (
-                  <textarea
-                    value={draftProfile.about}
-                    onChange={(e) =>
-                      setDraftProfile((prev) => ({
-                        ...prev,
-                        about: e.target.value,
-                      }))
-                    }
-                    rows={4}
-                    placeholder="Write something about yourself"
-                    className="w-full resize-none rounded-2xl border border-[#d1d7db] bg-[#f7f8fa] px-4 py-3 text-[#111b21] outline-none transition focus:border-transparent focus:ring-2"
-                    style={{ boxShadow: `0 0 0 2px ${accentColor}22` }}
-                  />
-                ) : (
-                  <p className="whitespace-pre-wrap text-base text-[#111b21]">
-                    {draftProfile.about || "No about added yet."}
-                  </p>
-                )}
-              </section>
-
-              <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
-                  Phone
+                <p className="mt-4 text-lg font-semibold text-[#111b21]">
+                  {draftProfile.name}
                 </p>
-                <p className="mt-3 text-base font-medium text-[#111b21]">
+                <p className="mt-1 text-sm text-[#667781]">
                   {draftProfile.mobile}
                 </p>
-                <p className="mt-1 text-sm text-[#54656f]">
-                  Your mobile number is linked to the account and cannot be changed here.
-                </p>
-              </section>
-            </div>
+              </div>
+
+              {statusMessage && (
+                <div className="mt-4 rounded-2xl border border-[#dfe5e7] bg-white px-4 py-3 text-sm text-[#54656f]">
+                  {statusMessage}
+                </div>
+              )}
+
+              <div className="mt-4 space-y-4">
+                <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
+                        Name
+                      </p>
+                      <p className="mt-1 text-sm text-[#54656f]">
+                        This is not your username or pin. This name will be
+                        visible to your contacts.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        setEditingField((current) =>
+                          current === "name" ? null : "name",
+                        )
+                      }
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] text-[#54656f] transition hover:bg-[#e4e7eb]"
+                      title="Edit name"
+                    >
+                      {editingField === "name" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Edit2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  {editingField === "name" ? (
+                    <input
+                      type="text"
+                      value={draftProfile.name}
+                      onChange={(e) =>
+                        setDraftProfile((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
+                      }
+                      placeholder="Enter your name"
+                      className="w-full rounded-2xl border border-[#d1d7db] bg-[#f7f8fa] px-4 py-3 text-[#111b21] outline-none transition focus:border-transparent focus:ring-2"
+                      style={{ boxShadow: `0 0 0 2px ${accentColor}22` }}
+                    />
+                  ) : (
+                    <p className="text-base font-medium text-[#111b21]">
+                      {draftProfile.name}
+                    </p>
+                  )}
+                </section>
+
+                <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
+                        About
+                      </p>
+                      <p className="mt-1 text-sm text-[#54656f]">
+                        Add a short line about yourself, just like WhatsApp
+                        status text.
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        setEditingField((current) =>
+                          current === "about" ? null : "about",
+                        )
+                      }
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] text-[#54656f] transition hover:bg-[#e4e7eb]"
+                      title="Edit about"
+                    >
+                      {editingField === "about" ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Edit2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  {editingField === "about" ? (
+                    <textarea
+                      value={draftProfile.about}
+                      onChange={(e) =>
+                        setDraftProfile((prev) => ({
+                          ...prev,
+                          about: e.target.value,
+                        }))
+                      }
+                      rows={4}
+                      placeholder="Write something about yourself"
+                      className="w-full resize-none rounded-2xl border border-[#d1d7db] bg-[#f7f8fa] px-4 py-3 text-[#111b21] outline-none transition focus:border-transparent focus:ring-2"
+                      style={{ boxShadow: `0 0 0 2px ${accentColor}22` }}
+                    />
+                  ) : (
+                    <p className="whitespace-pre-wrap text-base text-[#111b21]">
+                      {draftProfile.about || "No about added yet."}
+                    </p>
+                  )}
+                </section>
+
+                <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
+                    Phone
+                  </p>
+                  <p className="mt-3 text-base font-medium text-[#111b21]">
+                    {draftProfile.mobile}
+                  </p>
+                  <p className="mt-1 text-sm text-[#54656f]">
+                    Your mobile number is linked to the account and cannot be
+                    changed here.
+                  </p>
+                </section>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       </div>
-    </div>
+    </Suspense>
   );
 };
 

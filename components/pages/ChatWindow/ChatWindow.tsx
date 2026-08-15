@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+} from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useChatSocket } from "@/hooks/chatwindow/useChatSocket";
 import { useSocket } from "@/hooks/useSocket";
@@ -9,11 +16,23 @@ import { useUnreadBehavior } from "@/hooks/chatwindow/useUnreadBehavior";
 import { useInfiniteScroll } from "@/hooks/chatwindow/useInfiniteScroll";
 import { useNotifications } from "@/hooks/useNotifications";
 import Loading from "@/components/common/Loading/Loading";
-import SearchBar from "@/components/common/SearchBar/SearchBar";
-import ChatWindowHeader from "@/components/pages/ChatWindow/ChatWindowHeader";
-import ChatWindowFooter from "@/components/pages/ChatWindow/ChatWindowFooter";
-import ChatWindowMessageList from "@/components/pages/ChatWindow/ChatWindowMessageList";
-import ChatWindowModals from "@/components/pages/ChatWindow/ChatWindowModals";
+import dynamic from "next/dynamic";
+
+const SearchBar = dynamic(
+  () => import("@/components/common/SearchBar/SearchBar"),
+);
+const ChatWindowHeader = dynamic(
+  () => import("@/components/pages/ChatWindow/ChatWindowHeader"),
+);
+const ChatWindowFooter = dynamic(
+  () => import("@/components/pages/ChatWindow/ChatWindowFooter"),
+);
+const ChatWindowMessageList = dynamic(
+  () => import("@/components/pages/ChatWindow/ChatWindowMessageList"),
+);
+const ChatWindowModals = dynamic(
+  () => import("@/components/pages/ChatWindow/ChatWindowModals"),
+);
 import {
   ChatMessage,
   ContactInfo,
@@ -41,7 +60,12 @@ type OutboundMessagePayload = {
   linkDescription?: string;
 };
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({
+  user,
+  theme,
+  onBack,
+  id: propId,
+}) => {
   const router = useRouter();
   const params = useParams();
   const chatId = propId ?? (params?.id as string) ?? "";
@@ -67,13 +91,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   const [editError, setEditError] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showForwardModal, setShowForwardModal] = useState(false);
-  const [messageToForward, setMessageToForward] = useState<ChatMessage | null>(null);
+  const [messageToForward, setMessageToForward] = useState<ChatMessage | null>(
+    null,
+  );
   const [contacts, setContacts] = useState<ForwardContact[]>([]);
   const [isGroup, setIsGroup] = useState(false);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
 
-  const headerName = contact?.registeredProfile?.name || contact?.name || "User";
-  const headerAvatar = contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png";
+  const headerName =
+    contact?.registeredProfile?.name || contact?.name || "User";
+  const headerAvatar =
+    contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png";
   const isSavedContact = Boolean(contact?.id || contact?._id);
 
   const { preferences, playRingtone, requestPermission } = useNotifications();
@@ -83,7 +111,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       const map = new Map<string, ChatMessage>();
 
       const addMessage = (msg: ChatMessage) => {
-        const key = msg._id?.toString?.() || msg.id?.toString?.() || String(msg.createdAt || msg.timestamp || "");
+        const key =
+          msg._id?.toString?.() ||
+          msg.id?.toString?.() ||
+          String(msg.createdAt || msg.timestamp || "");
         if (key && !map.has(key)) map.set(key, msg);
       };
 
@@ -91,7 +122,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       incoming.forEach(addMessage);
       return Array.from(map.values());
     },
-    []
+    [],
   );
 
   const extractId = (value?: string | { toString?: () => string }) => {
@@ -99,7 +130,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     return typeof value === "string" ? value : value.toString?.() || "";
   };
 
-  const getMessageId = (msg?: ChatMessage) => extractId(msg?._id) || extractId(msg?.id);
+  const getMessageId = (msg?: ChatMessage) =>
+    extractId(msg?._id) || extractId(msg?.id);
 
   const socket = useChatSocket(
     chatId,
@@ -109,18 +141,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       (msg: ChatMessage) => {
         const senderId = String(msg?.from || "");
         const selfId = String(user.id || "");
-        if (senderId !== selfId && preferences.messages && preferences.enabled) {
+        if (
+          senderId !== selfId &&
+          preferences.messages &&
+          preferences.enabled
+        ) {
           playRingtone(preferences.ringtone || "chime");
-          if (typeof window !== "undefined" && Notification.permission === "granted" && document.hidden) {
+          if (
+            typeof window !== "undefined" &&
+            Notification.permission === "granted" &&
+            document.hidden
+          ) {
             const title = headerName || "New message";
             const body = msg?.text || "You have a new chat message";
-            new Notification(title, { body, icon: "/logo/logo.png", tag: `chat-${chatId}` });
+            new Notification(title, {
+              body,
+              icon: "/logo/logo.png",
+              tag: `chat-${chatId}`,
+            });
           }
         }
       },
-      [chatId, headerName, playRingtone, preferences.enabled, preferences.messages, preferences.ringtone, user.id]
+      [
+        chatId,
+        headerName,
+        playRingtone,
+        preferences.enabled,
+        preferences.messages,
+        preferences.ringtone,
+        user.id,
+      ],
     ),
-    isGroup
+    isGroup,
   );
 
   const { containerRef, handleScroll } = useInfiniteScroll(
@@ -128,18 +180,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     chatMessages,
     setChatMessages,
     mergeUnique,
-    isGroup
+    isGroup,
   );
 
-  const { unreadOnOpen, showUnreadBanner, unreadDividerRef, hasScrolledToUnreadRef } = useUnreadBehavior(
-    chatId,
-    chatMessages,
-    socket,
-    setChatMessages
-  );
+  const {
+    unreadOnOpen,
+    showUnreadBanner,
+    unreadDividerRef,
+    hasScrolledToUnreadRef,
+  } = useUnreadBehavior(chatId, chatMessages, socket, setChatMessages);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && preferences.enabled && Notification.permission === "default") {
+    if (
+      typeof window !== "undefined" &&
+      preferences.enabled &&
+      Notification.permission === "default"
+    ) {
       requestPermission();
     }
   }, [preferences.enabled, requestPermission]);
@@ -152,7 +208,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   useEffect(() => {
     if (!chatId) return;
 
-    // Reset state immediately when chat changes
     setInitialLoading(true);
     setChatMessages([]);
     setContact(null);
@@ -166,10 +221,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
     const loadInitialData = async () => {
       try {
-        const accessCheckRes = await fetch(`/api/chat-access?chatId=${encodeURIComponent(chatId)}`, {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const accessCheckRes = await fetch(
+          `/api/chat-access?chatId=${encodeURIComponent(chatId)}`,
+          {
+            credentials: "include",
+            cache: "no-store",
+          },
+        );
 
         if (!accessCheckRes.ok) {
           router.replace("/chats");
@@ -186,7 +244,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
         if (isGroupChat) {
           try {
-            const groupRes = await fetch(`/api/groups/${chatId}`, { credentials: "include", cache: "no-store" });
+            const groupRes = await fetch(`/api/groups/${chatId}`, {
+              credentials: "include",
+              cache: "no-store",
+            });
             if (groupRes.ok) {
               const groupData = await groupRes.json();
               if (groupData?.group) {
@@ -210,7 +271,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
         const [contactsRes, messagesRes, accessRes] = await Promise.all([
           fetch("/api/contacts", { credentials: "include", cache: "no-store" }),
-          fetch(messagesEndpoint, { credentials: "include", cache: "no-store" }),
+          fetch(messagesEndpoint, {
+            credentials: "include",
+            cache: "no-store",
+          }),
           fetch("/api/access/me", { cache: "no-store" }),
         ]);
 
@@ -228,12 +292,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
           if (Array.isArray(contactsData?.contacts)) {
             const loadedContacts = contactsData.contacts
-              .filter((c: RawContact) => Boolean(c.registeredUserId || c._id || c.id))
+              .filter((c: RawContact) =>
+                Boolean(c.registeredUserId || c._id || c.id),
+              )
               .map((c: RawContact) => ({
                 id: String(c.registeredUserId || c._id || c.id),
-                name: c.name || c.registeredProfile?.name || c.mobile || "Unknown",
+                name:
+                  c.name || c.registeredProfile?.name || c.mobile || "Unknown",
                 mobile: c.mobile || "",
-                avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
+                avatar:
+                  c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
               })) as ForwardContact[];
 
             setContacts(loadedContacts);
@@ -243,17 +311,27 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
                 (c: RawContact) =>
                   String(c.registeredUserId) === chatId ||
                   String(c._id) === chatId ||
-                  String(c.id) === chatId
+                  String(c.id) === chatId,
               );
               if (found) {
                 const normalized = {
-                  id: String(found.registeredUserId || found._id || found.id || ""),
+                  id: String(
+                    found.registeredUserId || found._id || found.id || "",
+                  ),
                   name:
-                    found.registeredProfile?.name || found.name ||
-                    (Array.isArray(found.mobiles) ? found.mobiles[0] : (found.mobile || undefined)) ||
+                    found.registeredProfile?.name ||
+                    found.name ||
+                    (Array.isArray(found.mobiles)
+                      ? found.mobiles[0]
+                      : found.mobile || undefined) ||
                     "Unknown",
-                  mobile: Array.isArray(found.mobiles) ? found.mobiles[0] || "" : (found.mobile || ""),
-                  avatar: found.registeredProfile?.photo || found.avatar || "/logo/logo.png",
+                  mobile: Array.isArray(found.mobiles)
+                    ? found.mobiles[0] || ""
+                    : found.mobile || "",
+                  avatar:
+                    found.registeredProfile?.photo ||
+                    found.avatar ||
+                    "/logo/logo.png",
                   registered: !!found.registered,
                   registeredUserId: found.registeredUserId || "",
                   registeredProfile: found.registeredProfile || null,
@@ -263,13 +341,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
                 setContact(normalized as any);
               } else {
                 try {
-                  const userRes = await fetch(`/api/users/${chatId}`, { credentials: "include" });
+                  const userRes = await fetch(`/api/users/${chatId}`, {
+                    credentials: "include",
+                  });
                   if (userRes.ok) {
                     const userData = await userRes.json();
-                    const u = userData?.user || userData?.data || userData || {};
+                    const u =
+                      userData?.user || userData?.data || userData || {};
                     setContact({
                       name: u?.name || u?.fullName || u?.mobile || "Unknown",
-                      avatar: u?.avatar || u?.photo || u?.profilePhoto || "/logo/logo.png",
+                      avatar:
+                        u?.avatar ||
+                        u?.photo ||
+                        u?.profilePhoto ||
+                        "/logo/logo.png",
                       mobile: u?.mobile || u?.phone || "",
                       registered: true,
                       registeredUserId: u?.id || u?._id || chatId,
@@ -315,7 +400,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
     loadInitialData();
 
-    // Cleanup function to abort if component unmounts or chatId changes
     return () => {
       setInitialLoading(false);
     };
@@ -323,7 +407,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
   const { onlineUserIds } = useSocket();
   const isContactOnline = !isGroup && onlineUserIds.includes(chatId);
-
 
   const maskedUrl = useMemo(() => {
     if (typeof window === "undefined") return "";
@@ -394,7 +477,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ id: contact?._id || contact?.id, name: editName.trim() }),
+        body: JSON.stringify({
+          id: contact?._id || contact?.id,
+          name: editName.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -408,9 +494,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     }
   };
 
-  const generateTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const generateTempId = () =>
+    `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
-  const sendViaRest = async (payload: OutboundMessagePayload, tempMessage?: ChatMessage) => {
+  const sendViaRest = async (
+    payload: OutboundMessagePayload,
+    tempMessage?: ChatMessage,
+  ) => {
     try {
       const endpoint = isGroup
         ? `/api/groups/${chatId}/messages`
@@ -426,7 +516,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         const tempId = tempMessage ? getMessageId(tempMessage) : "";
         if (tempId) {
           setChatMessages((prev) =>
-            prev.map((msg) => (msg._id?.toString?.() === tempId ? data.message : msg))
+            prev.map((msg) =>
+              msg._id?.toString?.() === tempId ? data.message : msg,
+            ),
           );
         } else {
           setChatMessages((prev) => mergeUnique(prev, [data.message]));
@@ -441,15 +533,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     if (failedId) {
       setChatMessages((prev) =>
         prev.map((msg) =>
-          msg._id?.toString?.() === failedId ? { ...msg, status: "failed" } : msg
-        )
+          msg._id?.toString?.() === failedId
+            ? { ...msg, status: "failed" }
+            : msg,
+        ),
       );
     }
 
     return false;
   };
 
-  const sendViaSocket = async (payload: OutboundMessagePayload, tempMessage?: ChatMessage) => {
+  const sendViaSocket = async (
+    payload: OutboundMessagePayload,
+    tempMessage?: ChatMessage,
+  ) => {
     if (!socket) return false;
 
     return new Promise<boolean>((resolve) => {
@@ -458,31 +555,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
         ? { groupId: chatId, ...payload }
         : { to: chatId, ...payload };
 
-      socket.emit(eventName, socketPayload, (ack: { ok?: boolean; message?: ChatMessage }) => {
-        const ackMessage = ack?.ok && ack?.message ? ack.message : undefined;
-        if (ackMessage) {
-          const tempId = getMessageId(tempMessage);
-          if (tempId) {
-            setChatMessages((prev) =>
-              prev.map((msg) => (msg._id?.toString?.() === tempId ? ackMessage : msg))
-            );
-          } else {
-            setChatMessages((prev) => mergeUnique(prev, [ackMessage]));
+      socket.emit(
+        eventName,
+        socketPayload,
+        (ack: { ok?: boolean; message?: ChatMessage }) => {
+          const ackMessage = ack?.ok && ack?.message ? ack.message : undefined;
+          if (ackMessage) {
+            const tempId = getMessageId(tempMessage);
+            if (tempId) {
+              setChatMessages((prev) =>
+                prev.map((msg) =>
+                  msg._id?.toString?.() === tempId ? ackMessage : msg,
+                ),
+              );
+            } else {
+              setChatMessages((prev) => mergeUnique(prev, [ackMessage]));
+            }
+            resolve(true);
+            return;
           }
-          resolve(true);
-          return;
-        }
 
-        const failedId = getMessageId(tempMessage);
-        if (failedId) {
-          setChatMessages((prev) =>
-            prev.map((msg) =>
-              msg._id?.toString?.() === failedId ? { ...msg, status: "failed" } : msg
-            )
-          );
-        }
-        resolve(false);
-      });
+          const failedId = getMessageId(tempMessage);
+          if (failedId) {
+            setChatMessages((prev) =>
+              prev.map((msg) =>
+                msg._id?.toString?.() === failedId
+                  ? { ...msg, status: "failed" }
+                  : msg,
+              ),
+            );
+          }
+          resolve(false);
+        },
+      );
     });
   };
 
@@ -503,13 +608,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
     setMessage("");
 
-    const sent = await sendViaSocket({ type: "text", text: trimmed }, optimisticMessage);
+    const sent = await sendViaSocket(
+      { type: "text", text: trimmed },
+      optimisticMessage,
+    );
     if (!sent) {
       await sendViaRest({ type: "text", text: trimmed }, optimisticMessage);
     }
   };
 
-  const handleMediaSelect = async (fileOrData: File | { url: string }, type: ChatMessage["type"]) => {
+  const handleMediaSelect = async (
+    fileOrData: File | { url: string },
+    type: ChatMessage["type"],
+  ) => {
     setShowMediaPicker(false);
 
     const sendMedia = async (payload: OutboundMessagePayload) => {
@@ -541,7 +652,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
       formData.append("file", file);
       formData.append("kind", kind);
       try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData, credentials: "include" });
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
         const data = await res.json();
         if (data?.url) {
           await sendMedia({
@@ -557,7 +672,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     };
 
     if (type === "link" && "url" in fileOrData) {
-      await sendMedia({ type: "link", text: fileOrData.url, mediaUrl: fileOrData.url });
+      await sendMedia({
+        type: "link",
+        text: fileOrData.url,
+        mediaUrl: fileOrData.url,
+      });
       return;
     }
 
@@ -581,7 +700,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     }
 
     const normalized = query.toLowerCase();
-    setSearchResults(chatMessages.filter((msg) => msg.text?.toLowerCase().includes(normalized)));
+    setSearchResults(
+      chatMessages.filter((msg) =>
+        msg.text?.toLowerCase().includes(normalized),
+      ),
+    );
   };
 
   const handleBlockToggle = () => {
@@ -622,7 +745,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
             body: JSON.stringify(payload),
           });
         }
-      })
+      }),
     );
 
     setShowForwardModal(false);
@@ -631,122 +754,125 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
   const messagesToRender = useMemo(
     () => (showSearch && searchQuery.trim() ? searchResults : chatMessages),
-    [chatMessages, searchQuery, searchResults, showSearch]
+    [chatMessages, searchQuery, searchResults, showSearch],
   );
 
-  const { statusText: lastSeenStatus } = useLastSeen(!isGroup ? chatId : undefined);
+  const { statusText: lastSeenStatus } = useLastSeen(
+    !isGroup ? chatId : undefined,
+  );
 
   if (initialLoading) {
-    return (
-      <div className={`min-h-screen ${theme.wallpaper || ""}`}>
-        <Loading />
-      </div>
-    );
+    return <Loading />;
   }
 
   return (
-    <div className="h-full w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden">
-      <ChatWindowHeader
-        theme={theme}
-        onBack={onBack || (() => router.push("/"))}
-        headerName={headerName}
-        headerAvatar={headerAvatar}
-        isContactOnline={isContactOnline}
-        isGroup={isGroup}
-        onOpenGroup={() => router.push(`/group-settings/${chatId}`)}
-        showUnreadBanner={showUnreadBanner}
-        unreadOnOpen={unreadOnOpen}
-        showOptionsMenu={showOptionsMenu}
-        setShowOptionsMenu={setShowOptionsMenu}
-        isSavedContact={isSavedContact}
-        onSaveContact={handleOpenSaveModal}
-        onEditContact={handleOpenEditModal}
-        onClearClick={() => setShowClearConfirm(true)}
-        onSearch={() => setShowSearch(true)}
-        onBlockToggle={handleBlockToggle}
-        maskedUrl={maskedUrl}
-        lastSeenStatus={lastSeenStatus}
-      />
-
-      {showSearch && (
-        <div className="bg-white border-b border-gray-200 px-4 py-3">
-          <div className="max-w-4xl mx-auto">
-            <SearchBar onSearch={handleSearch} placeholder="Search messages..." />
-          </div>
-        </div>
-      )}
-
-      <div
-        ref={containerRef}
-        onScroll={handleScroll}
-        className={`flex-1 overflow-y-auto min-w-0 min-h-0 px-4 sm:px-6 md:px-8 py-3 sm:py-4 ${
-          !theme.wallpaperImage ? theme.wallpaper || "bg-[#efeae2]" : ""
-        }`}
-        style={
-          theme.wallpaperImage
-            ? {
-                backgroundImage: `url(${theme.wallpaperImage})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }
-            : undefined
-        }
-      >
-        <ChatWindowMessageList
-          messages={messagesToRender}
+    <Suspense fallback={<Loading />}>
+      <div className="h-full w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden">
+        <ChatWindowHeader
           theme={theme}
-          user={user}
-          id={chatId}
-          isGroup={isGroup}
+          onBack={onBack || (() => router.push("/"))}
           headerName={headerName}
           headerAvatar={headerAvatar}
-          groupMembers={groupMembers}
-          onForwardMessage={handleForwardMessage}
+          isContactOnline={isContactOnline}
+          isGroup={isGroup}
+          onOpenGroup={() => router.push(`/group-settings/${chatId}`)}
           showUnreadBanner={showUnreadBanner}
           unreadOnOpen={unreadOnOpen}
-          unreadDividerRef={unreadDividerRef}
+          showOptionsMenu={showOptionsMenu}
+          setShowOptionsMenu={setShowOptionsMenu}
+          isSavedContact={isSavedContact}
+          onSaveContact={handleOpenSaveModal}
+          onEditContact={handleOpenEditModal}
+          onClearClick={() => setShowClearConfirm(true)}
+          onSearch={() => setShowSearch(true)}
+          onBlockToggle={handleBlockToggle}
+          maskedUrl={maskedUrl}
+          lastSeenStatus={lastSeenStatus}
         />
-        <div ref={messagesEndRef} />
+
+        {showSearch && (
+          <div className="bg-white border-b border-gray-200 px-4 py-3">
+            <div className="max-w-4xl mx-auto">
+              <SearchBar
+                onSearch={handleSearch}
+                placeholder="Search messages..."
+              />
+            </div>
+          </div>
+        )}
+
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className={`flex-1 overflow-y-auto min-w-0 min-h-0 px-4 sm:px-6 md:px-8 py-3 sm:py-4 ${
+            !theme.wallpaperImage ? theme.wallpaper || "bg-[#efeae2]" : ""
+          }`}
+          style={
+            theme.wallpaperImage
+              ? {
+                  backgroundImage: `url(${theme.wallpaperImage})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
+        >
+          <ChatWindowMessageList
+            messages={messagesToRender}
+            theme={theme}
+            user={user}
+            id={chatId}
+            isGroup={isGroup}
+            headerName={headerName}
+            headerAvatar={headerAvatar}
+            groupMembers={groupMembers}
+            onForwardMessage={handleForwardMessage}
+            showUnreadBanner={showUnreadBanner}
+            unreadOnOpen={unreadOnOpen}
+            unreadDividerRef={unreadDividerRef}
+          />
+          <div ref={messagesEndRef} />
+        </div>
+
+        <ChatWindowFooter
+          theme={theme}
+          message={message}
+          setMessage={setMessage}
+          handleSend={handleSend}
+          showEmojiPicker={showEmojiPicker}
+          setShowEmojiPicker={setShowEmojiPicker}
+          allowAttachments={allowAttachments}
+          showMediaPicker={showMediaPicker}
+          setShowMediaPicker={setShowMediaPicker}
+          handleMediaSelect={handleMediaSelect}
+          showForwardModal={showForwardModal}
+          contacts={contacts}
+          onCloseForward={() => setShowForwardModal(false)}
+          onForwardSubmit={handleForwardSubmit}
+        />
+
+        <ChatWindowModals
+          theme={theme}
+          showSaveModal={showSaveModal}
+          setShowSaveModal={setShowSaveModal}
+          saveName={saveName}
+          setSaveName={setSaveName}
+          saveError={saveError}
+          savingContact={savingContact}
+          onSaveContact={handleSaveContact}
+          showEditModal={showEditModal}
+          setShowEditModal={setShowEditModal}
+          editName={editName}
+          setEditName={setEditName}
+          editError={editError}
+          onEditContact={handleEditContact}
+          showClearConfirm={showClearConfirm}
+          setShowClearConfirm={setShowClearConfirm}
+          onClearChat={handleClearChat}
+          headerName={headerName}
+        />
       </div>
-
-      <ChatWindowFooter
-        theme={theme}
-        message={message}
-        setMessage={setMessage}
-        handleSend={handleSend}
-        showEmojiPicker={showEmojiPicker}
-        setShowEmojiPicker={setShowEmojiPicker}
-        allowAttachments={allowAttachments}
-        showMediaPicker={showMediaPicker}
-        setShowMediaPicker={setShowMediaPicker}
-        handleMediaSelect={handleMediaSelect}
-        showForwardModal={showForwardModal}
-        contacts={contacts}
-        onCloseForward={() => setShowForwardModal(false)}
-        onForwardSubmit={handleForwardSubmit}
-      />
-
-      <ChatWindowModals
-        theme={theme}
-        showSaveModal={showSaveModal}
-        setShowSaveModal={setShowSaveModal}
-        saveName={saveName}
-        setSaveName={setSaveName}
-        saveError={saveError}
-        savingContact={savingContact}
-        onSaveContact={handleSaveContact}
-        showEditModal={showEditModal}
-        setShowEditModal={setShowEditModal}
-        editName={editName}
-        setEditName={setEditName}
-        editError={editError}
-        onEditContact={handleEditContact}
-        showClearConfirm={showClearConfirm}
-        setShowClearConfirm={setShowClearConfirm}
-        onClearChat={handleClearChat}
-        headerName={headerName}
-      />
-    </div>
+    </Suspense>
   );
 };
 
