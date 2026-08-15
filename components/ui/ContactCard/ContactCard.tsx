@@ -239,4 +239,14 @@ const ContactCard: React.FC<ContactCardProps> = ({
   )
 }
 
-export default ContactCard
+// Memoize ContactCard to prevent unnecessary re-renders when parent updates
+export default React.memo(ContactCard, (prevProps, nextProps) => {
+  // Return true if props are equal (don't re-render), false if different (do re-render)
+  return (
+    prevProps.contact.id === nextProps.contact.id &&
+    prevProps.contact.unread === nextProps.contact.unread &&
+    prevProps.contact.active === nextProps.contact.active &&
+    prevProps.contact.lastMessage === nextProps.contact.lastMessage &&
+    prevProps.active === nextProps.active
+  );
+})

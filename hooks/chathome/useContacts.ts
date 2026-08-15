@@ -35,6 +35,7 @@ export const useContacts = () => {
           fetch("/api/conversations", {
             method: "GET",
             credentials: "include",
+            cache: "no-store",
           }),
           fetch("/api/unread-counts", {
             cache: "no-store",
@@ -61,22 +62,25 @@ export const useContacts = () => {
               else lastMessageText = c.lastMessage.text || "";
             }
 
+            // Show phone number for unregistered contacts, name for registered
+            const displayName = c.registered ? (c.name || c.mobile) : c.mobile;
+
             return {
               id: c.id || c.peerId,
               peerId: c.peerId || c.id,
-              name: c.name || c.mobile || "Unknown",
+              name: displayName,
               mobile: c.mobile || "",
               avatar: c.avatar || "/logo/logo.png",
-              pinned: false,
-              blocked: false,
+              pinned: c.pinned || false,
+              blocked: c.blocked || false,
               active: false,
               unread: unreadMap[c.peerId || c.id] || 0,
               lastSeen: "",
               lastMessageTime: c.lastMessageAt || "",
               lastMessage: lastMessageText,
               mobiles: [c.mobile].filter(Boolean),
-              email: "",
-              registered: true,
+              email: c.email || "",
+              registered: c.registered || false,
               registeredUserId: c.peerId || c.id,
             };
           });
@@ -89,14 +93,29 @@ export const useContacts = () => {
     };
 
     loadConversations();
+    // Only load once on mount
   }, []);
 
-  // Update contacts' active status based on onlineUserIds
+  // Only update active status for changed users, not all contacts
   useEffect(() => {
-    setContacts(prev => prev.map(contact => ({
-      ...contact,
-      active: onlineUserIds.includes(contact.registeredUserId || contact.peerId || contact.id)
-    })));
+    if (onlineUserIds.length === 0) return;
+    
+    setContacts(prev => {
+      const needsUpdate = prev.some(contact => {
+        const peerId = contact.registeredUserId || contact.peerId || contact.id;
+        const newActive = onlineUserIds.includes(peerId);
+        return newActive !== contact.active;
+      });
+
+      if (!needsUpdate) return prev;
+
+      return prev.map(contact => {
+        const peerId = contact.registeredUserId || contact.peerId || contact.id;
+        const newActive = onlineUserIds.includes(peerId);
+        if (newActive === contact.active) return contact;
+        return { ...contact, active: newActive };
+      });
+    });
   }, [onlineUserIds]);
 
   const updateContact = (contactId: string, updates: Partial<Contact>) => {

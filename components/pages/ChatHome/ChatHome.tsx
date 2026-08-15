@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { format } from 'date-fns'
@@ -16,6 +16,7 @@ import {
   LogOut,
   CircleUserRound,
 } from 'lucide-react'
+import React from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { staggerContainer, fadeIn } from '@/utils/animations/animations'
@@ -86,22 +87,33 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
   const filteredContacts = useFilteredContacts({ contacts, searchQuery })
 
   useEffect(() => {
-    let cancelled = false
-    const load = async () => {
+    let cancelled = false;
+    const loadGroups = async () => {
       try {
-        const res = await fetch("/api/groups", { credentials: "include" })
-        const data = await res.json()
-        if (!cancelled && res.ok && Array.isArray(data?.groups)) setGroups(data.groups)
+        const res = await fetch("/api/groups", { 
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok && Array.isArray(data?.groups)) {
+          setGroups(data.groups);
+        }
       } catch {}
-    }
-    load()
-    return () => { cancelled = true }
-  }, [])
+    };
+    
+    loadGroups();
+    return () => { cancelled = true; };
+  }, []); // Only load once on mount
 
-  const q = (searchQuery || "").trim().toLowerCase()
-  const visibleGroups = q
-    ? groups.filter((g: any) => (g?.name || "").toLowerCase().includes(q))
-    : groups
+  const handleSearch = useCallback((query: string) => setSearchQuery(query), []);
+
+  const visibleGroups = useMemo(() => {
+    const q = (searchQuery || "").trim().toLowerCase();
+    return q
+      ? groups.filter((g: any) => (g?.name || "").toLowerCase().includes(q))
+      : groups;
+  }, [groups, searchQuery]);
+
   const {
     showCreateModal,
     setShowCreateModal,
@@ -134,16 +146,18 @@ export default function ChatHome({ user, theme, onLogout, selectedChatId, onSele
     closeContactModal
   } = useContactActions({ contacts, setContacts })
 
-  const handleSearch = (query: string) => setSearchQuery(query)
+  const themeColors = useMemo(() => ({
+    textColor: theme.isDark ? 'text-gray-100' : 'text-gray-800',
+    textSecondary: theme.isDark ? 'text-gray-300' : 'text-gray-600',
+    textMuted: theme.isDark ? 'text-gray-400' : 'text-gray-500',
+    bgCard: theme.isDark ? 'bg-gray-800' : 'bg-white',
+    bgCardHover: theme.isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50',
+    bgOverlay: theme.isDark ? 'bg-gray-900/80' : 'bg-black/50',
+    borderColor: theme.isDark ? 'border-gray-700' : 'border-gray-200',
+    inputBg: theme.isDark ? 'bg-gray-800 border-gray-600 focus:border-blue-400' : 'bg-white border-gray-200 focus:border-emerald-500',
+  }), [theme.isDark]);
 
-  const textColor = theme.isDark ? 'text-gray-100' : 'text-gray-800'
-  const textSecondary = theme.isDark ? 'text-gray-300' : 'text-gray-600'
-  const textMuted = theme.isDark ? 'text-gray-400' : 'text-gray-500'
-  const bgCard = theme.isDark ? 'bg-gray-800' : 'bg-white'
-  const bgCardHover = theme.isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'
-  const bgOverlay = theme.isDark ? 'bg-gray-900/80' : 'bg-black/50'
-  const borderColor = theme.isDark ? 'border-gray-700' : 'border-gray-200'
-  const inputBg = theme.isDark ? 'bg-gray-800 border-gray-600 focus:border-blue-400' : 'bg-white border-gray-200 focus:border-emerald-500'
+  const { textColor, textSecondary, textMuted, bgCard, bgCardHover, bgOverlay, borderColor, inputBg } = themeColors;
 
   if (loading) {
     return (
