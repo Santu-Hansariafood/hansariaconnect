@@ -12,6 +12,16 @@ export const useInfiniteScroll = (
   const [loadingMore, setLoadingMore] = useState(false)
   const loadingMoreRef = useRef(false)
   const preloadRef = useRef(false)
+  const currentIdRef = useRef(id)
+
+  // Reset preload flag when chat ID changes
+  useEffect(() => {
+    if (currentIdRef.current !== id) {
+      currentIdRef.current = id
+      preloadRef.current = false
+      setHasMore(false)
+    }
+  }, [id])
 
   const loadMore = async () => {
     if (!chatMessages.length) return
@@ -25,9 +35,9 @@ export const useInfiniteScroll = (
       const tsRaw = oldest.createdAt || oldest.timestamp
       const ts = typeof tsRaw === "string" ? tsRaw : new Date(tsRaw).toISOString()
       const endpoint = isGroup
-        ? `/api/groups/${id}/messages?limit=10&before=${encodeURIComponent(ts)}`
-        : `/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}`
-      const res = await fetch(endpoint, { credentials: 'include' })
+        ? `/api/groups/${id}/messages?limit=10&before=${encodeURIComponent(ts)}&t=${Date.now()}`
+        : `/api/messages/${id}?limit=10&before=${encodeURIComponent(ts)}&t=${Date.now()}`
+      const res = await fetch(endpoint, { credentials: 'include', cache: 'no-store' })
       const data = await res.json()
       if (Array.isArray(data?.messages) && data.messages.length) {
         setChatMessages((prev) => mergeUnique(prev, data.messages))

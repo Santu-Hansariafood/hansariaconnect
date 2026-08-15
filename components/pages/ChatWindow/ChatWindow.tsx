@@ -152,8 +152,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
   useEffect(() => {
     if (!chatId) return;
 
+    // Reset state immediately when chat changes
+    setInitialLoading(true);
+    setChatMessages([]);
+    setContact(null);
+    setIsGroup(false);
+    setGroupMembers([]);
+    setMessage("");
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowOptionsMenu(false);
+    setShowSearch(false);
+
     const loadInitialData = async () => {
-      setInitialLoading(true);
       try {
         const accessCheckRes = await fetch(`/api/chat-access?chatId=${encodeURIComponent(chatId)}`, {
           credentials: "include",
@@ -175,7 +186,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
 
         if (isGroupChat) {
           try {
-            const groupRes = await fetch(`/api/groups/${chatId}`, { credentials: "include" });
+            const groupRes = await fetch(`/api/groups/${chatId}`, { credentials: "include", cache: "no-store" });
             if (groupRes.ok) {
               const groupData = await groupRes.json();
               if (groupData?.group) {
@@ -198,8 +209,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
           : `/api/messages/${chatId}?all=true&last=true`;
 
         const [contactsRes, messagesRes, accessRes] = await Promise.all([
-          fetch("/api/contacts", { credentials: "include" }),
-          fetch(messagesEndpoint, { credentials: "include" }),
+          fetch("/api/contacts", { credentials: "include", cache: "no-store" }),
+          fetch(messagesEndpoint, { credentials: "include", cache: "no-store" }),
           fetch("/api/access/me", { cache: "no-store" }),
         ]);
 
@@ -303,7 +314,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ user, theme, onBack, id: propId
     };
 
     loadInitialData();
-  }, [chatId, mergeUnique]);
+
+    // Cleanup function to abort if component unmounts or chatId changes
+    return () => {
+      setInitialLoading(false);
+    };
+  }, [chatId, mergeUnique, router]);
 
   const { onlineUserIds } = useSocket();
   const isContactOnline = !isGroup && onlineUserIds.includes(chatId);
