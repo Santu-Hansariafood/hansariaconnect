@@ -15,6 +15,7 @@ import { useLastSeen } from "@/hooks/useLastSeen";
 import { useUnreadBehavior } from "@/hooks/chatwindow/useUnreadBehavior";
 import { useInfiniteScroll } from "@/hooks/chatwindow/useInfiniteScroll";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useApp } from "@/context/AppContext/AppContext";
 import Loading from "@/components/common/Loading/Loading";
 import dynamic from "next/dynamic";
 
@@ -69,6 +70,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const router = useRouter();
   const params = useParams();
   const chatId = propId ?? (params?.id as string) ?? "";
+  const { getCachedMessages, setCachedMessages, mergeCachedMessages, clearCachedMessages } = useApp();
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState("");
@@ -175,7 +177,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     isGroup,
   );
 
-  const { containerRef, handleScroll } = useInfiniteScroll(
+  const { containerRef, hasMore, handleScroll } = useInfiniteScroll(
     chatId,
     chatMessages,
     setChatMessages,
@@ -221,6 +223,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const loadInitialData = async () => {
       try {
+        const cached = chatId ? getCachedMessages(chatId) : undefined;
+        if (cached && cached.messages.length > 0) {
+          setChatMessages(cached.messages);
+        }
+
         const accessCheckRes = await fetch(
           `/api/chat-access?chatId=${encodeURIComponent(chatId)}`,
           {
@@ -269,13 +276,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           ? `/api/groups/${chatId}/messages?all=true&last=true`
           : `/api/messages/${chatId}?all=true&last=true`;
 
+        const shouldFetchMessages = !cached || cached.messages.length === 0;
+
+        const contactsPromise = fetch("/api/contacts", { credentials: "include", cache: "no-store" });
+        const messagesPromise = shouldFetchMessages
+          ? fetch(messagesEndpoint, { credentials: "include", cache: "no-store" })
+          : Promise.resolve(null);
+        const accessPromise = fetch("/api/access/me", { cache: "no-store" });
+
         const [contactsRes, messagesRes, accessRes] = await Promise.all([
-          fetch("/api/contacts", { credentials: "include", cache: "no-store" }),
-          fetch(messagesEndpoint, {
-            credentials: "include",
-            cache: "no-store",
-          }),
-          fetch("/api/access/me", { cache: "no-store" }),
+          contactsPromise,
+          messagesPromise,
+          accessPromise,
         ]);
 
         if (contactsRes.ok) {
@@ -368,10 +380,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           }
         }
 
-        if (messagesRes.ok) {
+        if (messagesRes !== null && messagesRes.ok) {
           const messagesData = await messagesRes.json();
+          let finalMessages: any[] = [];
           if (Array.isArray(messagesData?.messages)) {
-            setChatMessages((prev) => mergeUnique(prev, messagesData.messages));
+            finalMessages = messagesData.messages;
+            setChatMessages((prev) => mergeUnique(prev, finalMessages));
+          }
+          if (chatId) {
+            setCachedMessages(chatId, {
+              messages: finalMessages.length > 0 ? finalMessages : [],
+              hasMore: !!messagesData?.hasMore,
+              loadedAt: Date.now(),
+            });
           }
         }
 
@@ -404,6 +425,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       setInitialLoading(false);
     };
   }, [chatId, mergeUnique, router]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    if (initialLoading) return;
+    if (chatMessages.length === 0) return;
+    mergeCachedMessages(chatId, chatMessages, hasMore);
+  }, [chatId, chatMessages, hasMore, initialLoading, mergeCachedMessages]);
 
   const { onlineUserIds } = useSocket();
   const isContactOnline = !isGroup && onlineUserIds.includes(chatId);
@@ -688,6 +716,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleClearChat = () => {
     setChatMessages([]);
+    if (chatId) clearCachedMessages(chatId);
     setShowClearConfirm(false);
     setShowOptionsMenu(false);
   };

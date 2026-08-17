@@ -18,12 +18,22 @@ interface Theme {
   textSize: string
 }
 
+interface CachedMessages {
+  messages: any[]
+  hasMore: boolean
+  loadedAt: number
+}
+
 interface AppContextType {
   user: User | null
   theme: Theme
   setUser: (u: User | null) => void
   updateTheme: (t: Theme) => void
   logout: () => void
+  getCachedMessages: (peerId: string) => CachedMessages | undefined
+  setCachedMessages: (peerId: string, data: CachedMessages) => void
+  mergeCachedMessages: (peerId: string, incoming: any[], hasMore?: boolean) => void
+  clearCachedMessages: (peerId?: string) => void
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -49,6 +59,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     textSize: "text-base",
   })
   const [sessionChecked, setSessionChecked] = useState(false)
+  const [messagesCache, setMessagesCache] = useState<Map<string, CachedMessages>>(new Map())
 
   useEffect(() => {
     const savedUser = localStorage.getItem("hansariaUser")
@@ -77,16 +88,79 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("hansariaTheme", JSON.stringify(newTheme))
   }
 
+  const mergeMessagesById = (prev: any[], incoming: any[]): any[] => {
+    const map = new Map<string, any>()
+    for (const m of prev) {
+      const k = m.id?.toString?.() || m._id?.toString?.() || String(m.timestamp || m.createdAt || "")
+      if (!map.has(k)) map.set(k, m)
+    }
+    for (const m of incoming) {
+      const k = m.id?.toString?.() || m._id?.toString?.() || String(m.timestamp || m.createdAt || "")
+      if (!map.has(k)) map.set(k, m)
+    }
+    return Array.from(map.values()).sort((a: any, b: any) => {
+      const ta = new Date(a.timestamp || a.createdAt || 0).getTime()
+      const tb = new Date(b.timestamp || b.createdAt || 0).getTime()
+      return ta - tb
+    })
+  }
+
+  const getCachedMessages = (peerId: string) => messagesCache.get(peerId)
+
+  const setCachedMessages = (peerId: string, data: CachedMessages) => {
+    setMessagesCache((prev) => {
+      const next = new Map(prev)
+      next.set(peerId, data)
+      return next
+    })
+  }
+
+  const mergeCachedMessages = (peerId: string, incoming: any[], hasMore?: boolean) => {
+    setMessagesCache((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(peerId)
+      const merged = existing ? mergeMessagesById(existing.messages, incoming) : [...incoming]
+      next.set(peerId, {
+        messages: merged,
+        hasMore: typeof hasMore === "boolean" ? hasMore : !!existing?.hasMore,
+        loadedAt: Date.now(),
+      })
+      return next
+    })
+  }
+
+  const clearCachedMessages = (peerId?: string) => {
+    setMessagesCache((prev) => {
+      if (!peerId) return new Map()
+      const next = new Map(prev)
+      next.delete(peerId)
+      return next
+    })
+  }
+
   const logout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
     } catch {}
     setUser(null)
     localStorage.removeItem("hansariaUser")
+    clearCachedMessages()
   }
 
   return (
-    <AppContext.Provider value={{ user, setUser, theme, updateTheme, logout }}>
+    <AppContext.Provider
+      value={{
+        user,
+        setUser,
+        theme,
+        updateTheme,
+        logout,
+        getCachedMessages,
+        setCachedMessages,
+        mergeCachedMessages,
+        clearCachedMessages,
+      }}
+    >
       {sessionChecked ? children : null}
     </AppContext.Provider>
   )
