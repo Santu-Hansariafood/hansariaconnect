@@ -133,7 +133,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
-        className="absolute bottom-20 left-4 z-50 w-[320px] rounded-2xl border border-gray-200 bg-white p-4 shadow-2xl"
+        className="absolute bottom-20 left-0 z-50 w-[320px] rounded-2xl border border-gray-200 bg-white p-4 shadow-2xl sm:left-2"
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-gray-800">Share</h3>

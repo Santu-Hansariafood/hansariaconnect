@@ -72,7 +72,7 @@ export default function ChatWindowFooter({
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="sticky bottom-0 z-30 w-full border-t border-[#e9edef] bg-[#f0f2f5] px-2 py-2 sm:px-4 sm:py-2.5"
+        className="sticky bottom-0 z-30 w-full overflow-visible border-t border-[#e9edef] bg-[#f0f2f5] px-2 py-2 sm:px-4 sm:py-2.5"
       >
         <div className="mx-auto flex max-w-4xl items-center gap-1.5 sm:gap-2">
           {!isRecording && (
