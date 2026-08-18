@@ -8,6 +8,7 @@ import Group from "@/models/group/Group";
 import GroupMessage from "@/models/group/GroupMessage";
 import { Types } from "mongoose";
 import { getUserSession } from "@/lib/sessionAuth";
+import Contact from "@/models/contact/Contact";
 import {
   decryptDirectMessageContent,
   decryptGroupMessageContent,
@@ -70,6 +71,9 @@ const normalizeId = (val: unknown): string => {
   return String(val);
 };
 
+const normalizeMobile = (value?: string | null) =>
+  String(value || "").replace(/\D/g, "");
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getUserSession(req);
@@ -87,6 +91,21 @@ export async function GET(req: NextRequest) {
     const userIdStr = String(userId);
 
     await connectDB();
+
+    const myContacts = await Contact.find({ userId }).lean();
+    const contactNameByMobile = new Map<string, string>();
+
+    for (const contact of myContacts) {
+      const name = typeof contact?.name === "string" ? contact.name.trim() : "";
+      const mobiles = Array.isArray(contact?.mobiles) ? contact.mobiles : [];
+
+      for (const mobile of mobiles) {
+        const normalized = normalizeMobile(String(mobile));
+        if (normalized && name) {
+          contactNameByMobile.set(normalized, name);
+        }
+      }
+    }
 
     const conversations = (await Conversation.find({
       $or: [{ userA: userId }, { userB: userId }],
@@ -116,6 +135,12 @@ export async function GET(req: NextRequest) {
       if (!peerUser) continue;
 
       const peerIdStr = String(peerId);
+      const normalizedPeerMobile = normalizeMobile(peerUser.mobile);
+      const savedContactName = normalizedPeerMobile
+        ? contactNameByMobile.get(normalizedPeerMobile) || ""
+        : "";
+      const displayName = savedContactName || peerProfile?.name || peerUser.mobile || "Unknown";
+
       const decryptedLastMessage = lastMessage
         ? {
             id: String(lastMessage._id),
@@ -136,8 +161,9 @@ export async function GET(req: NextRequest) {
         id: String(peerId),
         peerId: String(peerId),
         mobile: peerUser.mobile || "",
-        name: peerProfile?.name || peerUser.mobile || "Unknown",
+        name: displayName,
         avatar: peerProfile?.photo || "",
+        registered: true,
         lastMessageAt: conv.lastMessageAt || conv.createdAt || new Date(),
         lastMessage: decryptedLastMessage,
       });

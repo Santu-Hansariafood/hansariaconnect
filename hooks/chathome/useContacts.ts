@@ -63,7 +63,7 @@ export const useContacts = () => {
             else lastMessageText = c.lastMessage.text || "";
           }
 
-          const displayName = c.registered ? (c.name || c.mobile) : c.mobile;
+          const displayName = c.name || c.mobile || "Unknown";
 
           return {
             id: c.id || c.peerId,
@@ -108,7 +108,7 @@ export const useContacts = () => {
           else lastMessageText = c.lastMessage.text || "";
         }
 
-        const displayName = c.registered ? (c.name || c.mobile) : c.mobile;
+        const displayName = c.name || c.mobile || "Unknown";
 
         return {
           id: c.id || c.peerId,

@@ -10,6 +10,17 @@ import { X, CheckCircle2, CircleUserRound, Pencil, Trash2 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import Loading from "@/components/common/Loading/Loading";
 
+declare global {
+  interface Navigator {
+    contacts?: {
+      select: (
+        properties: string[],
+        options?: { multiple?: boolean },
+      ) => Promise<any[]>;
+    };
+  }
+}
+
 import {
   FaGoogle,
   FaWhatsapp,
@@ -76,7 +87,16 @@ export default function Contacts({ user, theme }: Props) {
   const [inviteLoading, setInviteLoading] = useState<string>("");
   const [inviteMessage, setInviteMessage] = useState<string>("");
   const [syncing, setSyncing] = useState(false);
+  const [deviceContactSupported, setDeviceContactSupported] = useState(false);
   const googleAuthUrl = "/api/google/contacts/auth";
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined") {
+      setDeviceContactSupported(
+        !!navigator.contacts?.select && typeof navigator.contacts.select === "function",
+      );
+    }
+  }, []);
 
   useEffect(() => {
     setContacts((prev) =>
@@ -194,6 +214,100 @@ export default function Contacts({ user, theme }: Props) {
     } catch {}
     setSyncing(false);
     setShowGoogleImportPrompt(false);
+  };
+
+  const importDeviceContacts = async () => {
+    if (typeof navigator === "undefined" || !navigator.contacts?.select) {
+      setError(
+        "Direct mobile contact access is not supported in this browser. Please use Google import or add contacts manually.",
+      );
+      return;
+    }
+
+    setSyncing(true);
+    setError("");
+
+    try {
+      const selectedContacts = await navigator.contacts.select(["name", "tel"], {
+        multiple: true,
+      });
+
+      const validEntries = selectedContacts
+        .map((person: any) => {
+          const numbers = Array.isArray(person?.tel)
+            ? person.tel
+                .map((entry: any) => String(entry ?? "").replace(/\D/g, ""))
+                .filter((value: string) => value.length >= 10)
+            : [];
+
+          if (!numbers.length) return null;
+
+          const name =
+            Array.isArray(person?.name) && person.name.length > 0
+              ? person.name[0]
+              : person?.name || "Mobile Contact";
+
+          return { name, mobiles: [...new Set(numbers)] };
+        })
+        .filter(Boolean) as { name: string; mobiles: string[] }[];
+
+      if (!validEntries.length) {
+        setError("No valid mobile numbers were selected from your device contacts.");
+        setSyncing(false);
+        return;
+      }
+
+      const created: any[] = [];
+      for (const entry of validEntries) {
+        const res = await fetch("/api/contacts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name: entry.name.trim(),
+            mobiles: entry.mobiles,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok && data?.contact) {
+          created.push(data.contact);
+        }
+      }
+
+      if (created.length) {
+        const listRes = await fetch("/api/contacts", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        const data = await listRes.json();
+
+        if (Array.isArray(data?.contacts)) {
+          const mapped = data.contacts.map((c: any) => ({
+            id: c._id,
+            name: c.registeredProfile?.name || c.name,
+            mobile: c.mobiles?.[0] || "",
+            avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
+            pinned: false,
+            blocked: false,
+            lastMessageTime: c.updatedAt || c.createdAt || "",
+            mobiles: c.mobiles || [],
+            email: c.email || "",
+            registered: !!c.registered,
+            registeredUserId: c.registeredUserId || "",
+            registeredProfile: c.registeredProfile || null,
+          }));
+
+          setContacts(mapped);
+        }
+      }
+    } catch (err) {
+      setError(
+        "The device contact picker was blocked or unavailable. Please try again or import contacts another way.",
+      );
+    } finally {
+      setSyncing(false);
+    }
   };
 
   useEffect(() => {
@@ -321,6 +435,14 @@ export default function Contacts({ user, theme }: Props) {
               </h1>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <button
+                  onClick={importDeviceContacts}
+                  disabled={syncing || !deviceContactSupported}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                >
+                  <CircleUserRound className="w-4 h-4" />
+                  {deviceContactSupported ? "Use mobile contacts" : "Mobile contacts not supported"}
+                </button>
                 <button
                   onClick={() => (window.location.href = googleAuthUrl)}
                   className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm border border-slate-200 transition hover:bg-slate-50"
