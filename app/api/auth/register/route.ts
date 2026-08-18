@@ -8,6 +8,10 @@ import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
+const ALLOWED_EMAIL_REGEX =
+  /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)$/i;
+
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -24,25 +28,33 @@ const transporter = nodemailer.createTransport({
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const { name, email, mobile, sex, dateOfBirth, termsAccepted } = body;
+    const rawName = String(body?.name || "").trim();
+    const name = rawName;
+    const email = String(body?.email || "").trim().toLowerCase();
+    const mobile = String(body?.mobile || "").trim();
+    const { sex, dateOfBirth, termsAccepted } = body;
 
-    if (!name || !email || !mobile || !sex || !dateOfBirth || !termsAccepted) {
+    if (!rawName || !email || !mobile || !sex || !dateOfBirth || !termsAccepted) {
       return NextResponse.json(
         { success: false, error: "All fields are required" },
         { status: 400 },
       );
     }
 
-    if (!/^\d{10}$/.test(mobile)) {
+    if (!INDIAN_MOBILE_REGEX.test(mobile)) {
       return NextResponse.json(
-        { success: false, error: "Invalid mobile number" },
+        { success: false, error: "Please enter a valid Indian mobile number" },
         { status: 400 },
       );
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!ALLOWED_EMAIL_REGEX.test(email)) {
       return NextResponse.json(
-        { success: false, error: "Invalid email address" },
+        {
+          success: false,
+          error:
+            "Only Gmail, Outlook, and Hansaria Food email addresses are allowed",
+        },
         { status: 400 },
       );
     }
@@ -95,7 +107,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const user = await User.create({
-      name,
+      name: rawName,
       email,
       mobile,
       sex,

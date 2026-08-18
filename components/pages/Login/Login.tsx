@@ -25,6 +25,10 @@ type LoginProps = {
   reason?: string;
 };
 
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
+const ALLOWED_EMAIL_REGEX =
+  /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)$/i;
+
 const Login = ({ prefillMobile, reason }: LoginProps) => {
   const router = useRouter();
   const [host, setHost] = useState("");
@@ -116,8 +120,8 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
   const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!/^\d{10}$/.test(mobile)) {
-      setError("Please enter a valid 10-digit mobile number");
+    if (!INDIAN_MOBILE_REGEX.test(mobile)) {
+      setError("Please enter a valid Indian mobile number");
       return;
     }
 
@@ -168,13 +172,15 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
       return;
     }
 
-    if (!/^\d{10}$/.test(registerMobile)) {
-      setError("Please enter a valid 10-digit mobile number");
+    if (!INDIAN_MOBILE_REGEX.test(registerMobile)) {
+      setError("Please enter a valid Indian mobile number");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Please enter a valid email address");
+    if (!ALLOWED_EMAIL_REGEX.test(email.trim().toLowerCase())) {
+      setError(
+        "Only Gmail, Outlook, and Hansaria Food email addresses are allowed",
+      );
       return;
     }
 
@@ -470,6 +476,9 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
                         className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Allowed: gmail.com, outlook.com, hansariafood.com
+                    </p>
                   </div>
 
                   <div>
@@ -483,13 +492,17 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
                         maxLength={10}
                         value={registerMobile}
                         onChange={(e) => {
-                          setRegisterMobile(e.target.value);
+                          const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setRegisterMobile(digits);
                           setError("");
                         }}
-                        placeholder="Enter 10-digit mobile number"
+                        placeholder="Enter Indian mobile number"
                         className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Use a valid 10-digit Indian mobile number starting with 6 to 9
+                    </p>
                   </div>
 
                   <div>

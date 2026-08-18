@@ -21,14 +21,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const mobile: string = String(body?.mobile || "");
+    const mobile: string = String(body?.mobile || "").trim();
 
-    if (!/^\d{10}$/.test(mobile)) {
+    if (!INDIAN_MOBILE_REGEX.test(mobile)) {
       return NextResponse.json(
-        { success: false, error: "Invalid mobile number" },
+        { success: false, error: "Please enter a valid Indian mobile number" },
         { status: 400 },
       );
     }
