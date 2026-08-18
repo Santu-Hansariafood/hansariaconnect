@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Image as ImageIcon, Smile, Send } from "lucide-react";
+import { Plus, Smile, Send } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const MediaPicker = dynamic(
@@ -78,16 +78,11 @@ export default function ChatWindowFooter({
           {!isRecording && (
             <>
               <button
-                onClick={() => {
-                  if (allowAttachments) {
-                    setShowMediaPicker(!showMediaPicker);
-                  }
-                }}
-                disabled={!allowAttachments}
-                className="rounded-full p-2.5 text-[#54656f] transition-all duration-200 hover:bg-[#e5e7eb] disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => setShowMediaPicker(!showMediaPicker)}
+                className="rounded-full p-2.5 text-[#54656f] transition-all duration-200 hover:bg-[#e5e7eb]"
                 title="Attach file, image, or video"
               >
-                <ImageIcon className="h-5 w-5" />
+                <Plus className="h-5 w-5" />
               </button>
 
               <button

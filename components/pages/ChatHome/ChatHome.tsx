@@ -187,8 +187,40 @@ export default function ChatHome({
     inputBg,
   } = themeColors;
 
-  if (loading) {
-    return <Loading />;
+  const isInitialLoading = loading && contacts.length === 0;
+
+  if (isInitialLoading) {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f0f2f5] min-w-0">
+        <div
+          className="h-14 sm:h-[60px] min-h-[56px] px-3 sm:px-4 flex items-center justify-between relative z-20 shadow-sm"
+          style={{ backgroundColor: theme.primary }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-full bg-white/20 animate-pulse" />
+            <div className="h-4 w-24 rounded-full bg-white/20 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-full bg-white/20 animate-pulse" />
+            <div className="h-8 w-8 rounded-full bg-white/20 animate-pulse" />
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-3 p-3">
+          <div className="h-12 rounded-2xl bg-white/60 animate-pulse" />
+          {[...Array(4)].map((_, index) => (
+            <div key={index} className="flex items-center gap-3 rounded-2xl bg-white/60 p-3 animate-pulse">
+              <div className="h-12 w-12 rounded-full bg-gray-200" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-28 rounded-full bg-gray-200" />
+                <div className="h-3 w-36 rounded-full bg-gray-200" />
+              </div>
+              <div className="h-3 w-8 rounded-full bg-gray-200" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (

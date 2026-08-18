@@ -74,9 +74,13 @@ export async function GET(req: NextRequest) {
 
       const profile = profileByUserId.get(uid);
       const normalizedMobile = String(userDoc?.mobile || "").replace(/\D/g, "");
+      const contactDisplayName = normalizedMobile
+        ? contactNameByMobile.get(normalizedMobile) || ""
+        : "";
+
       const displayName =
+        contactDisplayName ||
         profile?.name ||
-        (normalizedMobile ? contactNameByMobile.get(normalizedMobile) : "") ||
         userDoc?.mobile ||
         "User";
 

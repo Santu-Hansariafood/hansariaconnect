@@ -10,6 +10,9 @@ import {
   Link as LinkIcon,
   File as FileIcon,
   Paperclip,
+  Camera,
+  MapPin,
+  UserRound,
 } from "lucide-react"
 import React, { useState, useRef } from "react"
 import { MessageType } from "@/components/pages/ChatWindow/ChatWindowTypes"
@@ -93,67 +96,152 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
     return "file"
   }
 
+  const handleCameraPick = () => {
+    handleFileSelect("image", "image/*")
+  }
+
+  const handleContactShare = () => {
+    const contactText = window.prompt("Enter contact name and number:")
+    if (!contactText || !contactText.trim()) return
+    onSelect({ url: `Contact: ${contactText.trim()}` }, "link")
+    onClose()
+  }
+
+  const handleLocationShare = () => {
+    if (!navigator.geolocation) {
+      window.alert("Geolocation is not supported by this browser.")
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords
+        const mapUrl = `https://maps.google.com/?q=${latitude},${longitude}`
+        onSelect({ url: mapUrl }, "link")
+        onClose()
+      },
+      () => {
+        window.alert("Location access was denied.")
+      },
+      { enableHighAccuracy: true, timeout: 15000 },
+    )
+  }
+
   return (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
-        className="absolute bottom-20 left-4 bg-white rounded-2xl shadow-2xl p-4 border border-gray-200 z-50"
+        className="absolute bottom-20 left-4 z-50 w-[320px] rounded-2xl border border-gray-200 bg-white p-4 shadow-2xl"
       >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-800">Share Media</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-800">Share</h3>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+            className="rounded-full p-1 transition-colors hover:bg-gray-100"
           >
-            <X className="w-4 h-4 text-gray-600" />
+            <X className="h-4 w-4 text-gray-600" />
           </button>
         </div>
-        <div className="grid grid-cols-4 gap-3">
+
+        <div className="grid grid-cols-3 gap-3">
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => handleFileSelect("image", "image/*")}
-            className="flex flex-col items-center gap-2 p-4 bg-emerald-50 hover:bg-emerald-100 rounded-xl transition-colors"
+            className="flex flex-col items-center gap-2 rounded-xl bg-emerald-50 p-4 text-emerald-700 transition-colors hover:bg-emerald-100"
           >
-            <ImageIcon className="w-8 h-8 text-emerald-600" />
-            <span className="text-sm font-medium text-emerald-700">Image</span>
+            <ImageIcon className="h-8 w-8" />
+            <span className="text-sm font-medium">Photos</span>
           </motion.button>
+
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => handleFileSelect("video", "video/*")}
-            className="flex flex-col items-center gap-2 p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors"
+            onClick={handleCameraPick}
+            className="flex flex-col items-center gap-2 rounded-xl bg-blue-50 p-4 text-blue-700 transition-colors hover:bg-blue-100"
           >
-            <Video className="w-8 h-8 text-blue-600" />
-            <span className="text-sm font-medium text-blue-700">Video</span>
+            <Camera className="h-8 w-8" />
+            <span className="text-sm font-medium">Camera</span>
           </motion.button>
+
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              const input = document.createElement("input")
+              input.type = "file"
+              input.accept = ".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+              input.onchange = (e: Event) => {
+                const target = e.target as HTMLInputElement
+                const file = target.files?.[0]
+                if (file) {
+                  const type = determineFileType(file)
+                  onSelect(file, type)
+                }
+                onClose()
+              }
+              input.click()
+            }}
+            className="flex flex-col items-center gap-2 rounded-xl bg-orange-50 p-4 text-orange-700 transition-colors hover:bg-orange-100"
+          >
+            <FileText className="h-8 w-8" />
+            <span className="text-sm font-medium">Documents</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleContactShare}
+            className="flex flex-col items-center gap-2 rounded-xl bg-violet-50 p-4 text-violet-700 transition-colors hover:bg-violet-100"
+          >
+            <UserRound className="h-8 w-8" />
+            <span className="text-sm font-medium">Contact</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleLocationShare}
+            className="flex flex-col items-center gap-2 rounded-xl bg-pink-50 p-4 text-pink-700 transition-colors hover:bg-pink-100"
+          >
+            <MapPin className="h-8 w-8" />
+            <span className="text-sm font-medium">Location</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleLinkShare}
+            className="flex flex-col items-center gap-2 rounded-xl bg-cyan-50 p-4 text-cyan-700 transition-colors hover:bg-cyan-100"
+          >
+            <LinkIcon className="h-8 w-8" />
+            <span className="text-sm font-medium">Link</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={isRecording ? stopRecording : startRecording}
-            className={`flex flex-col items-center gap-2 p-4 rounded-xl transition-colors ${
+            className={`flex flex-col items-center gap-2 rounded-xl p-4 transition-colors ${
               isRecording
-                ? "bg-red-50 hover:bg-red-100"
-                : "bg-purple-50 hover:bg-purple-100"
+                ? "bg-red-50 text-red-700 hover:bg-red-100"
+                : "bg-purple-50 text-purple-700 hover:bg-purple-100"
             }`}
           >
             <Mic
-              className={`w-8 h-8 ${
-                isRecording ? "text-red-600 animate-pulse" : "text-purple-600"
+              className={`h-8 w-8 ${
+                isRecording ? "animate-pulse" : ""
               }`}
             />
-            <span
-              className={`text-sm font-medium ${
-                isRecording ? "text-red-700" : "text-purple-700"
-              }`}
-            >
+            <span className="text-sm font-medium">
               {isRecording ? `${recordingTime}s` : "Voice"}
             </span>
           </motion.button>
+
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => {
               const input = document.createElement("input")
@@ -165,45 +253,24 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
                   const type = determineFileType(file)
                   onSelect(file, type)
                 }
+                onClose()
               }
               input.click()
             }}
-            className="flex flex-col items-center gap-2 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors"
+            className="flex flex-col items-center gap-2 rounded-xl bg-gray-100 p-4 text-gray-700 transition-colors hover:bg-gray-200"
           >
-            <Paperclip className="w-8 h-8 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">File</span>
+            <Paperclip className="h-8 w-8" />
+            <span className="text-sm font-medium">File</span>
           </motion.button>
+
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => handleFileSelect("pdf", "application/pdf")}
-            className="flex flex-col items-center gap-2 p-4 bg-orange-50 hover:bg-orange-100 rounded-xl transition-colors"
+            onClick={() => handleFileSelect("video", "video/*")}
+            className="flex flex-col items-center gap-2 rounded-xl bg-sky-50 p-4 text-sky-700 transition-colors hover:bg-sky-100"
           >
-            <FileText className="w-8 h-8 text-orange-600" />
-            <span className="text-sm font-medium text-orange-700">PDF</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() =>
-              handleFileSelect(
-                "excel",
-                "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              )
-            }
-            className="flex flex-col items-center gap-2 p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-colors"
-          >
-            <FileIcon className="w-8 h-8 text-green-600" />
-            <span className="text-sm font-medium text-green-700">Excel</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleLinkShare}
-            className="flex flex-col items-center gap-2 p-4 bg-cyan-50 hover:bg-cyan-100 rounded-xl transition-colors"
-          >
-            <LinkIcon className="w-8 h-8 text-cyan-600" />
-            <span className="text-sm font-medium text-cyan-700">Link</span>
+            <Video className="h-8 w-8" />
+            <span className="text-sm font-medium">Video</span>
           </motion.button>
         </div>
       </motion.div>

@@ -398,7 +398,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
         if (accessRes.ok) {
           const accessData = await accessRes.json();
-          setAllowAttachments(Boolean(accessData?.permissions?.attachments));
+          setAllowAttachments(
+            accessData && typeof accessData === "object"
+              ? Boolean(accessData?.permissions?.attachments)
+              : true,
+          );
+        } else {
+          setAllowAttachments(true);
         }
 
         try {

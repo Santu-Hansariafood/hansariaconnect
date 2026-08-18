@@ -24,6 +24,11 @@ interface CachedMessages {
   loadedAt: number
 }
 
+interface BootstrapData {
+  conversations?: any[]
+  statuses?: Record<string, any[]>
+}
+
 interface AppContextType {
   user: User | null
   theme: Theme
@@ -34,6 +39,9 @@ interface AppContextType {
   setCachedMessages: (peerId: string, data: CachedMessages) => void
   mergeCachedMessages: (peerId: string, incoming: any[], hasMore?: boolean) => void
   clearCachedMessages: (peerId?: string) => void
+  bootstrapData: BootstrapData
+  bootstrapReady: boolean
+  prefetchHomeData: () => Promise<void>
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -60,6 +68,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   })
   const [sessionChecked, setSessionChecked] = useState(false)
   const [messagesCache, setMessagesCache] = useState<Map<string, CachedMessages>>(new Map())
+  const [bootstrapData, setBootstrapData] = useState<BootstrapData>({})
+  const [bootstrapReady, setBootstrapReady] = useState(false)
+
+  const prefetchHomeData = async () => {
+    try {
+      const [convRes, statusRes] = await Promise.all([
+        fetch("/api/conversations", { credentials: "include", cache: "no-store" }),
+        fetch("/api/status", { credentials: "include", cache: "no-store" }),
+      ])
+
+      const [convData, statusData] = await Promise.all([
+        convRes.ok ? convRes.json() : Promise.resolve({}),
+        statusRes.ok ? statusRes.json() : Promise.resolve({}),
+      ])
+
+      setBootstrapData({
+        conversations: Array.isArray(convData?.conversations) ? convData.conversations : [],
+        statuses: statusData?.statuses || {},
+      })
+    } catch {}
+    finally {
+      setBootstrapReady(true)
+    }
+  }
 
   useEffect(() => {
     const savedUser = localStorage.getItem("hansariaUser")
@@ -75,13 +107,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         } else {
           localStorage.removeItem("hansariaUser")
           setUser(null)
+          setBootstrapReady(true)
         }
+      } else {
+        setBootstrapReady(true)
       }
       setSessionChecked(true)
     }
 
     init()
   }, [])
+
+  useEffect(() => {
+    if (!user) {
+      if (!sessionChecked) return
+      setBootstrapReady(true)
+      return
+    }
+
+    void prefetchHomeData()
+  }, [user, sessionChecked])
 
   const updateTheme = (newTheme: Theme) => {
     setTheme(newTheme)
@@ -159,6 +204,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setCachedMessages,
         mergeCachedMessages,
         clearCachedMessages,
+        bootstrapData,
+        bootstrapReady,
+        prefetchHomeData,
       }}
     >
       {sessionChecked ? children : null}

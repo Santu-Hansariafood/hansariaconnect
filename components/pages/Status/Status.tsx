@@ -20,6 +20,7 @@ import {
   fadeInVariants,
 } from "@/utils/animations/animations";
 import Loading from "@/components/common/Loading/Loading";
+import { useApp } from "@/context/AppContext/AppContext";
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 const StatusCard = dynamic(
@@ -67,6 +68,7 @@ export default function StatusPage({
   const [uploading, setUploading] = useState(false);
   const [statusError, setStatusError] = useState("");
   const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const { bootstrapData } = useApp();
 
   const loadStatuses = useCallback(async () => {
     setStatusError("");
@@ -90,6 +92,12 @@ export default function StatusPage({
   }, []);
 
   useEffect(() => {
+    if (bootstrapData.statuses && Object.keys(bootstrapData.statuses).length > 0) {
+      setContactStatuses(bootstrapData.statuses);
+      setLoadingStatuses(false);
+      return;
+    }
+
     const refreshIfVisible = () => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         void loadStatuses();
@@ -107,7 +115,7 @@ export default function StatusPage({
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };
-  }, [loadStatuses]);
+  }, [bootstrapData.statuses, loadStatuses]);
 
   const handleStatusUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
