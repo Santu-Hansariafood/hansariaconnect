@@ -22,21 +22,39 @@ export async function GET(req: NextRequest) {
 
     const myContacts = await Contact.find({ userId }).lean();
     const contactMobiles = new Set<string>();
-    myContacts.forEach((c) => {
-      const contact = c as { mobiles?: string[] };
-      if (Array.isArray(contact.mobiles)) {
-        contact.mobiles.forEach((m: string) => contactMobiles.add(m));
-      }
+    const contactNameByMobile = new Map<string, string>();
+
+    myContacts.forEach((contact: any) => {
+      const name = typeof contact?.name === "string" ? contact.name.trim() : "";
+      const mobiles = Array.isArray(contact?.mobiles) ? contact.mobiles : [];
+
+      mobiles.forEach((mobile: string) => {
+        const normalized = String(mobile).replace(/\D/g, "");
+        if (!normalized) return;
+        contactMobiles.add(normalized);
+        if (name) {
+          contactNameByMobile.set(normalized, name);
+        }
+      });
     });
 
     const User = (await import("@/models/user/User")).default;
     const Profile = (await import("@/models/profile/Profile")).default;
 
-    const contactUsers = contactMobiles.size
-      ? await User.find({ mobile: { $in: Array.from(contactMobiles) } }).lean()
+    const contactUserMobiles = Array.from(contactMobiles);
+    const contactUsers = contactUserMobiles.length
+      ? await User.find({ mobile: { $in: contactUserMobiles } }).lean()
       : [];
 
     const contactUserIds = contactUsers.map((u: any) => u._id);
+    const profiles = contactUserIds.length
+      ? await Profile.find({ userId: { $in: contactUserIds } }).lean()
+      : [];
+
+    const profileByUserId = new Map<string, any>();
+    profiles.forEach((profile: any) => {
+      profileByUserId.set(String(profile.userId), profile);
+    });
 
     const statuses = await Status.find({
       userId: { $in: contactUserIds },
@@ -48,17 +66,25 @@ export async function GET(req: NextRequest) {
 
     const statusMap: Record<string, any[]> = {};
     for (const status of statuses) {
-      const uid = String((status as any).userId?._id || status.userId);
+      const userDoc = (status as any).userId as any;
+      const uid = String(userDoc?._id || (status as any).userId);
       if (!statusMap[uid]) {
         statusMap[uid] = [];
       }
-      const profile = await Profile.findOne({ userId: uid }).lean();
+
+      const profile = profileByUserId.get(uid);
+      const normalizedMobile = String(userDoc?.mobile || "").replace(/\D/g, "");
+      const displayName =
+        profile?.name ||
+        (normalizedMobile ? contactNameByMobile.get(normalizedMobile) : "") ||
+        userDoc?.mobile ||
+        "User";
+
       statusMap[uid].push({
         id: String(status._id),
         userId: uid,
-        name:
-          (profile as any)?.name || (status as any).userId?.mobile || "User",
-        avatar: (profile as any)?.photo || "",
+        name: displayName,
+        avatar: profile?.photo || "",
         media: status.media,
         type: status.type,
         views: (status.views || []).length,

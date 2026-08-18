@@ -1,6 +1,12 @@
 "use client";
 
-import { useState, ChangeEvent, useEffect, Suspense } from "react";
+import {
+  useState,
+  ChangeEvent,
+  useEffect,
+  Suspense,
+  useCallback,
+} from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 const StatusViewer = dynamic(
@@ -62,32 +68,46 @@ export default function StatusPage({
   const [statusError, setStatusError] = useState("");
   const [loadingStatuses, setLoadingStatuses] = useState(true);
 
+  const loadStatuses = useCallback(async () => {
+    setStatusError("");
+    setLoadingStatuses(true);
+    try {
+      const res = await fetch("/api/status", {
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok && data?.statuses) {
+        setContactStatuses(data.statuses);
+      } else {
+        setStatusError(data?.error || "Unable to load status updates.");
+      }
+    } catch (err: unknown) {
+      console.error("Failed to load statuses:", err);
+      setStatusError("Unable to load status updates right now.");
+    } finally {
+      setLoadingStatuses(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const loadStatuses = async () => {
-      setStatusError("");
-      setLoadingStatuses(true);
-      try {
-        const res = await fetch("/api/status", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const data = await res.json();
-        if (res.ok && data?.statuses) {
-          setContactStatuses(data.statuses);
-        } else {
-          setStatusError(data?.error || "Unable to load status updates.");
-        }
-      } catch (err: unknown) {
-        console.error("Failed to load statuses:", err);
-        setStatusError("Unable to load status updates right now.");
-      } finally {
-        setLoadingStatuses(false);
+    const refreshIfVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void loadStatuses();
       }
     };
-    loadStatuses();
-    const interval = setInterval(loadStatuses, 30000);
-    return () => clearInterval(interval);
-  }, []);
+
+    refreshIfVisible();
+
+    const interval = window.setInterval(refreshIfVisible, 15000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [loadStatuses]);
 
   const handleStatusUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -147,14 +167,7 @@ export default function StatusPage({
           timestamp: data.status.createdAt,
           views: 0,
         });
-        const refreshRes = await fetch("/api/status", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const refreshData = await refreshRes.json();
-        if (refreshRes.ok && refreshData?.statuses) {
-          setContactStatuses(refreshData.statuses);
-        }
+        await loadStatuses();
       }
     } catch (error) {
       console.error("Status upload error:", error);
