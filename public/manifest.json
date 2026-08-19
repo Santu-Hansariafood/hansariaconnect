@@ -2,7 +2,7 @@
   "name": "HansariaConnect – Secure Encrypted Messaging",
   "short_name": "HansariaConnect",
   "description": "HansariaConnect is a secure, real-time encrypted messaging platform by Hansaria Food Private Limited.",
-  "start_url": "/",
+  "start_url": "/chat",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",

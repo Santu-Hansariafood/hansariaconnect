@@ -94,7 +94,7 @@ export default function ChatHome({
   const [menuOpen, setMenuOpen] = useState(false);
   const [groups, setGroups] = useState<any[]>([]);
 
-  const { contacts, loading, setContacts } = useContacts();
+  const { contacts, loading, setContacts } = useContacts(user.id);
   const { socket } = useSocket();
   const filteredContacts = useFilteredContacts({ contacts, searchQuery });
 
@@ -404,7 +404,7 @@ export default function ChatHome({
                   onClick={() => {
                     const peerId =
                       contact.peerId || contact.registeredUserId || contact.id;
-                    if (onSelectChat && peerId) {
+                    if (onSelectChat && contact.registeredUserId) {
                       onSelectChat(peerId);
                     } else {
                       handleContactClick(contact);

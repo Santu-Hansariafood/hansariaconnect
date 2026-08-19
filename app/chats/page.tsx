@@ -44,8 +44,8 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#eae6df]">
-      <div className="mx-auto h-screen max-w-[1600px] overflow-hidden bg-[#f0f2f5]">
+    <div className="min-h-[100dvh] w-full bg-[#eae6df]">
+      <div className="mx-auto h-[100dvh] max-w-[1600px] overflow-hidden bg-[#f0f2f5]">
         <div className="grid h-full grid-cols-1 md:grid-cols-[360px_1fr]">
           <div className="h-full min-h-0 border-r-0 bg-[#f6f6f6] md:border-r md:border-[#e9edef]">
             <ChatHome
@@ -91,7 +91,7 @@ export default function ChatPage() {
         </div>
 
         {selectedChatId && (
-          <div className="md:hidden">
+          <div className="fixed inset-0 z-20 md:hidden">
             <ChatWindow
               user={user}
               theme={theme}

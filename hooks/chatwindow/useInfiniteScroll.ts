@@ -83,5 +83,5 @@ export const useInfiniteScroll = (
     run()
   }, [hasMore, chatMessages.length, id])
 
-  return { containerRef, hasMore, loadingMore, loadMore, handleScroll }
+  return { containerRef, hasMore, setHasMore, loadingMore, loadMore, handleScroll }
 }

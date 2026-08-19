@@ -94,6 +94,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }
 
   useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, [])
+
+  useEffect(() => {
     const savedUser = localStorage.getItem("hansariaUser")
     const savedTheme = localStorage.getItem("hansariaTheme")
     if (savedTheme) setTheme(JSON.parse(savedTheme))

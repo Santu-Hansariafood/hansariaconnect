@@ -57,6 +57,11 @@ export const metadata: Metadata = {
   },
 
   applicationName: "HansariaConnect",
+  appleWebApp: {
+    capable: true,
+    title: "HansariaConnect",
+    statusBarStyle: "default",
+  },
 
   openGraph: {
     title: "HansariaConnect – Secure Encrypted Messaging App",
@@ -102,6 +107,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0A0A0A",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

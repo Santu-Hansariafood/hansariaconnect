@@ -69,7 +69,7 @@ export default function ChatRoute() {
   const showChat = !isMobile || !!selectedChatId;
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#f0f2f5] touch-manipulation">
+    <div className="flex h-[100dvh] min-h-0 w-screen overflow-hidden bg-[#f0f2f5] touch-manipulation">
       <div
         className={`
           ${showSidebar ? "flex" : "hidden"}

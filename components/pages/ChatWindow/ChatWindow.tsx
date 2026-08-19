@@ -177,7 +177,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     isGroup,
   );
 
-  const { containerRef, hasMore, handleScroll } = useInfiniteScroll(
+  const { containerRef, hasMore, setHasMore, handleScroll } = useInfiniteScroll(
     chatId,
     chatMessages,
     setChatMessages,
@@ -226,6 +226,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         const cached = chatId ? getCachedMessages(chatId) : undefined;
         if (cached && cached.messages.length > 0) {
           setChatMessages(cached.messages);
+          setHasMore(!!cached.hasMore);
         }
 
         const accessCheckRes = await fetch(
@@ -273,8 +274,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         }
 
         const messagesEndpoint = isGroupChat
-          ? `/api/groups/${chatId}/messages?all=true&last=true`
-          : `/api/messages/${chatId}?all=true&last=true`;
+          ? `/api/groups/${chatId}/messages?limit=30&last=true`
+          : `/api/messages/${chatId}?limit=30&last=true`;
 
         const shouldFetchMessages = !cached || cached.messages.length === 0;
 
@@ -387,6 +388,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             finalMessages = messagesData.messages;
             setChatMessages((prev) => mergeUnique(prev, finalMessages));
           }
+          setHasMore(!!messagesData?.hasMore);
           if (chatId) {
             setCachedMessages(chatId, {
               messages: finalMessages.length > 0 ? finalMessages : [],
@@ -802,7 +804,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="h-full w-full flex flex-col bg-[#efeae2] min-w-0 overflow-hidden">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[#efeae2]">
         <ChatWindowHeader
           theme={theme}
           onBack={onBack || (() => router.push("/"))}
@@ -839,7 +841,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className={`flex-1 overflow-y-auto min-w-0 min-h-0 px-4 sm:px-6 md:px-8 py-3 sm:py-4 ${
+            className={`flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain px-2 pb-2 pt-3 sm:px-6 sm:py-4 md:px-8 ${
             !theme.wallpaperImage ? theme.wallpaper || "bg-[#efeae2]" : ""
           }`}
           style={

@@ -16,6 +16,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/otp",
     "/name-entry",
     "/terms",
+    "/privacy",
+    "/about",
+    "/contact",
+    "/affiliate",
   ]
   return urls.map((path) => ({
     url: `${base}${path}`,

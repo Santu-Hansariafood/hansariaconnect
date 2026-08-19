@@ -23,11 +23,69 @@ export interface Contact {
   registeredUserId?: string;
 }
 
-export const useContacts = () => {
+export const useContacts = (userId?: string | number) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const { onlineUserIds } = useSocket();
   const { bootstrapData } = useApp();
+
+  const mergeSavedContacts = useCallback((savedContacts: any[]) => {
+    const saved = savedContacts.map((contact: any): Contact => {
+      const registeredUserId = String(contact?.registeredUserId || "");
+      const contactId = String(contact?._id || contact?.id || registeredUserId);
+      const mobiles = Array.isArray(contact?.mobiles)
+        ? contact.mobiles.filter(Boolean).map(String)
+        : [];
+      const displayName =
+        contact?.registeredProfile?.name || contact?.name || mobiles[0] || "Unknown";
+
+      return {
+        id: contactId,
+        peerId: registeredUserId || undefined,
+        name: displayName,
+        mobile: mobiles[0] || contact?.mobile || "",
+        avatar: contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png",
+        pinned: !!contact?.pinned,
+        blocked: !!contact?.blocked,
+        active: false,
+        unread: 0,
+        lastSeen: "",
+        lastMessageTime: "",
+        lastMessage: registeredUserId ? "Start a conversation" : "Invite to HansariaConnect",
+        mobiles,
+        email: contact?.email || "",
+        registered: !!registeredUserId,
+        registeredUserId: registeredUserId || undefined,
+      };
+    });
+
+    setContacts((previous) => {
+      const byKey = new Map<string, Contact>();
+      previous.forEach((contact) => {
+        byKey.set(contact.registeredUserId || contact.peerId || contact.id, contact);
+      });
+      saved.forEach((contact) => {
+        const key = contact.registeredUserId || contact.id;
+        const existing = byKey.get(key);
+        byKey.set(key, existing ? { ...contact, ...existing } : contact);
+      });
+      return Array.from(byKey.values());
+    });
+  }, []);
+
+  const loadSavedContacts = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const response = await fetch(`/api/contacts?userId=${encodeURIComponent(String(userId))}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = await response.json();
+      if (response.ok && Array.isArray(data?.contacts)) {
+        mergeSavedContacts(data.contacts);
+      }
+    } catch {}
+  }, [mergeSavedContacts, userId]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -85,12 +143,27 @@ export const useContacts = () => {
           };
         });
 
-        setContacts(mapped);
+        setContacts((previous) => {
+          const conversationKeys = new Set(
+            mapped.map((contact) => contact.registeredUserId || contact.peerId || contact.id),
+          );
+          const savedOnly = previous.filter(
+            (contact) =>
+              !conversationKeys.has(
+                contact.registeredUserId || contact.peerId || contact.id,
+              ),
+          );
+          return [...mapped, ...savedOnly];
+        });
       }
     } catch {} finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void loadSavedContacts();
+  }, [loadSavedContacts]);
 
   useEffect(() => {
     if (Array.isArray(bootstrapData.conversations) && bootstrapData.conversations.length > 0) {
@@ -130,7 +203,18 @@ export const useContacts = () => {
         };
       });
 
-      setContacts(mapped);
+      setContacts((previous) => {
+        const conversationKeys = new Set(
+          mapped.map((contact) => contact.registeredUserId || contact.peerId || contact.id),
+        );
+        const savedOnly = previous.filter(
+          (contact) =>
+            !conversationKeys.has(
+              contact.registeredUserId || contact.peerId || contact.id,
+            ),
+        );
+        return [...mapped, ...savedOnly];
+      });
       setLoading(false);
       return;
     }

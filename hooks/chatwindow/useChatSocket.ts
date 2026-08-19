@@ -137,8 +137,8 @@ export const useChatSocket = (
     const fetchLatest = async () => {
       try {
         const endpoint = isGroup
-          ? `/api/groups/${id}/messages?all=true&last=true`
-          : `/api/messages/${id}?all=true&last=true`;
+          ? `/api/groups/${id}/messages?limit=30&last=true`
+          : `/api/messages/${id}?limit=30&last=true`;
         const res = await fetch(`${endpoint}&t=${Date.now()}`, {
           credentials: "include",
           cache: "no-store",
