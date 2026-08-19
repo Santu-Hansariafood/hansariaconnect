@@ -21,12 +21,12 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://hfconnect.in"),
 
   title: {
-    default: "HansariaConnect – Secure Encrypted Messaging App",
+    default: "HansariaConnect | Indian AI-Powered Chat Application",
     template: "%s | HansariaConnect",
   },
 
   description:
-    "HansariaConnect is a secure, privacy-first encrypted messaging platform for private conversations, group chat, and encrypted file sharing.",
+    "HansariaConnect is an Indian AI-powered chat application created by the Hansaria Food IT team for private messaging, groups, media sharing, and local communities.",
 
   keywords: [
     "HansariaConnect",
@@ -38,11 +38,18 @@ export const metadata: Metadata = {
     "OTP login",
     "single-device login",
     "India messaging app",
+    "Indian chat application",
+    "AI-powered chat app India",
+    "Made in India app",
+    "Indian messaging platform",
+    "local community chat app",
+    "Hansaria Food IT team",
   ],
 
-  authors: [{ name: "Santu De", url: "https://hfconnect.in" }],
-  creator: "HansariaConnect",
-  publisher: "HansariaConnect",
+  authors: [{ name: "Hansaria Food Private Limited", url: "https://hfconnect.in" }],
+  creator: "Hansaria Food IT Team",
+  publisher: "Hansaria Food Private Limited",
+  category: "technology",
 
   robots: {
     index: true,
@@ -64,9 +71,9 @@ export const metadata: Metadata = {
   },
 
   openGraph: {
-    title: "HansariaConnect – Secure Encrypted Messaging App",
+    title: "HansariaConnect | Indian AI-Powered Chat Application",
     description:
-      "Privacy-first encrypted messaging with real-time chat, groups, and media sharing.",
+      "Private, practical messaging made in India by the Hansaria Food IT team.",
     url: "https://hfconnect.in",
     siteName: "HansariaConnect",
     locale: "en_US",
@@ -83,9 +90,9 @@ export const metadata: Metadata = {
 
   twitter: {
     card: "summary_large_image",
-    title: "HansariaConnect – Secure Encrypted Messaging App",
+    title: "HansariaConnect | Indian AI-Powered Chat Application",
     description:
-      "The best encrypted messaging platform for private and secure real-time chat.",
+      "An Indian chat application for private conversations, groups, media sharing, and local communities.",
     creator: "@HansariaConnect",
     images: ["https://hfconnect.in/favicon/android-chrome-512x512.png"],
   },
@@ -138,17 +145,43 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "WebSite",
-              name: "HansariaConnect",
-              url: "https://hfconnect.in",
-              description:
-                "HansariaConnect is a secure encrypted messaging platform.",
-              publisher: {
-                "@type": "Organization",
-                name: "HansariaConnect",
-                logo:
-                  "https://hfconnect.in/favicon/android-chrome-512x512.png",
-              },
+              "@graph": [
+                {
+                  "@type": "Organization",
+                  "@id": "https://hfconnect.in/#organization",
+                  name: "Hansaria Food Private Limited",
+                  url: "https://hfconnect.in",
+                  description:
+                    "The Indian company behind HansariaConnect and its digital communication products.",
+                  logo: "https://hfconnect.in/favicon/android-chrome-512x512.png",
+                  brand: {
+                    "@type": "Brand",
+                    name: "HansariaConnect",
+                  },
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": "https://hfconnect.in/#website",
+                  name: "HansariaConnect",
+                  url: "https://hfconnect.in",
+                  description:
+                    "An Indian AI-powered chat application created by the Hansaria Food IT team.",
+                  publisher: { "@id": "https://hfconnect.in/#organization" },
+                  inLanguage: "en-IN",
+                },
+                {
+                  "@type": "SoftwareApplication",
+                  "@id": "https://hfconnect.in/#application",
+                  name: "HansariaConnect",
+                  applicationCategory: "CommunicationApplication",
+                  operatingSystem: "Web, Android",
+                  url: "https://hfconnect.in/chat",
+                  description:
+                    "An Indian AI-powered chat application for private messaging, groups, media sharing, and local communities.",
+                  creator: { "@id": "https://hfconnect.in/#organization" },
+                  offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
+                },
+              ],
             }),
           }}
         />

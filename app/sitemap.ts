@@ -5,16 +5,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date()
   const urls = [
     "/",
-    "/chat",
-    "/contacts",
-    "/groups",
-    "/status",
-    "/profile",
-    "/settings",
-    "/login",
-    "/verify-otp",
-    "/otp",
-    "/name-entry",
     "/terms",
     "/privacy",
     "/about",
@@ -25,7 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${base}${path}`,
     lastModified: now,
     changeFrequency: "daily",
-    priority: path === "/" ? 1 : 0.7,
+    priority: path === "/" ? 1 : path === "/about" ? 0.8 : 0.6,
   }))
 }
 

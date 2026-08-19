@@ -91,7 +91,7 @@ export default function ChatWindowHeader({
         backgroundColor: primaryColor,
         borderBottomColor: borderColor,
       }}
-      className="sticky top-0 z-30 flex items-center gap-3 border-b px-2 py-2 text-white shadow-sm sm:px-3"
+      className="sticky top-0 z-30 flex items-center gap-3 border-b px-2 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-white shadow-sm sm:px-3 sm:py-2"
     >
       <button
         onClick={onBack}

@@ -43,7 +43,7 @@ function isPublicPath(pathname: string): boolean {
 }
 
 function isProtectedUserPath(pathname: string): boolean {
-  if (pathname === "/" || pathname === "") return true;
+  if (pathname === "/" || pathname === "") return false;
   const protectedPaths = [
     "/chat/",
     "/profile",

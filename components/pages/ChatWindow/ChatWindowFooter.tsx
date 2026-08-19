@@ -72,7 +72,7 @@ export default function ChatWindowFooter({
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="sticky bottom-0 z-30 w-full overflow-visible border-t border-[#e9edef] bg-[#f0f2f5] px-2 py-2 sm:px-4 sm:py-2.5"
+        className="sticky bottom-0 z-30 w-full overflow-visible border-t border-[#e9edef] bg-[#f0f2f5] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:py-2.5"
       >
         <div className="mx-auto flex max-w-4xl items-center gap-1.5 sm:gap-2">
           {!isRecording && (
@@ -105,6 +105,8 @@ export default function ChatWindowFooter({
             <>
               <input
                 type="text"
+                inputMode="text"
+                enterKeyHint="send"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
@@ -132,8 +134,10 @@ export default function ChatWindowFooter({
         </div>
 
         {showEmojiPicker && (
-          <div className="absolute bottom-full left-4 mb-2 z-50">
+          <div className="absolute bottom-full left-2 right-2 z-50 mb-2 sm:left-4 sm:right-auto">
             <Picker
+              width="100%"
+              height={360}
               onEmojiClick={(emojiObject) => {
                 setMessage((prev: string) => prev + emojiObject.emoji);
                 setShowEmojiPicker(false);

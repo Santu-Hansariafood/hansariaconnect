@@ -832,7 +832,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[#efeae2]">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overscroll-none bg-[#efeae2]">
         <ChatWindowHeader
           theme={theme}
           onBack={onBack || (() => router.push("/"))}
@@ -869,7 +869,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-            className={`flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain px-2 pb-2 pt-3 sm:px-6 sm:py-4 md:px-8 ${
+            className={`flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain px-2 pb-2 pt-3 [scrollbar-width:thin] sm:px-6 sm:py-4 md:px-8 ${
             !theme.wallpaperImage ? theme.wallpaper || "bg-[#efeae2]" : ""
           }`}
           style={
