@@ -15,7 +15,22 @@ export async function GET(req: NextRequest) {
       );
     }
     await connectDB();
-    const users = await User.find().sort({ createdAt: -1 }).lean();
+    const requestedPage = Number(req.nextUrl.searchParams.get("page") || "1");
+    const page = Number.isFinite(requestedPage) && requestedPage > 0
+      ? Math.floor(requestedPage)
+      : 1;
+    const limit = 100;
+    const [total, users] = await Promise.all([
+      User.countDocuments(),
+      User.find(
+        {},
+        "mobile email sex dateOfBirth termsAccepted lastLoginIp lastLoginAt createdAt",
+      )
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
     const userIds = users.map((u: any) => u._id);
     const profiles = await Profile.find({ userId: { $in: userIds } }).lean();
     const access = await AccessControl.find({
@@ -32,7 +47,15 @@ export async function GET(req: NextRequest) {
       return {
         id: pid,
         mobile: u.mobile,
+        email: u.email || "",
+        sex: u.sex || "",
+        dateOfBirth: u.dateOfBirth || null,
+        termsAccepted: !!u.termsAccepted,
+        lastLoginIp: u.lastLoginIp || "",
+        lastLoginAt: u.lastLoginAt || null,
+        createdAt: u.createdAt || null,
         name: p?.name || "",
+        about: p?.about || "",
         avatar: p?.photo || "",
         permissions: a?.permissions || {
           contacts: true,
@@ -42,7 +65,15 @@ export async function GET(req: NextRequest) {
         },
       };
     });
-    return NextResponse.json({ users: payload });
+    return NextResponse.json({
+      users: payload,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
   } catch (e: any) {
     return NextResponse.json(
       { error: e?.message || "Server error" },

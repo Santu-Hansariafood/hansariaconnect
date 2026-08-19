@@ -14,8 +14,23 @@ type UserRow = {
   id: string;
   mobile: string;
   name: string;
+  email: string;
+  sex: string;
+  dateOfBirth: string | null;
+  termsAccepted: boolean;
+  lastLoginIp: string;
+  lastLoginAt: string | null;
+  createdAt: string | null;
+  about: string;
   avatar: string;
   permissions: Permission;
+};
+
+type UserPagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 };
 
 type AdminRow = {
@@ -40,6 +55,13 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [userPagination, setUserPagination] = useState<UserPagination>({
+    page: 1,
+    limit: 100,
+    total: 0,
+    totalPages: 1,
+  });
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [admins, setAdmins] = useState<AdminRow[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
   const [error, setError] = useState("");
@@ -93,7 +115,7 @@ export default function AdminDashboard() {
           return;
         }
 
-        loadData();
+        loadData(1, data.admin.isSuperAdmin || isSuperSubdomain);
       } catch {
         router.replace("/admin/login");
       } finally {
@@ -108,12 +130,15 @@ export default function AdminDashboard() {
     checkSession();
   }, [router]);
 
-  const loadData = async () => {
+  const loadData = async (
+    userPage = userPagination.page,
+    canManageUsers = isSuperAdmin || isSuperSubdomain,
+  ) => {
     setLoading(true);
     setError("");
     try {
-      if (isSuperAdmin || isSuperSubdomain) {
-        const usersRes = await fetch("/api/admin/users", { cache: "no-store" });
+      if (canManageUsers) {
+        const usersRes = await fetch(`/api/admin/users?page=${userPage}`, { cache: "no-store" });
         if (usersRes.status === 401) {
           router.replace("/admin/login");
           return;
@@ -124,9 +149,10 @@ export default function AdminDashboard() {
           return;
         }
         setUsers(usersData?.users || []);
+        setUserPagination(usersData?.pagination || userPagination);
       }
 
-      if (isSuperAdmin || isSuperSubdomain) {
+      if (canManageUsers) {
         const adminsRes = await fetch("/api/admin/admins", { cache: "no-store" });
         const adminsData = await adminsRes.json();
         if (adminsRes.ok) {
@@ -368,7 +394,33 @@ export default function AdminDashboard() {
 
             {/* Users Tab (Super Admin Only) */}
             {activeTab === "users" && (isSuperAdmin || isSuperSubdomain) && (
-              <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">Users</h2>
+                    <p className="text-sm text-gray-500">{userPagination.total} total users, 100 per page</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => loadData(userPagination.page - 1)}
+                      disabled={userPagination.page <= 1 || loading}
+                      className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      Page {userPagination.page} of {userPagination.totalPages}
+                    </span>
+                    <button
+                      onClick={() => loadData(userPagination.page + 1)}
+                      disabled={userPagination.page >= userPagination.totalPages || loading}
+                      className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="grid grid-cols-12 gap-3 px-4 py-3 text-sm font-medium text-gray-600 bg-gray-50">
                   <div className="col-span-3">User</div>
                   <div className="col-span-2 text-center">Contacts</div>
@@ -383,8 +435,12 @@ export default function AdminDashboard() {
                     user={u}
                     onSave={(p) => updateUserPermissions(u.id, p)}
                     saving={saving === u.id}
+                    onView={() => setSelectedUser(u)}
                   />
                 ))}
+                {users.length === 0 && <div className="px-4 py-8 text-center text-gray-500">No users found.</div>}
+                </div>
+                {selectedUser && <UserDetails user={selectedUser} onClose={() => setSelectedUser(null)} />}
               </div>
             )}
 
@@ -712,10 +768,12 @@ function UserRow({
   user,
   onSave,
   saving,
+  onView,
 }: {
   user: UserRow;
   onSave: (p: Permission) => void;
   saving: boolean;
+  onView: () => void;
 }) {
   const [contacts, setContacts] = useState(user.permissions.contacts);
   const [groups, setGroups] = useState(user.permissions.groups);
@@ -730,7 +788,9 @@ function UserRow({
   return (
     <div className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-gray-100 items-center">
       <div className="col-span-3">
-        <div className="font-medium text-gray-900">{user.name || user.mobile}</div>
+        <button onClick={onView} className="font-medium text-emerald-700 hover:underline text-left">
+          {user.name || user.mobile}
+        </button>
         <div className="text-xs text-gray-500">{user.mobile}</div>
       </div>
       <div className="col-span-2 flex justify-center">
@@ -756,4 +816,36 @@ function UserRow({
       </div>
     </div>
   );
+}
+
+function UserDetails({ user, onClose }: { user: UserRow; onClose: () => void }) {
+  const formatDate = (value: string | null) => value ? new Date(value).toLocaleString() : "Not available";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-5 flex items-center justify-between">
+          <h3 className="text-xl font-bold text-gray-900">User details</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-900" aria-label="Close user details">Close</button>
+        </div>
+        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+          <Detail label="Name" value={user.name || "Not available"} />
+          <Detail label="Mobile" value={user.mobile} />
+          <Detail label="Email" value={user.email || "Not available"} />
+          <Detail label="Gender" value={user.sex || "Not available"} />
+          <Detail label="Date of birth" value={formatDate(user.dateOfBirth)} />
+          <Detail label="Terms accepted" value={user.termsAccepted ? "Yes" : "No"} />
+          <Detail label="Created" value={formatDate(user.createdAt)} />
+          <Detail label="Last login" value={formatDate(user.lastLoginAt)} />
+          <Detail label="Last login IP" value={user.lastLoginIp || "Not available"} />
+          <Detail label="About" value={user.about || "Not available"} />
+        </div>
+        <button onClick={onClose} className="mt-6 w-full rounded-xl bg-gray-900 px-4 py-2 text-white hover:bg-gray-700">Close</button>
+      </div>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return <div><div className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</div><div className="break-words text-gray-900">{value}</div></div>;
 }
