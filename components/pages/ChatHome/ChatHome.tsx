@@ -544,7 +544,7 @@ export default function ChatHome({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={`fixed inset-0 ${bgOverlay} flex items-center justify-center z-50 p-4`}
+              className={`fixed inset-0 z-50 overflow-y-auto ${theme.isDark ? "bg-gray-900" : "bg-white"}`}
               onClick={closeContactModal}
             >
               <motion.div
@@ -552,7 +552,7 @@ export default function ChatHome({
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${bgCard} rounded-3xl p-6 max-w-md w-full shadow-2xl border ${borderColor}`}
+                className={`${bgCard} mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8`}
               >
                 <div className="flex justify-between items-start mb-6">
                   <h2 className={`text-2xl font-bold ${textColor}`}>
@@ -692,14 +692,14 @@ export default function ChatHome({
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className={`fixed inset-0 ${bgOverlay} flex items-center justify-center z-50 p-4`}
+              className={`fixed inset-0 z-50 overflow-y-auto ${theme.isDark ? "bg-gray-900" : "bg-white"}`}
               onClick={() => setShowCreateModal(false)}
             >
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 onClick={(e) => e.stopPropagation()}
-                className={`${bgCard} rounded-3xl p-6 max-w-lg w-full shadow-2xl border ${borderColor}`}
+                className={`${bgCard} mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8`}
               >
                 <div className="flex justify-between items-start mb-6">
                   <h2 className={`text-2xl font-bold ${textColor}`}>

@@ -457,8 +457,8 @@ export default function AdminDashboard() {
                 </div>
 
                 {showCreateAdmin && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
                       <h3 className="text-xl font-bold mb-4">Create New Admin</h3>
                       <form onSubmit={handleCreateAdmin} className="space-y-4">
                         <div>
@@ -524,8 +524,8 @@ export default function AdminDashboard() {
                 )}
 
                 {editingAdmin && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
                       <h3 className="text-xl font-bold mb-4">Edit Admin</h3>
                       <form onSubmit={handleUpdateAdmin} className="space-y-4">
                         <div>
@@ -649,8 +649,8 @@ export default function AdminDashboard() {
                 </div>
 
                 {newlyCreatedApiKey && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
                       <h3 className="text-xl font-bold mb-4">API Key Created</h3>
                       <div className="p-4 bg-gray-100 rounded-xl mb-4">
                         <p className="text-sm font-medium text-gray-800 mb-2">Save this key, you won't see it again:</p>
@@ -669,8 +669,8 @@ export default function AdminDashboard() {
                 )}
 
                 {showCreateApiKey && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
                       <h3 className="text-xl font-bold mb-4">Create New API Key</h3>
                       <form onSubmit={handleCreateApiKey} className="space-y-4">
                         <div>
@@ -822,8 +822,8 @@ function UserDetails({ user, onClose }: { user: UserRow; onClose: () => void }) 
   const formatDate = (value: string | null) => value ? new Date(value).toLocaleString() : "Not available";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+      <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-xl font-bold text-gray-900">User details</h3>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-900" aria-label="Close user details">Close</button>

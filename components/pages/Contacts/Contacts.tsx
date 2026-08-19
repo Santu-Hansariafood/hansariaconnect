@@ -615,11 +615,11 @@ export default function Contacts({ user, theme }: Props) {
             </div>
           )}
           {showCreateModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
               <motion.div
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
-                className="bg-white max-w-lg w-full p-6 rounded-3xl shadow-xl"
+                className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8"
               >
                 <div className="flex justify-between items-center mb-5">
                   <h2 className="text-xl font-bold">Create Contact</h2>
@@ -721,8 +721,8 @@ export default function Contacts({ user, theme }: Props) {
             </div>
           )}
           {showGoogleImportPrompt && (
-            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-              <div className="bg-white max-w-md w-full p-6 rounded-2xl">
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+              <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
                 <h2 className="text-lg font-bold mb-2">
                   Import Google Contacts?
                 </h2>

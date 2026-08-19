@@ -38,8 +38,8 @@ export default function StatusViewer({
   const cur = items[index];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="relative max-w-3xl w-full max-h-full">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black">
+      <div className="relative mx-auto flex min-h-full w-full max-w-4xl flex-col p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:p-6">
         <button
           onClick={onClose}
           className="absolute top-3 right-3 z-50 bg-black/50 text-white rounded-full p-2"
@@ -52,7 +52,7 @@ export default function StatusViewer({
           <button onClick={next} className="pointer-events-auto p-4 text-white">›</button>
         </div>
 
-        <div className="w-full h-[70vh] bg-black rounded-lg flex items-center justify-center overflow-hidden">
+        <div className="flex min-h-[70dvh] w-full flex-1 items-center justify-center overflow-hidden bg-black sm:min-h-0 sm:h-[78vh]">
           {cur.type === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={cur.media} alt={cur.user || "status"} className="max-w-full max-h-full object-contain" />

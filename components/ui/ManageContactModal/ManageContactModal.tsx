@@ -40,8 +40,8 @@ const ManageContactModal: React.FC<Props> = ({ contact, onClose, onSave, onDelet
   if (!contact) return null
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Manage Contact</h3>
         {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
         <div className="space-y-3">

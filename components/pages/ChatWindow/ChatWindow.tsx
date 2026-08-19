@@ -84,6 +84,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [chatError, setChatError] = useState("");
   const [savingContact, setSavingContact] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -151,6 +152,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           playRingtone(preferences.ringtone || "chime");
           if (
             typeof window !== "undefined" &&
+            typeof Notification !== "undefined" &&
             Notification.permission === "granted" &&
             document.hidden
           ) {
@@ -211,6 +213,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     if (!chatId) return;
 
     setInitialLoading(true);
+    setChatError("");
     setChatMessages([]);
     setContact(null);
     setIsGroup(false);
@@ -238,13 +241,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         );
 
         if (!accessCheckRes.ok) {
-          router.replace("/chats");
+          setChatError(
+            accessCheckRes.status === 401
+              ? "Your session expired. Please sign in again."
+              : "This chat is not available for your account.",
+          );
           return;
         }
 
         const accessData = await accessCheckRes.json();
         if (!accessData?.access) {
-          router.replace("/chats");
+          setChatError("You do not have access to this chat.");
           return;
         }
 
@@ -379,6 +386,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               }
             }
           }
+        } else if (!contactsRes.ok && contactsRes.status >= 500) {
+          setChatError("Contacts could not be loaded. Check your connection and retry.");
         }
 
         if (messagesRes !== null && messagesRes.ok) {
@@ -396,6 +405,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
               loadedAt: Date.now(),
             });
           }
+        } else if (messagesRes !== null && !messagesRes.ok) {
+          setChatError(
+            messagesRes.status === 401
+              ? "Your session expired. Please sign in again."
+              : "Messages could not be loaded. Check your connection and retry.",
+          );
         }
 
         if (accessRes.ok) {
@@ -800,6 +815,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   if (initialLoading) {
     return <Loading />;
+  }
+
+  if (chatError) {
+    return (
+      <div className="flex h-full min-h-0 w-full flex-col items-center justify-center bg-[#efeae2] px-5 text-center">
+        <p className="max-w-md text-sm text-[#54656f]">{chatError}</p>
+        <div className="mt-5 flex w-full max-w-xs gap-3">
+          <button
+            onClick={() => window.location.reload()}
+            className="flex-1 rounded-xl bg-[#00a884] px-4 py-3 text-sm font-semibold text-white"
+          >
+            Retry
+          </button>
+          <button
+            onClick={onBack || (() => router.replace("/chat"))}
+            className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#111b21]"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

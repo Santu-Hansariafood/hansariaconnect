@@ -62,6 +62,20 @@ export default function ChatIndexPage() {
     }
   }, [user, router]);
 
+  useEffect(() => {
+    if (!user && typeof window !== "undefined") {
+      const savedUser = localStorage.getItem("hansariaUser");
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          if (parsed?.step === "complete") {
+            window.location.reload();
+          }
+        } catch {}
+      }
+    }
+  }, [user]);
+
   if (!isReady) {
     return <Loading />;
   }

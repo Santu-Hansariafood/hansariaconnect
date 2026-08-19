@@ -59,7 +59,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-50 overflow-y-auto bg-white"
       onClick={onClose}
     >
       <motion.div
@@ -67,7 +67,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl max-h-[80vh] flex flex-col"
+        className="mx-auto flex min-h-full w-full max-w-3xl flex-col p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8"
       >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Forward Message</h2>
