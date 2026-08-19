@@ -659,13 +659,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
     setMessage("");
 
-    const sent = await sendViaSocket(
-      { type: "text", text: trimmed },
-      optimisticMessage,
-    );
-    if (!sent) {
-      await sendViaRest({ type: "text", text: trimmed }, optimisticMessage);
-    }
+    await sendViaRest({ type: "text", text: trimmed }, optimisticMessage);
   };
 
   const handleMediaSelect = async (
@@ -692,10 +686,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       };
 
       setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
-      const sent = await sendViaSocket(payload, optimisticMessage);
-      if (!sent) {
-        await sendViaRest(payload, optimisticMessage);
-      }
+      await sendViaRest(payload, optimisticMessage);
     };
 
     const uploadFile = async (file: File, kind: string) => {
