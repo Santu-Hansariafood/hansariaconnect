@@ -31,7 +31,7 @@ export function useNavbarItems(unreadCounts: { chats: number; groups: number }) 
   }, []);
 
   const items = [
-    { path: "/chats", icon: MessageCircle, label: "Chats", count: unreadCounts.chats },
+    { path: "/chat", icon: MessageCircle, label: "Chats", count: unreadCounts.chats },
     { path: "/contacts", icon: Phone, label: "Contacts", count: 0 },
     { path: "/status", icon: ImageIcon, label: "Status", count: 0 },
     { path: "/groups", icon: Users, label: "Groups", count: unreadCounts.groups },

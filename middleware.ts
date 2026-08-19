@@ -46,7 +46,6 @@ function isProtectedUserPath(pathname: string): boolean {
   if (pathname === "/" || pathname === "") return true;
   const protectedPaths = [
     "/chat/",
-    "/chats",
     "/profile",
     "/settings",
     "/contacts",
@@ -167,7 +166,7 @@ export async function middleware(req: NextRequest) {
     const chatId = extractChatId(pathname);
     if (chatId && !isValidObjectId(chatId)) {
       const url = req.nextUrl.clone();
-      url.pathname = "/chats";
+      url.pathname = "/chat";
       url.search = "";
       return NextResponse.redirect(url);
     }

@@ -25,7 +25,7 @@ export default function OtpPage() {
     const updated = { ...user, step: "complete" as const }
     setUser(updated)
     localStorage.setItem("hansariaUser", JSON.stringify(updated))
-    router.push("/chats")
+    router.push("/chat")
   }
 
   const handleResend = () => {

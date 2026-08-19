@@ -5,7 +5,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date()
   const urls = [
     "/",
-    "/chats",
+    "/chat",
     "/contacts",
     "/groups",
     "/status",
