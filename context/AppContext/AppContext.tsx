@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react"
 
 interface User {
   id?: string
@@ -139,7 +139,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("hansariaTheme", JSON.stringify(newTheme))
   }
 
-  const mergeMessagesById = (prev: any[], incoming: any[]): any[] => {
+  const mergeMessagesById = useCallback((prev: any[], incoming: any[]): any[] => {
     const map = new Map<string, any>()
     for (const m of prev) {
       const k = m.id?.toString?.() || m._id?.toString?.() || String(m.timestamp || m.createdAt || "")
@@ -154,40 +154,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const tb = new Date(b.timestamp || b.createdAt || 0).getTime()
       return ta - tb
     })
-  }
+  }, [])
 
-  const getCachedMessages = (peerId: string) => messagesCache.get(peerId)
+  const getCachedMessages = useCallback((peerId: string) => messagesCache.get(peerId), [messagesCache])
 
-  const setCachedMessages = (peerId: string, data: CachedMessages) => {
+  const setCachedMessages = useCallback((peerId: string, data: CachedMessages) => {
     setMessagesCache((prev) => {
+      const current = prev.get(peerId)
+      if (current === data) return prev
       const next = new Map(prev)
       next.set(peerId, data)
       return next
     })
-  }
+  }, [])
 
-  const mergeCachedMessages = (peerId: string, incoming: any[], hasMore?: boolean) => {
+  const mergeCachedMessages = useCallback((peerId: string, incoming: any[], hasMore?: boolean) => {
     setMessagesCache((prev) => {
-      const next = new Map(prev)
-      const existing = next.get(peerId)
+      const existing = prev.get(peerId)
       const merged = existing ? mergeMessagesById(existing.messages, incoming) : [...incoming]
-      next.set(peerId, {
+      const nextValue = {
         messages: merged,
         hasMore: typeof hasMore === "boolean" ? hasMore : !!existing?.hasMore,
         loadedAt: Date.now(),
-      })
+      }
+      if (
+        existing &&
+        existing.hasMore === nextValue.hasMore &&
+        existing.messages.length === nextValue.messages.length &&
+        existing.messages.every((message, index) => message === nextValue.messages[index])
+      ) {
+        return prev
+      }
+      const next = new Map(prev)
+      next.set(peerId, nextValue)
       return next
     })
-  }
+  }, [mergeMessagesById])
 
-  const clearCachedMessages = (peerId?: string) => {
+  const clearCachedMessages = useCallback((peerId?: string) => {
     setMessagesCache((prev) => {
       if (!peerId) return new Map()
+      if (!prev.has(peerId)) return prev
       const next = new Map(prev)
       next.delete(peerId)
       return next
     })
-  }
+  }, [])
 
   const logout = async () => {
     try {
