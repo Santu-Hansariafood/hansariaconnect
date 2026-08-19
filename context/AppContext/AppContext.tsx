@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react"
+import NotificationManager from "@/components/common/NotificationManager/NotificationManager"
 
 interface User {
   id?: string
@@ -227,7 +228,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         prefetchHomeData,
       }}
     >
-      {sessionChecked ? children : null}
+      {sessionChecked ? <><NotificationManager />{children}</> : null}
     </AppContext.Provider>
   )
 }

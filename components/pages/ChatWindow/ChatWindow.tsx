@@ -107,7 +107,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png";
   const isSavedContact = Boolean(contact?.id || contact?._id);
 
-  const { preferences, playRingtone, requestPermission } = useNotifications();
+  const { preferences, requestPermission } = useNotifications();
 
   const mergeUnique = useCallback(
     (prev: ChatMessage[], incoming: ChatMessage[]) => {
@@ -140,42 +140,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     chatId,
     setChatMessages,
     mergeUnique,
-    useCallback(
-      (msg: ChatMessage) => {
-        const senderId = String(msg?.from || "");
-        const selfId = String(user.id || "");
-        if (
-          senderId !== selfId &&
-          preferences.messages &&
-          preferences.enabled
-        ) {
-          playRingtone(preferences.ringtone || "chime");
-          if (
-            typeof window !== "undefined" &&
-            typeof Notification !== "undefined" &&
-            Notification.permission === "granted" &&
-            document.hidden
-          ) {
-            const title = headerName || "New message";
-            const body = msg?.text || "You have a new chat message";
-            new Notification(title, {
-              body,
-              icon: "/logo/logo.png",
-              tag: `chat-${chatId}`,
-            });
-          }
-        }
-      },
-      [
-        chatId,
-        headerName,
-        playRingtone,
-        preferences.enabled,
-        preferences.messages,
-        preferences.ringtone,
-        user.id,
-      ],
-    ),
+    undefined,
     isGroup,
   );
 

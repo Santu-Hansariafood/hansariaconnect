@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface NotificationPreferences {
   messages: boolean;
@@ -57,7 +57,7 @@ export function useNotifications() {
     loadPreferences();
   }, []);
 
-  const requestPermission = async () => {
+  const requestPermission = useCallback(async () => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     if (Notification.permission === "default") {
       try {
@@ -66,9 +66,9 @@ export function useNotifications() {
         // ignore
       }
     }
-  };
+  }, []);
 
-  const playRingtone = (ringtone: string) => {
+  const playRingtone = useCallback((ringtone: string) => {
     if (typeof window === "undefined") return;
     if (ringtone === "none") return;
     if (!preferences.enabled) return;
@@ -115,37 +115,73 @@ export function useNotifications() {
       oscillator.start(now + note.start);
       oscillator.stop(now + note.start + note.duration + 0.02);
     });
-  };
+  }, [preferences.enabled]);
 
-  const showNotification = (title: string, body: string, tag?: string) => {
+  const showNotification = useCallback((title: string, body: string, tag?: string, url = "/chat") => {
     if (!preferences.enabled) return;
     if (typeof window === "undefined" || !("Notification" in window)) return;
 
+    const options: NotificationOptions = {
+      body,
+      icon: "/logo/logo.png",
+      tag,
+      badge: "/logo/logo.png",
+      data: { url },
+    };
+
     const createNotification = () => {
       try {
-        new Notification(title, {
-          body,
-          icon: "/logo/logo.png",
-          tag,
-          badge: "/logo/logo.png",
-        });
+        new Notification(title, options);
       } catch {
         // Ignore notification creation failure
       }
     };
 
     if (Notification.permission === "granted") {
-      createNotification();
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.ready
+          .then((registration) => registration.showNotification(title, options))
+          .catch(createNotification);
+      } else {
+        createNotification();
+      }
     } else if (Notification.permission !== "denied") {
       Notification.requestPermission().then((permission) => {
         if (permission === "granted") {
-          createNotification();
+          if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.ready
+              .then((registration) => registration.showNotification(title, options))
+              .catch(createNotification);
+          } else {
+            createNotification();
+          }
         }
       }).catch(() => {
         // ignore permission request failure
       });
     }
-  };
+  }, [preferences.enabled]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const unlockAudio = () => {
+      const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      if (!audioContextRef.current) audioContextRef.current = new AudioCtx();
+      const context = audioContextRef.current;
+      if (context?.state === "suspended") {
+        context.resume().catch(() => {});
+      }
+    };
+
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    window.addEventListener("keydown", unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
 
   return { preferences, showNotification, requestPermission, playRingtone };
 }

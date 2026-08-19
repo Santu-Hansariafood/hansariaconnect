@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next"
 
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://hfconnect.in").replace(/\/+$/, "")
+
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://hfconnect.in"
   return {
     rules: [
       {
@@ -25,7 +26,7 @@ export default function robots(): MetadataRoute.Robots {
         ],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
+    sitemap: `${siteUrl}/sitemap.xml`,
   }
 }
 

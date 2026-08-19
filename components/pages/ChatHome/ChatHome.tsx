@@ -95,7 +95,7 @@ export default function ChatHome({
   const [groups, setGroups] = useState<any[]>([]);
 
   const { contacts, loading, setContacts } = useContacts(user.id);
-  const { socket } = useSocket();
+  const { socket, addListener, removeListener } = useSocket();
   const filteredContacts = useFilteredContacts({ contacts, searchQuery });
 
   useEffect(() => {
@@ -119,6 +119,66 @@ export default function ChatHome({
     };
   }, []);
 
+  useEffect(() => {
+    const getMessagePreview = (message: any) => {
+      if (message?.type === "image") return "📷 Image";
+      if (message?.type === "video") return "🎥 Video";
+      if (message?.type === "voice") return "🎤 Voice";
+      if (message?.type === "pdf") return "📄 PDF";
+      if (message?.type === "excel") return "📊 Excel";
+      if (message?.type === "link") return message?.linkTitle || "🔗 Link";
+      return message?.text || "New message";
+    };
+
+    const handleIncomingMessage = (message: any) => {
+      const peerId = String(message?.from || "");
+      if (!peerId || peerId === String(user.id || "")) return;
+
+      setContacts((previous) =>
+        previous.map((contact) => {
+          const contactPeerId = String(
+            contact.registeredUserId || contact.peerId || contact.id || "",
+          );
+          if (contactPeerId !== peerId) return contact;
+
+          return {
+            ...contact,
+            lastMessage: getMessagePreview(message),
+            lastMessageTime:
+              message?.createdAt || message?.timestamp || new Date().toISOString(),
+            unread:
+              selectedChatId === peerId ? 0 : Number(contact.unread || 0) + 1,
+          };
+        }),
+      );
+    };
+
+    const handleIncomingGroupMessage = (message: any) => {
+      const groupId = String(message?.groupId || "");
+      if (!groupId) return;
+
+      setGroups((previous) =>
+        previous.map((group) => {
+          if (String(group?.id || group?._id || "") !== groupId) return group;
+          return {
+            ...group,
+            lastMessage: getMessagePreview(message),
+            lastMessageTime:
+              message?.createdAt || message?.timestamp || new Date().toISOString(),
+          };
+        }),
+      );
+    };
+
+    addListener("message:new", handleIncomingMessage);
+    addListener("group:message:new", handleIncomingGroupMessage);
+
+    return () => {
+      removeListener("message:new", handleIncomingMessage);
+      removeListener("group:message:new", handleIncomingGroupMessage);
+    };
+  }, [addListener, removeListener, selectedChatId, setContacts, user.id]);
+
   const handleSearch = useCallback(
     (query: string) => setSearchQuery(query),
     [],
@@ -126,9 +186,14 @@ export default function ChatHome({
 
   const visibleGroups = useMemo(() => {
     const q = (searchQuery || "").trim().toLowerCase();
-    return q
+    const filteredGroups = q
       ? groups.filter((g: any) => (g?.name || "").toLowerCase().includes(q))
       : groups;
+    return [...filteredGroups].sort(
+      (a: any, b: any) =>
+        new Date(b?.lastMessageTime || b?.updatedAt || 0).getTime() -
+        new Date(a?.lastMessageTime || a?.updatedAt || 0).getTime(),
+    );
   }, [groups, searchQuery]);
 
   const {
