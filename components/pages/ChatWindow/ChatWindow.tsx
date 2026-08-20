@@ -43,6 +43,7 @@ import {
   User,
 } from "@/components/pages/ChatWindow/ChatWindowTypes";
 import { detectHarmfulFileName } from "@/utils/text/formatting";
+import { autoCorrectSpelling } from "@/utils/text/autoCorrect";
 
 interface ChatWindowProps {
   user: User;
@@ -609,7 +610,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   const handleSend = async () => {
-    const trimmed = message.trim();
+    const trimmed = (await autoCorrectSpelling(message.trim())).trim();
     if (!trimmed) return;
 
     const optimisticMessage: ChatMessage = {

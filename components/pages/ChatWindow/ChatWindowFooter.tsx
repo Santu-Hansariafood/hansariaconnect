@@ -107,6 +107,9 @@ export default function ChatWindowFooter({
                 type="text"
                 inputMode="text"
                 enterKeyHint="send"
+                spellCheck={true}
+                autoCorrect="on"
+                autoCapitalize="sentences"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
