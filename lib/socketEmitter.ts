@@ -92,11 +92,33 @@ const EMPTY_UNREAD: UnreadPayload = {
 
 const DEFAULT_AVATAR = "/logo/logo.png";
 
+let bootstrapAttempted = false;
+
 const getIo = (): ServerIO | null => {
   try {
     const io = (globalThis as any).__io as ServerIO | undefined;
+    if (!io && !bootstrapAttempted) {
+      bootstrapAttempted = true;
+      console.warn(
+        "[socketEmitter] __io is NOT attached to globalThis."
+        + " Socket.IO server may not be initialized yet."
+        + " Ensure /api/socket (pages) has been called by at least one connected client."
+      );
+      // Attempt to trigger socket server lazy init via internal fetch when in same process
+      try {
+        if (typeof fetch === "function" && process?.env?.PORT) {
+          const port = process.env.PORT || "3000";
+          void fetch(`http://127.0.0.1:${port}/api/socket?t=${Date.now()}`, {
+            method: "GET",
+          }).catch(() => {});
+        }
+      } catch {
+        // ignore bootstrap attempt failure
+      }
+    }
     return io ?? null;
-  } catch {
+  } catch (e: any) {
+    console.error("[socketEmitter] getIo() exception:", e?.message || e);
     return null;
   }
 };
@@ -553,9 +575,13 @@ export const emitDirectMessageReceived = async (
     );
 
     if (notification) {
+      console.log("[socketEmitter] Emitting message:notify to", rawToId, { kind: notification.kind, from: notification.fromUserId);
       io.to(rawToId).emit("message:notify", notification);
+    } else {
+      console.warn("[socketEmitter] buildDirectNotification returned null - skipping notification emit");
     }
-  } catch {
+  } catch (e: any) {
+    console.error("[socketEmitter] emitDirectMessageReceived error:", e?.message || e);
     return;
   }
 };
@@ -647,10 +673,18 @@ export const emitGroupMessageReceived = async (
       unreadCountsByMember,
     );
 
+    const memberNotifCount = Object.keys(notifications).length;
+    if (memberNotifCount > 0) {
+      console.log("[socketEmitter] Emitting group message:notify to", memberNotifCount, "members for group", rawGroupId);
+    } else {
+      console.warn("[socketEmitter] buildGroupNotification returned empty map - skipping group", rawGroupId);
+    }
     for (const [memberId, notification] of Object.entries(notifications)) {
+      console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId);
       io.to(memberId).emit("message:notify", notification);
     }
-  } catch {
+  } catch (e: any) {
+    console.error("[socketEmitter] emitGroupMessageReceived error:", e?.message || e);
     return;
   }
 };

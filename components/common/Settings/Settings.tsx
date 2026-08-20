@@ -9,6 +9,11 @@ import {
   Type,
   Bell,
   Info,
+  BellRing,
+  BellOff,
+  ShieldAlert,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 import { useSettings } from "@/hooks/settings/useSettings";
@@ -70,6 +75,8 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   const [ringtoneUploadError, setRingtoneUploadError] = useState<string | null>(null);
   const wallpaperInputRef = useRef<HTMLInputElement | null>(null);
   const ringtoneInputRef = useRef<HTMLInputElement | null>(null);
+  const [browserPerm, setBrowserPerm] = useState<NotificationPermission | "unsupported">("default");
+  const [permRequesting, setPermRequesting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -86,6 +93,57 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      setBrowserPerm("unsupported");
+      return;
+    }
+    setBrowserPerm(Notification.permission);
+
+    if ("permissions" in navigator && (navigator as any).permissions?.query) {
+      (navigator as any).permissions
+        .query({ name: "notifications" })
+        .then((status: any) => {
+          if (!status) return;
+          const onChange = () => {
+            if (typeof window !== "undefined" && "Notification" in window) {
+              setBrowserPerm(Notification.permission);
+            }
+          };
+          status.onchange = onChange;
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  const requestNotificationPermission = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    setPermRequesting(true);
+    try {
+      const result = await Notification.requestPermission();
+      setBrowserPerm(result);
+      console.log("[Settings] Notification permission result:", result);
+    } catch (e: any) {
+      console.error("[Settings] Error requesting notification permission:", e);
+    } finally {
+      setPermRequesting(false);
+    }
+  };
+
+  const openBrowserSettingsHelp = () => {
+    // Show a helpful alert since we can't directly open browser settings
+    const browserInfo =
+      navigator.userAgent.indexOf("Chrome") > -1 || navigator.userAgent.indexOf("Edg") > -1
+        ? "Click the 🔒 lock icon in the address bar → Site settings → Notifications → Allow"
+        : navigator.userAgent.indexOf("Firefox") > -1
+        ? "Click the 🔒 lock icon in the address bar → Connection secure → More information → Permissions → Notifications → Allow"
+        : navigator.userAgent.indexOf("Safari") > -1
+        ? "Safari → Settings → Websites → Notifications → Find this site → Allow"
+        : "Check your browser site settings to enable notifications.";
+    window.alert("Notifications are blocked.\n\n" + browserInfo + "\n\nThen refresh this page.");
+  };
 
   const ringtoneOptions = [
     { value: "chime", name: "Chime" },
@@ -324,6 +382,81 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           <div className="flex items-center gap-3 mb-4">
             <Bell className="w-6 h-6" style={{ color: localTheme?.primary }} />
             <h2 className="text-xl font-semibold text-gray-800">Notifications</h2>
+          </div>
+
+          {/* Browser Notification Permission Card - CRITICAL: REQUIRED USER CLICK */}
+          <div className={`mb-6 px-4 py-4 rounded-xl border ${
+            browserPerm === "granted" ? "border-emerald-200 bg-emerald-50" :
+            browserPerm === "denied" ? "border-red-200 bg-red-50" :
+            browserPerm === "unsupported" ? "border-gray-200 bg-gray-50" :
+            "border-amber-200 bg-amber-50"
+          }`}>
+            <div className="flex items-start gap-3">
+              {browserPerm === "granted" && (
+                <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+              )}
+              {browserPerm === "default" && (
+                <BellRing className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+              )}
+              {browserPerm === "denied" && (
+                <ShieldAlert className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+              )}
+              {browserPerm === "unsupported" && (
+                <AlertCircle className="w-6 h-6 text-gray-500 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1 min-w-0">
+                {browserPerm === "unsupported" ? (
+                  <>
+                    <p className="font-semibold text-gray-700">Notifications not supported</p>
+                    <p className="text-sm text-gray-600 mt-0.5">Your browser does not support the Notification API.</p>
+                  </>
+                ) : browserPerm === "granted" ? (
+                  <>
+                    <p className="font-semibold text-emerald-700">Browser notifications enabled ✅</p>
+                    <p className="text-sm text-emerald-600 mt-0.5">You'll receive notifications when new messages arrive.</p>
+                  </>
+                ) : browserPerm === "denied" ? (
+                  <>
+                    <p className="font-semibold text-red-700">Notifications blocked by browser ❌</p>
+                    <p className="text-sm text-red-600 mt-0.5">You've blocked notifications. Enable them in browser settings to receive alerts.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-amber-700">Permission not granted ⚠️</p>
+                    <p className="text-sm text-amber-600 mt-0.5">Click the button below to allow notifications. Your browser will show a prompt.</p>
+                  </>
+                )}
+
+                <div className="mt-3">
+                  {browserPerm === "default" && (
+                    <button
+                      type="button"
+                      onClick={requestNotificationPermission}
+                      disabled={permRequesting}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium shadow-sm hover:opacity-90 transition disabled:opacity-60"
+                      style={{ backgroundColor: localTheme?.primary }}
+                    >
+                      {permRequesting ? (
+                        <span className="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <BellRing className="w-4 h-4" />
+                      )}
+                      {permRequesting ? "Requesting…" : "Allow Notifications"}
+                    </button>
+                  )}
+                  {browserPerm === "denied" && (
+                    <button
+                      type="button"
+                      onClick={openBrowserSettingsHelp}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500 text-white font-medium shadow-sm hover:bg-red-600 transition"
+                    >
+                      <BellOff className="w-4 h-4" />
+                      How to Unblock
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           {notificationKeys.map((key) => (

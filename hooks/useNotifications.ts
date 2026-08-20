@@ -78,17 +78,20 @@ export function useNotifications() {
       try {
         const audio = new Audio(ringtone);
         audio.volume = 0.35;
-        audio.play().catch(() => {
-          // ignore playback failure
+        audio.play().catch((e) => {
+          console.warn("[Notifications] Ringtone URL playback failed:", e?.message || e);
         });
-      } catch {
-        // ignore custom audio play failure
+      } catch (e: any) {
+        console.warn("[Notifications] Custom audio play failed:", e?.message || e);
       }
       return;
     }
 
     const AudioCtx = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
+    if (!AudioCtx) {
+      console.warn("[Notifications] AudioContext not supported in this browser");
+      return;
+    }
 
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioCtx();
@@ -97,29 +100,42 @@ export function useNotifications() {
     const ctx = audioContextRef.current;
     if (!ctx) return;
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch((e) => console.warn("[Notifications] AudioContext resume failed:", e));
     }
 
-    const now = ctx.currentTime;
-    const pattern = ringtonePatterns[ringtone] || ringtonePatterns.chime;
+    try {
+      const now = ctx.currentTime;
+      const pattern = ringtonePatterns[ringtone] || ringtonePatterns.chime;
 
-    pattern.forEach((note) => {
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      oscillator.type = note.type || "sine";
-      oscillator.frequency.setValueAtTime(note.freq, now + note.start);
-      gain.gain.setValueAtTime(note.volume ?? 0.12, now + note.start);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + note.start + note.duration);
-      oscillator.connect(gain);
-      gain.connect(ctx.destination);
-      oscillator.start(now + note.start);
-      oscillator.stop(now + note.start + note.duration + 0.02);
-    });
+      pattern.forEach((note) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = note.type || "sine";
+        oscillator.frequency.setValueAtTime(note.freq, now + note.start);
+        gain.gain.setValueAtTime(note.volume ?? 0.12, now + note.start);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + note.start + note.duration);
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start(now + note.start);
+        oscillator.stop(now + note.start + note.duration + 0.02);
+      });
+    } catch (e: any) {
+      console.warn("[Notifications] Ringtone generation failed:", e?.message || e);
+    }
   }, [preferences.enabled]);
 
   const showNotification = useCallback((title: string, body: string, tag?: string, url = "/chat") => {
-    if (!preferences.enabled) return;
-    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (!preferences.enabled) {
+      console.warn("[Notifications] Skipped: notifications disabled in preferences");
+      return;
+    }
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window)) {
+      console.warn("[Notifications] Notification API not supported in this browser");
+      return;
+    }
+
+    console.log("[Notifications] Attempting to show notification:", { title, body, tag, permission: Notification.permission });
 
     const options: NotificationOptions = {
       body,
@@ -132,30 +148,40 @@ export function useNotifications() {
     const createNotification = () => {
       try {
         const notification = new Notification(title, options);
+        console.log("[Notifications] In-page notification created successfully");
         notification.onclick = () => {
           window.focus();
           window.location.href = url;
           notification.close();
         };
-      } catch {
-        // Ignore notification creation failure
+      } catch (e: any) {
+        console.error("[Notifications] Failed to create notification:", e?.message || e);
       }
     };
 
     const createServiceWorkerNotification = async () => {
       if (!("serviceWorker" in navigator)) {
+        console.log("[Notifications] ServiceWorker not available, using in-page notification");
         createNotification();
         return;
       }
 
       try {
         const registration = await navigator.serviceWorker.getRegistration();
-        if (registration && document.visibilityState === "hidden") {
-          await registration.showNotification(title, options);
-          return;
+        if (registration) {
+          if (document.visibilityState === "hidden") {
+            console.log("[Notifications] Tab is hidden, using SW notification");
+            await registration.showNotification(title, options);
+            console.log("[Notifications] SW notification shown successfully");
+            return;
+          } else {
+            console.log("[Notifications] Tab is visible, using in-page notification");
+          }
+        } else {
+          console.log("[Notifications] No SW registration found, using in-page notification");
         }
-      } catch {
-        // Fall back to the browser notification below.
+      } catch (e: any) {
+        console.warn("[Notifications] SW notification failed, falling back:", e?.message || e);
       }
 
       createNotification();
@@ -163,14 +189,10 @@ export function useNotifications() {
 
     if (Notification.permission === "granted") {
       void createServiceWorkerNotification();
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission()
-        .then((permission) => {
-          if (permission === "granted") void createServiceWorkerNotification();
-        })
-        .catch(() => {
-          // Ignore permission request failure.
-        });
+    } else if (Notification.permission === "denied") {
+      console.warn("[Notifications] Permission denied by user - cannot show notification");
+    } else {
+      console.warn("[Notifications] Permission not granted (state: default) - skipping notification. User must grant permission first via a click action.");
     }
   }, [preferences.enabled]);
 
