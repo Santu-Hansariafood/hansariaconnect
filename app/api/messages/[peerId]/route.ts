@@ -17,6 +17,7 @@ import {
   invalidateDirectMessages,
   invalidateUserConversations,
 } from "@/lib/redis/redis";
+import { emitDirectMessageReceived } from "@/lib/socketEmitter";
 
 export const runtime = "nodejs";
 
@@ -106,7 +107,9 @@ export async function GET(
         limit,
         fetchLast ? null : before,
       );
-      const cached = await redisGet<{ messages: any[]; hasMore: boolean }>(cacheKey);
+      const cached = await redisGet<{ messages: any[]; hasMore: boolean }>(
+        cacheKey,
+      );
       if (cached && Array.isArray(cached.messages)) {
         return NextResponse.json(cached);
       }
@@ -325,6 +328,7 @@ export async function POST(
     void invalidateDirectMessages(rawUserId, rawPeerId);
     void invalidateUserConversations(rawUserId);
     void invalidateUserConversations(rawPeerId);
+    void emitDirectMessageReceived(rawUserId, rawPeerId, message);
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (err: unknown) {
@@ -336,7 +340,18 @@ export async function POST(
   }
 }
 
-const ALLOWED_REACTIONS = new Set(["👍", "❤️", "😂", "😮", "😢", "🔥", "✨", "🎉", "💯", "🤝"]);
+const ALLOWED_REACTIONS = new Set([
+  "👍",
+  "❤️",
+  "😂",
+  "😮",
+  "😢",
+  "🔥",
+  "✨",
+  "🎉",
+  "💯",
+  "🤝",
+]);
 
 export async function PATCH(
   req: NextRequest,
@@ -344,7 +359,8 @@ export async function PATCH(
 ) {
   try {
     const session = await getUserSession(req);
-    if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.id)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const resolvedParams = params instanceof Promise ? await params : params;
     const userId = normalizeId(session.id);
@@ -354,7 +370,10 @@ export async function PATCH(
     const emoji = String(body?.emoji || "");
 
     if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(peerId)) {
-      return NextResponse.json({ error: "Invalid participant" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid participant" },
+        { status: 400 },
+      );
     }
     if (!Types.ObjectId.isValid(messageId) || !ALLOWED_REACTIONS.has(emoji)) {
       return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
@@ -373,7 +392,8 @@ export async function PATCH(
       { new: true },
     );
 
-    if (!updated) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    if (!updated)
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
     void invalidateDirectMessages(userId, peerId);
     return NextResponse.json({
       reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),

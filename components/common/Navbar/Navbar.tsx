@@ -2,11 +2,11 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { useRouter, usePathname } from "next/navigation";
-import { useApp } from "@/context/AppContext/AppContext";
+import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { useSocket } from "@/hooks/useSocket";
 
+import { useApp } from "@/context/AppContext/AppContext";
+import { useSocket } from "@/hooks/useSocket";
 import { useNavbarUser } from "@/hooks/navbar/useNavbarUser";
 import { useUnreadCounts } from "@/hooks/navbar/useUnreadCounts";
 import { useNavbarItems } from "@/hooks/navbar/useNavbarItems";
@@ -25,34 +25,44 @@ type NavbarProps = {
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const router = useRouter();
   const pathname = usePathname();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const { theme } = useApp();
   const { socket } = useSocket();
+
   const navUser = useNavbarUser(user);
   const unreadCounts = useUnreadCounts();
   const navItems = useNavbarItems(unreadCounts);
 
-  const isSelfOnline = !!socket && socket.connected;
+  const isSelfOnline = Boolean(socket?.connected);
+
+  const handleNavigation = (path: string) => {
+    if (path !== pathname) {
+      router.push(path);
+    }
+  };
 
   return (
     <motion.nav
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.2 }}
       style={{
         backgroundColor: theme.primary,
-        borderBottomColor: theme.primary + "80",
+        borderBottomColor: `${theme.primary}80`,
       }}
-      className="border-b shadow-md sticky top-0 z-50"
+      className="sticky top-0 z-50 border-b shadow-md"
     >
       <div className="px-2 sm:px-4">
-        <div className="flex items-center justify-between h-14 sm:h-16">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex h-14 items-center justify-between sm:h-16">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <motion.button
-              onClick={() => router.push("/")}
+              type="button"
+              onClick={() => handleNavigation("/")}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full flex-shrink-0 overflow-hidden shadow-md ring-1 ring-white/20"
+              aria-label="Go to home"
+              className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-md ring-1 ring-white/20 sm:h-10 sm:w-10"
             >
               <Image
                 src="/logo/logo.png"
@@ -64,40 +74,51 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               />
             </motion.button>
 
-            <h1 className="text-white font-bold text-base sm:text-lg">HansariaConnect</h1>
+            <h1 className="truncate text-base font-bold text-white sm:text-lg">
+              HansariaConnect
+            </h1>
           </div>
 
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden items-center gap-1 md:flex">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.path;
-              const hasUnread = (item.count || 0) > 0;
+              const count = Number(item.count || 0);
+              const hasUnread = count > 0;
 
               return (
                 <motion.button
                   key={item.path}
+                  type="button"
                   whileTap={{ scale: 0.95 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  onClick={() => router.push(item.path)}
-                  className={`relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                    isActive
-                      ? "text-white"
-                      : "text-gray-100 hover:bg-white/10"
+                  transition={{
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 25,
+                  }}
+                  onClick={() => handleNavigation(item.path)}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`relative flex items-center gap-2 rounded-lg px-3 py-2 font-medium transition-all duration-200 sm:px-4 ${
+                    isActive ? "text-white" : "text-gray-100 hover:bg-white/10"
                   }`}
                   style={
                     isActive
                       ? {
-                          backgroundColor: `rgba(255, 255, 255, 0.2)`,
+                          backgroundColor: "rgba(255, 255, 255, 0.2)",
                         }
                       : undefined
                   }
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-sm hidden lg:inline">{item.label}</span>
+                  <Icon className="h-4 w-4 shrink-0" />
+
+                  <span className="hidden text-sm lg:inline">{item.label}</span>
 
                   {hasUnread && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold min-w-4.5 h-4.5 px-1">
-                      {item.count > 99 ? "99+" : item.count}
+                    <span
+                      aria-label={`${count} unread`}
+                      className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white shadow-sm"
+                    >
+                      {count > 99 ? "99+" : count}
                     </span>
                   )}
                 </motion.button>
@@ -107,50 +128,67 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
           <div className="flex items-center gap-1 sm:gap-2">
             {isSelfOnline && (
-              <span className="hidden sm:inline text-xs text-white px-2 py-1 rounded-full" style={{backgroundColor: theme.primary + "60"}}>
+              <span
+                className="hidden rounded-full px-2 py-1 text-xs text-white sm:inline"
+                style={{
+                  backgroundColor: `${theme.primary}60`,
+                }}
+              >
                 Online
               </span>
             )}
 
             <motion.button
+              type="button"
               whileTap={{ scale: 0.97 }}
-              onClick={() => router.push("/profile")}
-              className="flex items-center gap-1 sm:gap-2 px-2 py-1.5 rounded-lg hover:bg-white/10 transition-all duration-200"
+              onClick={() => handleNavigation("/profile")}
+              aria-label="Open profile"
+              className="flex items-center gap-1 rounded-lg px-2 py-1.5 transition-all duration-200 hover:bg-white/10 sm:gap-2"
             >
-              <div className="relative flex-shrink-0">
+              <div className="relative shrink-0">
                 {navUser.photo ? (
                   <Image
                     src={navUser.photo}
                     alt={navUser.name || "User"}
-                    width={34}
-                    height={34}
-                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover ring-2 ring-white/20"
+                    width={36}
+                    height={36}
+                    className="h-8 w-8 rounded-full object-cover ring-2 ring-white/20 sm:h-9 sm:w-9"
                   />
                 ) : (
                   <div
-                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-white font-semibold text-xs sm:text-sm bg-white/20 ring-2 ring-white/20"
-                    style={{ background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primary}cc 100%)` }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white ring-2 ring-white/20 sm:h-9 sm:w-9 sm:text-sm"
+                    style={{
+                      background: `linear-gradient(
+                        135deg,
+                        ${theme.primary} 0%,
+                        ${theme.primary}cc 100%
+                      )`,
+                    }}
                   >
                     {(navUser.name || "U").charAt(0).toUpperCase()}
                   </div>
                 )}
+
                 <span
-                  className={`absolute bottom-0 right-0 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full ring-2 ring-white ${
+                  className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-2 ring-white sm:h-4 sm:w-4 ${
                     isSelfOnline
-                      ? "bg-emerald-500 animate-pulse"
+                      ? "animate-pulse bg-emerald-500"
                       : "bg-gray-400"
                   }`}
                   title={isSelfOnline ? "Online" : "Offline"}
                 />
               </div>
 
-              <div className="hidden md:flex flex-col items-start min-w-0 max-w-35">
-                <span className="font-medium text-white text-sm leading-tight truncate w-full">
+              <div className="hidden min-w-0 max-w-[140px] flex-col items-start md:flex">
+                <span className="w-full truncate text-sm font-medium leading-tight text-white">
                   {navUser.name || "User"}
                 </span>
-                <span className={`text-[11px] leading-tight truncate w-full ${
-                  isSelfOnline ? "text-emerald-100" : "text-gray-200"
-                }`}>
+
+                <span
+                  className={`w-full truncate text-[11px] leading-tight ${
+                    isSelfOnline ? "text-emerald-100" : "text-gray-200"
+                  }`}
+                >
                   {isSelfOnline ? "online" : "offline"}
                 </span>
               </div>
@@ -158,38 +196,58 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
             {onLogout && (
               <motion.button
+                type="button"
                 whileTap={{ scale: 0.92 }}
                 onClick={onLogout}
-                className="p-2 text-white/70 hover:bg-white/10 rounded-lg transition-all duration-200"
+                aria-label="Logout"
                 title="Logout"
+                className="rounded-lg p-2 text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white"
               >
-                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
               </motion.button>
             )}
           </div>
         </div>
 
-        <div className="md:hidden flex items-center justify-around py-1.5 border-t overflow-x-auto" style={{borderTopColor: theme.primary + "80", backgroundColor: theme.primary}}>
+        <div
+          className="flex items-center gap-1 overflow-x-auto border-t py-1.5 md:hidden"
+          style={{
+            borderTopColor: `${theme.primary}80`,
+            backgroundColor: theme.primary,
+            scrollbarWidth: "none",
+          }}
+        >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.path;
-            const hasUnread = (item.count || 0) > 0;
+            const count = Number(item.count || 0);
+            const hasUnread = count > 0;
 
             return (
               <motion.button
                 key={item.path}
+                type="button"
                 whileTap={{ scale: 0.92 }}
-                onClick={() => router.push(item.path)}
-                className={`relative flex flex-col items-center gap-0.5 p-1.5 sm:p-2 rounded-lg transition-all duration-200 flex-1 min-w-13 ${
-                  isActive ? "text-white bg-white/20" : "text-gray-100 hover:bg-white/10"
+                onClick={() => handleNavigation(item.path)}
+                aria-current={isActive ? "page" : undefined}
+                className={`relative flex min-w-[52px] flex-1 shrink-0 flex-col items-center gap-0.5 rounded-lg p-1.5 transition-all duration-200 sm:min-w-[60px] sm:p-2 ${
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "text-gray-100 hover:bg-white/10"
                 }`}
               >
-                <Icon className="w-5 h-5 shrink-0" />
-                <span className="text-[10px] sm:text-[11px] font-medium truncate max-w-16">{item.label}</span>
+                <Icon className="h-5 w-5 shrink-0" />
+
+                <span className="max-w-[64px] truncate text-[10px] font-medium sm:text-[11px]">
+                  {item.label}
+                </span>
 
                 {hasUnread && (
-                  <span className="absolute top-0 right-0.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold min-w-4 h-4 px-1">
-                    {item.count > 9 ? "9+" : item.count}
+                  <span
+                    aria-label={`${count} unread`}
+                    className="absolute right-0.5 top-0 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold leading-none text-white shadow-sm"
+                  >
+                    {count > 9 ? "9+" : count}
                   </span>
                 )}
               </motion.button>

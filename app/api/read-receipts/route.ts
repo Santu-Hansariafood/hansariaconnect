@@ -8,6 +8,7 @@ import GroupMessage from "@/models/group/GroupMessage";
 import Conversation from "@/models/conversation/Conversation";
 import Group from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
+import { emitConversationRead } from "@/lib/socketEmitter";
 
 interface MessageLean {
   _id: Types.ObjectId;
@@ -235,6 +236,8 @@ export async function POST(req: NextRequest) {
         userId: String(userId),
       });
 
+      void emitConversationRead(String(userId));
+
       return NextResponse.json({
         success: true,
         readAt: receipt?.readAt ?? now,
@@ -270,6 +273,8 @@ export async function POST(req: NextRequest) {
         groupId: String(groupId),
         userId: String(userId),
       });
+
+      void emitConversationRead(String(userId));
 
       return NextResponse.json({ success: true, readAt: now });
     }
@@ -311,6 +316,8 @@ export async function POST(req: NextRequest) {
         conversationId: String(conversation._id),
         userId: String(userId),
       });
+
+      void emitConversationRead(String(userId));
 
       return NextResponse.json({ success: true, readAt: now });
     }

@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import { useSocket } from "@/hooks/useSocket";
 
 type UnreadResponse = {
@@ -15,6 +16,28 @@ export function useUnreadCounts() {
     groups: 0,
   });
   const { addListener, removeListener } = useSocket();
+  const loadedRef = useRef(false);
+
+  const parseResponse = (data: UnreadResponse) => {
+    const chatsUnread = Object.values(data.conversations || {}).reduce(
+      (a, b) => a + Number(b || 0),
+      0
+    );
+
+    const groupsUnread = Object.values(data.groups || {}).reduce(
+      (a, b) => a + Number(b || 0),
+      0
+    );
+
+    const total =
+      typeof data.total === "number" ? data.total : chatsUnread + groupsUnread;
+
+    setCounts({
+      total: Math.max(0, total),
+      chats: Math.max(0, chatsUnread),
+      groups: Math.max(0, groupsUnread),
+    });
+  };
 
   useEffect(() => {
     const loadUnread = async () => {
@@ -27,41 +50,35 @@ export function useUnreadCounts() {
         const data: UnreadResponse = await res.json();
         if (!res.ok) return;
 
-        // Safe numeric reduction
-        const chatsUnread = Object.values(data.conversations || {}).reduce(
-          (a, b) => a + Number(b || 0),
-          0
-        );
-
-        const groupsUnread = Object.values(data.groups || {}).reduce(
-          (a, b) => a + Number(b || 0),
-          0
-        );
-
-        setCounts({
-          total: Number(data.total || 0),
-          chats: chatsUnread,
-          groups: groupsUnread,
-        });
+        parseResponse(data);
+        loadedRef.current = true;
       } catch {
         // ignore
       }
     };
 
     loadUnread();
-    const interval = setInterval(loadUnread, 10000);
+    const interval = setInterval(loadUnread, 15000);
 
-    // listen for server-side read events to refresh counts immediately
+    const onUnreadUpdate = (payload: UnreadResponse) => {
+      if (!payload || typeof payload !== "object") return;
+      parseResponse(payload);
+    };
+
     const onConversationRead = () => loadUnread();
     const onGroupRead = () => loadUnread();
+
+    addListener("unread:update", onUnreadUpdate);
     addListener("conversation:read", onConversationRead);
     addListener("group:read", onGroupRead);
 
     return () => {
       clearInterval(interval);
+      removeListener("unread:update", onUnreadUpdate);
       removeListener("conversation:read", onConversationRead);
       removeListener("group:read", onGroupRead);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return counts;

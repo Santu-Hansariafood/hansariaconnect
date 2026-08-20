@@ -7,6 +7,7 @@ import ReadReceipt from "@/models/readReceipt/ReadReceipt";
 import Conversation from "@/models/conversation/Conversation";
 import Group from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
+import { CacheKeys, TTL, redisGet, redisSet } from "@/lib/redis/redis";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,6 +19,16 @@ export async function GET(req: NextRequest) {
     const normalizedId = String(session.id);
     if (!Types.ObjectId.isValid(normalizedId)) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
+    const cacheKey = `unread:${normalizedId}`;
+    const cached = await redisGet<{
+      conversations: Record<string, number>;
+      groups: Record<string, number>;
+      total: number;
+    }>(cacheKey);
+    if (cached && typeof cached === "object") {
+      return NextResponse.json(cached);
     }
 
     const userId = new Types.ObjectId(normalizedId);
@@ -85,11 +96,15 @@ export async function GET(req: NextRequest) {
       Object.values(conversationCounts).reduce((a, b) => a + b, 0) +
       Object.values(groupCounts).reduce((a, b) => a + b, 0);
 
-    return NextResponse.json({
+    const result = {
       conversations: conversationCounts,
       groups: groupCounts,
       total: totalUnread,
-    });
+    };
+
+    void redisSet(cacheKey, result, TTL.statuses);
+
+    return NextResponse.json(result);
   } catch (error: unknown) {
     console.error("GET /api/unread-counts error →", error);
     const message = error instanceof Error ? error.message : "Server error";

@@ -16,6 +16,7 @@ import {
   invalidateGroupMessages,
   invalidateUserConversations,
 } from "@/lib/redis/redis";
+import { emitGroupMessageReceived } from "@/lib/socketEmitter";
 
 interface GroupMember {
   userId: Types.ObjectId | string;
@@ -119,7 +120,9 @@ export async function GET(
         limit,
         fetchLast ? null : before,
       );
-      const cached = await redisGet<{ messages: any[]; hasMore: boolean }>(cacheKey);
+      const cached = await redisGet<{ messages: any[]; hasMore: boolean }>(
+        cacheKey,
+      );
       if (cached && Array.isArray(cached.messages)) {
         return NextResponse.json(cached);
       }
@@ -273,11 +276,14 @@ export async function POST(
     };
 
     void invalidateGroupMessages(groupIdStr);
-    const members = Array.isArray(membership.group?.members) ? membership.group.members : [];
+    const members = Array.isArray(membership.group?.members)
+      ? membership.group.members
+      : [];
     for (const m of members) {
       const memberId = normalizeId(m?.userId);
       if (memberId) void invalidateUserConversations(memberId);
     }
+    void emitGroupMessageReceived(groupIdStr, normalizedUser, members, message);
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: unknown) {
@@ -287,7 +293,18 @@ export async function POST(
   }
 }
 
-const ALLOWED_REACTIONS = new Set(["👍", "❤️", "😂", "😮", "😢", "🔥", "✨", "🎉", "💯", "🤝"]);
+const ALLOWED_REACTIONS = new Set([
+  "👍",
+  "❤️",
+  "😂",
+  "😮",
+  "😢",
+  "🔥",
+  "✨",
+  "🎉",
+  "💯",
+  "🤝",
+]);
 
 export async function PATCH(
   req: NextRequest,
@@ -295,7 +312,8 @@ export async function PATCH(
 ) {
   try {
     const session = await getUserSession(req);
-    if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session?.id)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await resolveParams(context.params);
     const userId = normalizeId(session.id);
@@ -304,7 +322,10 @@ export async function PATCH(
     const emoji = String(body?.emoji || "");
 
     if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(userId)) {
-      return NextResponse.json({ error: "Invalid group or user" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid group or user" },
+        { status: 400 },
+      );
     }
     if (!Types.ObjectId.isValid(messageId) || !ALLOWED_REACTIONS.has(emoji)) {
       return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
@@ -327,7 +348,8 @@ export async function PATCH(
       { $inc: { [`reactions.${emoji}`]: 1 } },
       { new: true },
     );
-    if (!updated) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    if (!updated)
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
     void invalidateGroupMessages(id);
     return NextResponse.json({
       reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),

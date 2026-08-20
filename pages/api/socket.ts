@@ -15,6 +15,10 @@ import {
   encryptGroupMessageContent,
   decryptGroupMessageContent,
 } from "@/lib/crypto";
+import {
+  emitDirectMessageReceived,
+  emitGroupMessageReceived,
+} from "@/lib/socketEmitter";
 
 export const config = {
   api: {
@@ -41,7 +45,9 @@ export default async function handler(
     const io = new ServerIO(httpServer, {
       path: "/api/socket",
       cors: {
-        origin: "*",
+        origin: process.env.NEXT_PUBLIC_APP_URL
+          ? [process.env.NEXT_PUBLIC_APP_URL]
+          : true,
         methods: ["GET", "POST"],
         credentials: true,
       },
@@ -52,7 +58,9 @@ export default async function handler(
     // expose io and userConnections for other server routes to emit events
     try {
       (globalThis as any).__io = io;
-      (globalThis as any).__userConnections = (httpServer as any).userConnections;
+      (globalThis as any).__userConnections = (
+        httpServer as any
+      ).userConnections;
     } catch {}
 
     const getOnlineUserIds = () =>
@@ -225,6 +233,11 @@ export default async function handler(
 
             io.to(to).emit("message:new", decryptedForRecipient);
             cb?.({ ok: true, message: decryptedForSender });
+            void emitDirectMessageReceived(
+              userIdStr,
+              toIdStr,
+              decryptedForRecipient,
+            );
           } catch (err: any) {
             cb?.({ ok: false, error: err.message || "Error sending message" });
           }
@@ -244,6 +257,22 @@ export default async function handler(
               return cb?.({ ok: false, error: "Invalid status" });
             }
 
+            const message = await Message.findById(id);
+
+            if (!message) {
+              return cb?.({ ok: false, error: "Message not found" });
+            }
+
+            const currentUserId = String(userId);
+
+            // A message status may only be changed by the sender or recipient.
+            if (
+              String(message.from) !== currentUserId &&
+              String(message.to) !== currentUserId
+            ) {
+              return cb?.({ ok: false, error: "Forbidden" });
+            }
+
             const updatedMessage = await Message.findByIdAndUpdate(
               id,
               { status },
@@ -258,6 +287,13 @@ export default async function handler(
               id: updatedMessage._id.toString(),
               status,
             });
+
+            if (String(updatedMessage.to) !== String(updatedMessage.from)) {
+              io.to(String(updatedMessage.to)).emit("message:status:update", {
+                id: updatedMessage._id.toString(),
+                status,
+              });
+            }
             cb?.({ ok: true, message: updatedMessage });
           } catch (err: any) {
             cb?.({ ok: false, error: err.message || "Error updating status" });
@@ -297,6 +333,7 @@ export default async function handler(
             }
 
             const groupIdStr = String(groupId);
+            const userIdStr = String(fromId);
 
             const msg = await GroupMessage.create({
               groupId: new Types.ObjectId(groupId),
@@ -364,6 +401,12 @@ export default async function handler(
             });
 
             cb?.({ ok: true, message: decryptedMsg });
+            void emitGroupMessageReceived(
+              groupIdStr,
+              userIdStr,
+              members,
+              decryptedMsg,
+            );
           } catch (err: any) {
             cb?.({
               ok: false,
