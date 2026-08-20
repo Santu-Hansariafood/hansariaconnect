@@ -9,6 +9,7 @@ export interface IGroupMessage extends Document {
   fileName?: string
   fileSize?: string
   duration?: number
+  reactions?: Map<string, number>
   linkTitle?: string
   linkDescription?: string
   createdAt: Date
@@ -25,6 +26,7 @@ const GroupMessageSchema = new Schema<IGroupMessage>(
     fileName: { type: String },
     fileSize: { type: String },
     duration: { type: Number },
+    reactions: { type: Map, of: Number, default: {} },
     linkTitle: { type: String },
     linkDescription: { type: String },
   },

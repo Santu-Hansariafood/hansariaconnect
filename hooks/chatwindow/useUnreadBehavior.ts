@@ -23,13 +23,6 @@ export const useUnreadBehavior = (
   }, [chatMessages, id])
 
   useEffect(() => {
-    if (unreadOnOpen > 0 && unreadDividerRef.current && !hasScrolledToUnreadRef.current) {
-      unreadDividerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      hasScrolledToUnreadRef.current = true
-    }
-  }, [chatMessages, unreadOnOpen])
-
-  useEffect(() => {
     const fromId = (x: any) => ((typeof x.from === 'string' ? x.from : (x.from?.toString?.() || x.from?.$oid || ''))) as string
     const pending = chatMessages.filter((m: any) => fromId(m) === id && (m.status || 'sent') !== 'seen')
     if (!pending.length) return

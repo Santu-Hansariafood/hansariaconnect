@@ -172,9 +172,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [preferences.enabled, requestPermission]);
 
   useEffect(() => {
-    if (unreadOnOpen > 0 && !hasScrolledToUnreadRef.current) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, unreadOnOpen, hasScrolledToUnreadRef]);
+  }, [chatMessages]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -629,6 +628,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     await sendViaRest({ type: "text", text: trimmed }, optimisticMessage);
   };
 
+  const handleReaction = async (msg: ChatMessage, emoji: string) => {
+    const messageId = getMessageId(msg);
+    if (!messageId) return false;
+
+    try {
+      const endpoint = isGroup
+        ? `/api/groups/${chatId}/messages`
+        : `/api/messages/${chatId}`;
+      const res = await fetch(endpoint, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ messageId, emoji }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.reactions) return false;
+
+      setChatMessages((prev) =>
+        prev.map((item) =>
+          getMessageId(item) === messageId
+            ? { ...item, reactions: data.reactions }
+            : item,
+        ),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleMediaSelect = async (
     fileOrData: File | { url: string },
     type: ChatMessage["type"],
@@ -881,6 +910,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             headerAvatar={headerAvatar}
             groupMembers={groupMembers}
             onForwardMessage={handleForwardMessage}
+            onReaction={handleReaction}
             showUnreadBanner={showUnreadBanner}
             unreadOnOpen={unreadOnOpen}
             unreadDividerRef={unreadDividerRef}

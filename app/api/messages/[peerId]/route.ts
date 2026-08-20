@@ -138,6 +138,10 @@ export async function GET(
         msg.fileSize || "",
       ),
       duration: msg.duration || undefined,
+      reactions:
+        msg.reactions instanceof Map
+          ? Object.fromEntries(msg.reactions)
+          : msg.reactions || {},
       linkTitle: decryptDirectMessageContent(
         userIdStr,
         peerIdStr,
@@ -294,5 +298,52 @@ export async function POST(
       { error: message || "Server error" },
       { status: 500 },
     );
+  }
+}
+
+const ALLOWED_REACTIONS = new Set(["👍", "❤️", "😂", "😮", "😢", "🔥", "✨", "🎉", "💯", "🤝"]);
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ peerId: string }> | { peerId: string } },
+) {
+  try {
+    const session = await getUserSession(req);
+    if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const userId = normalizeId(session.id);
+    const peerId = normalizeId(resolvedParams.peerId);
+    const body = await req.json();
+    const messageId = normalizeId(body?.messageId);
+    const emoji = String(body?.emoji || "");
+
+    if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(peerId)) {
+      return NextResponse.json({ error: "Invalid participant" }, { status: 400 });
+    }
+    if (!Types.ObjectId.isValid(messageId) || !ALLOWED_REACTIONS.has(emoji)) {
+      return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
+    }
+
+    await connectDB();
+    const updated = await Message.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(messageId),
+        $or: [
+          { from: new Types.ObjectId(userId), to: new Types.ObjectId(peerId) },
+          { from: new Types.ObjectId(peerId), to: new Types.ObjectId(userId) },
+        ],
+      },
+      { $inc: { [`reactions.${emoji}`]: 1 } },
+      { new: true },
+    );
+
+    if (!updated) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    return NextResponse.json({
+      reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

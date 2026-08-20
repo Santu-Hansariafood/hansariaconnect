@@ -17,7 +17,7 @@ import {
   ExternalLink,
 } from "lucide-react"
 import Image from "next/image"
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import ReactionPicker from "@/components/ui/ReactionPicker/ReactionPicker"
 import {
   extractLinks,
@@ -66,6 +66,7 @@ interface MessageBubbleProps {
   isGroup?: boolean
   showSenderInfo?: boolean
   onForward?: () => void
+  onReaction?: (emoji: string) => Promise<boolean> | boolean
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -76,12 +77,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   isGroup = false,
   showSenderInfo = false,
   onForward,
+  onReaction,
 }) => {
   const isSent = message.sender === "me"
   const senderName = isSent ? user.name : contact.name
   const [isHovered, setIsHovered] = useState(false)
   const [showReactions, setShowReactions] = useState(false)
   const [localReactions, setLocalReactions] = useState<Record<string, number>>(message.reactions || {})
+
+  useEffect(() => {
+    setLocalReactions(message.reactions || {})
+  }, [message.reactions])
 
   const textContent = message.text || ""
 
@@ -127,7 +133,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     return <Check className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
   }
 
-  const handleReaction = (emoji: string) => {
+  const handleReaction = async (emoji: string) => {
+    const saved = onReaction ? await onReaction(emoji) : true
+    if (!saved) return
+
     setLocalReactions((prev) => ({
       ...prev,
       [emoji]: (prev[emoji] ?? 0) + 1,

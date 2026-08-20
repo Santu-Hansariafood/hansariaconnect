@@ -31,6 +31,7 @@ export default function NotificationManager() {
 
     const handleGroupMessage = (message: any) => {
       if (!preferences.groups) return;
+      if (getId(message?.from) === getId(user.id)) return;
 
       playRingtone(preferences.ringtone || "chime");
       showNotification(

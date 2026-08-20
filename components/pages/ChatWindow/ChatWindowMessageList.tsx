@@ -16,6 +16,7 @@ interface ChatWindowMessageListProps {
   headerAvatar: string;
   groupMembers: GroupMember[];
   onForwardMessage: (msg: ChatMessage) => void;
+  onReaction: (msg: ChatMessage, emoji: string) => Promise<boolean>;
   showUnreadBanner: boolean;
   unreadOnOpen: number;
   unreadDividerRef: React.RefObject<HTMLDivElement | null>;
@@ -38,6 +39,7 @@ export default function ChatWindowMessageList({
   headerAvatar,
   groupMembers,
   onForwardMessage,
+  onReaction,
   showUnreadBanner,
   unreadOnOpen,
   unreadDividerRef,
@@ -138,12 +140,14 @@ export default function ChatWindowMessageList({
                 fileSize: msg.fileSize,
                 linkTitle: msg.linkTitle,
                 linkDescription: msg.linkDescription,
+                reactions: msg.reactions,
               }}
               user={user}
               contact={bubbleContact}
               theme={theme}
               isGroup={isGroup}
               onForward={() => onForwardMessage(msg)}
+              onReaction={(emoji) => onReaction(msg, emoji)}
             />
           </React.Fragment>
         );

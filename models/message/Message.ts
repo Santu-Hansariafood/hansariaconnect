@@ -11,6 +11,7 @@ export interface IMessage extends Document {
   linkTitle?: string
   linkDescription?: string
   duration?: number
+  reactions?: Map<string, number>
   status?: "sent" | "delivered" | "seen"
   createdAt: Date
   updatedAt: Date
@@ -28,6 +29,7 @@ const MessageSchema = new Schema<IMessage>(
     linkTitle: { type: String },
     linkDescription: { type: String },
     duration: { type: Number },
+    reactions: { type: Map, of: Number, default: {} },
     status: { type: String, default: "sent" },
   },
   { timestamps: true }

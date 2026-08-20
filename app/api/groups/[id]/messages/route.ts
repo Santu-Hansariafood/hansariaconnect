@@ -119,7 +119,7 @@ export async function GET(
       ? await GroupMessage.find(query)
           .sort({ createdAt: 1 })
           .select(
-            "_id groupId from type text mediaUrl fileName fileSize duration linkTitle linkDescription createdAt",
+            "_id groupId from type text mediaUrl fileName fileSize duration reactions linkTitle linkDescription createdAt",
           )
       : await GroupMessage.find(query)
           .sort(sort)
@@ -140,6 +140,10 @@ export async function GET(
       fileName: decryptGroupMessageContent(groupIdStr, msg.fileName || ""),
       fileSize: decryptGroupMessageContent(groupIdStr, msg.fileSize || ""),
       duration: msg.duration || undefined,
+      reactions:
+        msg.reactions instanceof Map
+          ? Object.fromEntries(msg.reactions)
+          : msg.reactions || {},
       linkTitle: decryptGroupMessageContent(groupIdStr, msg.linkTitle || ""),
       linkDescription: decryptGroupMessageContent(
         groupIdStr,
@@ -242,6 +246,56 @@ export async function POST(
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: unknown) {
     console.error("POST /api/groups/[id]/messages error →", error);
+    const message = error instanceof Error ? error.message : "Server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+const ALLOWED_REACTIONS = new Set(["👍", "❤️", "😂", "😮", "😢", "🔥", "✨", "🎉", "💯", "🤝"]);
+
+export async function PATCH(
+  req: NextRequest,
+  context: { params: { id: string } | Promise<{ id: string }> },
+) {
+  try {
+    const session = await getUserSession(req);
+    if (!session?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { id } = await resolveParams(context.params);
+    const userId = normalizeId(session.id);
+    const body = await req.json();
+    const messageId = normalizeId(body?.messageId);
+    const emoji = String(body?.emoji || "");
+
+    if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(userId)) {
+      return NextResponse.json({ error: "Invalid group or user" }, { status: 400 });
+    }
+    if (!Types.ObjectId.isValid(messageId) || !ALLOWED_REACTIONS.has(emoji)) {
+      return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
+    }
+
+    await connectDB();
+    const membership = await ensureMembership(
+      new Types.ObjectId(id),
+      new Types.ObjectId(userId),
+    );
+    if (!membership.ok) {
+      return NextResponse.json(
+        { error: membership.error },
+        { status: membership.status },
+      );
+    }
+
+    const updated = await GroupMessage.findOneAndUpdate(
+      { _id: new Types.ObjectId(messageId), groupId: new Types.ObjectId(id) },
+      { $inc: { [`reactions.${emoji}`]: 1 } },
+      { new: true },
+    );
+    if (!updated) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    return NextResponse.json({
+      reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),
+    });
+  } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
