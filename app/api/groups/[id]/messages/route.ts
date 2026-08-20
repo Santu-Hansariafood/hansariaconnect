@@ -8,6 +8,14 @@ import {
   encryptGroupMessageContent,
   decryptGroupMessageContent,
 } from "@/lib/crypto";
+import {
+  CacheKeys,
+  TTL,
+  redisGet,
+  redisSet,
+  invalidateGroupMessages,
+  invalidateUserConversations,
+} from "@/lib/redis/redis";
 
 interface GroupMember {
   userId: Types.ObjectId | string;
@@ -105,6 +113,18 @@ export async function GET(
     const fetchAll = searchParams.get("all") === "true";
     const fetchLast = searchParams.get("last") === "true";
 
+    if (!fetchAll) {
+      const cacheKey = CacheKeys.groupMessagesPage(
+        groupIdStr,
+        limit,
+        fetchLast ? null : before,
+      );
+      const cached = await redisGet<{ messages: any[]; hasMore: boolean }>(cacheKey);
+      if (cached && Array.isArray(cached.messages)) {
+        return NextResponse.json(cached);
+      }
+    }
+
     const query: Record<string, any> = { groupId };
     let sort: Record<string, 1 | -1> = { createdAt: 1 };
 
@@ -158,6 +178,15 @@ export async function GET(
           ...query,
           ...(before && { createdAt: { $lt: new Date(before) } }),
         })) > docs.length;
+
+    if (!fetchAll) {
+      const cacheKey = CacheKeys.groupMessagesPage(
+        groupIdStr,
+        limit,
+        fetchLast ? null : before,
+      );
+      void redisSet(cacheKey, { messages, hasMore }, TTL.groupMessages);
+    }
 
     return NextResponse.json({ messages, hasMore });
   } catch (error: unknown) {
@@ -243,6 +272,13 @@ export async function POST(
       timestamp: saved.createdAt,
     };
 
+    void invalidateGroupMessages(groupIdStr);
+    const members = Array.isArray(membership.group?.members) ? membership.group.members : [];
+    for (const m of members) {
+      const memberId = normalizeId(m?.userId);
+      if (memberId) void invalidateUserConversations(memberId);
+    }
+
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: unknown) {
     console.error("POST /api/groups/[id]/messages error →", error);
@@ -292,6 +328,7 @@ export async function PATCH(
       { new: true },
     );
     if (!updated) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    void invalidateGroupMessages(id);
     return NextResponse.json({
       reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),
     });

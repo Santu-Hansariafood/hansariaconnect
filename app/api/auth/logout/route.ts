@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserSession, removeUserSession } from "@/lib/sessionAuth";
+import { wipeAllUserCache } from "@/lib/redis/redis";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const session = await getUserSession(req);
+    if (session?.id) {
+      void wipeAllUserCache(String(session.id));
+    }
     if (session?.id && session?.sessionId) {
       await removeUserSession(session.id, session.sessionId);
     }

@@ -9,6 +9,14 @@ import {
   encryptDirectMessageContent,
   decryptDirectMessageContent,
 } from "@/lib/crypto";
+import {
+  CacheKeys,
+  TTL,
+  redisGet,
+  redisSet,
+  invalidateDirectMessages,
+  invalidateUserConversations,
+} from "@/lib/redis/redis";
 
 export const runtime = "nodejs";
 
@@ -91,6 +99,19 @@ export async function GET(
     const fetchAll = searchParams.get("all") === "true";
     const fetchLast = searchParams.get("last") === "true";
 
+    if (!fetchAll) {
+      const cacheKey = CacheKeys.directMessagesPage(
+        rawUserId,
+        rawPeerId,
+        limit,
+        fetchLast ? null : before,
+      );
+      const cached = await redisGet<{ messages: any[]; hasMore: boolean }>(cacheKey);
+      if (cached && Array.isArray(cached.messages)) {
+        return NextResponse.json(cached);
+      }
+    }
+
     const query: any = {
       $or: [
         { from: userId, to: peerId },
@@ -162,6 +183,16 @@ export async function GET(
           ...query,
           ...(before && { createdAt: { $lt: new Date(before) } }),
         })) > docs.length;
+
+    if (!fetchAll) {
+      const cacheKey = CacheKeys.directMessagesPage(
+        rawUserId,
+        rawPeerId,
+        limit,
+        fetchLast ? null : before,
+      );
+      void redisSet(cacheKey, { messages, hasMore }, TTL.messages);
+    }
 
     return NextResponse.json({ messages, hasMore });
   } catch (err: unknown) {
@@ -291,6 +322,10 @@ export async function POST(
       status: "sent",
     };
 
+    void invalidateDirectMessages(rawUserId, rawPeerId);
+    void invalidateUserConversations(rawUserId);
+    void invalidateUserConversations(rawPeerId);
+
     return NextResponse.json({ message }, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -339,6 +374,7 @@ export async function PATCH(
     );
 
     if (!updated) return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    void invalidateDirectMessages(userId, peerId);
     return NextResponse.json({
       reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),
     });

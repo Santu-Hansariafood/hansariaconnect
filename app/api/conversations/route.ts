@@ -13,6 +13,12 @@ import {
   decryptDirectMessageContent,
   decryptGroupMessageContent,
 } from "@/lib/crypto";
+import {
+  CacheKeys,
+  TTL,
+  redisGet,
+  redisSet,
+} from "@/lib/redis/redis";
 
 interface IUser {
   _id: string;
@@ -85,6 +91,12 @@ export async function GET(req: NextRequest) {
     const rawUserId = normalizeId(session.id);
     if (!Types.ObjectId.isValid(rawUserId)) {
       return NextResponse.json({ error: "Invalid user id" }, { status: 400 });
+    }
+
+    const cacheKey = CacheKeys.conversations(rawUserId);
+    const cached = await redisGet<{ conversations: any[] }>(cacheKey);
+    if (cached && Array.isArray(cached.conversations)) {
+      return NextResponse.json(cached);
     }
 
     const userId = new Types.ObjectId(rawUserId);
@@ -220,6 +232,8 @@ export async function GET(req: NextRequest) {
       const timeB = new Date(b.lastMessageAt).getTime();
       return timeB - timeA;
     });
+
+    void redisSet(cacheKey, { conversations: conversationResults }, TTL.conversations);
 
     return NextResponse.json({ conversations: conversationResults });
   } catch (error: any) {
