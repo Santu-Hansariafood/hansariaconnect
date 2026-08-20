@@ -16,6 +16,9 @@ export const detectHarmfulWords = (text: string) => {
   };
 };
 
+export const detectHarmfulFileName = (fileName: string) =>
+  detectHarmfulWords(fileName.replace(/[._-]+/g, " "));
+
 export const extractLinks = (txt: string) => {
   const regex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
   return txt.match(regex) || [];

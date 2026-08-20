@@ -42,6 +42,7 @@ import {
   Theme,
   User,
 } from "@/components/pages/ChatWindow/ChatWindowTypes";
+import { detectHarmfulFileName } from "@/utils/text/formatting";
 
 interface ChatWindowProps {
   user: User;
@@ -85,6 +86,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [chatError, setChatError] = useState("");
+  const [mediaError, setMediaError] = useState("");
   const [savingContact, setSavingContact] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -632,6 +634,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     type: ChatMessage["type"],
   ) => {
     setShowMediaPicker(false);
+    setMediaError("");
 
     const sendMedia = async (payload: OutboundMessagePayload) => {
       const optimisticMessage: ChatMessage = {
@@ -655,6 +658,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     const uploadFile = async (file: File, kind: string) => {
+      const harmfulFile = detectHarmfulFileName(file.name);
+      if (harmfulFile.hasWarning) {
+        setMediaError(`File blocked: ${harmfulFile.warnings.join(", ")}`);
+        return;
+      }
+
+      if (file.size <= 0 || file.size > 50 * 1024 * 1024) {
+        setMediaError("File blocked: empty files and files over 50 MB are not allowed.");
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("kind", kind);
@@ -665,6 +679,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           credentials: "include",
         });
         const data = await res.json();
+        if (!res.ok) {
+          setMediaError(data?.error || "File was blocked because it is unsafe or corrupt.");
+          return;
+        }
         if (data?.url) {
           await sendMedia({
             type,
@@ -674,7 +692,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           });
         }
       } catch {
-        // ignore upload failure
+        setMediaError("File upload failed. The file was not sent.");
       }
     };
 
@@ -798,6 +816,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   return (
     <Suspense fallback={<Loading />}>
       <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overscroll-none bg-[#efeae2]">
+        {mediaError && (
+          <div className="flex items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <span>{mediaError}</span>
+            <button type="button" onClick={() => setMediaError("")} className="font-semibold">Dismiss</button>
+          </div>
+        )}
         <ChatWindowHeader
           theme={theme}
           onBack={onBack || (() => router.push("/"))}

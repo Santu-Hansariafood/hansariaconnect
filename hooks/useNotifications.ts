@@ -131,34 +131,46 @@ export function useNotifications() {
 
     const createNotification = () => {
       try {
-        new Notification(title, options);
+        const notification = new Notification(title, options);
+        notification.onclick = () => {
+          window.focus();
+          window.location.href = url;
+          notification.close();
+        };
       } catch {
         // Ignore notification creation failure
       }
     };
 
-    if (Notification.permission === "granted") {
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.ready
-          .then((registration) => registration.showNotification(title, options))
-          .catch(createNotification);
-      } else {
+    const createServiceWorkerNotification = async () => {
+      if (!("serviceWorker" in navigator)) {
         createNotification();
+        return;
       }
-    } else if (Notification.permission !== "denied") {
-      Notification.requestPermission().then((permission) => {
-        if (permission === "granted") {
-          if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.ready
-              .then((registration) => registration.showNotification(title, options))
-              .catch(createNotification);
-          } else {
-            createNotification();
-          }
+
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration && document.visibilityState === "hidden") {
+          await registration.showNotification(title, options);
+          return;
         }
-      }).catch(() => {
-        // ignore permission request failure
-      });
+      } catch {
+        // Fall back to the browser notification below.
+      }
+
+      createNotification();
+    };
+
+    if (Notification.permission === "granted") {
+      void createServiceWorkerNotification();
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission()
+        .then((permission) => {
+          if (permission === "granted") void createServiceWorkerNotification();
+        })
+        .catch(() => {
+          // Ignore permission request failure.
+        });
     }
   }, [preferences.enabled]);
 

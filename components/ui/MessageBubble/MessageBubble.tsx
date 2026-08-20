@@ -145,7 +145,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`flex gap-1.5 max-w-[80%] sm:max-w-[70%] md:max-w-[65%] ${
+        className={`flex min-w-0 w-fit max-w-[calc(100%-0.5rem)] gap-1.5 ${
           isSent ? "flex-row-reverse" : "flex-row"
         } items-end`}
       >
@@ -162,28 +162,28 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div className="w-7 h-7 flex-shrink-0" />
         )}
 
-        <div className="flex items-end gap-1.5">
-          {isHovered && onForward && (
-            <button
-              onClick={onForward}
-              className="mb-1 flex-shrink-0 rounded-full p-1.5 transition-colors hover:bg-gray-200/80"
-              title="Forward message"
-            >
-              <Forward className="h-3.5 w-3.5 text-gray-500" />
-            </button>
-          )}
-
+        <div className="flex min-w-0 max-w-full items-end gap-1.5">
           {isHovered && (
             <button
               onClick={() => setShowReactions((prev) => !prev)}
-              className="mb-1 flex-shrink-0 rounded-full p-1.5 transition-colors hover:bg-gray-200/80"
+              className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-200/80"
               title="Add reaction"
             >
               <Smile className="h-3.5 w-3.5 text-gray-500" />
             </button>
           )}
 
-          <div className="relative">
+          {isHovered && onForward && (
+            <button
+              onClick={onForward}
+              className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-200/80"
+              title="Forward message"
+            >
+              <Forward className="h-3.5 w-3.5 text-gray-500" />
+            </button>
+          )}
+
+          <div className="relative min-w-0 max-w-full">
             {displaySenderName && (
               <p
                 className={`text-[12.8px] font-medium text-[#111b21] mb-1 ml-2`}
@@ -206,7 +206,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     ? "ring-2 ring-red-300"
                     : "border-2 border-red-300"
                   : ""
-              } relative leading-[19px]`}
+                } relative min-w-0 max-w-full break-words leading-[19px]`}
             >
               {message.type === "text" && (
                 <div className="break-words whitespace-pre-wrap inline">

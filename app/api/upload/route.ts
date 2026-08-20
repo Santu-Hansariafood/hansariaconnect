@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { digestHex } from "@/lib/crypto";
+import harmfulWordsJson from "@/data/harmfulWords.json";
 
 export const runtime = "nodejs";
 
@@ -8,8 +9,12 @@ const ALLOWED_MIME_TYPES = [
   "video/",
   "audio/",
   "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/plain",
+  "text/csv",
 ];
 
 const BLOCKED_EXTENSIONS = [
@@ -26,6 +31,30 @@ const BLOCKED_EXTENSIONS = [
   ".msi",
 ];
 
+const harmfulWords = harmfulWordsJson.words.map((word) => word.toLowerCase());
+
+const hasHarmfulFileName = (fileName: string) =>
+  harmfulWords.some((word) =>
+    new RegExp(`(^|[^a-z0-9])${word.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?=[^a-z0-9]|$)`, "i").test(fileName),
+  );
+
+const hasValidSignature = (bytes: Uint8Array, fileName: string, mime: string) => {
+  if (bytes.length < 4) return false;
+  const startsWith = (...values: number[]) => values.every((value, index) => bytes[index] === value);
+  const extension = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+  if (mime === "application/pdf" || extension === ".pdf") return startsWith(0x25, 0x50, 0x44, 0x46);
+  if (mime.startsWith("image/png") || extension === ".png") return startsWith(0x89, 0x50, 0x4e, 0x47);
+  if (mime.startsWith("image/jpeg") || extension === ".jpg" || extension === ".jpeg") return startsWith(0xff, 0xd8, 0xff);
+  if (mime.startsWith("image/gif") || extension === ".gif") return startsWith(0x47, 0x49, 0x46, 0x38);
+  if (mime.includes("spreadsheet") || extension === ".xlsx" || extension === ".xls") return startsWith(0x50, 0x4b, 0x03, 0x04) || extension === ".xls";
+  if (mime === "application/msword" || extension === ".doc") return startsWith(0xd0, 0xcf, 0x11, 0xe0);
+  if (mime.includes("wordprocessingml") || extension === ".docx") return startsWith(0x50, 0x4b, 0x03, 0x04);
+  if (mime.startsWith("text/") || extension === ".txt" || extension === ".csv") {
+    return !bytes.subarray(0, 4096).some((byte) => byte === 0);
+  }
+  return true;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
@@ -38,6 +67,14 @@ export async function POST(req: NextRequest) {
 
     const fileName = file.name.toLowerCase();
     const fileMime = file.type.toLowerCase();
+
+    if (hasHarmfulFileName(fileName)) {
+      return NextResponse.json({ error: "This file name contains unsafe content" }, { status: 400 });
+    }
+
+    if (file.size <= 0 || file.size > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: "File is empty or exceeds the 50 MB limit" }, { status: 400 });
+    }
 
     const hasBlockedExtension = BLOCKED_EXTENSIONS.some((ext) =>
       fileName.endsWith(ext),
@@ -62,8 +99,12 @@ export async function POST(req: NextRequest) {
         ".webp",
         ".svg",
         ".pdf",
+        ".doc",
+        ".docx",
         ".xlsx",
         ".xls",
+        ".txt",
+        ".csv",
         ".mp4",
         ".webm",
         ".mov",
@@ -96,6 +137,9 @@ export async function POST(req: NextRequest) {
     }
 
     const arrayBuffer = await file.arrayBuffer();
+    if (!hasValidSignature(new Uint8Array(arrayBuffer), fileName, fileMime)) {
+      return NextResponse.json({ error: "File appears corrupt or does not match its extension" }, { status: 400 });
+    }
     const blob = new Blob([arrayBuffer], {
       type: file.type || "application/octet-stream",
     });
@@ -105,7 +149,7 @@ export async function POST(req: NextRequest) {
     let folder = "profiles";
     if (kind === "status") folder = "status";
     else if (kind === "video") folder = "messages";
-    else if (kind === "raw") folder = "rawfiles";
+    else if (kind === "raw" || kind === "file") folder = "rawfiles";
 
     const toSign = `folder=${folder}&timestamp=${timestamp}`;
     const signature = await digestHex("SHA-1", toSign + CLOUDINARY_API_SECRET);
@@ -119,7 +163,7 @@ export async function POST(req: NextRequest) {
           : "image"
         : kind === "video"
           ? "video"
-          : kind === "raw"
+          : kind === "raw" || kind === "file"
             ? "raw"
             : "image";
 
