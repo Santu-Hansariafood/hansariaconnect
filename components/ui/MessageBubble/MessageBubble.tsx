@@ -13,6 +13,8 @@ import {
   Forward,
   Paperclip,
   Smile,
+  MapPin,
+  ExternalLink,
 } from "lucide-react"
 import Image from "next/image"
 import React, { useState } from "react"
@@ -85,6 +87,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const links = textContent ? extractLinks(textContent) : []
   const topLink = links.find((l) => validateUrl(l))
+  const messageUrl = message.url || message.media || textContent
+  const isMapLink = /(?:google\.[^/]+\/maps|maps\.google\.|openstreetmap\.org|geo:)/i.test(messageUrl)
 
   const harmful = detectHarmfulWords(textContent)
 
@@ -286,22 +290,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {message.type === "voice" && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 bg-white/10 rounded-lg p-3">
-                    <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition">
-                      <Play className="w-4 h-4" />
-                    </button>
-
-                    <div className="flex-1 h-1 bg-white/20 rounded-full">
-                      <div
-                        className="h-full bg-white/50 rounded-full"
-                        style={{ width: "30%" }}
-                      />
+                  {message.media ? (
+                    <audio src={message.media} controls preload="metadata" className="h-10 max-w-full" />
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-xl bg-black/5 p-3 text-sm opacity-80">
+                      <Play className="h-4 w-4" />
+                      <span>Voice message unavailable</span>
                     </div>
-
-                    <span className="text-xs opacity-80">
-                      0:{message.duration || "15"}
-                    </span>
-                  </div>
+                  )}
 
                   {message.text && (
                     <div className="break-words whitespace-pre-wrap inline">
@@ -318,11 +314,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {message.type === "pdf" && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 bg-white/10 rounded-lg p-3">
-                    <FileText className="w-8 h-8" />
+                  <div className="flex min-w-[220px] items-center gap-3 rounded-xl bg-black/5 p-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white">
+                      <FileText className="h-5 w-5" />
+                    </div>
 
                     <div className="flex-1">
-                      <p className="font-medium text-sm">
+                      <p className="truncate text-sm font-medium">
                         {message.fileName || "Document.pdf"}
                       </p>
                       <p className="text-xs opacity-70">
@@ -330,10 +328,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                       </p>
                     </div>
 
-                    <a href={message.media} target="_blank" rel="noopener noreferrer">
-                      <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition">
-                        <Download className="w-4 h-4" />
-                      </button>
+                    <a href={message.media} target="_blank" rel="noopener noreferrer" aria-label="Download document" className="rounded-full p-2 transition hover:bg-black/10">
+                        <Download className="h-4 w-4" />
                     </a>
                   </div>
 
@@ -352,11 +348,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {message.type === "excel" && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 bg-white/10 rounded-lg p-3">
-                    <File className="w-8 h-8" />
+                  <div className="flex min-w-[220px] items-center gap-3 rounded-xl bg-black/5 p-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
+                      <File className="h-5 w-5" />
+                    </div>
 
                     <div className="flex-1">
-                      <p className="font-medium text-sm">
+                      <p className="truncate text-sm font-medium">
                         {message.fileName || "Spreadsheet.xlsx"}
                       </p>
                       <p className="text-xs opacity-70">
@@ -364,10 +362,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                       </p>
                     </div>
 
-                    <a href={message.media} target="_blank" rel="noopener noreferrer">
-                      <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition">
-                        <Download className="w-4 h-4" />
-                      </button>
+                    <a href={message.media} target="_blank" rel="noopener noreferrer" aria-label="Download spreadsheet" className="rounded-full p-2 transition hover:bg-black/10">
+                        <Download className="h-4 w-4" />
                     </a>
                   </div>
 
@@ -381,11 +377,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {message.type === "file" && (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3 bg-white/10 rounded-lg p-3">
-                    <Paperclip className="w-8 h-8" />
+                  <div className="flex min-w-[220px] items-center gap-3 rounded-xl bg-black/5 p-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-500 text-white">
+                      <Paperclip className="h-5 w-5" />
+                    </div>
 
                     <div className="flex-1">
-                      <p className="font-medium text-sm">
+                      <p className="truncate text-sm font-medium">
                         {message.fileName || "File"}
                       </p>
                       <p className="text-xs opacity-70">
@@ -393,10 +391,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                       </p>
                     </div>
 
-                    <a href={message.media} target="_blank" rel="noopener noreferrer">
-                      <button className="p-2 bg-white/20 rounded-full hover:bg-white/30 transition">
-                        <Download className="w-4 h-4" />
-                      </button>
+                    <a href={message.media} target="_blank" rel="noopener noreferrer" aria-label="Download file" className="rounded-full p-2 transition hover:bg-black/10">
+                        <Download className="h-4 w-4" />
                     </a>
                   </div>
 
@@ -410,29 +406,32 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {message.type === "link" && (
                 <div className="space-y-2">
-                  <div className="bg-white/10 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <LinkIcon className="w-4 h-4" />
-                      <span className="text-xs font-medium">Shared Link</span>
+                  <div className="min-w-[220px] overflow-hidden rounded-xl bg-black/5">
+                    <div className="flex items-center gap-3 border-b border-black/10 px-3 py-2.5">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isMapLink ? "bg-[#3b82f6]" : "bg-[#64748b]"} text-white`}>
+                        {isMapLink ? <MapPin className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
+                      </div>
+                      <span className="text-xs font-semibold">{isMapLink ? "Location" : "Shared link"}</span>
                     </div>
 
-                    {message.url && (
+                    {messageUrl && (
                       <Link
-                        href={message.url}
+                        href={messageUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm underline break-all"
+                        className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-[#075e54] transition hover:underline"
                       >
-                        {message.url}
+                        <span className="min-w-0 flex-1 break-all">{isMapLink ? "Open location in Maps" : message.linkTitle || messageUrl}</span>
+                        <ExternalLink className="h-4 w-4 shrink-0" />
                       </Link>
                     )}
 
-                    {message.linkTitle && (
+                    {message.linkTitle && !isMapLink && (
                       <p className="text-sm font-medium">{message.linkTitle}</p>
                     )}
 
-                    {message.linkDescription && (
-                      <p className="text-xs opacity-70">
+                    {message.linkDescription && !isMapLink && (
+                      <p className="px-3 pb-3 text-xs opacity-70">
                         {message.linkDescription}
                       </p>
                     )}

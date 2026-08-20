@@ -29,14 +29,11 @@ export const metadata: Metadata = {
     "HansariaConnect is an Indian AI-powered chat application created by the Hansaria Food IT team for private messaging, groups, media sharing, and local communities.",
 
   keywords: [
+    "Hansaria Food IT",
     "HansariaConnect",
-    "secure chat",
-    "encrypted messaging",
-    "privacy-focused messaging",
-    "real-time chat",
-    "group chat",
-    "OTP login",
-    "single-device login",
+    "Santu's Creations",
+    "Hansaria Food Private Limited",
+    "Indian AI chat application",
     "India messaging app",
     "Indian chat application",
     "AI-powered chat app India",

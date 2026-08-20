@@ -3,6 +3,7 @@ import { randomBytesHex, pbkdf2Hex } from "@/lib/crypto";
 
 export interface IApiKey extends Document {
   adminId: string;
+  senderUserId?: string;
   key: string;
   name: string;
   permissions: {
@@ -21,6 +22,7 @@ export interface IApiKey extends Document {
 const ApiKeySchema = new Schema<IApiKey>(
   {
     adminId: { type: String, required: true },
+    senderUserId: { type: String },
     key: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     permissions: {

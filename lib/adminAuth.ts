@@ -31,6 +31,7 @@ export async function getAdminSessionFromRequest(
     userId: session.userId,
     email: session.email,
     isSuperAdmin: session.isSuperAdmin,
+    keyLogin: session.keyLogin,
   };
 }
 

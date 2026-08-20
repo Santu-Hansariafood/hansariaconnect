@@ -8,6 +8,7 @@ export interface IUserSessionRecord {
 }
 
 export interface IUser extends Document {
+  createdByAdminId?: string;
   mobile: string;
   name?: string;
   email?: string;
@@ -25,6 +26,7 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
+    createdByAdminId: { type: String, index: true },
     mobile: { type: String, required: true, unique: true },
     name: { type: String },
     email: { type: String, unique: true, sparse: true },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import { requireAdmin } from "@/lib/adminAuth";
 import ApiKey from "@/models/apiKey/ApiKey";
+import User from "@/models/user/User";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
       apiKeys: apiKeys.map((k) => ({
         _id: k._id,
         name: k.name,
+        senderUserId: k.senderUserId,
         permissions: k.permissions,
         lastUsed: k.lastUsed,
         expiresAt: k.expiresAt,
@@ -49,14 +51,26 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
     const body = await req.json();
-    const { name, expiresDays } = body;
+    const { name, expiresDays, senderUserId } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
 
+    if (senderUserId) {
+      const senderQuery: Record<string, unknown> = { _id: senderUserId };
+      if (!adminResult.admin.isSuperAdmin) {
+        senderQuery.createdByAdminId = String(adminResult.admin._id);
+      }
+      const sender = await User.exists(senderQuery);
+      if (!sender) {
+        return NextResponse.json({ error: "Sender account not found" }, { status: 400 });
+      }
+    }
+
     const apiKey = new ApiKey({
       adminId: adminResult.admin._id,
+      senderUserId: senderUserId ? String(senderUserId) : undefined,
       name,
       expiresAt: expiresDays
         ? new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
@@ -71,6 +85,7 @@ export async function POST(req: NextRequest) {
       apiKey: {
         _id: apiKey._id,
         name: apiKey.name,
+        senderUserId: apiKey.senderUserId,
         key: rawKey,
         permissions: apiKey.permissions,
         expiresAt: apiKey.expiresAt,

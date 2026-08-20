@@ -49,6 +49,7 @@ type ApiKeyRow = {
   expiresAt?: string;
   isActive: boolean;
   createdAt: string;
+  senderUserId?: string;
 };
 
 export default function AdminDashboard() {
@@ -68,10 +69,17 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSuperSubdomain, setIsSuperSubdomain] = useState(false);
-  const [activeTab, setActiveTab] = useState<"users" | "admins" | "api-keys">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "admins" | "api-keys" | "accounts" | "templates" | "profile">("users");
+  const [templates, setTemplates] = useState<{ _id: string; name: string; body: string }[]>([]);
+  const [templateName, setTemplateName] = useState("");
+  const [templateBody, setTemplateBody] = useState("");
+  const [adminProfile, setAdminProfile] = useState({ userId: "", email: "", isSuperAdmin: false });
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profilePassword, setProfilePassword] = useState("");
   const [showCreateApiKey, setShowCreateApiKey] = useState(false);
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [newApiKeyExpiresDays, setNewApiKeyExpiresDays] = useState("");
+  const [newApiKeySenderUserId, setNewApiKeySenderUserId] = useState("");
   const [newlyCreatedApiKey, setNewlyCreatedApiKey] = useState<string | null>(null);
 
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
@@ -84,6 +92,8 @@ export default function AdminDashboard() {
   const [editAdminEmail, setEditAdminEmail] = useState("");
   const [editAdminPassword, setEditAdminPassword] = useState("");
   const [editAdminIsSuper, setEditAdminIsSuper] = useState(false);
+  const [showBulkUsers, setShowBulkUsers] = useState(false);
+  const [bulkUsersText, setBulkUsersText] = useState("");
 
   useEffect(() => {
     const host = window.location.host;
@@ -109,6 +119,9 @@ export default function AdminDashboard() {
         }
 
         setIsSuperAdmin(data.admin.isSuperAdmin);
+        setAdminProfile(data.admin);
+        setProfileEmail(data.admin.email || "");
+        if (!data.admin.isSuperAdmin && !isSuperSubdomain) setActiveTab("accounts");
 
         if (isSuperSubdomain && !data.admin.isSuperAdmin) {
           router.replace("/admin/login");
@@ -165,10 +178,69 @@ export default function AdminDashboard() {
       if (apiKeysRes.ok) {
         setApiKeys(apiKeysData?.apiKeys || []);
       }
+
+      const [templatesRes, profileRes] = await Promise.all([
+        fetch("/api/admin/templates", { cache: "no-store" }),
+        fetch("/api/admin/profile", { cache: "no-store" }),
+      ]);
+      if (templatesRes.ok) setTemplates((await templatesRes.json()).templates || []);
+      if (profileRes.ok) {
+        const profile = (await profileRes.json()).profile;
+        setAdminProfile(profile);
+        setProfileEmail(profile.email || "");
+      }
     } catch {
       setError("Network error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createTemplate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving("template");
+    setError("");
+    try {
+      const res = await fetch("/api/admin/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: templateName, body: templateBody }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to create template");
+      setTemplates((previous) => [data.template, ...previous]);
+      setTemplateName("");
+      setTemplateBody("");
+    } catch (error: any) {
+      setError(error?.message || "Failed to create template");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const deleteTemplate = async (id: string) => {
+    const res = await fetch(`/api/admin/templates/${id}`, { method: "DELETE" });
+    if (res.ok) setTemplates((previous) => previous.filter((template) => template._id !== id));
+  };
+
+  const saveProfile = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving("profile");
+    setError("");
+    try {
+      const res = await fetch("/api/admin/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: profileEmail, password: profilePassword || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to save profile");
+      setAdminProfile(data.profile);
+      setProfilePassword("");
+    } catch (error: any) {
+      setError(error?.message || "Failed to save profile");
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -182,6 +254,7 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newApiKeyName,
+          senderUserId: newApiKeySenderUserId.trim() || undefined,
           expiresDays: newApiKeyExpiresDays ? parseInt(newApiKeyExpiresDays) : undefined,
         }),
       });
@@ -194,9 +267,44 @@ export default function AdminDashboard() {
       setShowCreateApiKey(false);
       setNewApiKeyName("");
       setNewApiKeyExpiresDays("");
+      setNewApiKeySenderUserId("");
       loadData();
     } catch {
       setError("Network error");
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleCreateBulkUsers = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setSaving("create-users");
+    try {
+      const users = bulkUsersText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [name, email, mobile] = line.split(",").map((value) => value.trim());
+          return { name, email, mobile };
+        });
+      if (!users.length) throw new Error("Add at least one account");
+      if (users.some((user) => !user.name || !user.email || !user.mobile)) {
+        throw new Error("Use one account per line: Name, email, mobile");
+      }
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ users }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to create accounts");
+      setBulkUsersText("");
+      setShowBulkUsers(false);
+      loadData(1, true);
+    } catch (error: any) {
+      setError(error?.message || "Failed to create accounts");
     } finally {
       setSaving(null);
     }
@@ -362,6 +470,13 @@ export default function AdminDashboard() {
           <>
             {/* Tabs */}
             <div className="flex mb-6 bg-gray-100 rounded-xl p-1">
+              {!isSuperAdmin && !isSuperSubdomain && (
+                <>
+                  <button onClick={() => setActiveTab("accounts")} className={`flex-1 py-2 rounded-lg font-semibold transition-all ${activeTab === "accounts" ? "bg-white shadow text-emerald-600" : "text-gray-500"}`}>Accounts</button>
+                  <button onClick={() => setActiveTab("templates")} className={`flex-1 py-2 rounded-lg font-semibold transition-all ${activeTab === "templates" ? "bg-white shadow text-emerald-600" : "text-gray-500"}`}>Templates</button>
+                  <button onClick={() => setActiveTab("profile")} className={`flex-1 py-2 rounded-lg font-semibold transition-all ${activeTab === "profile" ? "bg-white shadow text-emerald-600" : "text-gray-500"}`}>Profile</button>
+                </>
+              )}
               {(isSuperAdmin || isSuperSubdomain) && (
                 <button
                   onClick={() => setActiveTab("users")}
@@ -392,6 +507,54 @@ export default function AdminDashboard() {
               </button>
             </div>
 
+            {activeTab === "accounts" && !isSuperAdmin && !isSuperSubdomain && (
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800">Register chat accounts</h2>
+                <p className="mt-1 text-sm text-gray-500">Use any valid business or personal email domain. Add one account per line.</p>
+                <button onClick={() => setShowBulkUsers(true)} className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700">Register Accounts</button>
+                {showBulkUsers && (
+                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 sm:p-8">
+                      <h3 className="text-xl font-bold">Register Multiple Accounts</h3>
+                      <p className="mb-4 mt-2 text-sm text-gray-500">Format: Name, email, mobile</p>
+                      <form onSubmit={handleCreateBulkUsers} className="space-y-4">
+                        <textarea value={bulkUsersText} onChange={(event) => setBulkUsersText(event.target.value)} rows={9} placeholder={"Asha, asha@company.in, 9876543210\nRavi, ravi@business.com, 9123456780"} className="w-full rounded-xl border border-gray-200 px-4 py-3 font-mono text-sm" />
+                        <div className="flex gap-3"><button type="button" onClick={() => setShowBulkUsers(false)} className="flex-1 rounded-xl bg-gray-200 px-4 py-3">Cancel</button><button type="submit" disabled={saving === "create-users"} className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-white">{saving === "create-users" ? "Registering..." : "Register Accounts"}</button></div>
+                      </form>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "templates" && !isSuperAdmin && !isSuperSubdomain && (
+              <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+                <form onSubmit={createTemplate} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-lg font-semibold text-gray-800">Create message template</h2>
+                  <input value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Template name" className="mt-4 w-full rounded-xl border border-gray-200 px-4 py-3" required />
+                  <textarea value={templateBody} onChange={(event) => setTemplateBody(event.target.value)} placeholder="Hello {{name}}, your update is ready." rows={6} className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3" required />
+                  <p className="mt-2 text-xs text-gray-500">Use variables like {"{{name}}"} and {"{{orderId}}"} for bulk messages.</p>
+                  <button type="submit" disabled={saving === "template"} className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white">{saving === "template" ? "Saving..." : "Save Template"}</button>
+                </form>
+                <div className="space-y-3">
+                  {templates.map((template) => <div key={template._id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-gray-800">{template.name}</h3><button onClick={() => deleteTemplate(template._id)} className="text-sm text-red-600">Delete</button></div><p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">{template.body}</p></div>)}
+                  {!templates.length && <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500">No templates yet.</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "profile" && !isSuperAdmin && !isSuperSubdomain && (
+              <form onSubmit={saveProfile} className="max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800">Admin profile</h2>
+                <p className="mt-1 text-sm text-gray-500">Signed in as {adminProfile.userId}</p>
+                <label className="mt-5 block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" value={profileEmail} onChange={(event) => setProfileEmail(event.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3" required />
+                <label className="mt-4 block text-sm font-medium text-gray-700">New password</label>
+                <input type="password" value={profilePassword} onChange={(event) => setProfilePassword(event.target.value)} placeholder="Leave blank to keep current password" className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3" />
+                <button type="submit" disabled={saving === "profile"} className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white">{saving === "profile" ? "Saving..." : "Save Profile"}</button>
+              </form>
+            )}
+
             {/* Users Tab (Super Admin Only) */}
             {activeTab === "users" && (isSuperAdmin || isSuperSubdomain) && (
               <div className="space-y-4">
@@ -401,6 +564,12 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-500">{userPagination.total} total users, 100 per page</p>
                   </div>
                   <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowBulkUsers(true)}
+                      className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700"
+                    >
+                      Register Accounts
+                    </button>
                     <button
                       onClick={() => loadData(userPagination.page - 1)}
                       disabled={userPagination.page <= 1 || loading}
@@ -420,6 +589,29 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
+                {showBulkUsers && (
+                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
+                      <h3 className="text-xl font-bold mb-2">Register Multiple Accounts</h3>
+                      <p className="mb-4 text-sm text-gray-500">One account per line: Name, email, Indian mobile number</p>
+                      <form onSubmit={handleCreateBulkUsers} className="space-y-4">
+                        <textarea
+                          value={bulkUsersText}
+                          onChange={(event) => setBulkUsersText(event.target.value)}
+                          rows={8}
+                          placeholder={"Asha, asha@gmail.com, 9876543210\nRavi, ravi@outlook.com, 9123456780"}
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <div className="flex gap-3">
+                          <button type="button" onClick={() => setShowBulkUsers(false)} className="flex-1 rounded-xl bg-gray-200 px-4 py-3 text-gray-700">Cancel</button>
+                          <button type="submit" disabled={saving === "create-users"} className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-white disabled:opacity-60">
+                            {saving === "create-users" ? "Registering..." : "Register Accounts"}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
                 <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
                 <div className="grid grid-cols-12 gap-3 px-4 py-3 text-sm font-medium text-gray-600 bg-gray-50">
                   <div className="col-span-3">User</div>
@@ -461,6 +653,18 @@ export default function AdminDashboard() {
                     <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
                       <h3 className="text-xl font-bold mb-4">Create New Admin</h3>
                       <form onSubmit={handleCreateAdmin} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Sender account ID</label>
+                          <input
+                            type="text"
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            value={newApiKeySenderUserId}
+                            onChange={(e) => setNewApiKeySenderUserId(e.target.value)}
+                            placeholder="Provisioned user ObjectId"
+                            required
+                          />
+                          <p className="mt-1 text-xs text-gray-500">Bulk messages are sent from this account.</p>
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
                           <input
