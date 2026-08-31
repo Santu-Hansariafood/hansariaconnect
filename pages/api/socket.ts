@@ -6,6 +6,7 @@ import Message from "@/models/message/Message";
 import Conversation from "@/models/conversation/Conversation";
 import GroupMessage from "@/models/group/GroupMessage";
 import Group from "@/models/group/Group";
+import User from "@/models/user/User";
 import { Types } from "mongoose";
 import AccessControl from "@/models/access/AccessControl";
 import { getUserSession } from "@/lib/sessionAuth";
@@ -19,6 +20,7 @@ import {
   emitDirectMessageReceived,
   emitGroupMessageReceived,
 } from "@/lib/socketEmitter";
+import { redisDel, CacheKeys } from "@/lib/redis/redis";
 
 export const config = {
   api: {
@@ -89,7 +91,16 @@ export default async function handler(
           string,
           number
         >;
-        userConnections.set(userId, (userConnections.get(userId) ?? 0) + 1);
+        const prevCount = userConnections.get(userId) ?? 0;
+        userConnections.set(userId, prevCount + 1);
+
+        if (Types.ObjectId.isValid(userId)) {
+          void User.findByIdAndUpdate(new Types.ObjectId(userId), {
+            $set: { lastSeenAt: new Date() },
+          }).catch(() => {});
+          void redisDel(CacheKeys.lastSeenSingle(userId));
+        }
+
         broadcastOnlineUsers();
 
         socket.on("message:send", async (payload, cb) => {
@@ -423,6 +434,18 @@ export default async function handler(
           const count = userConnections.get(userId) ?? 0;
           if (count <= 1) {
             userConnections.delete(userId);
+
+            if (Types.ObjectId.isValid(userId)) {
+              const now = new Date();
+              void User.findByIdAndUpdate(new Types.ObjectId(userId), {
+                $set: { lastSeenAt: now },
+              }).catch(() => {});
+              void redisDel(CacheKeys.lastSeenSingle(userId));
+              io.emit("user:last-seen", {
+                userId,
+                lastSeenAt: now.toISOString(),
+              });
+            }
           } else {
             userConnections.set(userId, count - 1);
           }

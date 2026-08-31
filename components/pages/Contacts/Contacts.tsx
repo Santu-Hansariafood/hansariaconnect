@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { fadeIn, staggerContainer } from "@/utils/animations/animations";
-import { X, CheckCircle2, CircleUserRound, Pencil, Trash2 } from "lucide-react";
+import { X, CircleUserRound, Pencil, MessageSquare } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
+import { preloadLastSeenForUsers, formatLastSeenText } from "@/hooks/useLastSeen";
 import Loading from "@/components/common/Loading/Loading";
 
 declare global {
@@ -31,9 +32,6 @@ import {
 import Link from "next/link";
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
-const ContactCard = dynamic(
-  () => import("@/components/ui/ContactCard/ContactCard"),
-);
 const SearchBar = dynamic(
   () => import("@/components/common/SearchBar/SearchBar"),
 );
@@ -59,17 +57,19 @@ type Contact = {
   registeredProfile?: { name?: string; photo?: string } | null;
 };
 
-type Props = { user: User; theme: Theme };
-
 interface ContactWithLinks extends Contact {
   shareLinks?: { wa: string; fb: string; x: string; sms: string };
   shareLinksLoading?: boolean;
   online?: boolean;
+  lastSeenTime?: string | null;
+  unread?: number;
 }
+
+type Props = { user: User; theme: Theme };
 
 export default function Contacts({ user, theme }: Props) {
   const router = useRouter();
-  const { onlineUserIds } = useSocket();
+  const { onlineUserIds, addListener, removeListener } = useSocket();
   const [searchQuery, setSearchQuery] = useState("");
   const [contacts, setContacts] = useState<ContactWithLinks[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<ContactWithLinks[]>(
@@ -89,6 +89,7 @@ export default function Contacts({ user, theme }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [deviceContactSupported, setDeviceContactSupported] = useState(false);
   const googleAuthUrl = "/api/google/contacts/auth";
+  const [loadingLastSeen, setLoadingLastSeen] = useState(true);
 
   useEffect(() => {
     if (typeof navigator !== "undefined") {
@@ -97,6 +98,52 @@ export default function Contacts({ user, theme }: Props) {
       );
     }
   }, []);
+
+  const loadUnreadCountsForContacts = useMemo(
+    () => async (list: ContactWithLinks[]): Promise<Record<string, number>> => {
+      const map: Record<string, number> = {};
+      try {
+        const res = await fetch("/api/unread-counts", {
+          cache: "no-store",
+          credentials: "include",
+        });
+        if (!res.ok) return map;
+        const data = await res.json();
+        const convMap: Record<string, number> = data?.conversations || {};
+        for (const c of list) {
+          const uid = c.registeredUserId;
+          if (uid && typeof convMap[uid] === "number") {
+            map[uid] = convMap[uid];
+          }
+        }
+      } catch {
+        // ignore
+      }
+      return map;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const registeredIds = contacts
+      .filter((c) => c.registered && c.registeredUserId)
+      .map((c) => c.registeredUserId as string);
+
+    if (registeredIds.length === 0) return;
+
+    void (async () => {
+      await preloadLastSeenForUsers(registeredIds);
+      setContacts((prev) =>
+        prev.map((c) => {
+          if (!c.registered || !c.registeredUserId) return c;
+          return {
+            ...c,
+            online: onlineUserIds.includes(c.registeredUserId),
+          };
+        }),
+      );
+    })();
+  }, [contacts]);
 
   useEffect(() => {
     setContacts((prev) =>
@@ -116,6 +163,30 @@ export default function Contacts({ user, theme }: Props) {
       })),
     );
   }, [onlineUserIds]);
+
+  useEffect(() => {
+    const handleUnread = (payload: any) => {
+      const conversations = payload?.conversations || {};
+      setContacts((prev) =>
+        prev.map((c) => {
+          if (!c.registeredUserId) return c;
+          const count = Number(conversations[c.registeredUserId] || 0);
+          if (count === (c.unread || 0)) return c;
+          return { ...c, unread: count };
+        }),
+      );
+      setFilteredContacts((prev) =>
+        prev.map((c) => {
+          if (!c.registeredUserId) return c;
+          const count = Number(conversations[c.registeredUserId] || 0);
+          if (count === (c.unread || 0)) return c;
+          return { ...c, unread: count };
+        }),
+      );
+    };
+    addListener("unread:update", handleUnread);
+    return () => removeListener("unread:update", handleUnread);
+  }, [addListener, removeListener]);
 
   const loadShareLinks = async (contactId: string) => {
     setContacts((prev) =>
@@ -206,12 +277,31 @@ export default function Contacts({ user, theme }: Props) {
             registered: !!c.registered,
             registeredUserId: c.registeredUserId || "",
             registeredProfile: c.registeredProfile || null,
+            unread: 0,
           }));
 
+          const unreadMap = await loadUnreadCountsForContacts(mapped);
+          mapped.forEach((c: any) => {
+            if (c.registeredUserId && unreadMap[c.registeredUserId]) {
+              c.unread = unreadMap[c.registeredUserId];
+            }
+          });
+
           setContacts(mapped);
+          const ids = mapped
+            .filter((c: any) => c.registered && c.registeredUserId)
+            .map((c: any) => c.registeredUserId);
+          if (ids.length) {
+            setLoadingLastSeen(true);
+            void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
+          } else {
+            setLoadingLastSeen(false);
+          }
         }
       }
-    } catch {}
+    } catch {
+      setLoadingLastSeen(false);
+    }
     setSyncing(false);
     setShowGoogleImportPrompt(false);
   };
@@ -296,9 +386,26 @@ export default function Contacts({ user, theme }: Props) {
             registered: !!c.registered,
             registeredUserId: c.registeredUserId || "",
             registeredProfile: c.registeredProfile || null,
+            unread: 0,
           }));
 
+          const unreadMap = await loadUnreadCountsForContacts(mapped);
+          mapped.forEach((c: any) => {
+            if (c.registeredUserId && unreadMap[c.registeredUserId]) {
+              c.unread = unreadMap[c.registeredUserId];
+            }
+          });
+
           setContacts(mapped);
+          const ids = mapped
+            .filter((c: any) => c.registered && c.registeredUserId)
+            .map((c: any) => c.registeredUserId);
+          if (ids.length) {
+            setLoadingLastSeen(true);
+            void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
+          } else {
+            setLoadingLastSeen(false);
+          }
         }
       }
     } catch (err) {
@@ -333,14 +440,34 @@ export default function Contacts({ user, theme }: Props) {
             registered: !!c.registered,
             registeredUserId: c.registeredUserId || "",
             registeredProfile: c.registeredProfile || null,
+            unread: 0,
           }));
 
+          const unreadMap = await loadUnreadCountsForContacts(mapped);
+          mapped.forEach((c: any) => {
+            if (c.registeredUserId && unreadMap[c.registeredUserId]) {
+              c.unread = unreadMap[c.registeredUserId];
+            }
+          });
+
           setContacts(mapped);
+
+          const ids = mapped
+            .filter((c: any) => c.registered && c.registeredUserId)
+            .map((c: any) => c.registeredUserId);
+          if (ids.length) {
+            setLoadingLastSeen(true);
+            void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
+          } else {
+            setLoadingLastSeen(false);
+          }
         }
-      } catch {}
+      } catch {
+        setLoadingLastSeen(false);
+      }
     };
     loadContacts();
-  }, []);
+  }, [loadUnreadCountsForContacts]);
 
   useEffect(() => {
     let filtered = contacts;
@@ -356,6 +483,9 @@ export default function Contacts({ user, theme }: Props) {
     filtered = [...filtered].sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
       if (!a.pinned && b.pinned) return 1;
+      if ((a.unread || 0) !== (b.unread || 0)) {
+        return (b.unread || 0) - (a.unread || 0);
+      }
       const aName = (a.name || "").trim().toLowerCase();
       const bName = (b.name || "").trim().toLowerCase();
       if (aName && bName && aName !== bName) return aName.localeCompare(bName);
@@ -404,6 +534,7 @@ export default function Contacts({ user, theme }: Props) {
             registered: false,
             mobiles: data.contact.mobiles,
             email: data.contact.email,
+            unread: 0,
           },
           ...prev,
         ]);
@@ -420,6 +551,180 @@ export default function Contacts({ user, theme }: Props) {
     }
 
     setCreating(false);
+  };
+
+  const registeredContacts = useMemo(
+    () => filteredContacts.filter((c) => c.registered && c.registeredUserId),
+    [filteredContacts],
+  );
+  const invitationContacts = useMemo(
+    () => filteredContacts.filter((c) => !c.registered || !c.registeredUserId),
+    [filteredContacts],
+  );
+
+  const renderContactCard = (c: ContactWithLinks) => {
+    const isOnline = Boolean(c.online);
+    const lastSeen = c.lastSeenTime ? new Date(c.lastSeenTime) : null;
+    const lastSeenLabel = formatLastSeenText(isOnline, lastSeen);
+    const unreadCount = Number(c.unread || 0);
+
+    return (
+      <motion.div key={c.id} {...fadeIn}>
+        <div className="rounded-3xl p-5 shadow-sm border border-gray-200 bg-white transition hover:shadow-lg">
+          <div className="flex items-center gap-4">
+            <div className="relative shrink-0">
+              <Image
+                src={c.avatar || "/logo/logo.png"}
+                alt={c.name}
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-full object-cover"
+              />
+              {c.registered && isOnline && (
+                <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full" title="Online" />
+              )}
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white shadow-md border-2 border-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-lg font-semibold text-gray-900 truncate">
+                    {c.name}
+                  </p>
+                  <p className="text-sm text-gray-500 truncate">
+                    {c.email || c.mobile}
+                  </p>
+                </div>
+                {c.registered ? (
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold flex items-center gap-1.5 ${
+                        isOnline
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                      title={lastSeenLabel}
+                    >
+                      {isOnline ? (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Online
+                        </>
+                      ) : (
+                        <>
+                          <span className="w-2 h-2 rounded-full bg-gray-400" />
+                          Offline · Last seen info
+                        </>
+                      )}
+                    </span>
+                    <span
+                      className="text-[11px] text-gray-500 font-medium"
+                      title={lastSeenLabel}
+                    >
+                      {loadingLastSeen && !lastSeen ? "Loading last seen…" : lastSeenLabel}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {c.registered ? (
+                  <>
+                    <button
+                      onClick={() =>
+                        router.push(`/chat/${c.registeredUserId}`)
+                      }
+                      style={{ backgroundColor: theme.primary }}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Send Message
+                      {unreadCount > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-white/20 px-1.5 text-[11px] font-bold">
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setManageContact(c)}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Manage
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (!c.shareLinks && !c.shareLinksLoading)
+                          loadShareLinks(c.id);
+                        setInviteMessage(
+                          "Invitation ready. Share the contact link below.",
+                        );
+                      }}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-black"
+                      disabled={c.shareLinksLoading}
+                    >
+                      {c.shareLinksLoading
+                        ? "Preparing invite..."
+                        : "Invite to Hansaria"}
+                    </button>
+                    <button
+                      onClick={() => setManageContact(c)}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Manage
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {c.shareLinks && (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <span className="text-xs uppercase tracking-[0.15em] text-gray-400">
+                    Share via
+                  </span>
+                  <Link
+                    href={c.shareLinks.wa}
+                    target="_blank"
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 text-white"
+                  >
+                    <FaWhatsapp />
+                  </Link>
+                  <Link
+                    href={c.shareLinks.fb}
+                    target="_blank"
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white"
+                  >
+                    <FaFacebookF />
+                  </Link>
+                  <Link
+                    href={c.shareLinks.x}
+                    target="_blank"
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-black text-white"
+                  >
+                    <FaTwitter />
+                  </Link>
+                  <Link
+                    href={c.shareLinks.sms}
+                    className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-500 text-white"
+                  >
+                    <FaSms />
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
   };
 
   return (
@@ -475,7 +780,7 @@ export default function Contacts({ user, theme }: Props) {
             variants={staggerContainer}
             initial="hidden"
             animate="show"
-            className="space-y-4 mt-6"
+            className="space-y-6 mt-6"
           >
             {inviteMessage && (
               <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
@@ -483,121 +788,66 @@ export default function Contacts({ user, theme }: Props) {
               </div>
             )}
 
-            {filteredContacts.length > 0 ? (
-              filteredContacts.map((c) => (
-                <motion.div key={c.id} {...fadeIn}>
-                  <div className="rounded-3xl p-5 shadow-sm border border-gray-200 bg-white transition hover:shadow-lg">
-                    <div className="flex items-center gap-4">
-                      <div className="relative shrink-0">
-                        <Image
-                          src={c.avatar || "/logo/logo.png"}
-                          alt={c.name}
-                          width={64}
-                          height={64}
-                          className="w-16 h-16 rounded-full object-cover"
-                        />
-                        {c.registered && c.online && (
-                          <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="text-lg font-semibold text-gray-900 truncate">
-                              {c.name}
-                            </p>
-                            <p className="text-sm text-gray-500 truncate">
-                              {c.email || c.mobile}
-                            </p>
-                          </div>
-                          {c.registered && (
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${c.online ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-600"}`}
-                            >
-                              {c.online ? "Online" : "Offline"}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                          {c.registered ? (
-                            <button
-                              onClick={() =>
-                                router.push(`/chat/${c.registeredUserId}`)
-                              }
-                              style={{ backgroundColor: theme.primary }}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
-                            >
-                              <FaWhatsapp className="w-4 h-4" />
-                              Send Message
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => {
-                                if (!c.shareLinks && !c.shareLinksLoading)
-                                  loadShareLinks(c.id);
-                                setInviteMessage(
-                                  "Invitation ready. Share the contact link below.",
-                                );
-                              }}
-                              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-black"
-                              disabled={c.shareLinksLoading}
-                            >
-                              {c.shareLinksLoading
-                                ? "Preparing invite..."
-                                : "Invite to Hansaria"}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setManageContact(c)}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                          >
-                            <Pencil className="w-4 h-4" />
-                            Manage
-                          </button>
-                        </div>
-
-                        {c.shareLinks && (
-                          <div className="mt-4 flex flex-wrap items-center gap-3">
-                            <span className="text-xs uppercase tracking-[0.15em] text-gray-400">
-                              Share via
-                            </span>
-                            <Link
-                              href={c.shareLinks.wa}
-                              target="_blank"
-                              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 text-white"
-                            >
-                              <FaWhatsapp />
-                            </Link>
-                            <Link
-                              href={c.shareLinks.fb}
-                              target="_blank"
-                              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white"
-                            >
-                              <FaFacebookF />
-                            </Link>
-                            <Link
-                              href={c.shareLinks.x}
-                              target="_blank"
-                              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-black text-white"
-                            >
-                              <FaTwitter />
-                            </Link>
-                            <Link
-                              href={c.shareLinks.sms}
-                              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-slate-500 text-white"
-                            >
-                              <FaSms />
-                            </Link>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+            {registeredContacts.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-1">
+                  <div
+                    className="h-8 w-1.5 rounded-full"
+                    style={{ backgroundColor: theme.primary }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-700">
+                      Registered Contacts
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {registeredContacts.length} user{registeredContacts.length !== 1 ? "s" : ""} ·{" "}
+                      <span className="font-semibold text-red-500">
+                        {registeredContacts.reduce((sum, c) => sum + (c.unread || 0), 0)} unread
+                      </span>{" "}
+                      messages total
+                    </p>
                   </div>
-                </motion.div>
-              ))
-            ) : (
+                  <span
+                    className="px-3 py-1 rounded-full text-xs font-bold"
+                    style={{
+                      backgroundColor: `${theme.primary}15`,
+                      color: theme.primary,
+                    }}
+                  >
+                    Active Chats
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {registeredContacts.map(renderContactCard)}
+                </div>
+              </div>
+            )}
+
+            {invitationContacts.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 px-1">
+                  <div className="h-8 w-1.5 rounded-full bg-slate-300" />
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-500">
+                      Invitations Pending
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {invitationContacts.length} contact{invitationContacts.length !== 1 ? "s" : ""} · Not yet on HansariaConnect
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+                    Invite to join
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {invitationContacts.map(renderContactCard)}
+                </div>
+              </div>
+            )}
+
+            {filteredContacts.length === 0 && (
               <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
                 <p className="text-lg font-semibold text-gray-900">
                   No contacts found yet

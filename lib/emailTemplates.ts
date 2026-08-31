@@ -38,7 +38,7 @@ export const buildOtpEmailTemplate = (
                   <p style="margin:16px 0 0;font-size:38px;font-weight:700;letter-spacing:0.2em;color:#0f172a;">${otp}</p>
                 </div>
                 <p style="margin:0 0 24px;font-size:16px;line-height:1.75;">If you did not request this code, you can safely ignore this email. Do not share this code with anyone.</p>
-                <a href="https://hansariaconnect.com/login" style="display:inline-block;padding:14px 28px;background:#0f172a;color:#ffffff;border-radius:999px;text-decoration:none;font-weight:600;font-size:15px;">Open HansariaConnect</a>
+                <a href="https://hfconnect.in" style="display:inline-block;padding:14px 28px;background:#0f172a;color:#ffffff;border-radius:999px;text-decoration:none;font-weight:600;font-size:15px;">Open HansariaConnect</a>
               </td>
             </tr>
             <tr>

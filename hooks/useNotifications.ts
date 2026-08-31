@@ -58,13 +58,20 @@ export function useNotifications() {
   }, []);
 
   const requestPermission = useCallback(async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      console.warn("[Notifications] requestPermission called but Notification API is unavailable");
+      return;
+    }
+    console.log("[Notifications] Requesting Notification permission (triggered by user gesture)... Current state:", Notification.permission);
     if (Notification.permission === "default") {
       try {
-        await Notification.requestPermission();
-      } catch {
-        // ignore
+        const result = await Notification.requestPermission();
+        console.log("[Notifications] Notification permission result:", result);
+      } catch (e: any) {
+        console.error("[Notifications] Notification.requestPermission threw an error:", e?.message || e);
       }
+    } else {
+      console.log("[Notifications] Permission already set to:", Notification.permission, "- no prompt needed");
     }
   }, []);
 

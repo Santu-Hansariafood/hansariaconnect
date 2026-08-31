@@ -191,6 +191,11 @@ export const CacheKeys = {
   conversations: (userId: string) => `conversations:${userId}`,
   statuses: (userId: string) => `statuses:${userId}`,
   userProfile: (userId: string) => `profile:${userId}`,
+  lastSeenSingle: (userId: string) => `lastseen:single:${userId}`,
+  lastSeenBatch: (userIds: string[]) => {
+    const sorted = [...userIds].sort().join(",")
+    return `lastseen:batch:${sorted}`
+  },
 }
 
 export async function invalidateDirectMessages(userId: string, peerId: string) {

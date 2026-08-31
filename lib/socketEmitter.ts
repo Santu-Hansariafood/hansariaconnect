@@ -575,7 +575,7 @@ export const emitDirectMessageReceived = async (
     );
 
     if (notification) {
-      console.log("[socketEmitter] Emitting message:notify to", rawToId, { kind: notification.kind, from: notification.fromUserId);
+      console.log("[socketEmitter] Emitting message:notify to", rawToId, { kind: notification.kind, from: notification.fromUserId });
       io.to(rawToId).emit("message:notify", notification);
     } else {
       console.warn("[socketEmitter] buildDirectNotification returned null - skipping notification emit");
@@ -680,7 +680,7 @@ export const emitGroupMessageReceived = async (
       console.warn("[socketEmitter] buildGroupNotification returned empty map - skipping group", rawGroupId);
     }
     for (const [memberId, notification] of Object.entries(notifications)) {
-      console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId);
+      console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId });
       io.to(memberId).emit("message:notify", notification);
     }
   } catch (e: any) {

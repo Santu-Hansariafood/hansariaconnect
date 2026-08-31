@@ -20,6 +20,7 @@ export interface IUser extends Document {
   googleTokenExpiry?: number;
   lastLoginIp?: string;
   lastLoginAt?: Date;
+  lastSeenAt?: Date;
   sessions?: IUserSessionRecord[];
   createdAt: Date;
 }
@@ -38,6 +39,7 @@ const UserSchema = new Schema<IUser>(
     googleTokenExpiry: { type: Number },
     lastLoginIp: { type: String },
     lastLoginAt: { type: Date },
+    lastSeenAt: { type: Date, index: true },
     sessions: [
       {
         sessionId: { type: String, required: true },
