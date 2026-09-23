@@ -2,82 +2,90 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import io from "socket.io-client";
+import type { Socket } from "socket.io-client";
 
-let socketInstance: any = null;
-let socketListeners: Array<{ type: string; handler: (...args: any[]) => void }> = [];
+type SocketHandler = (...args: never[]) => void;
+type SocketLibraryHandler = Parameters<Socket["on"]>[1];
+
+let socketInstance: Socket | null = null;
+let socketConnectPromise: Promise<Socket> | null = null;
+let socketListeners: Array<{ type: string; handler: SocketHandler }> = [];
 let onlineListeners: Array<(ids: string[]) => void> = [];
 
 export const useSocket = () => {
-  const [socket, setSocket] = useState<any>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const isInitializedRef = useRef(false);
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (): Promise<Socket> => {
     if (socketInstance && socketInstance.connected) {
       return socketInstance;
     }
 
+    if (socketConnectPromise) return socketConnectPromise;
+
+    socketConnectPromise = (async () => {
+      try {
+        await fetch("/api/socket", { cache: "no-store" });
+      } catch {}
+
+      const url = typeof window !== "undefined" ? window.location.origin : undefined;
+      const s = io(url, {
+        path: "/api/socket",
+        transports: ["websocket", "polling"],
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 800,
+        reconnectionDelayMax: 5000,
+        randomizationFactor: 0.2,
+        timeout: 20000,
+        upgrade: true,
+        autoConnect: true,
+        forceNew: false,
+      });
+
+      socketInstance = s;
+      setSocket(s);
+
+      s.on("disconnect", (reason: string) => {
+        if (reason === "io server disconnect") s.connect();
+      });
+
+      s.on("connect_error", () => {});
+
+      s.on("reconnect_attempt", () => {});
+      s.on("reconnect_error", () => {});
+      s.on("reconnect_failed", () => {});
+
+      s.on("users:online", (ids: string[]) => {
+        setOnlineUserIds(ids);
+        onlineListeners.forEach((listener) => listener(ids));
+      });
+      s.on("user:online", ({ userId }: { userId?: string }) => {
+        if (!userId) return;
+        setOnlineUserIds((current) => current.includes(userId) ? current : [...current, userId]);
+      });
+      s.on("user:offline", ({ userId }: { userId?: string }) => {
+        if (!userId) return;
+        setOnlineUserIds((current) => current.filter((id) => id !== userId));
+      });
+
+      socketListeners.forEach(({ type, handler }) =>
+        s.on(type, handler as SocketLibraryHandler),
+      );
+
+      return s;
+    })();
+
     try {
-      const cacheBuster = new Date().getTime();
-      await fetch(`/api/socket?t=${cacheBuster}`);
-    } catch {}
-
-    const url = typeof window !== "undefined" ? window.location.origin : undefined;
-    const s = io(url, {
-      path: "/api/socket",
-      transports: ["websocket", "polling"],
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 800,
-      reconnectionDelayMax: 5000,
-      randomizationFactor: 0.2,
-      timeout: 20000,
-      upgrade: true,
-      autoConnect: true,
-      forceNew: false,
-    });
-
-    socketInstance = s;
-    setSocket(s);
-
-    s.on("disconnect", (reason: string) => {
-      if (reason === "io server disconnect") {
-        s.connect();
-      }
-    });
-
-    s.on("connect_error", (_err: any) => {
-      // Silent fallback: keep reconnecting without exposing internal errors
-    });
-
-    s.on("reconnect_attempt", (_attempt: number) => {
-      // Silent reconnection attempt
-    });
-
-    s.on("reconnect_error", (_err: any) => {
-      // Silent fallback for reconnect errors
-    });
-
-    s.on("reconnect_failed", () => {
-      // Keep socket alive for later retry
-    });
-
-    // Handle users:online
-    s.on("users:online", (ids: string[]) => {
-      setOnlineUserIds(ids);
-      onlineListeners.forEach((listener) => listener(ids));
-    });
-
-    // Re-add existing listeners
-    socketListeners.forEach(({ type, handler }) => {
-      s.on(type, handler);
-    });
-
-    return s;
+      return await socketConnectPromise;
+    } finally {
+      socketConnectPromise = null;
+    }
   }, []);
 
-  const addListener = useCallback((type: string, handler: (...args: any[]) => void) => {
+  const addListener = useCallback((type: string, handler: SocketHandler) => {
     const alreadyRegistered = socketListeners.some(
       (listener) => listener.type === type && listener.handler === handler
     );
@@ -87,16 +95,16 @@ export const useSocket = () => {
     }
 
     if (socketInstance) {
-      socketInstance.on(type, handler);
+      socketInstance.on(type, handler as SocketLibraryHandler);
     }
   }, []);
 
-  const removeListener = useCallback((type: string, handler: (...args: any[]) => void) => {
+  const removeListener = useCallback((type: string, handler: SocketHandler) => {
     socketListeners = socketListeners.filter(
       (l) => !(l.type === type && l.handler === handler)
     );
     if (socketInstance) {
-      socketInstance.off(type, handler);
+      socketInstance.off(type, handler as SocketLibraryHandler);
     }
   }, []);
 

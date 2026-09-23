@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import { CacheKeys, TTL, redisGet, redisSet, redisDel } from "@/lib/redis/redis";
+import { apiError, requireUser } from "@/lib/api/request";
 
 const toObjectId = (value: string): Types.ObjectId | null => {
   if (!Types.ObjectId.isValid(value)) return null;
@@ -10,9 +11,15 @@ const toObjectId = (value: string): Types.ObjectId | null => {
 };
 
 export const runtime = "nodejs";
+const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await requireUser(req);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const rawUserIds = searchParams.get("ids");
     const singleId = searchParams.get("id");
@@ -62,29 +69,35 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    for (const user of users as any[]) {
+    for (const user of users) {
       const uid = String(user._id);
       const best =
         user.lastSeenAt || user.lastLoginAt || user.updatedAt || null;
+      const lastSeenDate = best ? new Date(best) : null;
+      const isRecent = Boolean(
+        lastSeenDate && Date.now() - lastSeenDate.getTime() <= SIX_HOURS_MS,
+      );
       result[uid] = {
-        lastSeen: best ? new Date(best).toISOString() : null,
-        isOnlineNow: false,
+        lastSeen: lastSeenDate ? lastSeenDate.toISOString() : null,
+        isOnlineNow: isRecent,
       };
     }
 
     void redisSet(cacheKey, { users: result }, TTL.statuses);
     return NextResponse.json({ users: result });
   } catch (error: unknown) {
-    console.error("GET /api/last-seen error →", error);
-    const message = error instanceof Error ? error.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(error, "GET /api/last-seen");
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({} as any));
-    const rawUserId = String(body?.userId || "");
+    const session = await requireUser(req);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rawUserId = String(session.id);
     const now = new Date();
 
     if (!rawUserId || !Types.ObjectId.isValid(rawUserId)) {
@@ -103,8 +116,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, lastSeenAt: now.toISOString() });
   } catch (error: unknown) {
-    console.error("POST /api/last-seen error →", error);
-    const message = error instanceof Error ? error.message : "Server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return apiError(error, "POST /api/last-seen");
   }
 }

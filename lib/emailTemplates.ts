@@ -9,8 +9,11 @@ export const buildOtpEmailTemplate = (
   otp: string,
 ): OtpEmailTemplate => {
   const displayName = recipientName?.trim() || "HansariaConnect User";
+  const safeName = displayName.replace(/[<>&"']/g, (character) =>
+    ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&#39;" })[character] || character,
+  );
   const subject = "Your HansariaConnect OTP";
-  const text = `Hello ${displayName},\n\nYour one-time password for HansariaConnect is: ${otp}\n\nThis code is valid for 5 minutes. If you did not request this, please ignore this message.\n\nThank you,\nHansariaConnect Team`;
+  const text = `Hi ${displayName},\n\nYour HansariaConnect verification code is ${otp}. It expires in 5 minutes.\n\nNever share this code with anyone. If you did not request it, you can ignore this email.`;
   const html = `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -18,33 +21,31 @@ export const buildOtpEmailTemplate = (
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HansariaConnect OTP</title>
   </head>
-  <body style="margin:0;padding:0;font-family:Inter,system-ui,Arial,sans-serif;background:#f5f7fb;color:#0f172a;">
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#f5f7fb;padding:32px 0;">
+  <body style="margin:0;padding:0;background:#f6f8fb;color:#202124;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background:#f6f8fb;padding:36px 16px;">
       <tr>
         <td align="center">
-          <table width="600" border="0" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 20px 50px rgba(15,23,42,0.08);">
+          <table width="560" border="0" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e7eb;border-radius:12px;overflow:hidden;">
             <tr>
-              <td style="padding:32px;text-align:center;background:#0f172a;color:#ffffff;">
-                <p style="margin:0;font-size:14px;letter-spacing:0.18em;text-transform:uppercase;color:#94a3b8;">HansariaConnect</p>
-                <h1 style="margin:12px 0 0;font-size:28px;font-weight:700;">One-Time Password</h1>
+              <td style="padding:28px 32px;border-bottom:1px solid #edf0f2;">
+                <p style="margin:0;color:#188038;font-size:18px;font-weight:700;">HansariaConnect</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:32px 32px 24px;color:#0f172a;">
-                <p style="margin:0 0 16px;font-size:16px;line-height:1.75;">Hello ${displayName},</p>
-                <p style="margin:0 0 24px;font-size:16px;line-height:1.75;">Use the code below to complete your HansariaConnect registration. This code expires in 5 minutes.</p>
-                <div style="margin:0 auto 24px;max-width:320px;padding:24px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:20px;text-align:center;">
-                  <p style="margin:0;font-size:20px;color:#64748b;">Your verification code</p>
-                  <p style="margin:16px 0 0;font-size:38px;font-weight:700;letter-spacing:0.2em;color:#0f172a;">${otp}</p>
+              <td style="padding:34px 32px 28px;">
+                <p style="margin:0 0 18px;font-size:16px;line-height:24px;">Hi ${safeName},</p>
+                <h1 style="margin:0 0 12px;font-size:24px;line-height:32px;font-weight:500;color:#202124;">Verify your email</h1>
+                <p style="margin:0 0 26px;font-size:15px;line-height:24px;color:#5f6368;">Use this verification code to continue to HansariaConnect.</p>
+                <div style="margin:0 0 26px;padding:18px;background:#f1f8f4;border:1px solid #c8e6d1;border-radius:8px;text-align:center;">
+                  <p style="margin:0 0 8px;font-size:12px;line-height:16px;color:#5f6368;text-transform:uppercase;letter-spacing:1px;">Verification code</p>
+                  <p style="margin:0;font-size:32px;line-height:40px;font-weight:700;letter-spacing:8px;color:#188038;">${otp}</p>
                 </div>
-                <p style="margin:0 0 24px;font-size:16px;line-height:1.75;">If you did not request this code, you can safely ignore this email. Do not share this code with anyone.</p>
-                <a href="https://hfconnect.in" style="display:inline-block;padding:14px 28px;background:#0f172a;color:#ffffff;border-radius:999px;text-decoration:none;font-weight:600;font-size:15px;">Open HansariaConnect</a>
+                <p style="margin:0;font-size:14px;line-height:22px;color:#5f6368;">This code expires in 5 minutes. Never share it with anyone.</p>
               </td>
             </tr>
             <tr>
-              <td style="padding:0 32px 32px;color:#64748b;font-size:14px;line-height:1.75;border-top:1px solid #e2e8f0;">
-                <p style="margin:0;">Need help? Reply to this email or visit our support page.</p>
-                <p style="margin:12px 0 0;color:#94a3b8;">HansariaConnect Team</p>
+              <td style="padding:20px 32px;background:#fafbfc;border-top:1px solid #edf0f2;color:#80868b;font-size:12px;line-height:18px;">
+                If you did not request this code, you can safely ignore this email.<br />HansariaConnect security team
               </td>
             </tr>
           </table>

@@ -77,12 +77,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const otp = generateOtp();
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        `[REGISTER OTP] Mobile: ${mobile}, Email: ${email}, OTP: ${otp}`,
-      );
-    }
-
     const template = buildOtpEmailTemplate(name, otp);
 
     try {
@@ -106,7 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const user = await User.create({
+    await User.create({
       name: rawName,
       email,
       mobile,
@@ -138,10 +132,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Registration Error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to register", details: error.message },
+      {
+        success: false,
+        error: "Failed to register",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 },
     );
   }

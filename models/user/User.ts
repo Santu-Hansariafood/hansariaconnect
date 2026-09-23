@@ -4,12 +4,15 @@ export interface IUserSessionRecord {
   sessionId: string;
   createdAt: number;
   userAgent?: string;
+  browserName?: string;
+  deviceName?: string;
   ip?: string;
 }
 
 export interface IUser extends Document {
   createdByAdminId?: string;
   mobile: string;
+  stateCode?: string;
   name?: string;
   email?: string;
   sex?: "male" | "female" | "other";
@@ -29,6 +32,7 @@ const UserSchema = new Schema<IUser>(
   {
     createdByAdminId: { type: String, index: true },
     mobile: { type: String, required: true, unique: true },
+    stateCode: { type: String, uppercase: true, trim: true, index: true },
     name: { type: String },
     email: { type: String, unique: true, sparse: true },
     sex: { type: String, enum: ["male", "female", "other"] },
@@ -45,6 +49,8 @@ const UserSchema = new Schema<IUser>(
         sessionId: { type: String, required: true },
         createdAt: { type: Number, required: true },
         userAgent: { type: String },
+        browserName: { type: String },
+        deviceName: { type: String },
         ip: { type: String },
       },
     ],

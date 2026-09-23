@@ -63,12 +63,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const otp = generateOtp();
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log(
-        `[LOGIN OTP] Mobile: ${mobile}, Email: ${user.email}, OTP: ${otp}`,
-      );
-    }
-
     const template = buildOtpEmailTemplate(user.name || "User", otp);
 
     try {
@@ -118,13 +112,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Login Error:", error);
     return NextResponse.json(
       {
         success: false,
         error: "Failed to process login",
-        details: error.message,
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );

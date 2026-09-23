@@ -9,8 +9,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { identifier, password } = body;
 
-    console.log("Admin login attempt, identifier:", identifier);
-
     if (!identifier || !password) {
       return NextResponse.json(
         { success: false, error: "Identifier and password are required" },
@@ -22,8 +20,6 @@ export async function POST(req: NextRequest) {
       $or: [{ userId: identifier }, { email: identifier.toLowerCase() }],
     });
 
-    console.log("Found admin:", admin ? admin.userId : "none");
-
     if (!admin) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },
@@ -32,20 +28,12 @@ export async function POST(req: NextRequest) {
     }
 
     const isPasswordValid = await admin.comparePassword(password);
-    console.log("Password valid:", isPasswordValid);
     if (!isPasswordValid) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },
         { status: 401 },
       );
     }
-
-    const sessionData = JSON.stringify({
-      adminId: admin._id,
-      userId: admin.userId,
-      email: admin.email,
-      isSuperAdmin: admin.isSuperAdmin,
-    });
 
     const response = NextResponse.json({
       success: true,
@@ -69,7 +57,7 @@ export async function POST(req: NextRequest) {
     );
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Admin login error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },

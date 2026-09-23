@@ -106,9 +106,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (savedTheme) setTheme(JSON.parse(savedTheme))
 
     const init = async () => {
+      const settingsPromise = fetch("/api/settings", {
+        credentials: "include",
+        cache: "no-store",
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .catch(() => null)
+
       if (savedUser) {
         const parsed = JSON.parse(savedUser) as User
-        const valid = await validateServerSession()
+        const [valid, settings] = await Promise.all([
+          validateServerSession(),
+          settingsPromise,
+        ])
+        if (settings?.theme) {
+          setTheme(settings.theme)
+          localStorage.setItem("hansariaTheme", JSON.stringify(settings.theme))
+        }
         if (valid) {
           setUser(parsed)
         } else {
@@ -117,6 +131,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           setBootstrapReady(true)
         }
       } else {
+        const settings = await settingsPromise
+        if (settings?.theme) {
+          setTheme(settings.theme)
+          localStorage.setItem("hansariaTheme", JSON.stringify(settings.theme))
+        }
         setBootstrapReady(true)
       }
       setSessionChecked(true)

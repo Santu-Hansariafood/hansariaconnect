@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { type Connection } from "mongoose";
 import Admin from "../../models/admin/Admin";
 
 type MongooseCache = {
@@ -6,8 +6,15 @@ type MongooseCache = {
   promise: Promise<typeof mongoose> | null;
 };
 
+type StateConnectionCache = Map<string, {
+  conn: Connection | null;
+  promise: Promise<Connection> | null;
+}>;
+
 declare global {
   var mongooseCache: MongooseCache | undefined;
+  var stateConnectionCache: StateConnectionCache | undefined;
+  var communicationsConnectionCache: { conn: Connection | null; promise: Promise<Connection> | null } | undefined;
 }
 
 const globalCache: MongooseCache = global.mongooseCache || {
@@ -16,6 +23,13 @@ const globalCache: MongooseCache = global.mongooseCache || {
 };
 
 global.mongooseCache = globalCache;
+const stateCache: StateConnectionCache = global.stateConnectionCache || new Map();
+global.stateConnectionCache = stateCache;
+const communicationsCache = global.communicationsConnectionCache || {
+  conn: null,
+  promise: null,
+};
+global.communicationsConnectionCache = communicationsCache;
 
 const cached: MongooseCache = globalCache;
 
@@ -52,7 +66,7 @@ async function seedSuperAdmin() {
 }
 
 export async function connectDB() {
-  const MONGODB_URI = process.env.MONGODB_URI;
+  const MONGODB_URI = process.env.MONGODB_CONTROL_URI || process.env.MONGODB_URI;
 
   if (!MONGODB_URI) throw new Error("Missing MONGODB_URI");
 
@@ -83,8 +97,8 @@ export async function connectDB() {
 
     cached.promise = mongoose
       .connect(MONGODB_URI, opts)
-      .then(async (mongoose) => {
-        await seedSuperAdmin();
+      .then((mongoose) => {
+        void seedSuperAdmin();
         return mongoose;
       });
   }
@@ -92,4 +106,76 @@ export async function connectDB() {
   cached.conn = await cached.promise;
 
   return cached.conn;
+}
+
+const normalizeStateCode = (stateCode: string): string =>
+  stateCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+
+const stateConnectionOptions = {
+  bufferCommands: false,
+  maxPoolSize: Number(process.env.MONGODB_STATE_POOL_SIZE || 40),
+  minPoolSize: Number(process.env.MONGODB_STATE_MIN_POOL_SIZE || 5),
+  socketTimeoutMS: 45000,
+  serverSelectionTimeoutMS: 10000,
+  heartbeatFrequencyMS: 10000,
+  connectTimeoutMS: 30000,
+  maxIdleTimeMS: 60000,
+  family: 4,
+  autoCreate: false,
+};
+
+/** Connect to a state database without exposing its URI to request handlers. */
+export async function connectStateDB(stateCode: string): Promise<Connection> {
+  const normalizedState = normalizeStateCode(stateCode);
+  if (!normalizedState) throw new Error("Missing state code");
+
+  const uri = process.env[`MONGODB_STATE_${normalizedState}_URI`];
+  if (!uri) {
+    throw new Error(`Missing database configuration for state ${normalizedState}`);
+  }
+
+  let cachedState = stateCache.get(normalizedState);
+  if (!cachedState) {
+    cachedState = { conn: null, promise: null };
+    stateCache.set(normalizedState, cachedState);
+  }
+
+  if (cachedState.conn) return cachedState.conn;
+  if (!cachedState.promise) {
+    cachedState.promise = mongoose
+      .createConnection(uri, stateConnectionOptions)
+      .asPromise()
+      .then((connection) => {
+        cachedState!.conn = connection;
+        return connection;
+      });
+  }
+
+  return cachedState.promise;
+}
+
+export async function connectCommunicationsDB(): Promise<Connection> {
+  const uri = process.env.MONGODB_COMMUNICATIONS_URI;
+  if (!uri) throw new Error("Missing MONGODB_COMMUNICATIONS_URI");
+  if (communicationsCache.conn) return communicationsCache.conn;
+
+  if (!communicationsCache.promise) {
+    communicationsCache.promise = mongoose
+      .createConnection(uri, stateConnectionOptions)
+      .asPromise()
+      .then((connection) => {
+        communicationsCache.conn = connection;
+        return connection;
+      });
+  }
+
+  return communicationsCache.promise;
+}
+
+export function getConfiguredStateCodes(): string[] {
+  return Object.keys(process.env)
+    .filter((key) => key.startsWith("MONGODB_STATE_") && key.endsWith("_URI"))
+    .map((key) => key.slice("MONGODB_STATE_".length, -"_URI".length))
+    .filter(Boolean)
+    .sort();
 }

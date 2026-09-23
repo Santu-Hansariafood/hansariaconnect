@@ -662,6 +662,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const handleMediaSelect = async (
     fileOrData: File | { url: string },
     type: ChatMessage["type"],
+    duration?: number,
   ) => {
     setShowMediaPicker(false);
     setMediaError("");
@@ -719,6 +720,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             mediaUrl: data.url,
             fileName: file.name,
             fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
+            duration,
           });
         }
       } catch {

@@ -58,7 +58,7 @@ export function useUnreadCounts() {
     };
 
     loadUnread();
-    const interval = setInterval(loadUnread, 15000);
+    const interval = setInterval(loadUnread, 60000);
 
     const onUnreadUpdate = (payload: UnreadResponse) => {
       if (!payload || typeof payload !== "object") return;

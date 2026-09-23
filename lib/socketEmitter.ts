@@ -57,11 +57,17 @@ type SenderProfileLean = {
 
 type DecryptedMessage = {
   _id?: Types.ObjectId;
+  id?: string;
   type: string;
   text?: string;
+  mediaUrl?: string;
   fileName?: string;
+  fileSize?: string;
+  duration?: number;
+  linkDescription?: string;
   linkTitle?: string;
   createdAt?: Date;
+  timestamp?: Date;
 };
 
 type UnreadPayload = {
@@ -565,6 +571,7 @@ export const emitDirectMessageReceived = async (
 
     const recipientCounts = await computeUnreadForUser(rawToId);
 
+    io.to(rawToId).emit("message:new", decryptedMessage);
     io.to(rawToId).emit("unread:update", recipientCounts);
 
     const notification = await buildDirectNotification(
@@ -681,6 +688,7 @@ export const emitGroupMessageReceived = async (
     }
     for (const [memberId, notification] of Object.entries(notifications)) {
       console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId });
+      io.to(memberId).emit("group:message:new", decryptedMessage);
       io.to(memberId).emit("message:notify", notification);
     }
   } catch (e: any) {

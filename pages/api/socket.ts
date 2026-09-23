@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Server as ServerIO } from "socket.io";
 import { Server as HTTPServer } from "http";
+import { z } from "zod";
 import { connectDB } from "@/lib/db/db";
 import Message from "@/models/message/Message";
 import Conversation from "@/models/conversation/Conversation";
@@ -28,6 +29,31 @@ export const config = {
   },
 };
 
+const messagePayloadSchema = z.object({
+  to: z.string().regex(/^[0-9a-fA-F]{24}$/),
+  type: z.enum(["text", "image", "video", "voice", "pdf", "excel", "link", "file"]),
+  text: z.string().max(10000).optional(),
+  mediaUrl: z.string().max(2000).optional(),
+  fileName: z.string().max(255).optional(),
+  fileSize: z.string().max(32).optional(),
+  duration: z.number().finite().min(0).max(3600).optional(),
+  linkTitle: z.string().max(500).optional(),
+  linkDescription: z.string().max(5000).optional(),
+});
+
+const groupMessagePayloadSchema = messagePayloadSchema
+  .omit({ to: true })
+  .extend({ groupId: z.string().regex(/^[0-9a-fA-F]{24}$/) });
+
+const allowedOrigins = new Set(
+  [process.env.NEXT_PUBLIC_APP_URL, "http://localhost:4000"]
+    .filter((origin): origin is string => Boolean(origin))
+    .map((origin) => origin.replace(/\/$/, "")),
+);
+
+const isAllowedOrigin = (origin?: string): boolean =>
+  !origin || allowedOrigins.has(origin.replace(/\/$/, ""));
+
 const getUserIdFromSocket = async (socket: any): Promise<string | null> => {
   const session = await getUserSession(socket.request || socket.handshake);
   return session?.id ?? null;
@@ -47,13 +73,20 @@ export default async function handler(
     const io = new ServerIO(httpServer, {
       path: "/api/socket",
       cors: {
-        origin: process.env.NEXT_PUBLIC_APP_URL
-          ? [process.env.NEXT_PUBLIC_APP_URL]
-          : true,
+        origin: Array.from(allowedOrigins),
         methods: ["GET", "POST"],
         credentials: true,
       },
-      allowEIO3: true,
+      allowRequest: (request, callback) => {
+        callback(null, isAllowedOrigin(request.headers.origin));
+      },
+      maxHttpBufferSize: 1e6,
+      pingInterval: 25000,
+      pingTimeout: 20000,
+      connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000,
+        skipMiddlewares: false,
+      },
     });
 
     (httpServer as any).io = io;
@@ -69,10 +102,6 @@ export default async function handler(
       Array.from(
         ((httpServer as any).userConnections as Map<string, number>).keys(),
       );
-
-    const broadcastOnlineUsers = () => {
-      io.emit("users:online", getOnlineUserIds());
-    };
 
     io.on("connection", async (socket) => {
       try {
@@ -101,15 +130,18 @@ export default async function handler(
           void redisDel(CacheKeys.lastSeenSingle(userId));
         }
 
-        broadcastOnlineUsers();
+        socket.emit("users:online", getOnlineUserIds());
+        io.except(socket.id).emit("user:online", { userId });
 
         socket.on("message:send", async (payload, cb) => {
           try {
-            const to = String(payload?.to ?? "").trim();
-            const type = String(payload?.type ?? "");
-            if (!to || !Types.ObjectId.isValid(to)) {
-              return cb?.({ ok: false, error: "Invalid recipient" });
+            const parsedPayload = messagePayloadSchema.safeParse(payload);
+            if (!parsedPayload.success) {
+              return cb?.({ ok: false, error: "Invalid message payload" });
             }
+            const data = parsedPayload.data;
+            const to = data.to;
+            const type = data.type;
 
             const fromId = new Types.ObjectId(userId);
             const toId = new Types.ObjectId(to);
@@ -133,33 +165,33 @@ export default async function handler(
               text: encryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
-                String(payload?.text ?? ""),
+                data.text ?? "",
               ),
               mediaUrl: encryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
-                String(payload?.mediaUrl ?? ""),
+                data.mediaUrl ?? "",
               ),
               fileName: encryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
-                String(payload?.fileName ?? ""),
+                data.fileName ?? "",
               ),
               fileSize: encryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
-                String(payload?.fileSize ?? ""),
+                data.fileSize ?? "",
               ),
-              duration: Number(payload?.duration ?? 0),
+              duration: data.duration,
               linkTitle: encryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
-                String(payload?.linkTitle ?? ""),
+                data.linkTitle ?? "",
               ),
               linkDescription: encryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
-                String(payload?.linkDescription ?? ""),
+                data.linkDescription ?? "",
               ),
             });
 
@@ -313,11 +345,13 @@ export default async function handler(
 
         socket.on("group:message:send", async (payload, cb) => {
           try {
-            const groupId = String(payload?.groupId ?? "").trim();
-            const type = String(payload?.type ?? "");
-            if (!groupId || !Types.ObjectId.isValid(groupId)) {
-              return cb?.({ ok: false, error: "Invalid group" });
+            const parsedPayload = groupMessagePayloadSchema.safeParse(payload);
+            if (!parsedPayload.success) {
+              return cb?.({ ok: false, error: "Invalid group message payload" });
             }
+            const data = parsedPayload.data;
+            const groupId = data.groupId;
+            const type = data.type;
 
             const fromId = new Types.ObjectId(userId);
             const group = await Group.findById(groupId);
@@ -352,28 +386,28 @@ export default async function handler(
               type,
               text: encryptGroupMessageContent(
                 groupIdStr,
-                String(payload?.text ?? ""),
+                data.text ?? "",
               ),
               mediaUrl: encryptGroupMessageContent(
                 groupIdStr,
-                String(payload?.mediaUrl ?? ""),
+                data.mediaUrl ?? "",
               ),
               fileName: encryptGroupMessageContent(
                 groupIdStr,
-                String(payload?.fileName ?? ""),
+                data.fileName ?? "",
               ),
               fileSize: encryptGroupMessageContent(
                 groupIdStr,
-                String(payload?.fileSize ?? ""),
+                data.fileSize ?? "",
               ),
-              duration: Number(payload?.duration ?? 0),
+              duration: data.duration,
               linkTitle: encryptGroupMessageContent(
                 groupIdStr,
-                String(payload?.linkTitle ?? ""),
+                data.linkTitle ?? "",
               ),
               linkDescription: encryptGroupMessageContent(
                 groupIdStr,
-                String(payload?.linkDescription ?? ""),
+                data.linkDescription ?? "",
               ),
             });
 
@@ -449,7 +483,7 @@ export default async function handler(
           } else {
             userConnections.set(userId, count - 1);
           }
-          broadcastOnlineUsers();
+          io.emit("user:offline", { userId });
         });
       } catch (err: any) {
         socket.disconnect(true);

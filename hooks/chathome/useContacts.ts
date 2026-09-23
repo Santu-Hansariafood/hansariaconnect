@@ -227,7 +227,7 @@ export const useContacts = (userId?: string | number) => {
 
     refreshIfVisible();
 
-    const interval = window.setInterval(refreshIfVisible, 10000);
+    const interval = window.setInterval(refreshIfVisible, 60000);
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
 

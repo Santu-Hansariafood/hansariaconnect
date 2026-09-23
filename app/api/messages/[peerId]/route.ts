@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
+import { z } from "zod";
 import { connectDB } from "@/lib/db/db";
 import Message from "@/models/message/Message";
 import Conversation from "@/models/conversation/Conversation";
 import User from "@/models/user/User";
-import { getUserSession } from "@/lib/sessionAuth";
+import { requireUser, parseJson } from "@/lib/api/request";
 import {
   encryptDirectMessageContent,
   decryptDirectMessageContent,
@@ -18,6 +19,17 @@ import {
   invalidateUserConversations,
 } from "@/lib/redis/redis";
 import { emitDirectMessageReceived } from "@/lib/socketEmitter";
+
+const outboundMessageSchema = z.object({
+  type: z.enum(["text", "image", "video", "voice", "pdf", "excel", "link", "file"]),
+  text: z.string().max(10000).optional().default(""),
+  mediaUrl: z.string().url().optional().or(z.literal("")),
+  fileName: z.string().max(255).optional().or(z.literal("")),
+  fileSize: z.string().max(32).optional().or(z.literal("")),
+  duration: z.number().finite().min(0).max(3600).optional(),
+  linkTitle: z.string().max(500).optional().or(z.literal("")),
+  linkDescription: z.string().max(5000).optional().or(z.literal("")),
+});
 
 export const runtime = "nodejs";
 
@@ -66,7 +78,7 @@ export async function GET(
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
 
-    const session = await getUserSession(req);
+    const session = await requireUser(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -214,7 +226,7 @@ export async function POST(
   try {
     const resolvedParams = params instanceof Promise ? await params : params;
 
-    const session = await getUserSession(req);
+    const session = await requireUser(req);
     if (!session?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -231,8 +243,10 @@ export async function POST(
     const userId = new Types.ObjectId(rawUserId);
     const peerId = new Types.ObjectId(rawPeerId);
 
-    const body = await req.json();
-    const type = String(body?.type || "text");
+    const parsedBody = await parseJson(req, outboundMessageSchema);
+    if (!parsedBody.success) return parsedBody.response;
+    const body = parsedBody.data;
+    const type = body.type;
 
     await connectDB();
 
@@ -358,7 +372,7 @@ export async function PATCH(
   { params }: { params: Promise<{ peerId: string }> | { peerId: string } },
 ) {
   try {
-    const session = await getUserSession(req);
+    const session = await requireUser(req);
     if (!session?.id)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

@@ -24,7 +24,7 @@ const DAY_MS = 24 * HOUR_MS;
 
 let lastSeenCache: LastSeenTracker = {};
 
-const loadingPromises: Record<string, Promise<void>> = {};
+const loadingPromises: Record<string, Promise<void> | undefined> = {};
 
 const isValidObjectId = (id: string): boolean => {
   return OBJECT_ID_REGEX.test(id);
@@ -48,14 +48,6 @@ const format12Hour = (date: Date): string => {
 
 const startOfDay = (date: Date): Date => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-};
-
-const isSameDay = (a: Date, b: Date): boolean => {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
 };
 
 const getCalendarDayDifference = (from: Date, to: Date): number => {
@@ -307,10 +299,6 @@ export const useLastSeen = (userId: string | undefined) => {
 
   useEffect(() => {
     if (!userId) {
-      setIsOnline(false);
-      setLastSeenTime(null);
-      setStatusText("Last seen: No info");
-
       previousOnlineRef.current = false;
       initialFetchRef.current = null;
 
@@ -518,8 +506,8 @@ export const useLastSeen = (userId: string | undefined) => {
   }, [userId, onlineUserIds, computeStatus]);
 
   return {
-    lastSeenTime,
-    isOnline,
-    statusText,
+    lastSeenTime: userId ? lastSeenTime : null,
+    isOnline: userId ? isOnline : false,
+    statusText: userId ? statusText : "Last seen: No info",
   };
 };

@@ -2,6 +2,7 @@ import { connectDB } from "./db/db";
 import ApiKey, { IApiKey } from "@/models/apiKey/ApiKey";
 import { pbkdf2Hex } from "./crypto";
 import { NextRequest } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 
 export async function validateApiKey(
   req: NextRequest,
@@ -23,7 +24,12 @@ export async function validateApiKey(
 
     const hash = await pbkdf2Hex(rawKey, salt, 100000, 64, "SHA-512");
 
-    if (hash === storedHash) {
+    const matches = hash.length === storedHash.length && timingSafeEqual(
+      Buffer.from(hash, "hex"),
+      Buffer.from(storedHash, "hex"),
+    );
+
+    if (matches) {
       if (key.expiresAt && new Date() > key.expiresAt) {
         return { error: "API key has expired", status: 401 };
       }
@@ -32,8 +38,7 @@ export async function validateApiKey(
         return { error: "API key does not have permission", status: 403 };
       }
 
-      key.lastUsed = new Date();
-      await key.save();
+      void key.updateOne({ $set: { lastUsed: new Date() } });
 
       return { apiKey: key };
     }

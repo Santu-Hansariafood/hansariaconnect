@@ -31,6 +31,7 @@ interface ChatWindowFooterProps {
   handleMediaSelect: (
     fileOrData: File | { url: string },
     type: ChatMessage["type"],
+    duration?: number,
   ) => Promise<void>;
   showForwardModal: boolean;
   contacts: ForwardContact[];
@@ -64,7 +65,7 @@ export default function ChatWindowFooter({
     const audioFile = new File([blob], `voice-${Date.now()}.webm`, {
       type: "audio/webm",
     });
-    await handleMediaSelect(audioFile, "voice");
+    await handleMediaSelect(audioFile, "voice", duration);
   };
 
   return (

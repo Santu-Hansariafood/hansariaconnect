@@ -39,7 +39,7 @@ export function isRedisEnabled(): boolean {
 }
 
 export async function getRedis(): Promise<Redis | null> {
-  if (REDIS_DISABLED) return null
+  if (REDIS_DISABLED || !cached.enabled) return null
 
   if (cached.client) {
     if (cached.client.status === "ready" || cached.client.status === "connecting") {

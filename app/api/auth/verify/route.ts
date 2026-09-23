@@ -5,9 +5,9 @@ import { digestHex, randomBytesHex } from "@/lib/crypto";
 import {
   signUserSession,
   verifyOtpSession,
-  authOtpCookieOptions,
   userSessionCookieOptions,
   addUserSession,
+  getDeviceMetadata,
 } from "@/lib/sessionAuth";
 export const runtime = "nodejs";
 
@@ -89,13 +89,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const sessionId = await randomBytesHex(16);
-    const userAgent = req.headers.get("user-agent") ?? undefined;
-    const ip = req.headers.get("x-forwarded-for") ?? undefined;
+    const device = getDeviceMetadata(req);
     const allowed = await addUserSession(
       user._id.toString(),
       sessionId,
-      userAgent,
-      ip,
+      device,
     );
     if (!allowed) {
       const response = NextResponse.json(
@@ -112,7 +110,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     try {
       await User.findByIdAndUpdate(user._id, {
-        $set: { lastLoginIp: ip ?? null, lastLoginAt: new Date() },
+        $set: { lastLoginIp: device.ip ?? null, lastLoginAt: new Date() },
       });
     } catch (e) {
       console.error("Failed to update last login info", e);

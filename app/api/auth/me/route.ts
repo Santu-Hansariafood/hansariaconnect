@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
+import type { IUserSessionRecord } from "@/models/user/User";
 import { getUserSession } from "@/lib/sessionAuth";
 
 export const runtime = "nodejs";
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     await connectDB();
     const user = await User.findById(session.id).select(
-      "_id name email mobile photo avatar",
+      "_id name email mobile photo avatar sessions",
     );
 
     if (!user) {
@@ -34,7 +35,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         name: user.name,
         email: user.email,
         mobile: user.mobile,
-        photo: user.photo || (user as any).avatar,
+        photo: user.photo || (user as { avatar?: string }).avatar,
+        devices: ((user.sessions || []) as IUserSessionRecord[]).map((device) => ({
+          browserName: device.browserName || "Unknown browser",
+          deviceName: device.deviceName || "Unknown device",
+          ip: device.ip || "Unknown IP",
+          createdAt: device.createdAt,
+          current: device.sessionId === session.sessionId,
+        })),
       },
     });
   } catch (error: any) {

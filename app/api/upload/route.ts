@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { digestHex } from "@/lib/crypto";
 import harmfulWordsJson from "@/data/harmfulWords.json";
+import { apiError, requireUser } from "@/lib/api/request";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
@@ -57,9 +59,25 @@ const hasValidSignature = (bytes: Uint8Array, fileName: string, mime: string) =>
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await requireUser(req);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const form = await req.formData();
     const file = form.get("file") as File | null;
     const kind = (form.get("kind") as string) || "image";
+
+    const parsedUpload = z
+      .object({
+        file: z.instanceof(File),
+        kind: z.enum(["image", "video", "audio", "file", "raw", "status"]),
+      })
+      .safeParse({ file, kind });
+
+    if (!parsedUpload.success) {
+      return NextResponse.json({ error: "Invalid upload request" }, { status: 400 });
+    }
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -204,10 +222,7 @@ export async function POST(req: NextRequest) {
       resource_type: uploadJson.resource_type,
       format: isImage ? "webp" : uploadJson.format,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: e?.message || "Server error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return apiError(error, "POST /api/upload");
   }
 }

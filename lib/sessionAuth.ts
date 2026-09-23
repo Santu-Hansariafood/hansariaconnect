@@ -14,8 +14,40 @@ export interface UserSessionRecord {
   sessionId: string;
   createdAt: number;
   userAgent?: string;
+  browserName?: string;
+  deviceName?: string;
   ip?: string;
 }
+
+export interface DeviceMetadata {
+  userAgent?: string;
+  browserName?: string;
+  deviceName?: string;
+  ip?: string;
+}
+
+const getClientIp = (req: { headers?: { get?: (name: string) => string | null } }): string | undefined => {
+  const forwarded = req.headers?.get?.("x-forwarded-for") || "";
+  return (forwarded.split(",")[0]?.trim() || req.headers?.get?.("x-real-ip") || undefined);
+};
+
+export const getDeviceMetadata = (req: { headers?: { get?: (name: string) => string | null } }): DeviceMetadata => {
+  const userAgent = req.headers?.get?.("user-agent") || "";
+  const browserName = /Edg\//i.test(userAgent)
+    ? "Microsoft Edge"
+    : /Chrome\//i.test(userAgent)
+      ? "Google Chrome"
+      : /Firefox\//i.test(userAgent)
+        ? "Mozilla Firefox"
+        : /Safari\//i.test(userAgent)
+          ? "Safari"
+          : "Unknown browser";
+  const deviceName = /mobile|android|iphone|ipad/i.test(userAgent)
+    ? "Mobile device"
+    : "Desktop device";
+
+  return { userAgent, browserName, deviceName, ip: getClientIp(req) };
+};
 
 const MAX_DEVICE_SESSIONS = Number(process.env.MAX_DEVICE_SESSIONS) || 4;
 
@@ -168,7 +200,7 @@ export const getUserSession = async (req: any): Promise<UserSession | null> => {
 export const addUserSession = async (
   userId: string,
   sessionId: string,
-  userAgent?: string,
+  userAgentOrMetadata?: string | DeviceMetadata,
   ip?: string,
 ): Promise<boolean> => {
   await connectDB();
@@ -186,7 +218,10 @@ export const addUserSession = async (
     return false;
   }
 
-  activeSessions.push({ sessionId, createdAt: Date.now(), userAgent, ip });
+  const metadata: DeviceMetadata = typeof userAgentOrMetadata === "string"
+    ? { userAgent: userAgentOrMetadata, ip }
+    : userAgentOrMetadata || {};
+  activeSessions.push({ sessionId, createdAt: Date.now(), ...metadata });
   user.sessions = activeSessions as any;
   await user.save();
   return true;

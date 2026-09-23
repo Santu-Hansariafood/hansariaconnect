@@ -53,21 +53,53 @@ const getEncryptionSecret = (): string => {
 };
 
 const ALGORITHM = "aes-256-cbc";
-const IV_LENGTH = 16;
+const AUTHENTICATED_ALGORITHM = "aes-256-gcm";
+const GCM_IV_LENGTH = 12;
 const KEY_LENGTH = 32;
+const keyCache = new Map<string, Buffer>();
 
-const deriveChatKey = (chatId: string): Buffer => {
+const deriveKey = (scope: string): Buffer => {
+  const cached = keyCache.get(scope);
+  if (cached) return cached;
+
   const secret = getEncryptionSecret();
-  const salt = `chat-key:${chatId}`;
+  const salt = `chat-key:${scope}`;
   const key = pbkdf2Sync(secret, salt, 100000, KEY_LENGTH, "sha256");
+  keyCache.set(scope, key);
   return key;
 };
 
+const deriveChatKey = (chatId: string): Buffer => deriveKey(chatId);
+
 const deriveGroupKey = (groupId: string): Buffer => {
-  const secret = getEncryptionSecret();
-  const salt = `group-key:${groupId}`;
-  const key = pbkdf2Sync(secret, salt, 100000, KEY_LENGTH, "sha256");
-  return key;
+  return deriveKey(`group:${groupId}`);
+};
+
+const encryptAuthenticated = (key: Buffer, plaintext: string): string => {
+  const iv = randomBytes(GCM_IV_LENGTH);
+  const cipher = createCipheriv(AUTHENTICATED_ALGORITHM, key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return `v2:${iv.toString("base64")}:${tag.toString("base64")}:${encrypted.toString("base64")}`;
+};
+
+const decryptAuthenticated = (key: Buffer, ciphertext: string): string | null => {
+  const [, ivPart, tagPart, encryptedPart] = ciphertext.split(":");
+  if (!ivPart || !tagPart || !encryptedPart) return null;
+
+  const decipher = createDecipheriv(
+    AUTHENTICATED_ALGORITHM,
+    key,
+    Buffer.from(ivPart, "base64"),
+  );
+  decipher.setAuthTag(Buffer.from(tagPart, "base64"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedPart, "base64")),
+    decipher.final(),
+  ]).toString("utf8");
 };
 
 export function encryptDirectMessageContent(
@@ -78,13 +110,22 @@ export function encryptDirectMessageContent(
   if (!plaintext) return "";
   const sortedIds = [userAId, userBId].sort();
   const chatId = `${sortedIds[0]}_${sortedIds[1]}`;
-  const key = deriveChatKey(chatId);
-  const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
-  let encrypted = cipher.update(plaintext, "utf8", "base64");
-  encrypted += cipher.final("base64");
-  return `${iv.toString("base64")}:${encrypted}`;
+  return encryptAuthenticated(deriveChatKey(chatId), plaintext);
 }
+
+const decryptLegacy = (key: Buffer, ciphertext: string): string => {
+  const parts = ciphertext.split(":");
+  if (parts.length !== 2) return ciphertext;
+  try {
+    const iv = Buffer.from(parts[0], "base64");
+    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    let decrypted = decipher.update(parts[1], "base64", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch {
+    return ciphertext;
+  }
+};
 
 export function decryptDirectMessageContent(
   userAId: string,
@@ -92,20 +133,17 @@ export function decryptDirectMessageContent(
   ciphertext: string,
 ): string {
   if (!ciphertext) return "";
+  const sortedIds = [userAId, userBId].sort();
+  const chatId = `${sortedIds[0]}_${sortedIds[1]}`;
+  const key = deriveChatKey(chatId);
+
   try {
-    const parts = ciphertext.split(":");
-    if (parts.length !== 2) return ciphertext;
-    const sortedIds = [userAId, userBId].sort();
-    const chatId = `${sortedIds[0]}_${sortedIds[1]}`;
-    const key = deriveChatKey(chatId);
-    const iv = Buffer.from(parts[0], "base64");
-    const encrypted = parts[1];
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
-    let decrypted = decipher.update(encrypted, "base64", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
+    if (ciphertext.startsWith("v2:")) {
+      return decryptAuthenticated(key, ciphertext) ?? "";
+    }
+    return decryptLegacy(key, ciphertext);
   } catch {
-    return ciphertext;
+    return "";
   }
 }
 
@@ -114,12 +152,7 @@ export function encryptGroupMessageContent(
   plaintext: string,
 ): string {
   if (!plaintext) return "";
-  const key = deriveGroupKey(groupId);
-  const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
-  let encrypted = cipher.update(plaintext, "utf8", "base64");
-  encrypted += cipher.final("base64");
-  return `${iv.toString("base64")}:${encrypted}`;
+  return encryptAuthenticated(deriveGroupKey(groupId), plaintext);
 }
 
 export function decryptGroupMessageContent(
@@ -127,22 +160,19 @@ export function decryptGroupMessageContent(
   ciphertext: string,
 ): string {
   if (!ciphertext) return "";
+  const key = deriveGroupKey(groupId);
+
   try {
-    const parts = ciphertext.split(":");
-    if (parts.length !== 2) return ciphertext;
-    const key = deriveGroupKey(groupId);
-    const iv = Buffer.from(parts[0], "base64");
-    const encrypted = parts[1];
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
-    let decrypted = decipher.update(encrypted, "base64", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
+    if (ciphertext.startsWith("v2:")) {
+      return decryptAuthenticated(key, ciphertext) ?? "";
+    }
+    return decryptLegacy(key, ciphertext);
   } catch {
-    return ciphertext;
+    return "";
   }
 }
 
-export default {
+const cryptoUtils = {
   digestHex,
   pbkdf2Hex,
   hmacSha256Hex,
@@ -152,3 +182,5 @@ export default {
   encryptGroupMessageContent,
   decryptGroupMessageContent,
 };
+
+export default cryptoUtils;

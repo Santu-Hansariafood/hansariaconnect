@@ -31,7 +31,7 @@ const normalizeMobile = (input: unknown): string =>
 const isValidMobile = (mobile: string): boolean => /^\d{10}$/.test(mobile);
 const isValidOtp = (otp: string): boolean => /^\d{6}$/.test(otp);
 
-const authOptions: AuthOptions = {
+export const authOptions: AuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60,

@@ -28,8 +28,7 @@ export default function NotificationManager() {
   const { user } = useApp();
   const pathname = usePathname();
   const { addListener, removeListener } = useSocket();
-  const { preferences, playRingtone, showNotification, requestPermission } =
-    useNotifications();
+  const { preferences, playRingtone, showNotification } = useNotifications();
   const activeChatId = useRef<string | null>(null);
 
   useEffect(() => {
@@ -83,118 +82,6 @@ export default function NotificationManager() {
       activeChatId.current,
     );
 
-    const handleDirectMessage = (message: any) => {
-      if (!preferences.messages) {
-        console.log(
-          "[NotificationManager] ⏭️ message:new skipped - DM notifications disabled in preferences",
-        );
-        return;
-      }
-      if (getId(message?.from) === currentUserId) {
-        console.log(
-          "[NotificationManager] ⏭️ message:new skipped - message is from self",
-        );
-        return;
-      }
-      const senderId = getId(message?.from ?? message?.senderId);
-      const isActiveChat = activeChatId.current === senderId;
-      const preview =
-        message?.text ||
-        (message?.type === "image"
-          ? "📷 Photo"
-          : message?.type === "video"
-            ? "🎥 Video"
-            : message?.type === "audio"
-              ? "🎵 Voice"
-              : message?.type === "file"
-                ? "📎 File"
-                : "New message");
-
-      console.log(
-        "[NotificationManager] 📩 message:new RECEIVED",
-        "| from:",
-        senderId,
-        "| senderName:",
-        message?.senderName || message?.fromName || "unknown",
-        "| isActiveChat:",
-        isActiveChat,
-        "| preview:",
-        preview,
-      );
-
-      playRingtone(preferences.ringtone || "chime");
-
-      if (!isActiveChat) {
-        showNotification(
-          message?.senderName || message?.fromName || "New message",
-          preview,
-          `message-${getId(message?.id || message?._id || Date.now())}`,
-          `/chat/${senderId}`,
-        );
-      } else {
-        console.log(
-          "[NotificationManager] ⏭️ Skipping in-page notification - user is currently viewing this chat",
-        );
-      }
-    };
-
-    const handleGroupMessage = (message: any) => {
-      if (!preferences.groups) {
-        console.log(
-          "[NotificationManager] ⏭️ group:message:new skipped - group notifications disabled in preferences",
-        );
-        return;
-      }
-      if (getId(message?.from) === currentUserId) {
-        console.log(
-          "[NotificationManager] ⏭️ group:message:new skipped - message is from self",
-        );
-        return;
-      }
-      const groupId = getId(message?.groupId);
-      const isActiveChat = activeChatId.current === groupId;
-      const preview =
-        message?.text ||
-        (message?.type === "image"
-          ? "📷 Photo"
-          : message?.type === "video"
-            ? "🎥 Video"
-            : message?.type === "audio"
-              ? "🎵 Voice"
-              : message?.type === "file"
-                ? "📎 File"
-                : "New group message");
-
-      console.log(
-        "[NotificationManager] 👥 group:message:new RECEIVED",
-        "| groupId:",
-        groupId,
-        "| from:",
-        getId(message?.from),
-        "| groupName:",
-        message?.groupName || "unknown",
-        "| isActiveChat:",
-        isActiveChat,
-        "| preview:",
-        preview,
-      );
-
-      playRingtone(preferences.ringtone || "chime");
-
-      if (!isActiveChat) {
-        showNotification(
-          message?.groupName || "New group message",
-          preview,
-          `group-${getId(message?.id || message?._id || Date.now())}`,
-          `/chat/${groupId}?group=true`,
-        );
-      } else {
-        console.log(
-          "[NotificationManager] ⏭️ Skipping in-page notification - user is currently viewing this group chat",
-        );
-      }
-    };
-
     const handleNotify = (payload: NotifyPayload) => {
       if (!payload || typeof payload !== "object") {
         console.warn(
@@ -242,9 +129,8 @@ export default function NotificationManager() {
         payload.preview,
       );
 
-      playRingtone(preferences.ringtone || "chime");
-
       if (!isActiveChat) {
+        playRingtone(preferences.ringtone || "chime");
         showNotification(
           payload.chatName ||
             (payload.kind === "direct" ? "New message" : "New group message"),
@@ -259,14 +145,10 @@ export default function NotificationManager() {
       }
     };
 
-    addListener("message:new", handleDirectMessage);
-    addListener("group:message:new", handleGroupMessage);
     addListener("message:notify", handleNotify);
 
     return () => {
       console.log("[NotificationManager] Removing socket listeners");
-      removeListener("message:new", handleDirectMessage);
-      removeListener("group:message:new", handleGroupMessage);
       removeListener("message:notify", handleNotify);
     };
   }, [

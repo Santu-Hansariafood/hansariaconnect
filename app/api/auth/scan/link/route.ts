@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getScanToken, setScanToken } from "../generate/route";
+import { requireUser } from "@/lib/api/request";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await requireUser(req);
+    if (!session?.id || !session.mobile) {
+      return NextResponse.json(
+        { success: false, error: "Sign in on the scanning device first" },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const { token, mobile } = body;
 
@@ -17,6 +26,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Invalid mobile number" },
         { status: 400 },
+      );
+    }
+
+    if (mobile !== session.mobile) {
+      return NextResponse.json(
+        { success: false, error: "The scan account does not match this device" },
+        { status: 403 },
       );
     }
 
