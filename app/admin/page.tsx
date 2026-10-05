@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Permission = {
@@ -54,7 +54,9 @@ type ApiKeyRow = {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const loadSequence = useRef(0);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [userPagination, setUserPagination] = useState<UserPagination>({
     page: 1,
@@ -95,13 +97,106 @@ export default function AdminDashboard() {
   const [showBulkUsers, setShowBulkUsers] = useState(false);
   const [bulkUsersText, setBulkUsersText] = useState("");
 
-  useEffect(() => {
-    const host = window.location.host;
-    setIsSuperSubdomain(/^super\./i.test(host));
-  }, []);
+  const loadData = useCallback(
+    async (userPage: number, canManageUsers: boolean) => {
+      const requestId = ++loadSequence.current;
+      setRefreshing(true);
+      setError("");
+      try {
+        const [usersRes, adminsRes, apiKeysRes, templatesRes, profileRes] =
+          await Promise.all([
+            canManageUsers
+              ? fetch(`/api/admin/users?page=${userPage}`, { cache: "no-store" })
+              : Promise.resolve(null),
+            canManageUsers
+              ? fetch("/api/admin/admins", { cache: "no-store" })
+              : Promise.resolve(null),
+            fetch("/api/admin/api-keys", { cache: "no-store" }),
+            fetch("/api/admin/templates", { cache: "no-store" }),
+            fetch("/api/admin/profile", { cache: "no-store" }),
+          ]);
+
+        if (
+          [usersRes, adminsRes, apiKeysRes, templatesRes, profileRes].some(
+            (response) => response?.status === 401,
+          )
+        ) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        const [
+          usersData,
+          adminsData,
+          apiKeysData,
+          templatesData,
+          profileData,
+        ] = await Promise.all([
+          usersRes?.json(),
+          adminsRes?.json(),
+          apiKeysRes.json(),
+          templatesRes.json(),
+          profileRes.json(),
+        ]);
+
+        if (requestId !== loadSequence.current) return;
+
+        const loadErrors: string[] = [];
+        if (usersRes && usersRes.ok) {
+          setUsers(usersData?.users || []);
+          setUserPagination((previous) => usersData?.pagination || previous);
+        } else if (usersRes && !usersRes.ok) {
+          loadErrors.push(usersData?.error || "Failed to load users");
+        }
+
+        if (adminsRes?.ok) {
+          setAdmins(adminsData?.admins || []);
+        } else if (adminsRes && !adminsRes.ok) {
+          loadErrors.push(adminsData?.error || "Failed to load admins");
+        }
+
+        if (apiKeysRes.ok) {
+          setApiKeys(apiKeysData?.apiKeys || []);
+        } else {
+          loadErrors.push(apiKeysData?.error || "Failed to load API keys");
+        }
+
+        if (templatesRes.ok) {
+          setTemplates(templatesData?.templates || []);
+        } else {
+          loadErrors.push(templatesData?.error || "Failed to load templates");
+        }
+
+        if (profileRes.ok && profileData?.profile) {
+          setAdminProfile(profileData.profile);
+          setProfileEmail(profileData.profile.email || "");
+        } else if (!profileRes.ok) {
+          loadErrors.push(profileData?.error || "Failed to load admin profile");
+        }
+
+        setError(loadErrors[0] || "");
+      } catch (error) {
+        if (requestId === loadSequence.current) {
+          console.error("[AdminDashboard] Failed to load dashboard data:", error);
+          setError("Dashboard data could not be refreshed. Check your connection.");
+        }
+      } finally {
+        if (requestId === loadSequence.current) setRefreshing(false);
+      }
+    },
+    [router],
+  );
+
+  const refreshData = useCallback(
+    (userPage = userPagination.page) =>
+      loadData(userPage, isSuperAdmin || isSuperSubdomain),
+    [isSuperAdmin, isSuperSubdomain, loadData, userPagination.page],
+  );
 
   useEffect(() => {
     const checkSession = async () => {
+      const superSubdomain = /^super\./i.test(window.location.host);
+      setIsSuperSubdomain(superSubdomain);
       try {
         const res = await fetch("/api/admin/me", {
           cache: "no-store",
@@ -121,80 +216,24 @@ export default function AdminDashboard() {
         setIsSuperAdmin(data.admin.isSuperAdmin);
         setAdminProfile(data.admin);
         setProfileEmail(data.admin.email || "");
-        if (!data.admin.isSuperAdmin && !isSuperSubdomain) setActiveTab("accounts");
+        const canManageUsers = data.admin.isSuperAdmin || superSubdomain;
+        setActiveTab(canManageUsers ? "users" : "accounts");
 
-        if (isSuperSubdomain && !data.admin.isSuperAdmin) {
+        if (superSubdomain && !data.admin.isSuperAdmin) {
           router.replace("/admin/login");
           return;
         }
 
-        loadData(1, data.admin.isSuperAdmin || isSuperSubdomain);
+        await loadData(1, canManageUsers);
       } catch {
         router.replace("/admin/login");
       } finally {
-        setLoading(false);
+        setInitialLoading(false);
       }
     };
 
-    const host = window.location.host;
-    if (host) {
-      setIsSuperSubdomain(/^super\./i.test(host));
-    }
-    checkSession();
-  }, [router]);
-
-  const loadData = async (
-    userPage = userPagination.page,
-    canManageUsers = isSuperAdmin || isSuperSubdomain,
-  ) => {
-    setLoading(true);
-    setError("");
-    try {
-      if (canManageUsers) {
-        const usersRes = await fetch(`/api/admin/users?page=${userPage}`, { cache: "no-store" });
-        if (usersRes.status === 401) {
-          router.replace("/admin/login");
-          return;
-        }
-        const usersData = await usersRes.json();
-        if (!usersRes.ok) {
-          setError(usersData?.error || "Failed to load users");
-          return;
-        }
-        setUsers(usersData?.users || []);
-        setUserPagination(usersData?.pagination || userPagination);
-      }
-
-      if (canManageUsers) {
-        const adminsRes = await fetch("/api/admin/admins", { cache: "no-store" });
-        const adminsData = await adminsRes.json();
-        if (adminsRes.ok) {
-          setAdmins(adminsData?.admins || []);
-        }
-      }
-
-      const apiKeysRes = await fetch("/api/admin/api-keys", { cache: "no-store" });
-      const apiKeysData = await apiKeysRes.json();
-      if (apiKeysRes.ok) {
-        setApiKeys(apiKeysData?.apiKeys || []);
-      }
-
-      const [templatesRes, profileRes] = await Promise.all([
-        fetch("/api/admin/templates", { cache: "no-store" }),
-        fetch("/api/admin/profile", { cache: "no-store" }),
-      ]);
-      if (templatesRes.ok) setTemplates((await templatesRes.json()).templates || []);
-      if (profileRes.ok) {
-        const profile = (await profileRes.json()).profile;
-        setAdminProfile(profile);
-        setProfileEmail(profile.email || "");
-      }
-    } catch {
-      setError("Network error");
-    } finally {
-      setLoading(false);
-    }
-  };
+    void checkSession();
+  }, [loadData, router]);
 
   const createTemplate = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -268,7 +307,7 @@ export default function AdminDashboard() {
       setNewApiKeyName("");
       setNewApiKeyExpiresDays("");
       setNewApiKeySenderUserId("");
-      loadData();
+      void refreshData();
     } catch {
       setError("Network error");
     } finally {
@@ -302,7 +341,7 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error(data?.error || "Failed to create accounts");
       setBulkUsersText("");
       setShowBulkUsers(false);
-      loadData(1, true);
+      void loadData(1, true);
     } catch (error: any) {
       setError(error?.message || "Failed to create accounts");
     } finally {
@@ -318,7 +357,7 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !isActive }),
       });
-      loadData();
+      void refreshData();
     } catch {
       setError("Network error");
     } finally {
@@ -333,7 +372,7 @@ export default function AdminDashboard() {
       await fetch(`/api/admin/api-keys/${id}`, {
         method: "DELETE",
       });
-      loadData();
+      void refreshData();
     } catch {
       setError("Network error");
     } finally {
@@ -383,7 +422,7 @@ export default function AdminDashboard() {
       setNewAdminEmail("");
       setNewAdminPassword("");
       setNewAdminIsSuper(false);
-      loadData();
+      void refreshData();
     } catch {
       setError("Network error");
     } finally {
@@ -414,7 +453,7 @@ export default function AdminDashboard() {
         return;
       }
       setEditingAdmin(null);
-      loadData();
+      void refreshData();
     } catch {
       setError("Network error");
     } finally {
@@ -435,7 +474,7 @@ export default function AdminDashboard() {
         setError(data.error || "Failed to delete admin");
         return;
       }
-      loadData();
+      void refreshData();
     } catch {
       setError("Network error");
     } finally {
@@ -452,36 +491,94 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            {isSuperSubdomain ? "Super Admin Dashboard" : "Admin Dashboard"}
-          </h1>
-          <button onClick={logout} className="px-4 py-2 rounded-xl bg-red-600 text-white hover:bg-red-700">
-            Logout
-          </button>
+      <header className="sticky top-0 z-30 border-b border-emerald-900/10 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-sm font-black tracking-wide text-white shadow-md shadow-emerald-900/20">
+              HC
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">
+                  {isSuperSubdomain
+                    ? "Super Admin"
+                    : isSuperAdmin
+                      ? "Administrator"
+                      : "Admin workspace"}
+                </h1>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800 ring-1 ring-emerald-700/10">
+                  {isSuperSubdomain || isSuperAdmin ? "Super admin" : "Admin"}
+                </span>
+              </div>
+              <p className="hidden truncate text-xs text-slate-500 sm:block">
+                {adminProfile.email || adminProfile.userId || "HansariaConnect control center"}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <span
+              className={`hidden items-center gap-2 text-xs text-slate-500 transition-opacity sm:flex ${
+                refreshing ? "opacity-100" : "opacity-0"
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              Updating
+            </span>
+            <button
+              onClick={logout}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 sm:px-4"
+            >
+              Logout
+            </button>
+          </div>
         </div>
+      </header>
 
-        {loading ? (
-          <div className="text-gray-600">Loading...</div>
-        ) : error ? (
-          <div className="text-red-600">{error}</div>
+      <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-8">
+        {initialLoading ? (
+          <div className="space-y-5" role="status" aria-label="Loading admin workspace">
+            <div className="h-9 w-56 animate-pulse rounded-xl bg-slate-200" />
+            <div className="h-12 animate-pulse rounded-2xl bg-slate-200" />
+            <div className="h-72 animate-pulse rounded-2xl bg-white shadow-sm" />
+          </div>
         ) : (
           <>
+            {error && (
+              <div
+                role="alert"
+                className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+              >
+                <span>{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError("")}
+                  className="shrink-0 font-semibold text-rose-700 hover:text-rose-900"
+                  aria-label="Dismiss error"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
             {/* Tabs */}
-            <div className="flex mb-6 bg-gray-100 rounded-xl p-1">
+            <nav
+              aria-label="Admin sections"
+              className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm"
+            >
               {!isSuperAdmin && !isSuperSubdomain && (
                 <>
-                  <button onClick={() => setActiveTab("accounts")} className={`flex-1 py-2 rounded-lg font-semibold transition-all ${activeTab === "accounts" ? "bg-white shadow text-emerald-600" : "text-gray-500"}`}>Accounts</button>
-                  <button onClick={() => setActiveTab("templates")} className={`flex-1 py-2 rounded-lg font-semibold transition-all ${activeTab === "templates" ? "bg-white shadow text-emerald-600" : "text-gray-500"}`}>Templates</button>
-                  <button onClick={() => setActiveTab("profile")} className={`flex-1 py-2 rounded-lg font-semibold transition-all ${activeTab === "profile" ? "bg-white shadow text-emerald-600" : "text-gray-500"}`}>Profile</button>
+                  <button onClick={() => setActiveTab("accounts")} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}>Accounts</button>
+                  <button onClick={() => setActiveTab("templates")} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}>Templates</button>
+                  <button onClick={() => setActiveTab("profile")} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}>Profile</button>
                 </>
               )}
               {(isSuperAdmin || isSuperSubdomain) && (
                 <button
                   onClick={() => setActiveTab("users")}
-                  className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                    activeTab === "users" ? "bg-white shadow text-emerald-600" : "text-gray-500"
+                  className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  activeTab === "users" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   Users
@@ -490,8 +587,8 @@ export default function AdminDashboard() {
               {(isSuperAdmin || isSuperSubdomain) && (
                 <button
                   onClick={() => setActiveTab("admins")}
-                  className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                    activeTab === "admins" ? "bg-white shadow text-emerald-600" : "text-gray-500"
+                  className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  activeTab === "admins" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   Admins
@@ -499,13 +596,13 @@ export default function AdminDashboard() {
               )}
               <button
                 onClick={() => setActiveTab("api-keys")}
-                className={`flex-1 py-2 rounded-lg font-semibold transition-all ${
-                  activeTab === "api-keys" ? "bg-white shadow text-emerald-600" : "text-gray-500"
+                className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                  activeTab === "api-keys" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 API Keys
               </button>
-            </div>
+            </nav>
 
             {activeTab === "accounts" && !isSuperAdmin && !isSuperSubdomain && (
               <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -571,8 +668,8 @@ export default function AdminDashboard() {
                       Register Accounts
                     </button>
                     <button
-                      onClick={() => loadData(userPagination.page - 1)}
-                      disabled={userPagination.page <= 1 || loading}
+                      onClick={() => void refreshData(userPagination.page - 1)}
+                      disabled={userPagination.page <= 1 || refreshing}
                       className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 disabled:opacity-40"
                     >
                       Previous
@@ -581,8 +678,8 @@ export default function AdminDashboard() {
                       Page {userPagination.page} of {userPagination.totalPages}
                     </span>
                     <button
-                      onClick={() => loadData(userPagination.page + 1)}
-                      disabled={userPagination.page >= userPagination.totalPages || loading}
+                      onClick={() => void refreshData(userPagination.page + 1)}
+                      disabled={userPagination.page >= userPagination.totalPages || refreshing}
                       className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 disabled:opacity-40"
                     >
                       Next
@@ -963,7 +1060,7 @@ export default function AdminDashboard() {
             )}
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }

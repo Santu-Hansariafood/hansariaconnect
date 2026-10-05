@@ -6,6 +6,7 @@ import {
   useEffect,
   Suspense,
   useCallback,
+  useRef,
 } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -69,10 +70,21 @@ export default function StatusPage({
   const [statusError, setStatusError] = useState("");
   const [loadingStatuses, setLoadingStatuses] = useState(true);
   const { bootstrapData } = useApp();
+  const hasLoadedStatuses = useRef(false);
+  const statusRefresh = useRef({ inFlight: false, lastStartedAt: 0 });
 
   const loadStatuses = useCallback(async () => {
+    const now = Date.now();
+    if (
+      statusRefresh.current.inFlight ||
+      now - statusRefresh.current.lastStartedAt < 10_000
+    ) {
+      return;
+    }
+    statusRefresh.current.inFlight = true;
+    statusRefresh.current.lastStartedAt = now;
     setStatusError("");
-    setLoadingStatuses(true);
+    if (!hasLoadedStatuses.current) setLoadingStatuses(true);
     try {
       const res = await fetch("/api/status", {
         credentials: "include",
@@ -87,6 +99,8 @@ export default function StatusPage({
       console.error("Failed to load statuses:", err);
       setStatusError("Unable to load status updates right now.");
     } finally {
+      hasLoadedStatuses.current = true;
+      statusRefresh.current.inFlight = false;
       setLoadingStatuses(false);
     }
   }, []);
@@ -94,6 +108,7 @@ export default function StatusPage({
   useEffect(() => {
     if (bootstrapData.statuses && Object.keys(bootstrapData.statuses).length > 0) {
       setContactStatuses(bootstrapData.statuses);
+      hasLoadedStatuses.current = true;
       setLoadingStatuses(false);
       return;
     }
@@ -106,7 +121,7 @@ export default function StatusPage({
 
     refreshIfVisible();
 
-    const interval = window.setInterval(refreshIfVisible, 15000);
+    const interval = window.setInterval(refreshIfVisible, 60000);
     window.addEventListener("focus", refreshIfVisible);
     document.addEventListener("visibilitychange", refreshIfVisible);
 

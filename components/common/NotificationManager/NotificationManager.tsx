@@ -17,15 +17,19 @@ type NotifyPayload = {
   fromUserId: string;
   fromName: string;
   fromAvatar?: string;
-  preview: string;
+  preview?: string;
   messageType: string;
   timestamp?: string | Date;
 };
 
 type ToastNotification = NotifyPayload & { id: number };
 
-const buildUrlFromPayload = (p: NotifyPayload) =>
-  p.kind === "direct" ? `/chat/${p.chatId}` : `/chat/${p.chatId}?group=true`;
+const buildUrlFromPayload = (p: NotifyPayload, adminSurface = false) => {
+  if (adminSurface) return "/admin";
+  const path =
+    p.kind === "direct" ? `/chat/${p.chatId}` : `/chat/${p.chatId}?group=true`;
+  return path;
+};
 
 export default function NotificationManager() {
   const { user } = useApp();
@@ -37,6 +41,12 @@ export default function NotificationManager() {
   const nextToastId = useRef(0);
   const toastTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const isAdminSurface = Boolean(
+    pathname?.startsWith("/admin") ||
+      (typeof window !== "undefined" &&
+        /^(admin|super)\./i.test(window.location.hostname)),
+  );
 
   const dismissToast = useCallback((id: number) => {
     const timer = toastTimers.current.get(id);
@@ -55,13 +65,43 @@ export default function NotificationManager() {
   }, [dismissToast]);
 
   useEffect(() => {
-    if (!pathname?.startsWith("/chat/")) {
+    const chatMatch = pathname?.match(/(?:^|\/)chat\/([^/?#]+)/);
+    if (!chatMatch) {
       activeChatId.current = null;
       return;
     }
-    const id = pathname.replace(/^\/chat\//, "").split("?")[0];
-    activeChatId.current = id || null;
+    activeChatId.current = chatMatch[1] || null;
   }, [pathname]);
+
+  useEffect(() => {
+    if (!isAdminSurface) return;
+
+    let cancelled = false;
+    const loadAdminIdentity = async () => {
+      try {
+        const response = await fetch("/api/admin/me", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const userId = data?.admin?.userId;
+        if (!cancelled && data?.success && typeof userId === "string") {
+          setAdminUserId(userId);
+        }
+      } catch (error) {
+        console.error(
+          "[NotificationManager] Failed to load admin notification identity:",
+          error,
+        );
+      }
+    };
+
+    void loadAdminIdentity();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdminSurface, pathname]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -95,9 +135,14 @@ export default function NotificationManager() {
   }, [preferences.enabled]);
 
   useEffect(() => {
-    if (!user || !preferences.enabled) return;
+    if (
+      !preferences.enabled ||
+      (isAdminSurface ? !adminUserId : !user)
+    ) {
+      return;
+    }
 
-    const currentUserId = getId(user.id);
+    const currentUserId = isAdminSurface ? getId(adminUserId) : getId(user?.id);
     console.log(
       "[NotificationManager] Setting up socket listeners for user:",
       currentUserId,
@@ -132,7 +177,9 @@ export default function NotificationManager() {
       }
 
       const isActiveChat =
-        activeChatId.current && activeChatId.current === payload.chatId;
+        !isAdminSurface &&
+        activeChatId.current &&
+        activeChatId.current === payload.chatId;
 
       console.log(
         "[NotificationManager] 🔔 message:notify RECEIVED",
@@ -154,15 +201,27 @@ export default function NotificationManager() {
 
       if (!isActiveChat) {
         playRingtone(preferences.ringtone || "chime");
+        const notificationTitle =
+          payload.kind === "group"
+            ? payload.chatName || "New group message"
+            : payload.fromName || payload.chatName || "New message";
+        const notificationBody = isAdminSurface
+          ? payload.kind === "group"
+            ? "New message in a group"
+            : "You have a new message"
+          : payload.preview || "You have a new message";
         if (document.visibilityState === "visible") {
-          addToast(payload);
+          addToast({
+            ...payload,
+            chatName: notificationTitle,
+            preview: notificationBody,
+          });
         } else {
           showNotification(
-            payload.chatName ||
-              (payload.kind === "direct" ? "New message" : "New group message"),
-            payload.preview || "You have a new message",
+            notificationTitle,
+            notificationBody,
             `${payload.kind}-${payload.chatId}-${Date.now()}`,
-            buildUrlFromPayload(payload),
+            buildUrlFromPayload(payload, isAdminSurface),
           );
         }
       } else {
@@ -172,11 +231,14 @@ export default function NotificationManager() {
       }
     };
 
-    addListener("message:notify", handleNotify);
+    const notificationEvent = isAdminSurface
+      ? "admin:message:notify"
+      : "message:notify";
+    addListener(notificationEvent, handleNotify);
 
     return () => {
       console.log("[NotificationManager] Removing socket listeners");
-      removeListener("message:notify", handleNotify);
+      removeListener(notificationEvent, handleNotify);
     };
   }, [
     addListener,
@@ -188,6 +250,8 @@ export default function NotificationManager() {
     removeListener,
     showNotification,
     addToast,
+    isAdminSurface,
+    adminUserId,
     user,
   ]);
 
@@ -214,13 +278,23 @@ export default function NotificationManager() {
             type="button"
             onClick={() => {
               dismissToast(toast.id);
-              router.push(buildUrlFromPayload(toast));
+              if (!isAdminSurface) {
+                router.push(buildUrlFromPayload(toast));
+              }
             }}
+            disabled={isAdminSurface}
             className="flex min-w-0 flex-1 items-center gap-3 text-left"
-            aria-label={`Open chat with ${toast.fromName}`}
+            aria-label={
+              isAdminSurface
+                ? `New message notification from ${toast.fromName}`
+                : `Open chat with ${toast.fromName}`
+            }
           >
             <Image
-              src={toast.fromAvatar || toast.chatAvatar || "/logo/logo.png"}
+              src={
+                (toast.kind === "group" ? toast.chatAvatar : toast.fromAvatar) ||
+                "/logo/logo.png"
+              }
               alt=""
               width={44}
               height={44}
@@ -246,7 +320,7 @@ export default function NotificationManager() {
               )}
               <span className="block truncate text-sm text-gray-600">
                 {toast.kind === "group" &&
-                toast.preview.startsWith(`${toast.fromName}: `)
+                toast.preview?.startsWith(`${toast.fromName}: `)
                   ? toast.preview.slice(toast.fromName.length + 2)
                   : toast.preview || "You have a new message"}
               </span>

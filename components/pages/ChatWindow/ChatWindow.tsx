@@ -73,10 +73,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const params = useParams();
   const chatId = propId ?? (params?.id as string) ?? "";
   const { getCachedMessages, setCachedMessages, mergeCachedMessages, clearCachedMessages } = useApp();
+  const cachedMessagesAtOpen = chatId
+    ? getCachedMessages(chatId)?.messages
+    : undefined;
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [message, setMessage] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
+    cachedMessagesAtOpen || [],
+  );
   const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [allowAttachments, setAllowAttachments] = useState(false);
@@ -85,7 +90,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ChatMessage[]>([]);
   const [contact, setContact] = useState<ContactInfo | null>(null);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(
+    !cachedMessagesAtOpen?.length,
+  );
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [chatError, setChatError] = useState("");
   const [mediaError, setMediaError] = useState("");
   const [savingContact, setSavingContact] = useState(false);
@@ -126,6 +134,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
       prev.forEach(addMessage);
       incoming.forEach(addMessage);
+      if (map.size === prev.length) return prev;
       return Array.from(map.values());
     },
     [],
@@ -179,9 +188,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     if (!chatId) return;
 
-    setInitialLoading(true);
+    const cached = getCachedMessages(chatId);
+    const hasCachedMessages = Boolean(cached?.messages.length);
+    setInitialLoading(!hasCachedMessages);
     setChatError("");
-    setChatMessages([]);
+    setChatMessages(cached?.messages || []);
     setContact(null);
     setIsGroup(false);
     setGroupMembers([]);
@@ -193,9 +204,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const loadInitialData = async () => {
       try {
-        const cached = chatId ? getCachedMessages(chatId) : undefined;
         if (cached && cached.messages.length > 0) {
-          setChatMessages(cached.messages);
           setHasMore(!!cached.hasMore);
         }
 
@@ -414,7 +423,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return () => {
       setInitialLoading(false);
     };
-  }, [chatId, mergeUnique, router]);
+  }, [chatId, getCachedMessages, loadAttempt, mergeUnique, router]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -573,10 +582,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         ? { groupId: chatId, ...payload }
         : { to: chatId, ...payload };
 
-      socket.emit(
+      socket.timeout(12_000).emit(
         eventName,
         socketPayload,
-        (ack: { ok?: boolean; message?: ChatMessage }) => {
+        (
+          timeoutError: Error | null,
+          ack?: { ok?: boolean; message?: ChatMessage },
+        ) => {
+          if (timeoutError) {
+            const failedId = getMessageId(tempMessage);
+            if (failedId) {
+              setChatMessages((prev) =>
+                prev.map((msg) =>
+                  msg._id?.toString?.() === failedId
+                    ? { ...msg, status: "failed" }
+                    : msg,
+                ),
+              );
+            }
+            resolve(false);
+            return;
+          }
+
           const ackMessage = ack?.ok && ack?.message ? ack.message : undefined;
           if (ackMessage) {
             const tempId = getMessageId(tempMessage);
@@ -829,7 +856,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         <p className="max-w-md text-sm text-[#54656f]">{chatError}</p>
         <div className="mt-5 flex w-full max-w-xs gap-3">
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setInitialLoading(true);
+              setLoadAttempt((attempt) => attempt + 1);
+            }}
             className="flex-1 rounded-xl bg-[#00a884] px-4 py-3 text-sm font-semibold text-white"
           >
             Retry

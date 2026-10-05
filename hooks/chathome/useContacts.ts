@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext/AppContext";
 import { useSocket } from "../useSocket";
 
@@ -26,6 +26,7 @@ export interface Contact {
 export const useContacts = (userId?: string | number) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedConversations = useRef(false);
   const { onlineUserIds } = useSocket();
   const { bootstrapData } = useApp();
 
@@ -89,7 +90,7 @@ export const useContacts = (userId?: string | number) => {
 
   const loadConversations = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!hasLoadedConversations.current) setLoading(true);
       const [convRes, unreadRes] = await Promise.all([
         fetch("/api/conversations", {
           method: "GET",
@@ -157,6 +158,7 @@ export const useContacts = (userId?: string | number) => {
         });
       }
     } catch {} finally {
+      hasLoadedConversations.current = true;
       setLoading(false);
     }
   }, []);
@@ -215,6 +217,7 @@ export const useContacts = (userId?: string | number) => {
         );
         return [...mapped, ...savedOnly];
       });
+      hasLoadedConversations.current = true;
       setLoading(false);
       return;
     }

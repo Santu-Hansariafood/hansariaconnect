@@ -18,16 +18,23 @@ export const useSocket = () => {
   const isInitializedRef = useRef(false);
 
   const connect = useCallback(async (): Promise<Socket> => {
-    if (socketInstance && socketInstance.connected) {
+    if (socketInstance) {
+      if (!socketInstance.connected && !socketInstance.active) {
+        socketInstance.connect();
+      }
       return socketInstance;
     }
 
     if (socketConnectPromise) return socketConnectPromise;
 
     socketConnectPromise = (async () => {
-      try {
-        await fetch("/api/socket", { cache: "no-store" });
-      } catch {}
+      const response = await fetch("/api/socket", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error(`Realtime service returned HTTP ${response.status}`);
+      }
 
       const url = typeof window !== "undefined" ? window.location.origin : undefined;
       const s = io(url, {
@@ -48,15 +55,39 @@ export const useSocket = () => {
       socketInstance = s;
       setSocket(s);
 
+      let authenticationRetry: ReturnType<typeof setTimeout> | null = null;
+      s.on("connect", () => {
+        if (authenticationRetry) {
+          clearTimeout(authenticationRetry);
+          authenticationRetry = null;
+        }
+      });
+
       s.on("disconnect", (reason: string) => {
+        setOnlineUserIds([]);
+        onlineListeners.forEach((listener) => listener([]));
         if (reason === "io server disconnect") s.connect();
       });
 
-      s.on("connect_error", () => {});
+      s.on("connect_error", (error) => {
+        console.error("[Socket] Connection failed:", error.message);
+        if (!s.active && !authenticationRetry) {
+          authenticationRetry = setTimeout(() => {
+            authenticationRetry = null;
+            if (socketInstance === s && !s.connected) s.connect();
+          }, 5_000);
+        }
+      });
 
-      s.on("reconnect_attempt", () => {});
-      s.on("reconnect_error", () => {});
-      s.on("reconnect_failed", () => {});
+      s.io.on("reconnect_attempt", (attempt) => {
+        console.info(`[Socket] Reconnecting (attempt ${attempt})`);
+      });
+      s.io.on("reconnect_error", (error) => {
+        console.warn("[Socket] Reconnection attempt failed:", error.message);
+      });
+      s.io.on("reconnect_failed", () => {
+        console.error("[Socket] Reconnection attempts were exhausted");
+      });
 
       s.on("users:online", (ids: string[]) => {
         setOnlineUserIds(ids);
@@ -117,10 +148,17 @@ export const useSocket = () => {
   }, []);
 
   useEffect(() => {
-    if (!isInitializedRef.current) {
+    const initialize = () => {
+      if (isInitializedRef.current) return;
       isInitializedRef.current = true;
-      connect();
-    }
+      void connect().catch((error) => {
+        console.error("[Socket] Could not initialize realtime connection:", error);
+        isInitializedRef.current = false;
+        window.setTimeout(initialize, 5_000);
+      });
+    };
+
+    initialize();
 
     return () => {
       // Don't disconnect on unmount to keep the socket alive across components

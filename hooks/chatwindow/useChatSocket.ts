@@ -133,13 +133,14 @@ export const useChatSocket = (
   useEffect(() => {
     if (!id) return;
 
-    let interval: any = null;
     const fetchLatest = async () => {
+      if (socket?.connected) return;
+      if (document.visibilityState !== "visible") return;
       try {
         const endpoint = isGroup
           ? `/api/groups/${id}/messages?limit=30&last=true`
           : `/api/messages/${id}?limit=30&last=true`;
-        const res = await fetch(`${endpoint}&t=${Date.now()}`, {
+        const res = await fetch(endpoint, {
           credentials: "include",
           cache: "no-store",
         });
@@ -148,18 +149,18 @@ export const useChatSocket = (
         if (Array.isArray(data?.messages) && data.messages.length > 0) {
           setChatMessages((prev) => mergeUnique(prev, data.messages));
         }
-      } catch (e) {
-        // ignore polling errors silently
+      } catch (error) {
+        console.warn("[useChatSocket] Fallback message refresh failed:", error);
       }
     };
 
-    fetchLatest();
-    interval = setInterval(fetchLatest, 5000);
+    const interval = setInterval(fetchLatest, 15000);
+    void fetchLatest();
 
     return () => {
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
     };
-  }, [id, isGroup, setChatMessages, mergeUnique]);
+  }, [id, isGroup, mergeUnique, setChatMessages, socket]);
 
   return socket;
 };

@@ -1,7 +1,8 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react"
 import NotificationManager from "@/components/common/NotificationManager/NotificationManager"
+import Loading from "@/components/common/Loading/Loading"
 
 interface User {
   id?: string
@@ -68,7 +69,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     textSize: "text-base",
   })
   const [sessionChecked, setSessionChecked] = useState(false)
-  const [messagesCache, setMessagesCache] = useState<Map<string, CachedMessages>>(new Map())
+  const messagesCache = useRef(new Map<string, CachedMessages>())
   const [bootstrapData, setBootstrapData] = useState<BootstrapData>({})
   const [bootstrapReady, setBootstrapReady] = useState(false)
 
@@ -101,47 +102,55 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("hansariaUser")
-    const savedTheme = localStorage.getItem("hansariaTheme")
-    if (savedTheme) setTheme(JSON.parse(savedTheme))
-
     const init = async () => {
-      const settingsPromise = fetch("/api/settings", {
-        credentials: "include",
-        cache: "no-store",
-      })
-        .then((res) => (res.ok ? res.json() : null))
-        .catch(() => null)
+      let savedUser: User | null = null
+      try {
+        const rawUser = localStorage.getItem("hansariaUser")
+        const rawTheme = localStorage.getItem("hansariaTheme")
+        if (rawUser) savedUser = JSON.parse(rawUser) as User
+        if (rawTheme) setTheme(JSON.parse(rawTheme))
+      } catch (error) {
+        console.error("[AppProvider] Could not restore saved app state:", error)
+        localStorage.removeItem("hansariaUser")
+        localStorage.removeItem("hansariaTheme")
+      }
 
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser) as User
+      try {
+        const settingsPromise = fetch("/api/settings", {
+          credentials: "include",
+          cache: "no-store",
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch((error) => {
+            console.error("[AppProvider] Could not load settings:", error)
+            return null
+          })
+
         const [valid, settings] = await Promise.all([
-          validateServerSession(),
+          savedUser ? validateServerSession() : Promise.resolve(false),
           settingsPromise,
         ])
         if (settings?.theme) {
           setTheme(settings.theme)
           localStorage.setItem("hansariaTheme", JSON.stringify(settings.theme))
         }
-        if (valid) {
-          setUser(parsed)
+        if (savedUser && valid) {
+          setUser(savedUser)
         } else {
-          localStorage.removeItem("hansariaUser")
+          if (savedUser) localStorage.removeItem("hansariaUser")
           setUser(null)
           setBootstrapReady(true)
         }
-      } else {
-        const settings = await settingsPromise
-        if (settings?.theme) {
-          setTheme(settings.theme)
-          localStorage.setItem("hansariaTheme", JSON.stringify(settings.theme))
-        }
+      } catch (error) {
+        console.error("[AppProvider] App session initialization failed:", error)
+        setUser(null)
         setBootstrapReady(true)
+      } finally {
+        setSessionChecked(true)
       }
-      setSessionChecked(true)
     }
 
-    init()
+    void init()
   }, [])
 
   useEffect(() => {
@@ -176,49 +185,50 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     })
   }, [])
 
-  const getCachedMessages = useCallback((peerId: string) => messagesCache.get(peerId), [messagesCache])
+  const getCachedMessages = useCallback(
+    (peerId: string) => messagesCache.current.get(peerId),
+    [],
+  )
 
   const setCachedMessages = useCallback((peerId: string, data: CachedMessages) => {
-    setMessagesCache((prev) => {
-      const current = prev.get(peerId)
-      if (current === data) return prev
-      const next = new Map(prev)
-      next.set(peerId, data)
-      return next
-    })
+    if (messagesCache.current.get(peerId) === data) return
+    const next = new Map(messagesCache.current)
+    next.set(peerId, data)
+    messagesCache.current = next
   }, [])
 
   const mergeCachedMessages = useCallback((peerId: string, incoming: any[], hasMore?: boolean) => {
-    setMessagesCache((prev) => {
-      const existing = prev.get(peerId)
-      const merged = existing ? mergeMessagesById(existing.messages, incoming) : [...incoming]
-      const nextValue = {
-        messages: merged,
-        hasMore: typeof hasMore === "boolean" ? hasMore : !!existing?.hasMore,
-        loadedAt: Date.now(),
-      }
-      if (
-        existing &&
-        existing.hasMore === nextValue.hasMore &&
-        existing.messages.length === nextValue.messages.length &&
-        existing.messages.every((message, index) => message === nextValue.messages[index])
-      ) {
-        return prev
-      }
-      const next = new Map(prev)
-      next.set(peerId, nextValue)
-      return next
-    })
+    const existing = messagesCache.current.get(peerId)
+    const merged = existing
+      ? mergeMessagesById(existing.messages, incoming)
+      : [...incoming]
+    const nextValue = {
+      messages: merged,
+      hasMore: typeof hasMore === "boolean" ? hasMore : !!existing?.hasMore,
+      loadedAt: Date.now(),
+    }
+    if (
+      existing &&
+      existing.hasMore === nextValue.hasMore &&
+      existing.messages.length === nextValue.messages.length &&
+      existing.messages.every((message, index) => message === nextValue.messages[index])
+    ) {
+      return
+    }
+    const next = new Map(messagesCache.current)
+    next.set(peerId, nextValue)
+    messagesCache.current = next
   }, [mergeMessagesById])
 
   const clearCachedMessages = useCallback((peerId?: string) => {
-    setMessagesCache((prev) => {
-      if (!peerId) return new Map()
-      if (!prev.has(peerId)) return prev
-      const next = new Map(prev)
-      next.delete(peerId)
-      return next
-    })
+    if (!peerId) {
+      messagesCache.current = new Map()
+      return
+    }
+    if (!messagesCache.current.has(peerId)) return
+    const next = new Map(messagesCache.current)
+    next.delete(peerId)
+    messagesCache.current = next
   }, [])
 
   const logout = async () => {
@@ -247,7 +257,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         prefetchHomeData,
       }}
     >
-      {sessionChecked ? <><NotificationManager />{children}</> : null}
+      {sessionChecked ? (
+        <>
+          <NotificationManager />
+          {children}
+        </>
+      ) : (
+        <Loading />
+      )}
     </AppContext.Provider>
   )
 }

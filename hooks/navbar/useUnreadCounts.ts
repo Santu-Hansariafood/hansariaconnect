@@ -32,11 +32,18 @@ export function useUnreadCounts() {
     const total =
       typeof data.total === "number" ? data.total : chatsUnread + groupsUnread;
 
-    setCounts({
+    const nextCounts = {
       total: Math.max(0, total),
       chats: Math.max(0, chatsUnread),
       groups: Math.max(0, groupsUnread),
-    });
+    };
+    setCounts((previous) =>
+      previous.total === nextCounts.total &&
+      previous.chats === nextCounts.chats &&
+      previous.groups === nextCounts.groups
+        ? previous
+        : nextCounts,
+    );
   };
 
   useEffect(() => {

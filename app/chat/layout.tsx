@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ChatWorkspace from "@/components/pages/ChatWorkspace/ChatWorkspace";
 
 export const metadata: Metadata = {
   title: "Chat",
@@ -16,5 +17,10 @@ export const metadata: Metadata = {
 export default function ChatLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  return children;
+  return (
+    <>
+      {children}
+      <ChatWorkspace />
+    </>
+  );
 }

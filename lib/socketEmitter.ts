@@ -90,6 +90,18 @@ type IncomingNotificationPayload = {
   unreadCounts: UnreadPayload;
 };
 
+type AdminNotificationPayload = Pick<
+  IncomingNotificationPayload,
+  | "kind"
+  | "chatId"
+  | "chatName"
+  | "chatAvatar"
+  | "fromUserId"
+  | "fromName"
+  | "fromAvatar"
+  | "timestamp"
+>;
+
 const EMPTY_UNREAD: UnreadPayload = {
   total: 0,
   conversations: {},
@@ -584,6 +596,20 @@ export const emitDirectMessageReceived = async (
     if (notification) {
       console.log("[socketEmitter] Emitting message:notify to", rawToId, { kind: notification.kind, from: notification.fromUserId });
       io.to(rawToId).emit("message:notify", notification);
+      const adminNotification: AdminNotificationPayload = {
+        kind: notification.kind,
+        chatId: notification.chatId,
+        chatName: notification.chatName,
+        chatAvatar: notification.chatAvatar,
+        fromUserId: notification.fromUserId,
+        fromName: notification.fromName,
+        fromAvatar: notification.fromAvatar,
+        timestamp: notification.timestamp,
+      };
+      io.to(`admin-notifications:${rawToId}`).emit(
+        "admin:message:notify",
+        adminNotification,
+      );
     } else {
       console.warn("[socketEmitter] buildDirectNotification returned null - skipping notification emit");
     }
@@ -690,6 +716,20 @@ export const emitGroupMessageReceived = async (
       console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId });
       io.to(memberId).emit("group:message:new", decryptedMessage);
       io.to(memberId).emit("message:notify", notification);
+      const adminNotification: AdminNotificationPayload = {
+        kind: notification.kind,
+        chatId: notification.chatId,
+        chatName: notification.chatName,
+        chatAvatar: notification.chatAvatar,
+        fromUserId: notification.fromUserId,
+        fromName: notification.fromName,
+        fromAvatar: notification.fromAvatar,
+        timestamp: notification.timestamp,
+      };
+      io.to(`admin-notifications:${memberId}`).emit(
+        "admin:message:notify",
+        adminNotification,
+      );
     }
   } catch (e: any) {
     console.error("[socketEmitter] emitGroupMessageReceived error:", e?.message || e);
