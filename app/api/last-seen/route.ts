@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
     const users = await User.find({
       _id: { $in: validIds.map((id) => new Types.ObjectId(id)) },
     })
-      .select("_id lastLoginAt lastSeenAt updatedAt")
+      .select("_id lastLoginAt lastSeenAt updatedAt createdAt")
       .lean();
 
     const result: Record<string, { lastSeen: string | null; isOnlineNow: boolean }> = {};
@@ -65,7 +65,11 @@ export async function GET(req: NextRequest) {
     for (const user of users) {
       const uid = String(user._id);
       const best =
-        user.lastSeenAt || user.lastLoginAt || user.updatedAt || null;
+        user.lastSeenAt ||
+        user.lastLoginAt ||
+        user.updatedAt ||
+        user.createdAt ||
+        null;
       const lastSeenDate = best ? new Date(best) : null;
       const isRecent = Boolean(
         lastSeenDate && Date.now() - lastSeenDate.getTime() <= SIX_HOURS_MS,

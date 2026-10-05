@@ -133,8 +133,8 @@ export const useChatSocket = (
   useEffect(() => {
     if (!id) return;
 
-    const fetchLatest = async () => {
-      if (socket?.connected) return;
+    const fetchLatest = async (force = false) => {
+      if (!force && socket?.connected) return;
       if (document.visibilityState !== "visible") return;
       try {
         const endpoint = isGroup
@@ -154,11 +154,22 @@ export const useChatSocket = (
       }
     };
 
-    const interval = setInterval(fetchLatest, 15000);
-    void fetchLatest();
+    const handleConnect = () => {
+      void fetchLatest(true);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void fetchLatest(true);
+    };
+
+    socket?.on("connect", handleConnect);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    const interval = setInterval(() => void fetchLatest(), 15000);
+    void fetchLatest(true);
 
     return () => {
       clearInterval(interval);
+      socket?.off("connect", handleConnect);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [id, isGroup, mergeUnique, setChatMessages, socket]);
 

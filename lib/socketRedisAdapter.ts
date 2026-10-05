@@ -5,6 +5,7 @@ import type { Server } from "socket.io";
 type RedisClients = {
   publisher: Redis;
   subscriber: Redis;
+  eventSubscriber: Redis;
 };
 
 type SocketRedisState = {
@@ -19,6 +20,16 @@ declare global {
 const state =
   global.socketRedisState ??
   (global.socketRedisState = { clients: null, promise: null });
+const configuredServers = new WeakSet<Server>();
+
+const eventChannel = () =>
+  `${process.env.SOCKET_IO_REDIS_KEY || "hansariaconnect:socket.io"}:app-events`;
+
+type SocketRoomEvent = {
+  room: string;
+  event: string;
+  payload: unknown;
+};
 
 const redisConfigured = () =>
   Boolean(process.env.REDIS_URL || process.env.REDIS_HOST) &&
@@ -89,28 +100,35 @@ const connectClients = async (): Promise<RedisClients | null> => {
     state.promise = (async () => {
       const publisher = createClient();
       const subscriber = publisher.duplicate();
+      const eventSubscriber = publisher.duplicate();
       publisher.on("error", (error) =>
         console.error("[Socket.IO] Redis publisher error:", error.message),
       );
       subscriber.on("error", (error) =>
         console.error("[Socket.IO] Redis subscriber error:", error.message),
       );
+      eventSubscriber.on("error", (error) =>
+        console.error("[Socket.IO] Redis event subscriber error:", error.message),
+      );
 
       try {
         await Promise.all([
           publisher.connect().catch(() => undefined),
           subscriber.connect().catch(() => undefined),
+          eventSubscriber.connect().catch(() => undefined),
         ]);
         await Promise.all([
           waitUntilReady(publisher, 15_000),
           waitUntilReady(subscriber, 15_000),
+          waitUntilReady(eventSubscriber, 15_000),
         ]);
-        const clients = { publisher, subscriber };
+        const clients = { publisher, subscriber, eventSubscriber };
         state.clients = clients;
         return clients;
       } catch (error) {
         publisher.disconnect();
         subscriber.disconnect();
+        eventSubscriber.disconnect();
         state.promise = null;
         throw error;
       }
@@ -124,19 +142,57 @@ export async function configureSocketRedisAdapter(
   io: Server,
 ): Promise<void> {
   const clients = await connectClients();
-  if (clients) {
-    io.adapter(
-      createAdapter(clients.publisher, clients.subscriber, {
-        key: process.env.SOCKET_IO_REDIS_KEY || "hansariaconnect:socket.io",
-        requestsTimeout: 5_000,
-      }),
-    );
-    console.info("[Socket.IO] Redis adapter enabled for cross-server events.");
-  }
+  if (!clients || configuredServers.has(io)) return;
+
+  io.adapter(
+    createAdapter(clients.publisher, clients.subscriber, {
+      key: process.env.SOCKET_IO_REDIS_KEY || "hansariaconnect:socket.io",
+      requestsTimeout: 5_000,
+    }),
+  );
+  await clients.eventSubscriber.subscribe(eventChannel());
+  clients.eventSubscriber.on("message", (channel, serializedEvent) => {
+    if (channel !== eventChannel()) return;
+
+    try {
+      const message = JSON.parse(serializedEvent) as SocketRoomEvent;
+      if (
+        typeof message.room !== "string" ||
+        typeof message.event !== "string"
+      ) {
+        throw new Error("Invalid Socket.IO room event");
+      }
+      io.local.to(message.room).emit(message.event, message.payload);
+    } catch (error) {
+      console.error(
+        "[Socket.IO] Could not dispatch Redis room event:",
+        error instanceof Error ? error.message : "Unknown error",
+      );
+    }
+  });
+  configuredServers.add(io);
+  console.info("[Socket.IO] Redis adapter enabled for cross-server events.");
 }
 
 export async function getSocketRedisClient(): Promise<Redis | null> {
   if (!redisConfigured()) return null;
   const clients = await state.promise;
   return clients?.publisher ?? null;
+}
+
+export async function publishSocketRoomEvent(
+  room: string,
+  event: string,
+  payload: unknown,
+): Promise<boolean> {
+  if (!redisConfigured()) return false;
+
+  const clients = await connectClients();
+  if (!clients) return false;
+
+  const subscriberCount = await clients.publisher.publish(
+    eventChannel(),
+    JSON.stringify({ room, event, payload } satisfies SocketRoomEvent),
+  );
+  return subscriberCount > 0;
 }

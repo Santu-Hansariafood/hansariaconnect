@@ -12,6 +12,7 @@ const getId = (value: unknown) => String(value ?? "");
 type NotifyPayload = {
   kind: "direct" | "group";
   chatId: string;
+  messageId?: string;
   chatName: string;
   chatAvatar?: string;
   fromUserId: string;
@@ -38,6 +39,7 @@ export default function NotificationManager() {
   const { addListener, removeListener } = useSocket();
   const { preferences, playRingtone, showNotification } = useNotifications();
   const activeChatId = useRef<string | null>(null);
+  const notifiedMessageIds = useRef(new Set<string>());
   const nextToastId = useRef(0);
   const toastTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -158,6 +160,14 @@ export default function NotificationManager() {
         );
         return;
       }
+      if (payload.messageId) {
+        if (notifiedMessageIds.current.has(payload.messageId)) return;
+        notifiedMessageIds.current.add(payload.messageId);
+        if (notifiedMessageIds.current.size > 200) {
+          const oldest = notifiedMessageIds.current.values().next().value;
+          if (oldest) notifiedMessageIds.current.delete(oldest);
+        }
+      }
       if (payload.fromUserId === currentUserId) {
         console.log(
           "[NotificationManager] ⏭️ message:notify skipped - notification is from self",
@@ -203,45 +213,107 @@ export default function NotificationManager() {
         playRingtone(preferences.ringtone || "chime");
       }
 
-      if (!isActiveChat) {
-        const notificationTitle =
-          payload.kind === "group"
-            ? payload.chatName || "New group message"
-            : payload.fromName || payload.chatName || "New message";
-        const notificationBody = isAdminSurface
-          ? payload.kind === "group"
-            ? "New message in a group"
-            : "You have a new message"
-          : payload.preview || "You have a new message";
-        if (document.visibilityState === "visible") {
-          addToast({
-            ...payload,
-            chatName: notificationTitle,
-            preview: notificationBody,
-          });
-        } else {
-          showNotification(
-            notificationTitle,
-            notificationBody,
-            `${payload.kind}-${payload.chatId}-${Date.now()}`,
-            buildUrlFromPayload(payload, isAdminSurface),
-          );
-        }
+      const notificationTitle =
+        payload.kind === "group"
+          ? payload.chatName || "New group message"
+          : payload.fromName || payload.chatName || "New message";
+      const notificationBody = isAdminSurface
+        ? payload.kind === "group"
+          ? "New message in a group"
+          : "You have a new message"
+        : payload.preview || "You have a new message";
+      if (document.visibilityState === "visible") {
+        addToast({
+          ...payload,
+          chatName: notificationTitle,
+          preview: notificationBody,
+        });
       } else {
-        console.log(
-          "[NotificationManager] ⏭️ Skipping notification - user is currently viewing this chat",
+        showNotification(
+          notificationTitle,
+          notificationBody,
+          `${payload.kind}-${payload.chatId}-${Date.now()}`,
+          buildUrlFromPayload(payload, isAdminSurface),
         );
       }
+    };
+
+    const handleMessageFallback = (
+      message: {
+        id?: string;
+        _id?: string;
+        from?: string;
+        groupId?: string;
+        type?: string;
+        text?: string;
+        fileName?: string;
+        linkTitle?: string;
+        createdAt?: string | Date;
+        timestamp?: string | Date;
+      },
+      kind: "direct" | "group",
+    ) => {
+      const messageId = String(message?.id || message?._id || "");
+      const fromUserId = String(message?.from || "");
+      const chatId =
+        kind === "group"
+          ? String(message?.groupId || "")
+          : fromUserId;
+      if (
+        !messageId ||
+        !fromUserId ||
+        !chatId ||
+        fromUserId === currentUserId ||
+        notifiedMessageIds.current.has(messageId)
+      ) {
+        return;
+      }
+      const preview =
+        message.type === "image"
+          ? "Photo"
+          : message.type === "video"
+            ? "Video"
+            : message.type === "voice"
+              ? "Voice message"
+              : message.type === "file"
+                ? message.fileName || "File"
+                : message.type === "link"
+                  ? message.linkTitle || "Link"
+                  : message.text || "New message";
+      handleNotify({
+        kind,
+        chatId,
+        messageId,
+        chatName: kind === "group" ? "New group message" : "New message",
+        fromUserId,
+        fromName: kind === "group" ? "Group member" : "New message",
+        preview,
+        messageType: message.type || "text",
+        timestamp: message.createdAt || message.timestamp,
+      });
+    };
+
+    const handleDirectMessage = (message: Parameters<typeof handleMessageFallback>[0]) => {
+      handleMessageFallback(message, "direct");
+    };
+    const handleGroupMessage = (message: Parameters<typeof handleMessageFallback>[0]) => {
+      handleMessageFallback(message, "group");
     };
 
     const notificationEvent = isAdminSurface
       ? "admin:message:notify"
       : "message:notify";
     addListener(notificationEvent, handleNotify);
+    if (!isAdminSurface) {
+      addListener("message:new", handleDirectMessage);
+      addListener("group:message:new", handleGroupMessage);
+    }
 
     return () => {
       console.log("[NotificationManager] Removing socket listeners");
       removeListener(notificationEvent, handleNotify);
+      removeListener("message:new", handleDirectMessage);
+      removeListener("group:message:new", handleGroupMessage);
     };
   }, [
     addListener,
@@ -270,7 +342,7 @@ export default function NotificationManager() {
     <div
       aria-live="polite"
       aria-relevant="additions"
-      className="pointer-events-none fixed right-4 top-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      className="pointer-events-none fixed right-4 top-[calc(env(safe-area-inset-top)+1rem)] z-[10000] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
     >
       {toasts.map((toast) => (
         <div

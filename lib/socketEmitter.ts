@@ -16,6 +16,7 @@ import {
   invalidateUserConversations,
   redisDel,
 } from "@/lib/redis/redis";
+import { publishSocketRoomEvent } from "@/lib/socketRedisAdapter";
 
 type ContactLean = {
   name?: string;
@@ -79,6 +80,7 @@ type UnreadPayload = {
 type IncomingNotificationPayload = {
   kind: "direct" | "group";
   chatId: string;
+  messageId?: string;
   chatName: string;
   chatAvatar?: string;
   fromUserId: string;
@@ -110,35 +112,55 @@ const EMPTY_UNREAD: UnreadPayload = {
 
 const DEFAULT_AVATAR = "/logo/logo.png";
 
-let bootstrapAttempted = false;
+let socketBootstrap: Promise<void> | null = null;
 
-const getIo = (): ServerIO | null => {
-  try {
-    const io = (globalThis as any).__io as ServerIO | undefined;
-    if (!io && !bootstrapAttempted) {
-      bootstrapAttempted = true;
-      console.warn(
-        "[socketEmitter] __io is NOT attached to globalThis."
-        + " Socket.IO server may not be initialized yet."
-        + " Ensure /api/socket (pages) has been called by at least one connected client."
-      );
-      // Attempt to trigger socket server lazy init via internal fetch when in same process
-      try {
-        if (typeof fetch === "function" && process?.env?.PORT) {
-          const port = process.env.PORT || "3000";
-          void fetch(`http://127.0.0.1:${port}/api/socket?t=${Date.now()}`, {
-            method: "GET",
-          }).catch(() => {});
+const getIo = async (): Promise<ServerIO | null> => {
+  const getCurrentIo = () =>
+    (globalThis as typeof globalThis & { __io?: ServerIO }).__io;
+  const currentIo = getCurrentIo();
+  if (currentIo) return currentIo;
+
+  if (!socketBootstrap) {
+    const port = process.env.PORT || "4000";
+    socketBootstrap = fetch(
+      `http://127.0.0.1:${port}/api/socket?t=${Date.now()}`,
+      { method: "GET", cache: "no-store" },
+    )
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Socket bootstrap returned HTTP ${response.status}`);
         }
-      } catch {
-        // ignore bootstrap attempt failure
-      }
-    }
-    return io ?? null;
-  } catch (e: any) {
-    console.error("[socketEmitter] getIo() exception:", e?.message || e);
-    return null;
+      })
+      .catch((error) => {
+        socketBootstrap = null;
+        console.error(
+          "[socketEmitter] Could not initialize the local Socket.IO server:",
+          error instanceof Error ? error.message : "Unknown error",
+        );
+      });
   }
+
+  await socketBootstrap;
+  return getCurrentIo() ?? null;
+};
+
+const emitRoomEvent = async (
+  io: ServerIO | null,
+  room: string,
+  event: string,
+  payload: unknown,
+): Promise<void> => {
+  try {
+    const published = await publishSocketRoomEvent(room, event, payload);
+    if (published) return;
+  } catch (error) {
+    console.error(
+      `[socketEmitter] Redis publish failed for ${event}:`,
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+
+  io?.to(room).emit(event, payload);
 };
 
 const normalizeMobile = (value?: string | null): string => {
@@ -466,6 +488,8 @@ const buildDirectNotification = async (
     return {
       kind: "direct",
       chatId: rawFromId,
+      messageId:
+        decryptedMessage.id || String(decryptedMessage._id ?? "") || undefined,
       chatName: senderName,
       chatAvatar: senderAvatar,
       fromUserId: rawFromId,
@@ -535,6 +559,8 @@ const buildGroupNotification = async (
       output[memberId] = {
         kind: "group",
         chatId: rawGroupId,
+        messageId:
+          decryptedMessage.id || String(decryptedMessage._id ?? "") || undefined,
         chatName: groupName,
         chatAvatar: groupAvatar,
         fromUserId: rawFromId,
@@ -559,11 +585,7 @@ export const emitDirectMessageReceived = async (
   rawToId: string,
   decryptedMessage: DecryptedMessage,
 ): Promise<void> => {
-  const io = getIo();
-
-  if (!io) {
-    return;
-  }
+  const io = await getIo();
 
   const fromId = toObjectId(rawFromId);
   const toId = toObjectId(rawToId);
@@ -583,8 +605,8 @@ export const emitDirectMessageReceived = async (
 
     const recipientCounts = await computeUnreadForUser(rawToId);
 
-    io.to(rawToId).emit("message:new", decryptedMessage);
-    io.to(rawToId).emit("unread:update", recipientCounts);
+    await emitRoomEvent(io, rawToId, "message:new", decryptedMessage);
+    await emitRoomEvent(io, rawToId, "unread:update", recipientCounts);
 
     const notification = await buildDirectNotification(
       rawFromId,
@@ -595,7 +617,7 @@ export const emitDirectMessageReceived = async (
 
     if (notification) {
       console.log("[socketEmitter] Emitting message:notify to", rawToId, { kind: notification.kind, from: notification.fromUserId });
-      io.to(rawToId).emit("message:notify", notification);
+      await emitRoomEvent(io, rawToId, "message:notify", notification);
       const adminNotification: AdminNotificationPayload = {
         kind: notification.kind,
         chatId: notification.chatId,
@@ -606,15 +628,20 @@ export const emitDirectMessageReceived = async (
         fromAvatar: notification.fromAvatar,
         timestamp: notification.timestamp,
       };
-      io.to(`admin-notifications:${rawToId}`).emit(
+      await emitRoomEvent(
+        io,
+        `admin-notifications:${rawToId}`,
         "admin:message:notify",
         adminNotification,
       );
     } else {
       console.warn("[socketEmitter] buildDirectNotification returned null - skipping notification emit");
     }
-  } catch (e: any) {
-    console.error("[socketEmitter] emitDirectMessageReceived error:", e?.message || e);
+  } catch (error: unknown) {
+    console.error(
+      "[socketEmitter] emitDirectMessageReceived error:",
+      error instanceof Error ? error.message : String(error),
+    );
     return;
   }
 };
@@ -630,11 +657,7 @@ export const emitGroupMessageReceived = async (
   >,
   decryptedMessage: DecryptedMessage,
 ): Promise<void> => {
-  const io = getIo();
-
-  if (!io) {
-    return;
-  }
+  const io = await getIo();
 
   const groupId = toObjectId(rawGroupId);
   const fromId = toObjectId(rawFromId);
@@ -694,7 +717,12 @@ export const emitGroupMessageReceived = async (
       recipientIds.map(async (memberId) => {
         await redisDel(`unread:${memberId}`);
 
-        io.to(memberId).emit("unread:update", unreadCountsByMember[memberId]);
+        await emitRoomEvent(
+          io,
+          memberId,
+          "unread:update",
+          unreadCountsByMember[memberId],
+        );
       }),
     );
 
@@ -712,27 +740,36 @@ export const emitGroupMessageReceived = async (
     } else {
       console.warn("[socketEmitter] buildGroupNotification returned empty map - skipping group", rawGroupId);
     }
-    for (const [memberId, notification] of Object.entries(notifications)) {
-      console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId });
-      io.to(memberId).emit("group:message:new", decryptedMessage);
-      io.to(memberId).emit("message:notify", notification);
-      const adminNotification: AdminNotificationPayload = {
-        kind: notification.kind,
-        chatId: notification.chatId,
-        chatName: notification.chatName,
-        chatAvatar: notification.chatAvatar,
-        fromUserId: notification.fromUserId,
-        fromName: notification.fromName,
-        fromAvatar: notification.fromAvatar,
-        timestamp: notification.timestamp,
-      };
-      io.to(`admin-notifications:${memberId}`).emit(
-        "admin:message:notify",
-        adminNotification,
-      );
-    }
-  } catch (e: any) {
-    console.error("[socketEmitter] emitGroupMessageReceived error:", e?.message || e);
+    await Promise.all(
+      Object.entries(notifications).map(
+        async ([memberId, notification]) => {
+          console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId });
+          await emitRoomEvent(io, memberId, "group:message:new", decryptedMessage);
+          await emitRoomEvent(io, memberId, "message:notify", notification);
+          const adminNotification: AdminNotificationPayload = {
+            kind: notification.kind,
+            chatId: notification.chatId,
+            chatName: notification.chatName,
+            chatAvatar: notification.chatAvatar,
+            fromUserId: notification.fromUserId,
+            fromName: notification.fromName,
+            fromAvatar: notification.fromAvatar,
+            timestamp: notification.timestamp,
+          };
+          await emitRoomEvent(
+            io,
+            `admin-notifications:${memberId}`,
+            "admin:message:notify",
+            adminNotification,
+          );
+        },
+      ),
+    );
+  } catch (error: unknown) {
+    console.error(
+      "[socketEmitter] emitGroupMessageReceived error:",
+      error instanceof Error ? error.message : String(error),
+    );
     return;
   }
 };
@@ -740,11 +777,7 @@ export const emitGroupMessageReceived = async (
 export const emitConversationRead = async (
   rawUserId: string,
 ): Promise<void> => {
-  const io = getIo();
-
-  if (!io) {
-    return;
-  }
+  const io = await getIo();
 
   const userId = toObjectId(rawUserId);
 
@@ -757,8 +790,12 @@ export const emitConversationRead = async (
 
     const counts = await computeUnreadForUser(rawUserId);
 
-    io.to(rawUserId).emit("unread:update", counts);
-  } catch {
+    await emitRoomEvent(io, rawUserId, "unread:update", counts);
+  } catch (error: unknown) {
+    console.error(
+      "[socketEmitter] emitConversationRead error:",
+      error instanceof Error ? error.message : String(error),
+    );
     return;
   }
 };

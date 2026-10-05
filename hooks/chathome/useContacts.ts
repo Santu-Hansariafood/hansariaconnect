@@ -27,7 +27,7 @@ export const useContacts = (userId?: string | number) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const hasLoadedConversations = useRef(false);
-  const { onlineUserIds } = useSocket();
+  const { onlineUserIds, socket } = useSocket();
   const { bootstrapData } = useApp();
 
   const mergeSavedContacts = useCallback((savedContacts: any[]) => {
@@ -162,6 +162,17 @@ export const useContacts = (userId?: string | number) => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+    const refreshConversations = () => {
+      void loadConversations();
+    };
+    socket.on("connect", refreshConversations);
+    return () => {
+      socket.off("connect", refreshConversations);
+    };
+  }, [loadConversations, socket]);
 
   useEffect(() => {
     void loadSavedContacts();

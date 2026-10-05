@@ -209,7 +209,10 @@ export const preloadLastSeenForUsers = async (
   }
 
   const needFetch = validIds.filter((userId) => {
-    return !Object.prototype.hasOwnProperty.call(lastSeenCache, userId);
+    return (
+      !Object.prototype.hasOwnProperty.call(lastSeenCache, userId) ||
+      !lastSeenCache[userId]?.timestamp
+    );
   });
 
   if (needFetch.length === 0) {
@@ -475,6 +478,38 @@ export const useLastSeen = (userId: string | undefined) => {
       window.clearInterval(interval);
     };
   }, [userId, isOnline, lastSeenTime, computeStatus]);
+
+  useEffect(() => {
+    if (!userId || isOnline || lastSeenTime) return;
+
+    let cancelled = false;
+    const refreshLastSeen = async () => {
+      await preloadLastSeenForUsers([userId]);
+      if (cancelled || !mountedRef.current) return;
+
+      const cached = lastSeenCache[userId];
+      if (!cached?.timestamp) return;
+
+      const currentlyOnline = onlineUserIds.includes(userId);
+      setIsOnline(currentlyOnline);
+      setLastSeenTime(cached.timestamp);
+      setStatusText(computeStatus(currentlyOnline, cached.timestamp));
+    };
+
+    const interval = window.setInterval(() => {
+      void refreshLastSeen();
+    }, 30_000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshLastSeen();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [userId, isOnline, lastSeenTime, onlineUserIds, computeStatus]);
 
   useEffect(() => {
     if (!userId) {
