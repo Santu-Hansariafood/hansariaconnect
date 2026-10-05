@@ -84,9 +84,7 @@ export default function ChatWindowHeader({
   const borderColor = theme.primary ? theme.primary + "80" : "#0b4d45";
 
   return (
-    <motion.header
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+    <header
       style={{
         backgroundColor: primaryColor,
         borderBottomColor: borderColor,
@@ -258,6 +256,6 @@ export default function ChatWindowHeader({
           </motion.div>
         )}
       </div>
-    </motion.header>
+    </header>
   );
 }

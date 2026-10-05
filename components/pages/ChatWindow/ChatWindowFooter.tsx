@@ -40,6 +40,7 @@ interface ChatWindowFooterProps {
     selectedContactIds: string[],
     text: string,
   ) => Promise<void>;
+  sendTyping?: (isTyping: boolean) => void;
 }
 
 export default function ChatWindowFooter({
@@ -57,8 +58,14 @@ export default function ChatWindowFooter({
   contacts,
   onCloseForward,
   onForwardSubmit,
+  sendTyping,
 }: ChatWindowFooterProps) {
   const [isRecording, setIsRecording] = useState(false);
+
+  const handleSendWithTypingClear = () => {
+    sendTyping?.(false);
+    handleSend();
+  };
 
   const handleVoiceRecorded = async (blob: Blob, duration: number) => {
     setIsRecording(false);
@@ -70,9 +77,7 @@ export default function ChatWindowFooter({
 
   return (
     <Suspense fallback={<Loading />}>
-      <motion.div
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+      <div
         className="sticky bottom-0 z-30 w-full overflow-visible border-t border-[#e9edef] bg-[#f0f2f5] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:py-2.5"
       >
         <div className="mx-auto flex max-w-4xl items-center gap-1.5 sm:gap-2">
@@ -112,8 +117,14 @@ export default function ChatWindowFooter({
                 autoCorrect="on"
                 autoCapitalize="sentences"
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  if (e.target.value.trim()) {
+                    sendTyping?.(true);
+                  }
+                }}
+                onBlur={() => sendTyping?.(false)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendWithTypingClear()}
                 placeholder="Type a message..."
                 className="flex-1 min-w-0 rounded-full border border-transparent bg-white px-3 py-2.5 text-[14px] text-[#111b21] shadow-sm placeholder:text-[#667781] focus:border-[#009688] focus:outline-none sm:px-4 sm:text-[15px]"
               />
@@ -122,7 +133,7 @@ export default function ChatWindowFooter({
                 whileTap={{ scale: 0.92 }}
                 onClick={() => {
                   if (message.trim()) {
-                    handleSend();
+                    handleSendWithTypingClear();
                   } else {
                     setIsRecording(true);
                   }
@@ -165,7 +176,7 @@ export default function ChatWindowFooter({
             onForward={onForwardSubmit}
           />
         )}
-      </motion.div>
+      </div>
     </Suspense>
   );
 }

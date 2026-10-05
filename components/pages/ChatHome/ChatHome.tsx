@@ -19,7 +19,6 @@ import {
 import React from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { staggerContainer, fadeIn } from "@/utils/animations/animations";
 import { useContacts } from "@/hooks/chathome/useContacts";
 import { useFilteredContacts } from "@/hooks/chathome/useFilteredContacts";
 import { useCreateContact } from "@/hooks/chathome/useCreateContact";
@@ -456,14 +455,9 @@ export default function ChatHome({
               />
             </div>
           </motion.div>
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-            className="flex flex-col"
-          >
+          <div className="flex flex-col">
             {filteredContacts.map((contact) => (
-              <motion.div key={contact.id} {...fadeIn}>
+              <div key={contact.id}>
                 <ContactCard
                   contact={contact}
                   onClick={() => {
@@ -486,22 +480,18 @@ export default function ChatHome({
                     (contact.peerId || contact.registeredUserId || contact.id)
                   }
                 />
-              </motion.div>
+              </div>
             ))}
 
             {visibleGroups.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="px-4 pt-4 pb-1 flex items-center gap-2"
-              >
+              <div className="px-4 pt-4 pb-1 flex items-center gap-2">
                 <span
                   className={`text-[11px] font-semibold uppercase tracking-wide ${textMuted}`}
                 >
                   Groups
                 </span>
                 <span className={`flex-1 h-px ${borderColor}`} />
-              </motion.div>
+              </div>
             )}
             {visibleGroups.map((g: any) => {
               const isActive = selectedChatId === g.id;
@@ -590,7 +580,7 @@ export default function ChatHome({
                 </motion.button>
               );
             })}
-          </motion.div>
+          </div>
           {filteredContacts.length === 0 &&
             visibleGroups.length === 0 &&
             !loading && (

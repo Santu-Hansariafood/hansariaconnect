@@ -209,9 +209,7 @@ export default function NotificationManager() {
         payload.preview,
       );
 
-      if (document.visibilityState === "visible") {
-        playRingtone(preferences.ringtone || "chime");
-      }
+      playRingtone(preferences.ringtone || "chime");
 
       const notificationTitle =
         payload.kind === "group"
@@ -222,13 +220,14 @@ export default function NotificationManager() {
           ? "New message in a group"
           : "You have a new message"
         : payload.preview || "You have a new message";
-      if (document.visibilityState === "visible") {
-        addToast({
-          ...payload,
-          chatName: notificationTitle,
-          preview: notificationBody,
-        });
-      } else {
+
+      addToast({
+        ...payload,
+        chatName: notificationTitle,
+        preview: notificationBody,
+      });
+
+      if (!isActiveChat || document.visibilityState !== "visible") {
         showNotification(
           notificationTitle,
           notificationBody,

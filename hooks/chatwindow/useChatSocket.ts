@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import { useSocket } from "../useSocket";
 
 export const useChatSocket = (
@@ -9,6 +9,12 @@ export const useChatSocket = (
   isGroup: boolean = false,
 ) => {
   const { socket, addListener, removeListener } = useSocket();
+  const [typingUserIds, setTypingUserIds] = useState<string[]>([]);
+  const typingTimeoutsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const typingSendDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTypingSentRef = useRef<number>(0);
+  const TYPING_TIMEOUT_MS = 3500;
+  const TYPING_SEND_THROTTLE_MS = 1500;
 
   const handleNewDirectMessage = useCallback(
     (msg: any) => {
@@ -112,15 +118,121 @@ export const useChatSocket = (
     [setChatMessages],
   );
 
+  const addTypingUser = useCallback((fromId: string) => {
+    if (!fromId) return;
+    setTypingUserIds((prev) => (prev.includes(fromId) ? prev : [...prev, fromId]));
+    const existing = typingTimeoutsRef.current.get(fromId);
+    if (existing) clearTimeout(existing);
+    const timeout = setTimeout(() => {
+      setTypingUserIds((prev) => prev.filter((uid) => uid !== fromId));
+      typingTimeoutsRef.current.delete(fromId);
+    }, TYPING_TIMEOUT_MS);
+    typingTimeoutsRef.current.set(fromId, timeout);
+  }, [TYPING_TIMEOUT_MS]);
+
+  const removeTypingUser = useCallback((fromId: string) => {
+    if (!fromId) return;
+    const existing = typingTimeoutsRef.current.get(fromId);
+    if (existing) clearTimeout(existing);
+    typingTimeoutsRef.current.delete(fromId);
+    setTypingUserIds((prev) => prev.filter((uid) => uid !== fromId));
+  }, []);
+
+  const handleTypingStart = useCallback(
+    (data: { from?: string; peerId?: string; groupId?: string }) => {
+      const fromId = String(data?.from || "");
+      if (!fromId) return;
+      if (isGroup) {
+        if (String(data?.groupId || "") === id) addTypingUser(fromId);
+      } else {
+        const peerId = String(data?.peerId || "");
+        if (peerId === id || fromId === id) addTypingUser(fromId);
+      }
+    },
+    [id, isGroup, addTypingUser],
+  );
+
+  const handleTypingStop = useCallback(
+    (data: { from?: string; peerId?: string; groupId?: string }) => {
+      const fromId = String(data?.from || "");
+      if (!fromId) return;
+      if (isGroup) {
+        if (String(data?.groupId || "") === id) removeTypingUser(fromId);
+      } else {
+        const peerId = String(data?.peerId || "");
+        if (peerId === id || fromId === id) removeTypingUser(fromId);
+      }
+    },
+    [id, isGroup, removeTypingUser],
+  );
+
+  const sendTyping = useCallback(
+    (isTyping: boolean) => {
+      if (!socket || !id) return;
+      const now = Date.now();
+
+      if (isTyping) {
+        if (now - lastTypingSentRef.current < TYPING_SEND_THROTTLE_MS) return;
+        lastTypingSentRef.current = now;
+        try {
+          socket.emit("typing:start", isGroup ? { groupId: id } : { peerId: id });
+        } catch {}
+        if (typingSendDebounceRef.current) clearTimeout(typingSendDebounceRef.current);
+        typingSendDebounceRef.current = setTimeout(() => {
+          try {
+            socket.emit("typing:stop", isGroup ? { groupId: id } : { peerId: id });
+          } catch {}
+        }, TYPING_TIMEOUT_MS);
+      } else {
+        if (typingSendDebounceRef.current) {
+          clearTimeout(typingSendDebounceRef.current);
+          typingSendDebounceRef.current = null;
+        }
+        try {
+          socket.emit("typing:stop", isGroup ? { groupId: id } : { peerId: id });
+        } catch {}
+      }
+    },
+    [socket, id, isGroup, TYPING_SEND_THROTTLE_MS, TYPING_TIMEOUT_MS],
+  );
+
+  useEffect(() => {
+    // When a new message arrives from a typing user, clear their typing indicator
+    const clearTypingForSender = (fromVal: any) => {
+      const fromId = String(fromVal || "");
+      if (fromId) removeTypingUser(fromId);
+    };
+
+    const origHandleNew = handleNewDirectMessage;
+    const origHandleGroupNew = handleNewGroupMessage;
+    // We'll patch the clear into the existing handlers via separate listeners below
+    const clearDirectTyping = (msg: any) => clearTypingForSender(msg?.from);
+    const clearGroupTyping = (msg: any) => {
+      if (String(msg?.groupId || "") === id) clearTypingForSender(msg?.from);
+    };
+
+    addListener("message:new", clearDirectTyping);
+    addListener("group:message:new", clearGroupTyping);
+
+    return () => {
+      removeListener("message:new", clearDirectTyping);
+      removeListener("group:message:new", clearGroupTyping);
+    };
+  }, [addListener, removeListener, handleNewDirectMessage, handleNewGroupMessage, id, removeTypingUser]);
+
   useEffect(() => {
     addListener("message:new", handleNewDirectMessage);
     addListener("group:message:new", handleNewGroupMessage);
     addListener("message:status:update", handleStatusUpdate);
+    addListener("typing:start", handleTypingStart);
+    addListener("typing:stop", handleTypingStop);
 
     return () => {
       removeListener("message:new", handleNewDirectMessage);
       removeListener("group:message:new", handleNewGroupMessage);
       removeListener("message:status:update", handleStatusUpdate);
+      removeListener("typing:start", handleTypingStart);
+      removeListener("typing:stop", handleTypingStop);
     };
   }, [
     addListener,
@@ -128,7 +240,18 @@ export const useChatSocket = (
     handleNewDirectMessage,
     handleNewGroupMessage,
     handleStatusUpdate,
+    handleTypingStart,
+    handleTypingStop,
   ]);
+
+  useEffect(() => {
+    return () => {
+      typingTimeoutsRef.current.forEach((t) => clearTimeout(t));
+      typingTimeoutsRef.current.clear();
+      if (typingSendDebounceRef.current) clearTimeout(typingSendDebounceRef.current);
+      setTypingUserIds([]);
+    };
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -173,5 +296,5 @@ export const useChatSocket = (
     };
   }, [id, isGroup, mergeUnique, setChatMessages, socket]);
 
-  return socket;
+  return { socket, typingUserIds, sendTyping };
 };

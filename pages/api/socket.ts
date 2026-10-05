@@ -550,6 +550,64 @@ export default async function handler(
           }
         });
 
+        socket.on("typing:start", async (payload: { peerId?: string; groupId?: string }) => {
+          try {
+            const peerId = String(payload?.peerId ?? "");
+            const groupId = String(payload?.groupId ?? "");
+
+            if (groupId && Types.ObjectId.isValid(groupId)) {
+              const group = await Group.findById(groupId).select("members").lean();
+              if (group) {
+                const memberIds = (group.members || [])
+                  .map((m: any) => String(m.userId ?? ""))
+                  .filter((id: string) => id && id !== userId);
+                memberIds.forEach((memberId: string) => {
+                  io.to(memberId).emit("typing:start", {
+                    from: userId,
+                    groupId,
+                  });
+                });
+              }
+              return;
+            }
+
+            if (peerId && Types.ObjectId.isValid(peerId)) {
+              io.to(peerId).emit("typing:start", { from: userId, peerId });
+            }
+          } catch (error) {
+            console.warn("[Socket.IO] typing:start handler error:", error instanceof Error ? error.message : error);
+          }
+        });
+
+        socket.on("typing:stop", async (payload: { peerId?: string; groupId?: string }) => {
+          try {
+            const peerId = String(payload?.peerId ?? "");
+            const groupId = String(payload?.groupId ?? "");
+
+            if (groupId && Types.ObjectId.isValid(groupId)) {
+              const group = await Group.findById(groupId).select("members").lean();
+              if (group) {
+                const memberIds = (group.members || [])
+                  .map((m: any) => String(m.userId ?? ""))
+                  .filter((id: string) => id && id !== userId);
+                memberIds.forEach((memberId: string) => {
+                  io.to(memberId).emit("typing:stop", {
+                    from: userId,
+                    groupId,
+                  });
+                });
+              }
+              return;
+            }
+
+            if (peerId && Types.ObjectId.isValid(peerId)) {
+              io.to(peerId).emit("typing:stop", { from: userId, peerId });
+            }
+          } catch (error) {
+            console.warn("[Socket.IO] typing:stop handler error:", error instanceof Error ? error.message : error);
+          }
+        });
+
         socket.on("group:message:send", async (payload, cb) => {
           try {
             const parsedPayload = groupMessagePayloadSchema.safeParse(payload);

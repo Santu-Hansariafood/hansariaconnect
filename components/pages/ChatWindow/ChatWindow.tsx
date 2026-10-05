@@ -148,13 +148,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const getMessageId = (msg?: ChatMessage) =>
     extractId(msg?._id) || extractId(msg?.id);
 
-  const socket = useChatSocket(
+  const { socket, typingUserIds, sendTyping } = useChatSocket(
     chatId,
     setChatMessages,
     mergeUnique,
     undefined,
     isGroup,
   );
+
+  const typingUsers = useMemo(() => {
+    if (!typingUserIds.length) return [];
+    if (!isGroup) return [headerName];
+    const names: string[] = [];
+    typingUserIds.forEach((uid) => {
+      const member = groupMembers.find(
+        (m) => String(m.id) === String(uid),
+      );
+      if (member?.name) names.push(member.name);
+    });
+    return names;
+  }, [typingUserIds, isGroup, headerName, groupMembers]);
 
   const { containerRef, hasMore, setHasMore, handleScroll } = useInfiniteScroll(
     chatId,
@@ -947,6 +960,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             showUnreadBanner={showUnreadBanner}
             unreadOnOpen={unreadOnOpen}
             unreadDividerRef={unreadDividerRef}
+            typingUsers={typingUsers}
           />
           <div ref={messagesEndRef} />
         </div>
@@ -966,6 +980,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           contacts={contacts}
           onCloseForward={() => setShowForwardModal(false)}
           onForwardSubmit={handleForwardSubmit}
+          sendTyping={sendTyping}
         />
 
         <ChatWindowModals

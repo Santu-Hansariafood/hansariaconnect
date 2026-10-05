@@ -12,16 +12,30 @@ const ringtonePatterns: Record<
   Array<{ start: number; duration: number; freq: number; type?: OscillatorType; volume?: number }>
 > = {
   chime: [
-    { start: 0, duration: 0.12, freq: 880, type: "triangle", volume: 0.12 },
-    { start: 0.18, duration: 0.14, freq: 660, type: "triangle", volume: 0.1 },
+    { start: 0, duration: 0.18, freq: 1200, type: "sine", volume: 0.22 },
+    { start: 0.22, duration: 0.22, freq: 900, type: "sine", volume: 0.2 },
+    { start: 0.48, duration: 0.28, freq: 1500, type: "sine", volume: 0.18 },
   ],
   pulse: [
-    { start: 0, duration: 0.08, freq: 780, type: "square", volume: 0.15 },
-    { start: 0.12, duration: 0.08, freq: 780, type: "square", volume: 0.15 },
+    { start: 0, duration: 0.12, freq: 900, type: "sine", volume: 0.2 },
+    { start: 0.14, duration: 0.12, freq: 900, type: "sine", volume: 0.2 },
+    { start: 0.3, duration: 0.16, freq: 1100, type: "sine", volume: 0.18 },
   ],
   spark: [
-    { start: 0, duration: 0.06, freq: 1320, type: "sine", volume: 0.1 },
-    { start: 0.08, duration: 0.1, freq: 990, type: "sine", volume: 0.08 },
+    { start: 0, duration: 0.08, freq: 1600, type: "sine", volume: 0.18 },
+    { start: 0.1, duration: 0.1, freq: 1200, type: "sine", volume: 0.16 },
+    { start: 0.22, duration: 0.14, freq: 1800, type: "sine", volume: 0.14 },
+  ],
+  whatsapp: [
+    { start: 0, duration: 0.12, freq: 1318, type: "sine", volume: 0.25 },
+    { start: 0.14, duration: 0.12, freq: 1046, type: "sine", volume: 0.22 },
+    { start: 0.3, duration: 0.18, freq: 1568, type: "sine", volume: 0.2 },
+    { start: 0.5, duration: 0.22, freq: 2093, type: "sine", volume: 0.18 },
+  ],
+  bell: [
+    { start: 0, duration: 0.35, freq: 880, type: "triangle", volume: 0.2 },
+    { start: 0.04, duration: 0.3, freq: 1318, type: "triangle", volume: 0.15 },
+    { start: 0.08, duration: 0.25, freq: 1760, type: "triangle", volume: 0.1 },
   ],
   none: [],
 };
