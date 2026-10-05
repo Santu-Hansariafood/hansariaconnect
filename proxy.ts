@@ -80,7 +80,7 @@ const isValidObjectId = (id: string): boolean => {
   return /^[0-9a-fA-F]{24}$/.test(id);
 };
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { nextUrl, headers } = req;
 
   const host = headers.get("host") || "";

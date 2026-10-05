@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext/AppContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useSocket } from "@/hooks/useSocket";
@@ -21,15 +22,37 @@ type NotifyPayload = {
   timestamp?: string | Date;
 };
 
+type ToastNotification = NotifyPayload & { id: number };
+
 const buildUrlFromPayload = (p: NotifyPayload) =>
   p.kind === "direct" ? `/chat/${p.chatId}` : `/chat/${p.chatId}?group=true`;
 
 export default function NotificationManager() {
   const { user } = useApp();
+  const router = useRouter();
   const pathname = usePathname();
   const { addListener, removeListener } = useSocket();
   const { preferences, playRingtone, showNotification } = useNotifications();
   const activeChatId = useRef<string | null>(null);
+  const nextToastId = useRef(0);
+  const toastTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  const [toasts, setToasts] = useState<ToastNotification[]>([]);
+
+  const dismissToast = useCallback((id: number) => {
+    const timer = toastTimers.current.get(id);
+    if (timer) clearTimeout(timer);
+    toastTimers.current.delete(id);
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const addToast = useCallback((payload: NotifyPayload) => {
+    const id = ++nextToastId.current;
+    setToasts((current) => [...current.slice(-2), { ...payload, id }]);
+    toastTimers.current.set(
+      id,
+      setTimeout(() => dismissToast(id), 6000),
+    );
+  }, [dismissToast]);
 
   useEffect(() => {
     if (!pathname?.startsWith("/chat/")) {
@@ -131,13 +154,17 @@ export default function NotificationManager() {
 
       if (!isActiveChat) {
         playRingtone(preferences.ringtone || "chime");
-        showNotification(
-          payload.chatName ||
-            (payload.kind === "direct" ? "New message" : "New group message"),
-          payload.preview || "You have a new message",
-          `${payload.kind}-${payload.chatId}-${Date.now()}`,
-          buildUrlFromPayload(payload),
-        );
+        if (document.visibilityState === "visible") {
+          addToast(payload);
+        } else {
+          showNotification(
+            payload.chatName ||
+              (payload.kind === "direct" ? "New message" : "New group message"),
+            payload.preview || "You have a new message",
+            `${payload.kind}-${payload.chatId}-${Date.now()}`,
+            buildUrlFromPayload(payload),
+          );
+        }
       } else {
         console.log(
           "[NotificationManager] ⏭️ Skipping notification - user is currently viewing this chat",
@@ -160,8 +187,83 @@ export default function NotificationManager() {
     playRingtone,
     removeListener,
     showNotification,
+    addToast,
     user,
   ]);
 
-  return null;
+  useEffect(
+    () => () => {
+      toastTimers.current.forEach((timer) => clearTimeout(timer));
+      toastTimers.current.clear();
+    },
+    [],
+  );
+
+  return (
+    <div
+      aria-live="polite"
+      aria-relevant="additions"
+      className="pointer-events-none fixed right-4 top-4 z-[100] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+    >
+      {toasts.map((toast) => (
+        <div
+          key={toast.id}
+          className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-3 shadow-xl shadow-black/15"
+        >
+          <button
+            type="button"
+            onClick={() => {
+              dismissToast(toast.id);
+              router.push(buildUrlFromPayload(toast));
+            }}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            aria-label={`Open chat with ${toast.fromName}`}
+          >
+            <Image
+              src={toast.fromAvatar || toast.chatAvatar || "/logo/logo.png"}
+              alt=""
+              width={44}
+              height={44}
+              unoptimized
+              onError={(event) => {
+                event.currentTarget.src = "/logo/logo.png";
+              }}
+              className="h-11 w-11 shrink-0 rounded-full object-cover"
+            />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm font-semibold text-gray-900">
+                  {toast.kind === "group"
+                    ? toast.chatName || "Group"
+                    : toast.fromName || "New message"}
+                </span>
+                <span className="shrink-0 text-xs text-gray-400">now</span>
+              </span>
+              {toast.kind === "group" && (
+                <span className="block truncate text-xs font-medium text-emerald-700">
+                  {toast.fromName}
+                </span>
+              )}
+              <span className="block truncate text-sm text-gray-600">
+                {toast.kind === "group" &&
+                toast.preview.startsWith(`${toast.fromName}: `)
+                  ? toast.preview.slice(toast.fromName.length + 2)
+                  : toast.preview || "You have a new message"}
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => dismissToast(toast.id)}
+            aria-label="Dismiss notification"
+            className="self-start rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            <span aria-hidden="true" className="text-lg leading-none">
+              ×
+            </span>
+          </button>
+        </div>
+      ))}
+    </div>
+  );
 }
