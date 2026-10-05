@@ -11,21 +11,35 @@ let socketInstance: Socket | null = null;
 let socketConnectPromise: Promise<Socket> | null = null;
 let socketListeners: Array<{ type: string; handler: SocketHandler }> = [];
 let onlineListeners: Array<(ids: string[]) => void> = [];
+let onlineUsersSnapshot: string[] = [];
+
+const publishOnlineUsers = (update: (current: string[]) => string[]) => {
+  onlineUsersSnapshot = [...new Set(update(onlineUsersSnapshot))];
+  onlineListeners.forEach((listener) => listener(onlineUsersSnapshot));
+};
 
 export const useSocket = () => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const isInitializedRef = useRef(false);
+  const syncOnlineUsers = useCallback((ids: string[]) => {
+    setOnlineUserIds(ids);
+  }, []);
 
   const connect = useCallback(async (): Promise<Socket> => {
     if (socketInstance) {
       if (!socketInstance.connected && !socketInstance.active) {
         socketInstance.connect();
       }
+      setSocket(socketInstance);
       return socketInstance;
     }
 
-    if (socketConnectPromise) return socketConnectPromise;
+    if (socketConnectPromise) {
+      const sharedSocket = await socketConnectPromise;
+      setSocket(sharedSocket);
+      return sharedSocket;
+    }
 
     socketConnectPromise = (async () => {
       const response = await fetch("/api/socket", {
@@ -64,8 +78,7 @@ export const useSocket = () => {
       });
 
       s.on("disconnect", (reason: string) => {
-        setOnlineUserIds([]);
-        onlineListeners.forEach((listener) => listener([]));
+        publishOnlineUsers(() => []);
         if (reason === "io server disconnect") s.connect();
       });
 
@@ -90,16 +103,17 @@ export const useSocket = () => {
       });
 
       s.on("users:online", (ids: string[]) => {
-        setOnlineUserIds(ids);
-        onlineListeners.forEach((listener) => listener(ids));
+        publishOnlineUsers(() => (Array.isArray(ids) ? ids : []));
       });
       s.on("user:online", ({ userId }: { userId?: string }) => {
         if (!userId) return;
-        setOnlineUserIds((current) => current.includes(userId) ? current : [...current, userId]);
+        publishOnlineUsers((current) =>
+          current.includes(userId) ? current : [...current, userId],
+        );
       });
       s.on("user:offline", ({ userId }: { userId?: string }) => {
         if (!userId) return;
-        setOnlineUserIds((current) => current.filter((id) => id !== userId));
+        publishOnlineUsers((current) => current.filter((id) => id !== userId));
       });
 
       socketListeners.forEach(({ type, handler }) =>
@@ -141,11 +155,17 @@ export const useSocket = () => {
 
   const addOnlineListener = useCallback((listener: (ids: string[]) => void) => {
     onlineListeners.push(listener);
+    listener(onlineUsersSnapshot);
   }, []);
 
   const removeOnlineListener = useCallback((listener: (ids: string[]) => void) => {
     onlineListeners = onlineListeners.filter((l) => l !== listener);
   }, []);
+
+  useEffect(() => {
+    addOnlineListener(syncOnlineUsers);
+    return () => removeOnlineListener(syncOnlineUsers);
+  }, [addOnlineListener, removeOnlineListener, syncOnlineUsers]);
 
   useEffect(() => {
     const initialize = () => {
@@ -165,5 +185,12 @@ export const useSocket = () => {
     };
   }, [connect]);
 
-  return { socket, onlineUserIds, addListener, removeListener, addOnlineListener, removeOnlineListener };
+  return {
+    socket,
+    onlineUserIds,
+    addListener,
+    removeListener,
+    addOnlineListener,
+    removeOnlineListener,
+  };
 };

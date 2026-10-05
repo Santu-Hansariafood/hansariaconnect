@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
-import { CacheKeys, TTL, redisGet, redisSet, redisDel } from "@/lib/redis/redis";
 import { apiError, requireUser } from "@/lib/api/request";
 
 const toObjectId = (value: string): Types.ObjectId | null => {
@@ -46,12 +45,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ users: {} });
     }
 
-    const cacheKey = CacheKeys.lastSeenBatch(validIds);
-    const cached = await redisGet<{ users: Record<string, { lastSeen: string | null; isOnlineNow: boolean }> }>(cacheKey);
-    if (cached && typeof cached.users === "object") {
-      return NextResponse.json(cached);
-    }
-
     await connectDB();
 
     const users = await User.find({
@@ -83,7 +76,6 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    void redisSet(cacheKey, { users: result }, TTL.statuses);
     return NextResponse.json({ users: result });
   } catch (error: unknown) {
     return apiError(error, "GET /api/last-seen");
@@ -112,7 +104,6 @@ export async function POST(req: NextRequest) {
     }
 
     await User.findByIdAndUpdate(userId, { $set: { lastSeenAt: now } }).catch(() => {});
-    await redisDel(CacheKeys.lastSeenSingle(rawUserId));
 
     return NextResponse.json({ ok: true, lastSeenAt: now.toISOString() });
   } catch (error: unknown) {

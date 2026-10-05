@@ -136,7 +136,7 @@ export const formatLastSeenText = (
 
 const fetchLastSeenFromApi = async (
   userIds: string[],
-): Promise<Record<string, Date | null>> => {
+): Promise<Record<string, Date | null> | null> => {
   const result: Record<string, Date | null> = {};
 
   if (userIds.length === 0) {
@@ -164,7 +164,10 @@ const fetchLastSeenFromApi = async (
     });
 
     if (!response.ok) {
-      return result;
+      console.warn(
+        `[useLastSeen] Last-seen request failed with HTTP ${response.status}.`,
+      );
+      return null;
     }
 
     const data = await response.json();
@@ -187,7 +190,8 @@ const fetchLastSeenFromApi = async (
       }
     }
   } catch {
-    // Ignore API errors.
+    console.warn("[useLastSeen] Could not load last-seen data.");
+    return null;
   }
 
   return result;
@@ -222,6 +226,7 @@ export const preloadLastSeenForUsers = async (
   const promise = (async () => {
     try {
       const serverData = await fetchLastSeenFromApi(needFetch);
+      if (!serverData) return;
 
       for (const userId of needFetch) {
         const existing = lastSeenCache[userId];

@@ -57,7 +57,7 @@ export default function NotificationManager() {
 
   const addToast = useCallback((payload: NotifyPayload) => {
     const id = ++nextToastId.current;
-    setToasts((current) => [...current.slice(-2), { ...payload, id }]);
+    setToasts((current) => [{ ...payload, id }, ...current].slice(0, 3));
     toastTimers.current.set(
       id,
       setTimeout(() => dismissToast(id), 6000),
@@ -199,8 +199,11 @@ export default function NotificationManager() {
         payload.preview,
       );
 
-      if (!isActiveChat) {
+      if (document.visibilityState === "visible") {
         playRingtone(preferences.ringtone || "chime");
+      }
+
+      if (!isActiveChat) {
         const notificationTitle =
           payload.kind === "group"
             ? payload.chatName || "New group message"

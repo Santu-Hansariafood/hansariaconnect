@@ -243,8 +243,6 @@ export const useContacts = (userId?: string | number) => {
 
   // Only update active status for changed users, not all contacts
   useEffect(() => {
-    if (onlineUserIds.length === 0) return;
-    
     setContacts(prev => {
       const needsUpdate = prev.some(contact => {
         const peerId = contact.registeredUserId || contact.peerId || contact.id;

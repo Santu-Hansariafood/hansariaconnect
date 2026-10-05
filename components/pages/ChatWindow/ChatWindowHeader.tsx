@@ -151,9 +151,9 @@ export default function ChatWindowHeader({
           <span
             className={`truncate text-[12px] ${
               !isGroup &&
-              (isContactOnline || lastSeenStatus?.includes("online"))
+              (isContactOnline || lastSeenStatus?.toLowerCase().includes("online"))
                 ? "text-emerald-200"
-                : "text-gray-200"
+                : "text-white/90"
             }`}
           >
             {isGroup
