@@ -4,12 +4,6 @@ import { useEffect, useState } from "react";
 
 export const useSettings = () => {
   const [initialTheme, setInitialTheme] = useState<any>(null);
-  const [notifications, setNotifications] = useState({
-    messages: true,
-    groups: true,
-    enabled: true,
-    ringtone: "chime",
-  });
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -21,7 +15,6 @@ export const useSettings = () => {
 
         if (res.ok) {
           if (data.theme) setInitialTheme(data.theme);
-          if (data.notifications) setNotifications(data.notifications);
         }
       } catch (err) {
         console.log("Settings load failed", err);
@@ -31,5 +24,5 @@ export const useSettings = () => {
     loadSettings();
   }, []);
 
-  return { initialTheme, notifications, setNotifications };
+  return { initialTheme };
 };

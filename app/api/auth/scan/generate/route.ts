@@ -1,37 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytesHex } from "@/lib/crypto";
+import { connectDB } from "@/lib/db/db";
+import ScanLogin from "@/models/auth/ScanLogin";
 
 export const runtime = "nodejs";
 
-const scanTokens = new Map<
-  string,
-  {
-    token: string;
-    createdAt: number;
-    used: boolean;
-    mobile?: string;
-  }
->();
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, token] of scanTokens) {
-    if (now - token.createdAt > 5 * 60 * 1000) {
-      scanTokens.delete(key);
-    }
-  }
-}, 60 * 1000);
-
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
     const token = await randomBytesHex(32);
-    const scanData = {
-      token,
-      createdAt: Date.now(),
-      used: false,
-    };
-
-    scanTokens.set(token, scanData);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+    await connectDB();
+    await ScanLogin.deleteMany({ expiresAt: { $lte: new Date() } });
+    await ScanLogin.create({ token, expiresAt });
 
     return NextResponse.json({
       success: true,
@@ -48,46 +28,41 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const token = searchParams.get("token");
+  try {
+    const { searchParams } = new URL(req.url);
+    const token = searchParams.get("token");
 
-  if (!token) {
+    if (!token || !/^[a-f0-9]{64}$/i.test(token)) {
+      return NextResponse.json(
+        { success: false, error: "Valid token required" },
+        { status: 400 },
+      );
+    }
+
+    await connectDB();
+    const scanData = await ScanLogin.findOne({
+      token,
+      expiresAt: { $gt: new Date() },
+    }).lean();
+    if (!scanData) {
+      return NextResponse.json(
+        { success: false, error: "Invalid or expired token" },
+        { status: 404 },
+      );
+    }
+
     return NextResponse.json(
-      { success: false, error: "Token required" },
-      { status: 400 },
+      {
+        success: true,
+        ready: Boolean(scanData.mobile) && !scanData.used,
+        used: scanData.used,
+      },
+    );
+  } catch (error) {
+    console.error("Check Scan Token Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to check login token" },
+      { status: 500 },
     );
   }
-
-  const scanData = scanTokens.get(token);
-  if (!scanData) {
-    return NextResponse.json(
-      { success: false, error: "Invalid token" },
-      { status: 404 },
-    );
-  }
-
-  if (Date.now() - scanData.createdAt > 5 * 60 * 1000) {
-    scanTokens.delete(token);
-    return NextResponse.json(
-      { success: false, error: "Token expired" },
-      { status: 403 },
-    );
-  }
-
-  if (scanData.used) {
-    return NextResponse.json(
-      { success: false, error: "Token already used" },
-      { status: 403 },
-    );
-  }
-
-  return NextResponse.json({
-    success: true,
-    ready: !!scanData.mobile,
-    mobile: scanData.mobile,
-  });
 }
-
-export const getScanToken = (token: string) => scanTokens.get(token);
-export const setScanToken = (token: string, data: any) =>
-  scanTokens.set(token, data);

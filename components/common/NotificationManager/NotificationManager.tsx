@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useApp } from "@/context/AppContext/AppContext";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -32,12 +31,17 @@ const buildUrlFromPayload = (p: NotifyPayload, adminSurface = false) => {
   return path;
 };
 
-export default function NotificationManager() {
-  const { user } = useApp();
+type NotificationManagerProps = {
+  userId?: string | null;
+};
+
+export default function NotificationManager({
+  userId,
+}: NotificationManagerProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { addListener, removeListener } = useSocket();
-  const { preferences, playRingtone, showNotification } = useNotifications();
+  const { preferences, playRingtone, showNotification } = useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());
   const nextToastId = useRef(0);
@@ -139,12 +143,12 @@ export default function NotificationManager() {
   useEffect(() => {
     if (
       !preferences.enabled ||
-      (isAdminSurface ? !adminUserId : !user)
+      (isAdminSurface ? !adminUserId : !userId)
     ) {
       return;
     }
 
-    const currentUserId = isAdminSurface ? getId(adminUserId) : getId(user?.id);
+    const currentUserId = isAdminSurface ? getId(adminUserId) : getId(userId);
     console.log(
       "[NotificationManager] Setting up socket listeners for user:",
       currentUserId,
@@ -209,8 +213,6 @@ export default function NotificationManager() {
         payload.preview,
       );
 
-      playRingtone(preferences.ringtone || "chime");
-
       const notificationTitle =
         payload.kind === "group"
           ? payload.chatName || "New group message"
@@ -220,14 +222,20 @@ export default function NotificationManager() {
           ? "New message in a group"
           : "You have a new message"
         : payload.preview || "You have a new message";
+      const isPageVisible = document.visibilityState === "visible";
+      const isFocusedConversation = Boolean(isActiveChat && isPageVisible);
 
-      addToast({
-        ...payload,
-        chatName: notificationTitle,
-        preview: notificationBody,
-      });
-
-      if (!isActiveChat || document.visibilityState !== "visible") {
+      if (!isFocusedConversation) {
+        playRingtone(preferences.ringtone || "chime");
+      }
+      if (isPageVisible && !isActiveChat) {
+        addToast({
+          ...payload,
+          chatName: notificationTitle,
+          preview: notificationBody,
+        });
+      }
+      if (!isPageVisible) {
         showNotification(
           notificationTitle,
           notificationBody,
@@ -237,82 +245,14 @@ export default function NotificationManager() {
       }
     };
 
-    const handleMessageFallback = (
-      message: {
-        id?: string;
-        _id?: string;
-        from?: string;
-        groupId?: string;
-        type?: string;
-        text?: string;
-        fileName?: string;
-        linkTitle?: string;
-        createdAt?: string | Date;
-        timestamp?: string | Date;
-      },
-      kind: "direct" | "group",
-    ) => {
-      const messageId = String(message?.id || message?._id || "");
-      const fromUserId = String(message?.from || "");
-      const chatId =
-        kind === "group"
-          ? String(message?.groupId || "")
-          : fromUserId;
-      if (
-        !messageId ||
-        !fromUserId ||
-        !chatId ||
-        fromUserId === currentUserId ||
-        notifiedMessageIds.current.has(messageId)
-      ) {
-        return;
-      }
-      const preview =
-        message.type === "image"
-          ? "Photo"
-          : message.type === "video"
-            ? "Video"
-            : message.type === "voice"
-              ? "Voice message"
-              : message.type === "file"
-                ? message.fileName || "File"
-                : message.type === "link"
-                  ? message.linkTitle || "Link"
-                  : message.text || "New message";
-      handleNotify({
-        kind,
-        chatId,
-        messageId,
-        chatName: kind === "group" ? "New group message" : "New message",
-        fromUserId,
-        fromName: kind === "group" ? "Group member" : "New message",
-        preview,
-        messageType: message.type || "text",
-        timestamp: message.createdAt || message.timestamp,
-      });
-    };
-
-    const handleDirectMessage = (message: Parameters<typeof handleMessageFallback>[0]) => {
-      handleMessageFallback(message, "direct");
-    };
-    const handleGroupMessage = (message: Parameters<typeof handleMessageFallback>[0]) => {
-      handleMessageFallback(message, "group");
-    };
-
     const notificationEvent = isAdminSurface
       ? "admin:message:notify"
       : "message:notify";
     addListener(notificationEvent, handleNotify);
-    if (!isAdminSurface) {
-      addListener("message:new", handleDirectMessage);
-      addListener("group:message:new", handleGroupMessage);
-    }
 
     return () => {
       console.log("[NotificationManager] Removing socket listeners");
       removeListener(notificationEvent, handleNotify);
-      removeListener("message:new", handleDirectMessage);
-      removeListener("group:message:new", handleGroupMessage);
     };
   }, [
     addListener,
@@ -326,7 +266,7 @@ export default function NotificationManager() {
     addToast,
     isAdminSurface,
     adminUserId,
-    user,
+    userId,
   ]);
 
   useEffect(

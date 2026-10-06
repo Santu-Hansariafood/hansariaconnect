@@ -1,11 +1,128 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-interface NotificationPreferences {
+export interface NotificationPreferences {
   messages: boolean;
   groups: boolean;
   enabled: boolean;
   ringtone: string;
 }
+
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  messages: true,
+  groups: true,
+  enabled: true,
+  ringtone: "chime",
+};
+
+let notificationPreferencesSnapshot: NotificationPreferences =
+  DEFAULT_NOTIFICATION_PREFERENCES;
+let notificationPreferencesLoaded = false;
+let notificationPreferencesPromise: Promise<NotificationPreferences> | null = null;
+let notificationPreferencesUserId: string | null = null;
+let notificationPreferencesPromiseUserId: string | null = null;
+const notificationSubscribers = new Set<
+  (preferences: NotificationPreferences) => void
+>();
+
+const arePreferencesEqual = (
+  left: NotificationPreferences,
+  right: NotificationPreferences,
+) =>
+  left.messages === right.messages &&
+  left.groups === right.groups &&
+  left.enabled === right.enabled &&
+  left.ringtone === right.ringtone;
+
+const publishNotificationPreferences = (
+  next: NotificationPreferences,
+): NotificationPreferences => {
+  if (arePreferencesEqual(notificationPreferencesSnapshot, next)) {
+    return notificationPreferencesSnapshot;
+  }
+
+  notificationPreferencesSnapshot = next;
+  notificationSubscribers.forEach((subscriber) => subscriber(next));
+  return next;
+};
+
+const loadNotificationPreferences = async (
+  userId?: string | number,
+): Promise<NotificationPreferences> => {
+  const requestedUserId = userId == null ? null : String(userId);
+  if (
+    notificationPreferencesLoaded &&
+    notificationPreferencesUserId === requestedUserId
+  ) {
+    return notificationPreferencesSnapshot;
+  }
+
+  if (
+    notificationPreferencesPromise &&
+    notificationPreferencesPromiseUserId === requestedUserId
+  ) {
+    return notificationPreferencesPromise;
+  }
+
+  if (notificationPreferencesUserId !== requestedUserId) {
+    notificationPreferencesUserId = requestedUserId;
+    notificationPreferencesLoaded = false;
+    publishNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+  }
+
+  notificationPreferencesPromiseUserId = requestedUserId;
+  const requestHolder: {
+    promise?: Promise<NotificationPreferences>;
+  } = {};
+  const request = (async () => {
+    try {
+      const res = await fetch("/api/settings", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (
+        res.ok &&
+        data?.notifications &&
+        notificationPreferencesUserId === requestedUserId
+      ) {
+        return publishNotificationPreferences({
+          ...DEFAULT_NOTIFICATION_PREFERENCES,
+          ...data.notifications,
+        });
+      }
+      if (!res.ok) {
+        console.warn(
+          "[Notifications] Could not load settings. Using defaults.",
+          res.status,
+        );
+      }
+    } catch (error) {
+      console.error("[Notifications] Failed to load settings:", error);
+    } finally {
+      if (notificationPreferencesUserId === requestedUserId) {
+        notificationPreferencesLoaded = true;
+      }
+      if (notificationPreferencesPromise === requestHolder.promise) {
+        notificationPreferencesPromise = null;
+        notificationPreferencesPromiseUserId = null;
+      }
+    }
+
+    return notificationPreferencesSnapshot;
+  })();
+  requestHolder.promise = request;
+  notificationPreferencesPromise = request;
+  return request;
+};
+
+const subscribeToNotificationPreferences = (
+  subscriber: (preferences: NotificationPreferences) => void,
+) => {
+  notificationSubscribers.add(subscriber);
+  return () => {
+    notificationSubscribers.delete(subscriber);
+  };
+};
 
 const ringtonePatterns: Record<
   string,
@@ -47,29 +164,59 @@ const getAudioContext = () => {
   return new AudioCtx();
 };
 
-export function useNotifications() {
-  const [preferences, setPreferences] = useState<NotificationPreferences>({
-    messages: true,
-    groups: true,
-    enabled: true,
-    ringtone: "chime",
-  });
+export function useNotifications(userId?: string | number) {
+  const [preferences, setPreferences] = useState<NotificationPreferences>(
+    notificationPreferencesSnapshot,
+  );
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-    const loadPreferences = async () => {
+    const unsubscribe = subscribeToNotificationPreferences(setPreferences);
+    void loadNotificationPreferences(userId).then(setPreferences);
+    return unsubscribe;
+  }, [userId]);
+
+  const updatePreferences = useCallback(
+    async (
+      updater:
+        | Partial<NotificationPreferences>
+        | ((
+            current: NotificationPreferences,
+          ) => NotificationPreferences | Partial<NotificationPreferences>),
+    ) => {
+      await loadNotificationPreferences(userId);
+      const current = notificationPreferencesSnapshot;
+      const resolvedUpdate =
+        typeof updater === "function" ? updater(current) : updater;
+      const next = {
+        ...current,
+        ...resolvedUpdate,
+      };
+
+      publishNotificationPreferences(next);
+
       try {
-        const res = await fetch("/api/settings", {
+        const response = await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
+          body: JSON.stringify({ notifications: next }),
         });
-        const data = await res.json();
-        if (res.ok && data?.notifications) {
-          setPreferences(data.notifications);
+
+        if (!response.ok) {
+          console.error(
+            "[Notifications] Failed to persist settings:",
+            response.status,
+          );
         }
-      } catch {}
-    };
-    loadPreferences();
-  }, []);
+      } catch (error) {
+        console.error("[Notifications] Failed to persist settings:", error);
+      }
+
+      return next;
+    },
+    [userId],
+  );
 
   const requestPermission = useCallback(async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
@@ -238,6 +385,11 @@ export function useNotifications() {
     };
   }, []);
 
-  return { preferences, showNotification, requestPermission, playRingtone };
+  return {
+    preferences,
+    showNotification,
+    requestPermission,
+    playRingtone,
+    updatePreferences,
+  };
 }
-

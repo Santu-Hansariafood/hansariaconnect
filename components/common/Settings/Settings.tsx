@@ -18,7 +18,7 @@ import {
 
 import { useSettings } from "@/hooks/settings/useSettings";
 import { useThemeSettings } from "@/hooks/settings/useThemeSettings";
-import { useNotificationSettings } from "@/hooks/settings/useNotificationSettings";
+import { useNotifications } from "@/hooks/useNotifications";
 import dynamic from "next/dynamic";
 import Loading from "../Loading/Loading";
 
@@ -32,19 +32,16 @@ type NotificationKey = "messages" | "groups" | "enabled";
 const notificationKeys: NotificationKey[] = ["messages", "groups", "enabled"];
 
 const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
-  const { initialTheme, notifications, setNotifications } = useSettings();
+  const { initialTheme } = useSettings();
+  const { preferences: notifications, updatePreferences } = useNotifications(
+    user?.id,
+  );
 
   const {
     localTheme,
     updateTheme,
     loading: themeSaving,
   } = useThemeSettings(initialTheme || theme, onThemeChange);
-
-  const {
-    toggleNotification,
-    setRingtone,
-    loading: notificationLoading,
-  } = useNotificationSettings(notifications, setNotifications);
 
   const colorOptions = [
     { primary: "#0CA678", secondary: "#A2F5BF", name: "Emerald" },
@@ -77,6 +74,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   const ringtoneInputRef = useRef<HTMLInputElement | null>(null);
   const [browserPerm, setBrowserPerm] = useState<NotificationPermission | "unsupported">("default");
   const [permRequesting, setPermRequesting] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -129,6 +127,26 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       console.error("[Settings] Error requesting notification permission:", e);
     } finally {
       setPermRequesting(false);
+    }
+  };
+
+  const toggleNotification = async (key: NotificationKey) => {
+    setNotificationLoading(true);
+    try {
+      await updatePreferences((current) => ({
+        [key]: !current[key],
+      }));
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  const setRingtone = async (ringtone: string) => {
+    setNotificationLoading(true);
+    try {
+      await updatePreferences({ ringtone });
+    } finally {
+      setNotificationLoading(false);
     }
   };
 

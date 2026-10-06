@@ -69,7 +69,10 @@ export default function ChatWindowMessageList({
 
       {renderMessages.map((msg, idx, arr) => {
         const fromStr = toSenderId(msg.from);
-        const isIncoming = fromStr === id;
+        const currentUserId = String(user.id);
+        const isIncoming = isGroup
+          ? Boolean(fromStr) && fromStr !== currentUserId
+          : fromStr === id;
 
         const currentDate = new Date(
           msg.timestamp || msg.createdAt || Date.now(),
@@ -82,7 +85,10 @@ export default function ChatWindowMessageList({
 
         const firstUnread = arr.findIndex((m) => {
           const sender = toSenderId(m.from);
-          return sender === id && (m.status || "sent") !== "seen";
+          const incoming = isGroup
+            ? Boolean(sender) && sender !== currentUserId
+            : sender === id;
+          return incoming && (m.status || "sent") !== "seen";
         });
 
         const bubbleContact = (() => {

@@ -12,12 +12,25 @@ function LoginClientInner() {
   const searchParams = useSearchParams()
   const prefillMobile = searchParams?.get("mobile") ?? ""
   const reason = searchParams?.get("reason") ?? ""
+  const requestedReturnTo = searchParams?.get("returnTo") ?? ""
+  const returnTo =
+    requestedReturnTo.startsWith("/") &&
+    !requestedReturnTo.startsWith("//") &&
+    !requestedReturnTo.startsWith("/\\")
+      ? requestedReturnTo
+      : "/chat"
 
   useEffect(() => {
-    if (user?.step === "complete") router.push("/chat")
-  }, [user, router])
+    if (user?.step === "complete") router.replace(returnTo)
+  }, [user, router, returnTo])
 
-  return <Login prefillMobile={prefillMobile} reason={reason || undefined} />
+  return (
+    <Login
+      prefillMobile={prefillMobile}
+      reason={reason || undefined}
+      returnTo={returnTo}
+    />
+  )
 }
 
 export default function LoginClient() {

@@ -259,7 +259,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     >
       {sessionChecked ? (
         <>
-          <NotificationManager />
+          <NotificationManager userId={user?.id ? String(user.id) : null} />
           {children}
         </>
       ) : (

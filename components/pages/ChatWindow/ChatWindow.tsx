@@ -14,7 +14,6 @@ import { useSocket } from "@/hooks/useSocket";
 import { useLastSeen } from "@/hooks/useLastSeen";
 import { useUnreadBehavior } from "@/hooks/chatwindow/useUnreadBehavior";
 import { useInfiniteScroll } from "@/hooks/chatwindow/useInfiniteScroll";
-import { useNotifications } from "@/hooks/useNotifications";
 import { useApp } from "@/context/AppContext/AppContext";
 import Loading from "@/components/common/Loading/Loading";
 import dynamic from "next/dynamic";
@@ -118,8 +117,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png";
   const isSavedContact = Boolean(contact?.id || contact?._id);
 
-  const { preferences, requestPermission } = useNotifications();
-
   const mergeUnique = useCallback(
     (prev: ChatMessage[], incoming: ChatMessage[]) => {
       const map = new Map<string, ChatMessage>();
@@ -182,17 +179,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     showUnreadBanner,
     unreadDividerRef,
     hasScrolledToUnreadRef,
-  } = useUnreadBehavior(chatId, chatMessages, socket, setChatMessages);
-
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      preferences.enabled &&
-      Notification.permission === "default"
-    ) {
-      requestPermission();
-    }
-  }, [preferences.enabled, requestPermission]);
+  } = useUnreadBehavior(
+    chatId,
+    chatMessages,
+    socket,
+    setChatMessages,
+    isGroup,
+    user.id,
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -414,7 +408,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         }
 
         try {
-          const receiptBody = isGroup
+          const receiptBody = isGroupChat
             ? { groupId: chatId }
             : { peerId: chatId };
           await fetch("/api/read-receipts", {

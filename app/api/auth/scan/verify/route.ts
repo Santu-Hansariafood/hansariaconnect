@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
-import { getScanToken, setScanToken } from "../generate/route";
+import ScanLogin from "@/models/auth/ScanLogin";
 import { randomBytesHex } from "@/lib/crypto";
+import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
 import {
   signUserSession,
   userSessionCookieOptions,
@@ -16,40 +17,38 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const token = body.token;
 
-    if (!token) {
+    if (typeof token !== "string" || !/^[a-f0-9]{64}$/i.test(token)) {
       return NextResponse.json(
-        { success: false, error: "Token required" },
+        { success: false, error: "Valid token required" },
         { status: 400 },
       );
     }
 
-    const scanData = getScanToken(token);
-    if (!scanData) {
-      return NextResponse.json(
-        { success: false, error: "Invalid token" },
-        { status: 404 },
-      );
-    }
-
-    if (Date.now() - scanData.createdAt > 5 * 60 * 1000) {
-      return NextResponse.json(
-        { success: false, error: "Token expired" },
-        { status: 403 },
-      );
-    }
-
-    if (scanData.used || !scanData.mobile) {
+    await connectDB();
+    const scanData = await ScanLogin.findOneAndUpdate(
+      {
+        token,
+        expiresAt: { $gt: new Date() },
+        used: false,
+        mobile: { $exists: true },
+      },
+      { $set: { used: true } },
+      { new: true },
+    );
+    if (!scanData?.mobile) {
       return NextResponse.json(
         { success: false, error: "Token not ready or already used" },
         { status: 403 },
       );
     }
 
-    await connectDB();
-
-    let user = await User.findOne({ mobile: scanData.mobile });
+    const user = await User.findOne({ mobile: scanData.mobile });
     if (!user) {
-      user = await User.create({ mobile: scanData.mobile });
+      await ScanLogin.updateOne({ token, used: true }, { $set: { used: false } });
+      return NextResponse.json(
+        { success: false, error: "The account approving this login no longer exists" },
+        { status: 404 },
+      );
     }
 
     const sessionId = await randomBytesHex(16);
@@ -60,17 +59,16 @@ export async function POST(req: NextRequest) {
       device,
     );
     if (!allowed) {
+      await ScanLogin.updateOne({ token, used: true }, { $set: { used: false } });
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Maximum active logins reached. Sign out from another device and try again.",
+          error: `Maximum of ${MAX_DEVICE_SESSIONS} devices reached. Remove a linked device and try again.`,
+          deviceLimitReached: true,
         },
-        { status: 403 },
+        { status: 409 },
       );
     }
-
-    setScanToken(token, { ...scanData, used: true });
 
     try {
       await User.findByIdAndUpdate(user._id, {
@@ -84,6 +82,9 @@ export async function POST(req: NextRequest) {
       success: true,
       userId: user._id.toString(),
       mobile: scanData.mobile,
+      name: user.name || "",
+      photo: user.photo || (user as { avatar?: string }).avatar || "",
+      email: user.email || "",
     });
 
     response.cookies.set(

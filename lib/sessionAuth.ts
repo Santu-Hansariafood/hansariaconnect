@@ -3,6 +3,7 @@ import { parseCookie } from "cookie";
 import type { NextRequest } from "next/server";
 import { connectDB } from "./db/db";
 import User from "@/models/user/User";
+import { MAX_DEVICE_SESSIONS } from "./auth/deviceLimits";
 
 export interface UserSession {
   id: string;
@@ -48,8 +49,6 @@ export const getDeviceMetadata = (req: { headers?: { get?: (name: string) => str
 
   return { userAgent, browserName, deviceName, ip: getClientIp(req) };
 };
-
-const MAX_DEVICE_SESSIONS = Number(process.env.MAX_DEVICE_SESSIONS) || 4;
 
 export interface AdminSession {
   adminId?: string;
@@ -194,7 +193,20 @@ export const verifyUserSession = async (
 
 export const getUserSession = async (req: any): Promise<UserSession | null> => {
   const raw = getCookieValue(req, "user_session");
-  return verifyUserSession(raw);
+  const session = await verifyUserSession(raw);
+  if (!session) return null;
+
+  await connectDB();
+  const activeSession = await User.exists({
+    _id: session.id,
+    sessions: {
+      $elemMatch: {
+        sessionId: session.sessionId,
+        createdAt: { $gt: Date.now() - userSessionCookieOptions.maxAge * 1000 },
+      },
+    },
+  });
+  return activeSession ? session : null;
 };
 
 export const addUserSession = async (
@@ -204,37 +216,53 @@ export const addUserSession = async (
   ip?: string,
 ): Promise<boolean> => {
   await connectDB();
-  const user = await User.findById(userId);
-  if (!user) return false;
-
-  const maxAgeMs = userSessionCookieOptions.maxAge * 1000;
-  const activeSessions = (user.sessions || []).filter(
-    (session: UserSessionRecord) =>
-      typeof session.createdAt === "number" &&
-      Date.now() - session.createdAt < maxAgeMs,
-  );
-
-  if (activeSessions.length >= MAX_DEVICE_SESSIONS) {
-    return false;
-  }
-
   const metadata: DeviceMetadata = typeof userAgentOrMetadata === "string"
     ? { userAgent: userAgentOrMetadata, ip }
     : userAgentOrMetadata || {};
-  activeSessions.push({ sessionId, createdAt: Date.now(), ...metadata });
-  user.sessions = activeSessions as any;
-  await user.save();
-  return true;
+  const now = Date.now();
+  const cutoff = now - userSessionCookieOptions.maxAge * 1000;
+  await User.updateOne(
+    { _id: userId },
+    { $pull: { sessions: { createdAt: { $lte: cutoff } } } },
+  );
+  const updatedUser = await User.findOneAndUpdate(
+    {
+      _id: userId,
+      $expr: {
+        $lt: [
+          {
+            $size: {
+              $filter: {
+                input: { $ifNull: ["$sessions", []] },
+                as: "session",
+                cond: { $gt: ["$$session.createdAt", cutoff] },
+              },
+            },
+          },
+          MAX_DEVICE_SESSIONS,
+        ],
+      },
+    },
+    {
+      $push: {
+        sessions: { sessionId, createdAt: now, ...metadata },
+      },
+    },
+    { new: true },
+  );
+  return Boolean(updatedUser);
 };
 
 export const removeUserSession = async (
   userId: string,
   sessionId: string,
-): Promise<void> => {
+): Promise<boolean> => {
   await connectDB();
-  await User.findByIdAndUpdate(userId, {
-    $pull: { sessions: { sessionId } },
-  });
+  const result = await User.updateOne(
+    { _id: userId },
+    { $pull: { sessions: { sessionId } } },
+  );
+  return result.modifiedCount > 0;
 };
 
 export const signAdminSession = async (

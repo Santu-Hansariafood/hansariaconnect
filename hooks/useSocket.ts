@@ -82,6 +82,15 @@ export const useSocket = () => {
         if (reason === "io server disconnect") s.connect();
       });
 
+      s.on("session:revoked", () => {
+        socketInstance = null;
+        s.disconnect();
+        localStorage.removeItem("hansariaUser");
+        if (typeof window !== "undefined") {
+          window.location.assign("/login");
+        }
+      });
+
       s.on("connect_error", (error) => {
         console.error("[Socket] Connection failed:", error.message);
         if (!s.active && !authenticationRetry) {

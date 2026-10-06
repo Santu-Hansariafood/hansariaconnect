@@ -92,6 +92,7 @@ export default function ChatHome({
   const [searchQuery, setSearchQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [groups, setGroups] = useState<any[]>([]);
+  const [groupUnread, setGroupUnread] = useState<Record<string, number>>({});
 
   const { contacts, loading, setContacts } = useContacts(user.id);
   const { socket, addListener, removeListener } = useSocket();
@@ -101,15 +102,41 @@ export default function ChatHome({
     let cancelled = false;
     const loadGroups = async () => {
       try {
-        const res = await fetch("/api/groups", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        const [res, unreadRes] = await Promise.all([
+          fetch("/api/groups", {
+            credentials: "include",
+            cache: "no-store",
+          }),
+          fetch("/api/unread-counts", {
+            credentials: "include",
+            cache: "no-store",
+          }),
+        ]);
         const data = await res.json();
         if (!cancelled && res.ok && Array.isArray(data?.groups)) {
           setGroups(data.groups);
+        } else if (!res.ok) {
+          throw new Error(`Failed to load groups (${res.status})`);
         }
-      } catch {}
+
+        if (!cancelled && unreadRes.ok) {
+          const unreadData = await unreadRes.json();
+          setGroupUnread(
+            Object.fromEntries(
+              Object.entries(unreadData?.groups || {}).map(([id, count]) => [
+                id,
+                Number(count) || 0,
+              ]),
+            ),
+          );
+        } else if (!unreadRes.ok) {
+          console.error(
+            `Failed to load group unread counts (${unreadRes.status})`,
+          );
+        }
+      } catch (error) {
+        console.error("Failed to load chat groups:", error);
+      }
     };
 
     loadGroups();
@@ -169,12 +196,42 @@ export default function ChatHome({
       );
     };
 
+    const handleUnreadUpdate = (payload: {
+      conversations?: Record<string, number>;
+      groups?: Record<string, number>;
+    }) => {
+      if (!payload || typeof payload !== "object") return;
+      if (payload.conversations) {
+        setContacts((previous) =>
+          previous.map((contact) => {
+            const peerId = String(
+              contact.registeredUserId || contact.peerId || contact.id || "",
+            );
+            const unread = Number(payload.conversations?.[peerId] || 0);
+            return contact.unread === unread ? contact : { ...contact, unread };
+          }),
+        );
+      }
+      if (payload.groups) {
+        setGroupUnread(
+          Object.fromEntries(
+            Object.entries(payload.groups).map(([id, count]) => [
+              id,
+              Number(count) || 0,
+            ]),
+          ),
+        );
+      }
+    };
+
     addListener("message:new", handleIncomingMessage);
     addListener("group:message:new", handleIncomingGroupMessage);
+    addListener("unread:update", handleUnreadUpdate);
 
     return () => {
       removeListener("message:new", handleIncomingMessage);
       removeListener("group:message:new", handleIncomingGroupMessage);
+      removeListener("unread:update", handleUnreadUpdate);
     };
   }, [addListener, removeListener, selectedChatId, setContacts, user.id]);
 
@@ -494,7 +551,9 @@ export default function ChatHome({
               </div>
             )}
             {visibleGroups.map((g: any) => {
-              const isActive = selectedChatId === g.id;
+              const groupId = String(g.id || g._id || "");
+              const isActive = selectedChatId === groupId;
+              const unread = groupUnread[groupId] || 0;
               let lastText = g?.lastMessage || "No messages yet";
               if (typeof lastText !== "string") lastText = "No messages yet";
               if (lastText.length > 50) lastText = lastText.slice(0, 49) + "…";
@@ -511,11 +570,11 @@ export default function ChatHome({
                 : 0;
               return (
                 <motion.button
-                  key={g.id || Math.random()}
+                  key={groupId}
                   whileTap={{ scale: 0.995 }}
                   onClick={() => {
-                    if (onSelectChat) onSelectChat(g.id);
-                    else router.push(`/chat/${g.id}`);
+                    if (onSelectChat) onSelectChat(groupId);
+                    else router.push(`/chat/${groupId}`);
                   }}
                   className={`w-full text-left flex items-center gap-3 px-3 py-2.5 transition-colors border-b ${borderColor} ${
                     isActive ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"
@@ -571,8 +630,13 @@ export default function ChatHome({
                     </div>
                     <div className="flex flex-col items-end gap-1 flex-shrink-0">
                       {when && (
-                        <span className={`text-[11px] ${textMuted}`}>
+                        <span className={`text-[11px] ${unread > 0 ? "font-medium text-[#0a9488]" : textMuted}`}>
                           {when}
+                        </span>
+                      )}
+                      {unread > 0 && (
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
+                          {unread > 99 ? "99+" : unread}
                         </span>
                       )}
                     </div>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
+import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
 import {
   signUserSession,
   verifyOtpSession,
@@ -99,8 +100,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const response = NextResponse.json(
         {
           success: false,
-          error:
-            "Maximum active logins reached. Sign out from another device and try again.",
+          error: `Maximum of ${MAX_DEVICE_SESSIONS} devices reached. Log out one linked device from Profile on another signed-in device, then request a new code.`,
         },
         { status: 403 },
       );
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       userId: user._id.toString(),
       mobile,
       name: user.name || "",
-      photo: user.photo || (user as any).avatar || "",
+      photo: user.photo || (user as { avatar?: string }).avatar || "",
       email: user.email || "",
     });
 

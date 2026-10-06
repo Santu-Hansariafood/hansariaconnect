@@ -11,7 +11,11 @@ import User from "@/models/user/User";
 import { Types } from "mongoose";
 import AccessControl from "@/models/access/AccessControl";
 import Admin from "@/models/admin/Admin";
-import { getAdminSession, getUserSession } from "@/lib/sessionAuth";
+import {
+  getAdminSession,
+  getUserSession,
+  userSessionCookieOptions,
+} from "@/lib/sessionAuth";
 import {
   encryptDirectMessageContent,
   decryptDirectMessageContent,
@@ -235,6 +239,7 @@ export default async function handler(
             socket.data.authenticatedUserId = new Types.ObjectId(
               userSession.id,
             ).toString();
+            socket.data.authenticatedSessionId = userSession.sessionId;
             socket.data.authenticatedAs = "user";
             try {
               const adminUserId = await getAdminNotificationUserId(socket);
@@ -272,13 +277,18 @@ export default async function handler(
     io.on("connection", async (socket) => {
       try {
         const userId = String(socket.data.authenticatedUserId || "");
+        const sessionId = String(socket.data.authenticatedSessionId || "");
         if (socket.data.authenticatedAs === "admin-notifications") {
           await connectDB();
           socket.join(`admin-notifications:${userId}`);
           return;
         }
 
-        if (socket.data.authenticatedAs !== "user" || !userId) {
+        if (
+          socket.data.authenticatedAs !== "user" ||
+          !userId ||
+          !sessionId
+        ) {
           socket.disconnect(true);
           return;
         }
@@ -286,6 +296,39 @@ export default async function handler(
         await connectDB();
 
         socket.join(userId);
+        socket.join(`user-session:${sessionId}`);
+        socket.use((packet, next) => {
+          void User.exists({
+            _id: new Types.ObjectId(userId),
+            sessions: {
+              $elemMatch: {
+                sessionId,
+                createdAt: {
+                  $gt:
+                    Date.now() -
+                    userSessionCookieOptions.maxAge * 1000,
+                },
+              },
+            },
+          })
+            .then((activeSession) => {
+              if (activeSession) {
+                next();
+                return;
+              }
+              socket.emit("session:revoked");
+              socket.disconnect(true);
+              next(new Error("User session is no longer active"));
+            })
+            .catch((error: unknown) => {
+              console.error("[Socket.IO] Session revalidation failed:", error);
+              next(
+                error instanceof Error
+                  ? error
+                  : new Error("Could not validate user session"),
+              );
+            });
+        });
         if (socket.data.adminNotificationUserId === userId) {
           socket.join(`admin-notifications:${userId}`);
         }

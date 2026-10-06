@@ -11,6 +11,13 @@ function VerifyOtpInner() {
   const searchParams = useSearchParams();
   const mobile = searchParams?.get("mobile") ?? "";
   const email = searchParams?.get("email") ?? "";
+  const requestedReturnTo = searchParams?.get("returnTo") ?? "";
+  const returnTo =
+    requestedReturnTo.startsWith("/") &&
+    !requestedReturnTo.startsWith("//") &&
+    !requestedReturnTo.startsWith("/\\")
+      ? requestedReturnTo
+      : "/profile";
   const { setUser } = useApp();
   const router = useRouter();
   const [serverError, setServerError] = useState("");
@@ -20,8 +27,6 @@ function VerifyOtpInner() {
       router.replace("/login");
     }
   }, [mobile, router]);
-
-  if (!mobile) return null;
 
   const handleVerify = useCallback(
     async (code: string) => {
@@ -50,10 +55,12 @@ function VerifyOtpInner() {
           setUser(userData);
           localStorage.setItem("hansariaUser", JSON.stringify(userData));
 
-          router.push("/profile");
+          router.replace(returnTo);
         } else {
           if (data.notRegistered) {
-            router.replace(`/login?mobile=${mobile}&reason=not-registered`);
+            router.replace(
+              `/login?mobile=${mobile}&reason=not-registered&returnTo=${encodeURIComponent(returnTo)}`,
+            );
           } else {
             setServerError(data.error || "Invalid code");
           }
@@ -62,8 +69,10 @@ function VerifyOtpInner() {
         setServerError("Invalid code");
       }
     },
-    [mobile, setUser, router]
+    [mobile, returnTo, setUser, router]
   );
+
+  if (!mobile) return null;
 
   return (
     <Otp

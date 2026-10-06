@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import type { IUserSessionRecord } from "@/models/user/User";
-import { getUserSession } from "@/lib/sessionAuth";
+import {
+  getUserSession,
+  userSessionCookieOptions,
+} from "@/lib/sessionAuth";
+import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
 
 export const runtime = "nodejs";
 
@@ -36,16 +40,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         email: user.email,
         mobile: user.mobile,
         photo: user.photo || (user as { avatar?: string }).avatar,
-        devices: ((user.sessions || []) as IUserSessionRecord[]).map((device) => ({
-          browserName: device.browserName || "Unknown browser",
-          deviceName: device.deviceName || "Unknown device",
-          ip: device.ip || "Unknown IP",
-          createdAt: device.createdAt,
-          current: device.sessionId === session.sessionId,
-        })),
+        maxDevices: MAX_DEVICE_SESSIONS,
+        devices: ((user.sessions || []) as IUserSessionRecord[])
+          .filter(
+            (device) =>
+              typeof device.createdAt === "number" &&
+              Date.now() - device.createdAt <
+                userSessionCookieOptions.maxAge * 1000,
+          )
+          .map((device) => ({
+            sessionId: device.sessionId,
+            browserName: device.browserName || "Unknown browser",
+            deviceName: device.deviceName || "Unknown device",
+            createdAt: device.createdAt,
+            current: device.sessionId === session.sessionId,
+          })),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Auth me error:", error);
     return NextResponse.json(
       { success: false, error: "Server error" },

@@ -13,6 +13,7 @@ import { fadeIn } from "@/utils/animations/animations";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Loading from "@/components/common/Loading/Loading";
+import LinkedDevices from "./LinkedDevices";
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 
@@ -411,6 +412,8 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                     changed here.
                   </p>
                 </section>
+
+                <LinkedDevices />
               </div>
             </motion.div>
           </motion.div>

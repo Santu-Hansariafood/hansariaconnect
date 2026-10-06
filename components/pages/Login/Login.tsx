@@ -23,15 +23,15 @@ import Loading from "@/components/common/Loading/Loading";
 type LoginProps = {
   prefillMobile?: string;
   reason?: string;
+  returnTo?: string;
 };
 
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 const ALLOWED_EMAIL_REGEX =
   /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)$/i;
 
-const Login = ({ prefillMobile, reason }: LoginProps) => {
+const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
   const router = useRouter();
-  const [host, setHost] = useState("");
   const [isWebSubdomain, setIsWebSubdomain] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [mobile, setMobile] = useState(prefillMobile || "");
@@ -53,9 +53,7 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
   const [scanLoading, setScanLoading] = useState(false);
 
   useEffect(() => {
-    const currentHost = window.location.host;
-    setHost(currentHost);
-    setIsWebSubdomain(/^web\./i.test(currentHost));
+    setIsWebSubdomain(/^web\./i.test(window.location.hostname));
   }, []);
 
   useEffect(() => {
@@ -76,9 +74,13 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
       const data = await res.json();
       if (data.success) {
         setScanToken(data.token);
+        setError("");
+      } else {
+        setError(data.error || "Could not generate a login QR code.");
       }
     } catch (err) {
       console.error(err);
+      setError("Could not generate a login QR code. Please try again.");
     } finally {
       setScanLoading(false);
     }
@@ -93,20 +95,44 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
   useEffect(() => {
     if (!scanToken || !isWebSubdomain) return;
 
+    let finished = false;
+    let verifying = false;
     const pollInterval = setInterval(async () => {
+      if (finished || verifying) return;
       try {
         const res = await fetch(`/api/auth/scan/generate?token=${scanToken}`);
         const data = await res.json();
 
-        if (data.success && data.ready && data.mobile) {
+        if (res.status === 404 || res.status === 403) {
+          finished = true;
+          setError(data.error || "This QR code expired. Refresh it to try again.");
+          return;
+        }
+
+        if (data.success && data.ready) {
+          verifying = true;
           const verifyRes = await fetch("/api/auth/scan/verify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ token: scanToken }),
           });
           const verifyData = await verifyRes.json();
           if (verifyData.success) {
-            router.push("/");
+            finished = true;
+            const userData = {
+              id: verifyData.userId as string,
+              mobile: verifyData.mobile as string,
+              name: verifyData.name || undefined,
+              photo: verifyData.photo || undefined,
+              email: verifyData.email || undefined,
+              step: "complete" as const,
+            };
+            localStorage.setItem("hansariaUser", JSON.stringify(userData));
+            window.location.assign("/chat");
+          } else {
+            finished = true;
+            setError(verifyData.error || "Could not complete the linked login.");
           }
         }
       } catch (err) {
@@ -142,7 +168,12 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
         const queryEmail = data.email
           ? `&email=${encodeURIComponent(data.email)}`
           : "";
-        router.push(`/verify-otp?mobile=${mobile}${queryEmail}`);
+        const queryReturnTo = returnTo
+          ? `&returnTo=${encodeURIComponent(returnTo)}`
+          : "";
+        router.push(
+          `/verify-otp?mobile=${mobile}${queryEmail}${queryReturnTo}`,
+        );
       } else {
         if (data.notRegistered) {
           setError("");
@@ -205,8 +236,11 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
       const data = await res.json();
       if (data.success) {
         if (data.devOtp) console.log("OTP:", data.devOtp);
+        const queryReturnTo = returnTo
+          ? `&returnTo=${encodeURIComponent(returnTo)}`
+          : "";
         router.push(
-          `/verify-otp?mobile=${registerMobile}&email=${encodeURIComponent(email)}`,
+          `/verify-otp?mobile=${registerMobile}&email=${encodeURIComponent(email)}${queryReturnTo}`,
         );
       } else {
         setError(data.error || "Something went wrong");
@@ -257,21 +291,40 @@ const Login = ({ prefillMobile, reason }: LoginProps) => {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
-                    <QRCode
-                      value={`hansaria://scan?token=${scanToken}`}
-                      size={256}
-                      level="H"
-                    />
+                    {(() => {
+                      const scanUrl = new URL(window.location.href);
+                      if (scanUrl.hostname.startsWith("web.")) {
+                        scanUrl.hostname = scanUrl.hostname.slice(4);
+                      }
+                      scanUrl.pathname = "/scan";
+                      scanUrl.search = new URLSearchParams({
+                        token: scanToken,
+                      }).toString();
+                      return (
+                        <QRCode
+                          value={scanUrl.toString()}
+                          size={256}
+                          level="H"
+                        />
+                      );
+                    })()}
                     <p className="mt-4 text-gray-600">
-                      Scan this QR code from your logged-in HansariaConnect app
+                      Scan with your phone camera, then approve the login on
+                      your signed-in HansariaConnect account
                     </p>
                   </div>
                 )}
               </div>
+              {error && (
+                <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </p>
+              )}
               <button
                 onClick={() => {
                   generateScanToken();
                 }}
+                disabled={scanLoading}
                 className="flex items-center justify-center gap-2 w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />

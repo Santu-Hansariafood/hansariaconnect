@@ -144,6 +144,23 @@ const getIo = async (): Promise<ServerIO | null> => {
   return getCurrentIo() ?? null;
 };
 
+export const disconnectUserSession = async (
+  sessionId: string,
+): Promise<void> => {
+  try {
+    const io = await getIo();
+    if (!io) return;
+    const room = `user-session:${sessionId}`;
+    io.to(room).emit("session:revoked");
+    io.in(room).disconnectSockets(true);
+  } catch (error) {
+    console.error(
+      "[socketEmitter] Could not disconnect revoked session:",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+};
+
 const emitRoomEvent = async (
   io: ServerIO | null,
   room: string,
