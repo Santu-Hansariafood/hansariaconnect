@@ -13,6 +13,7 @@ export const useChatSocket = (
   const typingTimeoutsRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const typingSendDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef<number>(0);
+  const isTypingSentRef = useRef(false);
   const TYPING_TIMEOUT_MS = 3500;
   const TYPING_SEND_THROTTLE_MS = 1500;
 
@@ -44,24 +45,23 @@ export const useChatSocket = (
       setChatMessages((prev) => mergeUnique(prev, [msg]));
 
       if (!isFromPeer) return;
+      const messageId = String(msg?._id?.toString?.() || msg?.id || "");
+      if (!messageId) return;
 
       try {
         socket?.emit(
           "message:status",
-          { id: msg?._id?.toString?.(), status: "delivered" },
+          { id: messageId, status: "delivered" },
           (ack: any) => {
-            if (ack?.ok && ack?.message?._id) {
-              const mid = ack.message._id?.toString?.();
-              if (mid) {
-                setChatMessages((prev) =>
-                  prev.map((m: any) => {
-                    const idStr = m?._id?.toString?.();
-                    if (idStr && idStr === mid)
-                      return { ...m, status: ack.message.status };
-                    return m;
-                  }),
-                );
-              }
+            if (ack?.ok) {
+              setChatMessages((prev) =>
+                prev.map((m: any) => {
+                  const idStr = String(m?._id?.toString?.() || m?.id || "");
+                  if (idStr === messageId)
+                    return { ...m, status: ack.message.status };
+                  return m;
+                }),
+              );
             } else {
               console.warn(
                 "[useChatSocket] Delivered-status ack not ok for msg",
@@ -76,20 +76,17 @@ export const useChatSocket = (
         setTimeout(() => {
           socket?.emit(
             "message:status",
-            { id: msg?._id?.toString?.(), status: "seen" },
+            { id: messageId, status: "seen" },
             (ack: any) => {
-              if (ack?.ok && ack?.message?._id) {
-                const mid = ack.message._id?.toString?.();
-                if (mid) {
+              if (ack?.ok) {
                   setChatMessages((prev) =>
                     prev.map((m: any) => {
-                      const idStr = m?._id?.toString?.();
-                      if (idStr && idStr === mid)
+                      const idStr = String(m?._id?.toString?.() || m?.id || "");
+                      if (idStr === messageId)
                         return { ...m, status: ack.message.status };
                       return m;
                     }),
                   );
-                }
               } else {
                 console.warn(
                   "[useChatSocket] Seen-status ack not ok for msg",
@@ -148,7 +145,7 @@ export const useChatSocket = (
         try {
           socket?.emit(
             "message:status",
-            { id: msg?._id?.toString?.(), status: "delivered", groupId: id },
+            { id: msg?._id?.toString?.() || msg?.id, status: "delivered", groupId: id },
             (ack: any) => {
               if (ack?.ok && ack?.message?._id) {
                 const mid = ack.message._id?.toString?.();
@@ -176,14 +173,14 @@ export const useChatSocket = (
           setTimeout(() => {
             socket?.emit(
               "message:status",
-              { id: msg?._id?.toString?.(), status: "seen", groupId: id },
+              { id: msg?._id?.toString?.() || msg?.id, status: "seen", groupId: id },
               (ack: any) => {
                 if (ack?.ok && ack?.message?._id) {
                   const mid = ack.message._id?.toString?.();
                   if (mid) {
                     setChatMessages((prev) =>
                       prev.map((m: any) => {
-                        const idStr = m?._id?.toString?.();
+                        const idStr = String(m?._id?.toString?.() || m?.id || "");
                         if (idStr && idStr === mid)
                           return { ...m, status: ack.message.status };
                         return m;
@@ -236,8 +233,8 @@ export const useChatSocket = (
       if (data?.id) {
         setChatMessages((prev) =>
           prev.map((m: any) => {
-            const idStr = m?._id?.toString?.();
-            if (idStr && idStr === data.id)
+            const idStr = String(m?._id?.toString?.() || m?.id || "");
+            if (idStr === String(data.id))
               return { ...m, status: data.status };
             return m;
           }),
@@ -298,18 +295,23 @@ export const useChatSocket = (
   const sendTyping = useCallback(
     (isTyping: boolean) => {
       if (!socket || !id) return;
-      const now = Date.now();
 
       if (isTyping) {
-        if (now - lastTypingSentRef.current < TYPING_SEND_THROTTLE_MS) return;
-        lastTypingSentRef.current = now;
-        try {
-          socket.emit("typing:start", isGroup ? { groupId: id } : { peerId: id });
-        } catch (err: any) {
-          console.warn("[useChatSocket] typing:start emit error:", err?.message || err);
+        const now = Date.now();
+        if (now - lastTypingSentRef.current >= TYPING_SEND_THROTTLE_MS) {
+          lastTypingSentRef.current = now;
+          isTypingSentRef.current = true;
+          try {
+            socket.emit("typing:start", isGroup ? { groupId: id } : { peerId: id });
+          } catch (err: any) {
+            console.warn("[useChatSocket] typing:start emit error:", err?.message || err);
+          }
         }
         if (typingSendDebounceRef.current) clearTimeout(typingSendDebounceRef.current);
         typingSendDebounceRef.current = setTimeout(() => {
+          typingSendDebounceRef.current = null;
+          if (!isTypingSentRef.current) return;
+          isTypingSentRef.current = false;
           try {
             socket.emit("typing:stop", isGroup ? { groupId: id } : { peerId: id });
           } catch (err: any) {
@@ -321,6 +323,8 @@ export const useChatSocket = (
           clearTimeout(typingSendDebounceRef.current);
           typingSendDebounceRef.current = null;
         }
+        if (!isTypingSentRef.current) return;
+        isTypingSentRef.current = false;
         try {
           socket.emit("typing:stop", isGroup ? { groupId: id } : { peerId: id });
         } catch (err: any) {
@@ -383,10 +387,17 @@ export const useChatSocket = (
     return () => {
       typingTimeoutsRef.current.forEach((t) => clearTimeout(t));
       typingTimeoutsRef.current.clear();
-      if (typingSendDebounceRef.current) clearTimeout(typingSendDebounceRef.current);
+      if (typingSendDebounceRef.current) {
+        clearTimeout(typingSendDebounceRef.current);
+        typingSendDebounceRef.current = null;
+      }
+      if (isTypingSentRef.current && socket) {
+        socket.emit("typing:stop", isGroup ? { groupId: id } : { peerId: id });
+        isTypingSentRef.current = false;
+      }
       setTypingUserIds([]);
     };
-  }, []);
+  }, [id, isGroup, socket]);
 
   useEffect(() => {
     if (!id) return;

@@ -160,6 +160,26 @@ export default function ChatHome({
       const peerId = String(message?.from || "");
       if (!peerId || peerId === String(user.id || "")) return;
 
+      const recipientId = String(message?.to || "");
+      const messageId = String(message?._id || message?.id || "");
+      if (
+        recipientId === String(user.id || "") &&
+        /^[0-9a-f]{24}$/i.test(messageId)
+      ) {
+        socket?.emit(
+          "message:status",
+          { id: messageId, status: "delivered" },
+          (ack: { ok?: boolean; error?: string }) => {
+            if (!ack?.ok) {
+              console.warn(
+                "[ChatHome] Could not confirm message delivery:",
+                ack?.error || "Unknown status error",
+              );
+            }
+          },
+        );
+      }
+
       console.log(
         "[ChatHome] Direct message arrived via socket — updating peer",
         peerId,
@@ -256,7 +276,7 @@ export default function ChatHome({
       removeListener("group:message:new", handleIncomingGroupMessage);
       removeListener("unread:update", handleUnreadUpdate);
     };
-  }, [addListener, removeListener, selectedChatId, setContacts, user.id]);
+  }, [addListener, removeListener, selectedChatId, setContacts, socket, user.id]);
 
   const handleSearch = useCallback(
     (query: string) => setSearchQuery(query),

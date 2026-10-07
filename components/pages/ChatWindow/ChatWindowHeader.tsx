@@ -44,6 +44,7 @@ interface ChatWindowHeaderProps {
   headerAvatar: string;
   isContactOnline: boolean;
   isGroup: boolean;
+  typingUsers: string[];
   showUnreadBanner: boolean;
   unreadOnOpen: number;
   showOptionsMenu: boolean;
@@ -66,6 +67,7 @@ export default function ChatWindowHeader({
   headerAvatar,
   isContactOnline,
   isGroup,
+  typingUsers,
   onOpenGroup,
   showUnreadBanner,
   unreadOnOpen,
@@ -82,6 +84,13 @@ export default function ChatWindowHeader({
 }: ChatWindowHeaderProps) {
   const primaryColor = theme.primary || "#0CA678";
   const borderColor = theme.primary ? theme.primary + "80" : "#0b4d45";
+  const typingStatus = typingUsers.length
+    ? isGroup
+      ? typingUsers.length === 1
+        ? `${typingUsers[0]} is typing...`
+        : `${typingUsers.length} people are typing...`
+      : "typing..."
+    : null;
 
   return (
     <header
@@ -148,15 +157,18 @@ export default function ChatWindowHeader({
           </h2>
           <span
             className={`truncate text-[12px] ${
-              !isGroup &&
+              typingStatus
+                ? "text-emerald-200"
+                : !isGroup &&
               (isContactOnline || lastSeenStatus?.toLowerCase().includes("online"))
                 ? "text-emerald-200"
                 : "text-white/90"
             }`}
           >
-            {isGroup
+            {typingStatus ||
+              (isGroup
               ? "Group chat"
-              : lastSeenStatus || (isContactOnline ? "online" : "offline")}
+              : lastSeenStatus || (isContactOnline ? "online" : "offline"))}
           </span>
         </div>
 

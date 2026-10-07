@@ -135,6 +135,8 @@ export default function ChatWindowFooter({
                   e.currentTarget.style.height = `${Math.min(e.currentTarget.scrollHeight, 144)}px`;
                   if (e.target.value.trim()) {
                     sendTyping?.(true);
+                  } else {
+                    sendTyping?.(false);
                   }
                 }}
                 onBlur={() => sendTyping?.(false)}

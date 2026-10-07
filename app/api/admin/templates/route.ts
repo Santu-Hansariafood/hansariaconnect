@@ -20,6 +20,14 @@ export async function POST(req: NextRequest) {
   if (!name || !templateBody) return NextResponse.json({ error: "Template name and body are required" }, { status: 400 });
   if (name.length > 100 || templateBody.length > 2000) return NextResponse.json({ error: "Template is too long" }, { status: 400 });
   await connectDB();
-  const template = await AdminTemplate.create({ adminId: String(auth.admin._id), name, body: templateBody });
+  const adminId = String(auth.admin._id);
+  const existingTemplate = await AdminTemplate.exists({ adminId, name });
+  if (existingTemplate) {
+    return NextResponse.json(
+      { error: "You already have a template with this name" },
+      { status: 409 },
+    );
+  }
+  const template = await AdminTemplate.create({ adminId, name, body: templateBody });
   return NextResponse.json({ template }, { status: 201 });
 }

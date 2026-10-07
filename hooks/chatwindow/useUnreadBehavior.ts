@@ -46,7 +46,7 @@ export const useUnreadBehavior = (
       }))
       try {
         pending.forEach((m: any) => {
-          const mid = m?._id?.toString?.()
+          const mid = m?._id?.toString?.() || m?.id?.toString?.()
           if (mid && socket && !isGroup) socket.emit("message:status", { id: mid, status: "seen" })
         })
       } catch {}

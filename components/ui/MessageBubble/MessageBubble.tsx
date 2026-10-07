@@ -103,6 +103,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const displaySenderAvatar = !isSent && isGroup && showSenderInfo
   const displaySenderName = !isSent && isGroup && showSenderInfo
 
+  const messageStatusLabel =
+    message.status === "seen"
+      ? "Read"
+      : message.status === "delivered"
+        ? "Delivered"
+        : message.status === "failed"
+          ? "Failed"
+          : message.status === "sending"
+            ? "Sending"
+            : "Sent"
+
   const renderStatusIcon = () => {
     if (message.status === "sending") {
       return <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400/40 border-t-gray-500/80" />
@@ -113,21 +124,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
 
     if (message.status === "seen") {
-      return (
-        <div className="flex items-center">
-          <Check className="h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} />
-          <Check className="-ml-1.5 h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} />
-        </div>
-      )
+      return <CheckCheck className="h-3.5 w-3.5 text-[#53bdeb]" strokeWidth={2.5} />
     }
 
     if (message.status === "delivered") {
-      return (
-        <div className="flex items-center">
-          <Check className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
-          <Check className="-ml-1.5 h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
-        </div>
-      )
+      return <CheckCheck className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
     }
 
     return <Check className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
@@ -483,7 +484,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     {format(new Date(message.timestamp), "h:mm a").toLowerCase()}
                   </span>
                   {isSent && (
-                    <span className="ml-0.5 flex items-center">{renderStatusIcon()}</span>
+                    <span
+                      className="ml-0.5 flex items-center"
+                      title={messageStatusLabel}
+                      aria-label={messageStatusLabel}
+                    >
+                      {renderStatusIcon()}
+                    </span>
                   )}
                 </div>
               </div>

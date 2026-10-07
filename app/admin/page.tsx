@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { readSheet } from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
+import { getTemplateVariableNames } from "@/lib/messageTemplates";
 
 type BulkUserInput = {
   name: string;
@@ -89,6 +90,7 @@ export default function AdminDashboard() {
   >([]);
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState("");
+  const templateVariableNames = getTemplateVariableNames(templateBody);
   const [adminProfile, setAdminProfile] = useState({
     userId: "",
     email: "",
@@ -884,10 +886,19 @@ export default function AdminDashboard() {
                       required
                     />
                     <p className="mt-2 text-xs text-gray-500">
-                      Use variables like {"{{name}}"} and {"{{orderId}}"} for
-                      bulk messages. Each template can be sent using an API
-                      key with permission to send messages.
+                      Placeholders such as {"{{name}}"} and {"{{orderId}}"} are
+                      saved as written, then filled from the variables you pass
+                      to the API. The saved template text is not modified.
                     </p>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Template names are unique within your admin account and
+                      are not visible to other admins.
+                    </p>
+                    {templateVariableNames.length > 0 && (
+                      <p className="mt-2 text-xs font-medium text-emerald-700">
+                        Required variables: {templateVariableNames.join(", ")}
+                      </p>
+                    )}
                     <button
                       type="submit"
                       disabled={saving === "template"}
@@ -916,6 +927,21 @@ export default function AdminDashboard() {
                         <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">
                           {template.body}
                         </p>
+                        {getTemplateVariableNames(template.body).length > 0 && (
+                          <p className="mt-2 text-xs font-medium text-emerald-700">
+                            {getTemplateVariableNames(template.body).length}{" "}
+                            variable
+                            {getTemplateVariableNames(template.body).length === 1
+                              ? ""
+                              : "s"}
+                            : {getTemplateVariableNames(template.body).join(", ")}
+                          </p>
+                        )}
+                        {getTemplateVariableNames(template.body).length === 0 && (
+                          <p className="mt-2 text-xs text-gray-500">
+                            0 variables
+                          </p>
+                        )}
                         <p className="mt-3 break-all text-xs text-gray-500">
                           Template ID: <code>{template._id}</code>
                         </p>
@@ -925,35 +951,57 @@ export default function AdminDashboard() {
                           </summary>
                           <div className="mt-3 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
                             <p className="mb-2">
-                              Send an in-app message to a HansariaConnect user
-                              with an Authorization Bearer API key:
+                              This template has{" "}
+                              {getTemplateVariableNames(template.body).length}{" "}
+                              variable
+                              {getTemplateVariableNames(template.body).length === 1
+                                ? ""
+                                : "s"}
+                              . Include admin credentials, this admin&apos;s API
+                              key, and the template name. Supply every listed
+                              variable; missing values are rejected.
                             </p>
                             <pre className="overflow-x-auto whitespace-pre-wrap break-words">
-                              {`await fetch("https://YOUR_DOMAIN/api/v1/messages/bulk", {
+                              {`await fetch("https://YOUR_DOMAIN/api/v1/messages/send", {
   method: "POST",
   headers: {
-    "Authorization": "Bearer YOUR_API_KEY",
+    "Authorization": "Bearer " + API_KEY,
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-  "templateId": "${template._id}",
-  "recipients": [{
+    "adminUserId": "YOUR_ADMIN_USER_ID",
+    "adminPassword": "YOUR_ADMIN_PASSWORD",
+    "templateName": "${template.name}",
     "toUserId": "RECIPIENT_USER_ID",
-    "variables": { "name": "Asha", "otp": "123456", "orderId": "ORD-1001" },
+    "variables": ${JSON.stringify(
+      Object.fromEntries(
+        getTemplateVariableNames(template.body).map((variable) => [
+          variable,
+          `YOUR_${variable.toUpperCase()}`,
+        ]),
+      ),
+      null,
+      2,
+    ).replace(/\n/g, "\n    ")},
     "attachment": {
       "type": "pdf",
       "mediaUrl": "https://files.example.com/orders/ORD-1001.pdf",
       "fileName": "ORD-1001.pdf"
     }
-  }]
   })
 });`}
                             </pre>
                             <p className="mt-3 text-slate-300">
-                              The attachment is optional and can be supplied
-                              separately for each recipient. Use image, pdf,
-                              video, excel, or file as its type and provide an
-                              HTTPS URL.
+                              For bulk messages use POST
+                              /api/v1/messages/bulk, replacing toUserId with a
+                              recipients array, and pass the same adminUserId,
+                              adminPassword, and variables for each recipient.
+                              Attachments are optional, sent from an HTTPS URL,
+                              and can use image, pdf, video, excel, or file.
+                              Send requests server-to-server over HTTPS; never
+                              expose the admin password or API key in browser or
+                              mobile-app code. Credentials must belong to the
+                              admin who owns both the API key and template.
                             </p>
                           </div>
                         </details>

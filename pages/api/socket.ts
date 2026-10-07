@@ -557,34 +557,42 @@ export default async function handler(
             }
 
             const currentUserId = String(userId);
+            const senderId = String(message.from);
+            const recipientId = String(message.to);
 
-            // A message status may only be changed by the sender or recipient.
             if (
-              String(message.from) !== currentUserId &&
-              String(message.to) !== currentUserId
+              (status === "sent" && senderId !== currentUserId) ||
+              (status !== "sent" && recipientId !== currentUserId)
             ) {
               return cb?.({ ok: false, error: "Forbidden" });
             }
 
-            const updatedMessage = await Message.findByIdAndUpdate(
-              id,
-              { status },
+            const transitionFrom =
+              status === "seen"
+                ? ["sent", "delivered", null]
+                : status === "delivered"
+                  ? ["sent", null]
+                  : ["sent", null];
+            const updatedMessage = await Message.findOneAndUpdate(
+              { _id: id, status: { $in: transitionFrom } },
+              { $set: { status } },
               { new: true },
-            );
+            ) ?? await Message.findById(id);
 
             if (!updatedMessage) {
               return cb?.({ ok: false, error: "Message not found" });
             }
 
+            const effectiveStatus = updatedMessage.status;
             io.to(String(updatedMessage.from)).emit("message:status:update", {
               id: updatedMessage._id.toString(),
-              status,
+              status: effectiveStatus,
             });
 
             if (String(updatedMessage.to) !== String(updatedMessage.from)) {
               io.to(String(updatedMessage.to)).emit("message:status:update", {
                 id: updatedMessage._id.toString(),
-                status,
+                status: effectiveStatus,
               });
             }
             cb?.({ ok: true, message: updatedMessage });

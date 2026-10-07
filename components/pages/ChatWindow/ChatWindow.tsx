@@ -1051,6 +1051,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           headerAvatar={headerAvatar}
           isContactOnline={isContactOnline}
           isGroup={isGroup}
+          typingUsers={typingUsers}
           onOpenGroup={() => router.push(`/group-settings/${chatId}`)}
           showUnreadBanner={showUnreadBanner}
           unreadOnOpen={unreadOnOpen}

@@ -19,6 +19,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const name = body?.name === undefined ? result.template.name : String(body.name).trim();
   const templateBody = body?.body === undefined ? result.template.body : String(body.body).trim();
   if (!name || !templateBody) return NextResponse.json({ error: "Template name and body are required" }, { status: 400 });
+  if (name.length > 100 || templateBody.length > 2000) {
+    return NextResponse.json({ error: "Template is too long" }, { status: 400 });
+  }
+  const duplicate = await AdminTemplate.exists({
+    _id: { $ne: result.template._id },
+    adminId: String(result.template.adminId),
+    name,
+  });
+  if (duplicate) {
+    return NextResponse.json(
+      { error: "You already have a template with this name" },
+      { status: 409 },
+    );
+  }
   result.template.name = name;
   result.template.body = templateBody;
   await result.template.save();
