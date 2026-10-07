@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { readSheet } from "read-excel-file/browser";
+import writeXlsxFile from "write-excel-file/browser";
+
+type BulkUserInput = {
+  name: string;
+  email: string;
+  mobile: string;
+};
+
+const ACCOUNT_TEMPLATE_HEADERS = ["Name", "Email", "Mobile"] as const;
 
 type Permission = {
   contacts: boolean;
@@ -71,18 +81,28 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSuperSubdomain, setIsSuperSubdomain] = useState(false);
-  const [activeTab, setActiveTab] = useState<"users" | "admins" | "api-keys" | "accounts" | "templates" | "profile">("users");
-  const [templates, setTemplates] = useState<{ _id: string; name: string; body: string }[]>([]);
+  const [activeTab, setActiveTab] = useState<
+    "users" | "admins" | "api-keys" | "accounts" | "templates" | "profile"
+  >("users");
+  const [templates, setTemplates] = useState<
+    { _id: string; name: string; body: string }[]
+  >([]);
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState("");
-  const [adminProfile, setAdminProfile] = useState({ userId: "", email: "", isSuperAdmin: false });
+  const [adminProfile, setAdminProfile] = useState({
+    userId: "",
+    email: "",
+    isSuperAdmin: false,
+  });
   const [profileEmail, setProfileEmail] = useState("");
   const [profilePassword, setProfilePassword] = useState("");
   const [showCreateApiKey, setShowCreateApiKey] = useState(false);
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [newApiKeyExpiresDays, setNewApiKeyExpiresDays] = useState("");
   const [newApiKeySenderUserId, setNewApiKeySenderUserId] = useState("");
-  const [newlyCreatedApiKey, setNewlyCreatedApiKey] = useState<string | null>(null);
+  const [newlyCreatedApiKey, setNewlyCreatedApiKey] = useState<string | null>(
+    null,
+  );
 
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [newAdminUserId, setNewAdminUserId] = useState("");
@@ -95,7 +115,9 @@ export default function AdminDashboard() {
   const [editAdminPassword, setEditAdminPassword] = useState("");
   const [editAdminIsSuper, setEditAdminIsSuper] = useState(false);
   const [showBulkUsers, setShowBulkUsers] = useState(false);
-  const [bulkUsersText, setBulkUsersText] = useState("");
+  const [bulkUsers, setBulkUsers] = useState<BulkUserInput[]>([]);
+  const [bulkUsersFileName, setBulkUsersFileName] = useState("");
+  const bulkUsersFileInput = useRef<HTMLInputElement>(null);
 
   const loadData = useCallback(
     async (userPage: number, canManageUsers: boolean) => {
@@ -106,7 +128,9 @@ export default function AdminDashboard() {
         const [usersRes, adminsRes, apiKeysRes, templatesRes, profileRes] =
           await Promise.all([
             canManageUsers
-              ? fetch(`/api/admin/users?page=${userPage}`, { cache: "no-store" })
+              ? fetch(`/api/admin/users?page=${userPage}`, {
+                  cache: "no-store",
+                })
               : Promise.resolve(null),
             canManageUsers
               ? fetch("/api/admin/admins", { cache: "no-store" })
@@ -125,19 +149,14 @@ export default function AdminDashboard() {
           return;
         }
 
-        const [
-          usersData,
-          adminsData,
-          apiKeysData,
-          templatesData,
-          profileData,
-        ] = await Promise.all([
-          usersRes?.json(),
-          adminsRes?.json(),
-          apiKeysRes.json(),
-          templatesRes.json(),
-          profileRes.json(),
-        ]);
+        const [usersData, adminsData, apiKeysData, templatesData, profileData] =
+          await Promise.all([
+            usersRes?.json(),
+            adminsRes?.json(),
+            apiKeysRes.json(),
+            templatesRes.json(),
+            profileRes.json(),
+          ]);
 
         if (requestId !== loadSequence.current) return;
 
@@ -177,8 +196,13 @@ export default function AdminDashboard() {
         setError(loadErrors[0] || "");
       } catch (error) {
         if (requestId === loadSequence.current) {
-          console.error("[AdminDashboard] Failed to load dashboard data:", error);
-          setError("Dashboard data could not be refreshed. Check your connection.");
+          console.error(
+            "[AdminDashboard] Failed to load dashboard data:",
+            error,
+          );
+          setError(
+            "Dashboard data could not be refreshed. Check your connection.",
+          );
         }
       } finally {
         if (requestId === loadSequence.current) setRefreshing(false);
@@ -259,7 +283,10 @@ export default function AdminDashboard() {
 
   const deleteTemplate = async (id: string) => {
     const res = await fetch(`/api/admin/templates/${id}`, { method: "DELETE" });
-    if (res.ok) setTemplates((previous) => previous.filter((template) => template._id !== id));
+    if (res.ok)
+      setTemplates((previous) =>
+        previous.filter((template) => template._id !== id),
+      );
   };
 
   const saveProfile = async (event: React.FormEvent) => {
@@ -270,7 +297,10 @@ export default function AdminDashboard() {
       const res = await fetch("/api/admin/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: profileEmail, password: profilePassword || undefined }),
+        body: JSON.stringify({
+          email: profileEmail,
+          password: profilePassword || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to save profile");
@@ -294,7 +324,9 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           name: newApiKeyName,
           senderUserId: newApiKeySenderUserId.trim() || undefined,
-          expiresDays: newApiKeyExpiresDays ? parseInt(newApiKeyExpiresDays) : undefined,
+          expiresDays: newApiKeyExpiresDays
+            ? parseInt(newApiKeyExpiresDays)
+            : undefined,
         }),
       });
       const data = await res.json();
@@ -320,32 +352,117 @@ export default function AdminDashboard() {
     setError("");
     setSaving("create-users");
     try {
-      const users = bulkUsersText
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const [name, email, mobile] = line.split(",").map((value) => value.trim());
-          return { name, email, mobile };
-        });
-      if (!users.length) throw new Error("Add at least one account");
-      if (users.some((user) => !user.name || !user.email || !user.mobile)) {
-        throw new Error("Use one account per line: Name, email, mobile");
-      }
+      if (!bulkUsers.length)
+        throw new Error("Upload an Excel template with at least one account");
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ users }),
+        body: JSON.stringify({ users: bulkUsers }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create accounts");
-      setBulkUsersText("");
+      setBulkUsers([]);
+      setBulkUsersFileName("");
+      if (bulkUsersFileInput.current) bulkUsersFileInput.current.value = "";
       setShowBulkUsers(false);
       void loadData(1, true);
     } catch (error: any) {
       setError(error?.message || "Failed to create accounts");
     } finally {
       setSaving(null);
+    }
+  };
+
+  const handleDownloadAccountTemplate = async () => {
+    try {
+      const blob = await writeXlsxFile([[...ACCOUNT_TEMPLATE_HEADERS]], {
+        sheet: "Accounts",
+        columns: [{ width: 28 }, { width: 36 }, { width: 18 }],
+      }).toBlob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "account-registration-template.xlsx";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (downloadError) {
+      setError(
+        downloadError instanceof Error
+          ? downloadError.message
+          : "Failed to create the Excel template",
+      );
+    }
+  };
+
+  const handleAccountSheetUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    setBulkUsers([]);
+    setBulkUsersFileName("");
+    setError("");
+    if (!file) return;
+
+    try {
+      const rows = await readSheet(file, "Accounts");
+      const header = rows[0]
+        ?.slice(0, ACCOUNT_TEMPLATE_HEADERS.length)
+        .map((cell) =>
+          String(cell ?? "")
+            .trim()
+            .toLowerCase(),
+        );
+      if (
+        !header ||
+        header.length !== ACCOUNT_TEMPLATE_HEADERS.length ||
+        !ACCOUNT_TEMPLATE_HEADERS.every(
+          (value, index) => header[index] === value.toLowerCase(),
+        ) ||
+        rows[0]
+          .slice(ACCOUNT_TEMPLATE_HEADERS.length)
+          .some((cell) => String(cell ?? "").trim())
+      ) {
+        throw new Error(
+          "Use the admin template with columns: Name, Email, Mobile",
+        );
+      }
+
+      const users: BulkUserInput[] = [];
+      for (const [index, row] of rows.slice(1).entries()) {
+        if (row.every((cell) => !String(cell ?? "").trim())) continue;
+        if (
+          row
+            .slice(ACCOUNT_TEMPLATE_HEADERS.length)
+            .some((cell) => String(cell ?? "").trim())
+        ) {
+          throw new Error(
+            `Row ${index + 2} has extra columns. Use the admin template.`,
+          );
+        }
+        const [name, email, mobile] = row
+          .slice(0, ACCOUNT_TEMPLATE_HEADERS.length)
+          .map((cell) => String(cell ?? "").trim());
+        if (!name || !email || !mobile) {
+          throw new Error(
+            `Complete Name, Email, and Mobile on row ${index + 2}`,
+          );
+        }
+        users.push({ name, email, mobile });
+      }
+
+      if (!users.length)
+        throw new Error("Add at least one account to the Excel sheet");
+      if (users.length > 100)
+        throw new Error("Upload no more than 100 accounts at a time");
+
+      setBulkUsers(users);
+      setBulkUsersFileName(file.name);
+    } catch (uploadError) {
+      setError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Failed to read the Excel file",
+      );
     }
   };
 
@@ -390,7 +507,11 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (res.ok && data?.permissions) {
-        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, permissions: data.permissions } : u)));
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === id ? { ...u, permissions: data.permissions } : u,
+          ),
+        );
       }
     } finally {
       setSaving(null);
@@ -437,10 +558,13 @@ export default function AdminDashboard() {
     setSaving(editingAdmin._id);
     try {
       const updateData: any = {};
-      if (editAdminUserId !== editingAdmin.userId) updateData.userId = editAdminUserId;
-      if (editAdminEmail !== editingAdmin.email) updateData.email = editAdminEmail;
+      if (editAdminUserId !== editingAdmin.userId)
+        updateData.userId = editAdminUserId;
+      if (editAdminEmail !== editingAdmin.email)
+        updateData.email = editAdminEmail;
       if (editAdminPassword) updateData.password = editAdminPassword;
-      if (editAdminIsSuper !== editingAdmin.isSuperAdmin) updateData.isSuperAdmin = editAdminIsSuper;
+      if (editAdminIsSuper !== editingAdmin.isSuperAdmin)
+        updateData.isSuperAdmin = editAdminIsSuper;
 
       const res = await fetch(`/api/admin/admins/${editingAdmin._id}`, {
         method: "PATCH",
@@ -511,7 +635,9 @@ export default function AdminDashboard() {
                 </span>
               </div>
               <p className="hidden truncate text-xs text-slate-500 sm:block">
-                {adminProfile.email || adminProfile.userId || "HansariaConnect control center"}
+                {adminProfile.email ||
+                  adminProfile.userId ||
+                  "HansariaConnect control center"}
               </p>
             </div>
           </div>
@@ -538,7 +664,11 @@ export default function AdminDashboard() {
 
       <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-8">
         {initialLoading ? (
-          <div className="space-y-5" role="status" aria-label="Loading admin workspace">
+          <div
+            className="space-y-5"
+            role="status"
+            aria-label="Loading admin workspace"
+          >
             <div className="h-9 w-56 animate-pulse rounded-xl bg-slate-200" />
             <div className="h-12 animate-pulse rounded-2xl bg-slate-200" />
             <div className="h-72 animate-pulse rounded-2xl bg-white shadow-sm" />
@@ -569,16 +699,33 @@ export default function AdminDashboard() {
             >
               {!isSuperAdmin && !isSuperSubdomain && (
                 <>
-                  <button onClick={() => setActiveTab("accounts")} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}>Accounts</button>
-                  <button onClick={() => setActiveTab("templates")} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}>Templates</button>
-                  <button onClick={() => setActiveTab("profile")} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}>Profile</button>
+                  <button
+                    onClick={() => setActiveTab("accounts")}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    Accounts
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("templates")}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    Templates
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("profile")}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}
+                  >
+                    Profile
+                  </button>
                 </>
               )}
               {(isSuperAdmin || isSuperSubdomain) && (
                 <button
                   onClick={() => setActiveTab("users")}
                   className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                  activeTab === "users" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"
+                    activeTab === "users"
+                      ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15"
+                      : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   Users
@@ -588,7 +735,9 @@ export default function AdminDashboard() {
                 <button
                   onClick={() => setActiveTab("admins")}
                   className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                  activeTab === "admins" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"
+                    activeTab === "admins"
+                      ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15"
+                      : "text-slate-600 hover:bg-slate-100"
                   }`}
                 >
                   Admins
@@ -597,58 +746,266 @@ export default function AdminDashboard() {
               <button
                 onClick={() => setActiveTab("api-keys")}
                 className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                  activeTab === "api-keys" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"
+                  activeTab === "api-keys"
+                    ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15"
+                    : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 API Keys
               </button>
             </nav>
 
-            {activeTab === "accounts" && !isSuperAdmin && !isSuperSubdomain && (
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800">Register chat accounts</h2>
-                <p className="mt-1 text-sm text-gray-500">Use any valid business or personal email domain. Add one account per line.</p>
-                <button onClick={() => setShowBulkUsers(true)} className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700">Register Accounts</button>
-                {showBulkUsers && (
-                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
-                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 sm:p-8">
-                      <h3 className="text-xl font-bold">Register Multiple Accounts</h3>
-                      <p className="mb-4 mt-2 text-sm text-gray-500">Format: Name, email, mobile</p>
-                      <form onSubmit={handleCreateBulkUsers} className="space-y-4">
-                        <textarea value={bulkUsersText} onChange={(event) => setBulkUsersText(event.target.value)} rows={9} placeholder={"Asha, asha@company.in, 9876543210\nRavi, ravi@business.com, 9123456780"} className="w-full rounded-xl border border-gray-200 px-4 py-3 font-mono text-sm" />
-                        <div className="flex gap-3"><button type="button" onClick={() => setShowBulkUsers(false)} className="flex-1 rounded-xl bg-gray-200 px-4 py-3">Cancel</button><button type="submit" disabled={saving === "create-users"} className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-white">{saving === "create-users" ? "Registering..." : "Register Accounts"}</button></div>
-                      </form>
+            {showBulkUsers && (
+              <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+                <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
+                  <h3 className="text-xl font-bold">
+                    Register Multiple Accounts
+                  </h3>
+                  <p className="mb-5 mt-2 text-sm text-gray-500">
+                    Download the admin Excel template, fill in one account per
+                    row, then upload it. Keep the columns in the same order:
+                    Name, Email, Mobile. You can register up to 100 accounts at
+                    once.
+                  </p>
+                  {error && (
+                    <div
+                      role="alert"
+                      className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+                    >
+                      {error}
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === "templates" && !isSuperAdmin && !isSuperSubdomain && (
-              <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-                <form onSubmit={createTemplate} className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                  <h2 className="text-lg font-semibold text-gray-800">Create message template</h2>
-                  <input value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder="Template name" className="mt-4 w-full rounded-xl border border-gray-200 px-4 py-3" required />
-                  <textarea value={templateBody} onChange={(event) => setTemplateBody(event.target.value)} placeholder="Hello {{name}}, your update is ready." rows={6} className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3" required />
-                  <p className="mt-2 text-xs text-gray-500">Use variables like {"{{name}}"} and {"{{orderId}}"} for bulk messages.</p>
-                  <button type="submit" disabled={saving === "template"} className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white">{saving === "template" ? "Saving..." : "Save Template"}</button>
-                </form>
-                <div className="space-y-3">
-                  {templates.map((template) => <div key={template._id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold text-gray-800">{template.name}</h3><button onClick={() => deleteTemplate(template._id)} className="text-sm text-red-600">Delete</button></div><p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">{template.body}</p></div>)}
-                  {!templates.length && <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500">No templates yet.</div>}
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleDownloadAccountTemplate}
+                    className="rounded-xl border border-emerald-700 px-4 py-3 font-semibold text-emerald-800 hover:bg-emerald-50"
+                  >
+                    Download Excel Template
+                  </button>
+                  <form
+                    onSubmit={handleCreateBulkUsers}
+                    className="mt-6 space-y-4"
+                  >
+                    <label
+                      className="block text-sm font-medium text-gray-700"
+                      htmlFor="account-excel-file"
+                    >
+                      Excel file (.xlsx)
+                    </label>
+                    <input
+                      ref={bulkUsersFileInput}
+                      id="account-excel-file"
+                      type="file"
+                      accept=".xlsx"
+                      onChange={handleAccountSheetUpload}
+                      className="block w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+                    />
+                    {bulkUsersFileName && (
+                      <p className="text-sm text-gray-600" role="status">
+                        {bulkUsersFileName}: {bulkUsers.length} account
+                        {bulkUsers.length === 1 ? "" : "s"} ready to register.
+                      </p>
+                    )}
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowBulkUsers(false);
+                          setBulkUsers([]);
+                          setBulkUsersFileName("");
+                          if (bulkUsersFileInput.current)
+                            bulkUsersFileInput.current.value = "";
+                        }}
+                        className="flex-1 rounded-xl bg-gray-200 px-4 py-3 text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={
+                          saving === "create-users" || !bulkUsers.length
+                        }
+                        className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-white disabled:opacity-60"
+                      >
+                        {saving === "create-users"
+                          ? "Registering..."
+                          : "Register Accounts"}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}
 
+            {activeTab === "accounts" && !isSuperAdmin && !isSuperSubdomain && (
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Register chat accounts
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Register multiple chat accounts with the admin Excel template.
+                </p>
+                <button
+                  onClick={() => {
+                    setError("");
+                    setShowBulkUsers(true);
+                  }}
+                  className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700"
+                >
+                  Register Accounts
+                </button>
+              </div>
+            )}
+
+            {activeTab === "templates" &&
+              !isSuperAdmin &&
+              !isSuperSubdomain && (
+                <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+                  <form
+                    onSubmit={createTemplate}
+                    className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+                  >
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      Create message template
+                    </h2>
+                    <input
+                      value={templateName}
+                      onChange={(event) => setTemplateName(event.target.value)}
+                      placeholder="Template name"
+                      className="mt-4 w-full rounded-xl border border-gray-200 px-4 py-3"
+                      required
+                    />
+                    <textarea
+                      value={templateBody}
+                      onChange={(event) => setTemplateBody(event.target.value)}
+                      placeholder="Hello {{name}}, your update is ready."
+                      rows={6}
+                      className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3"
+                      required
+                    />
+                    <p className="mt-2 text-xs text-gray-500">
+                      Use variables like {"{{name}}"} and {"{{orderId}}"} for
+                      bulk messages. Each template can be sent using an API
+                      key with permission to send messages.
+                    </p>
+                    <button
+                      type="submit"
+                      disabled={saving === "template"}
+                      className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white"
+                    >
+                      {saving === "template" ? "Saving..." : "Save Template"}
+                    </button>
+                  </form>
+                  <div className="space-y-3">
+                    {templates.map((template) => (
+                      <div
+                        key={template._id}
+                        className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="font-semibold text-gray-800">
+                            {template.name}
+                          </h3>
+                          <button
+                            onClick={() => deleteTemplate(template._id)}
+                            className="text-sm text-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-gray-600">
+                          {template.body}
+                        </p>
+                        <p className="mt-3 break-all text-xs text-gray-500">
+                          Template ID: <code>{template._id}</code>
+                        </p>
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-sm font-medium text-emerald-700">
+                            API integration example
+                          </summary>
+                          <div className="mt-3 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
+                            <p className="mb-2">
+                              Send an in-app message to a HansariaConnect user
+                              with an Authorization Bearer API key:
+                            </p>
+                            <pre className="overflow-x-auto whitespace-pre-wrap break-words">
+                              {`await fetch("https://YOUR_DOMAIN/api/v1/messages/bulk", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer YOUR_API_KEY",
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+  "templateId": "${template._id}",
+  "recipients": [{
+    "toUserId": "RECIPIENT_USER_ID",
+    "variables": { "name": "Asha", "otp": "123456", "orderId": "ORD-1001" },
+    "attachment": {
+      "type": "pdf",
+      "mediaUrl": "https://files.example.com/orders/ORD-1001.pdf",
+      "fileName": "ORD-1001.pdf"
+    }
+  }]
+  })
+});`}
+                            </pre>
+                            <p className="mt-3 text-slate-300">
+                              The attachment is optional and can be supplied
+                              separately for each recipient. Use image, pdf,
+                              video, excel, or file as its type and provide an
+                              HTTPS URL.
+                            </p>
+                          </div>
+                        </details>
+                      </div>
+                    ))}
+                    {!templates.length && (
+                      <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500">
+                        No templates yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
             {activeTab === "profile" && !isSuperAdmin && !isSuperSubdomain && (
-              <form onSubmit={saveProfile} className="max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-semibold text-gray-800">Admin profile</h2>
-                <p className="mt-1 text-sm text-gray-500">Signed in as {adminProfile.userId}</p>
-                <label className="mt-5 block text-sm font-medium text-gray-700">Email</label>
-                <input type="email" value={profileEmail} onChange={(event) => setProfileEmail(event.target.value)} className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3" required />
-                <label className="mt-4 block text-sm font-medium text-gray-700">New password</label>
-                <input type="password" value={profilePassword} onChange={(event) => setProfilePassword(event.target.value)} placeholder="Leave blank to keep current password" className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3" />
-                <button type="submit" disabled={saving === "profile"} className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white">{saving === "profile" ? "Saving..." : "Save Profile"}</button>
+              <form
+                onSubmit={saveProfile}
+                className="max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+              >
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Admin profile
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Signed in as {adminProfile.userId}
+                </p>
+                <label className="mt-5 block text-sm font-medium text-gray-700">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(event) => setProfileEmail(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3"
+                  required
+                />
+                <label className="mt-4 block text-sm font-medium text-gray-700">
+                  New password
+                </label>
+                <input
+                  type="password"
+                  value={profilePassword}
+                  onChange={(event) => setProfilePassword(event.target.value)}
+                  placeholder="Leave blank to keep current password"
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-4 py-3"
+                />
+                <button
+                  type="submit"
+                  disabled={saving === "profile"}
+                  className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white"
+                >
+                  {saving === "profile" ? "Saving..." : "Save Profile"}
+                </button>
               </form>
             )}
 
@@ -657,12 +1014,19 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-800">Users</h2>
-                    <p className="text-sm text-gray-500">{userPagination.total} total users, 100 per page</p>
+                    <h2 className="text-lg font-semibold text-gray-800">
+                      Users
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {userPagination.total} total users, 100 per page
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => setShowBulkUsers(true)}
+                      onClick={() => {
+                        setError("");
+                        setShowBulkUsers(true);
+                      }}
                       className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700"
                     >
                       Register Accounts
@@ -679,64 +1043,55 @@ export default function AdminDashboard() {
                     </span>
                     <button
                       onClick={() => void refreshData(userPagination.page + 1)}
-                      disabled={userPagination.page >= userPagination.totalPages || refreshing}
+                      disabled={
+                        userPagination.page >= userPagination.totalPages ||
+                        refreshing
+                      }
                       className="px-3 py-2 rounded-lg border border-gray-200 text-gray-700 disabled:opacity-40"
                     >
                       Next
                     </button>
                   </div>
                 </div>
-                {showBulkUsers && (
-                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
-                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
-                      <h3 className="text-xl font-bold mb-2">Register Multiple Accounts</h3>
-                      <p className="mb-4 text-sm text-gray-500">One account per line: Name, email, Indian mobile number</p>
-                      <form onSubmit={handleCreateBulkUsers} className="space-y-4">
-                        <textarea
-                          value={bulkUsersText}
-                          onChange={(event) => setBulkUsersText(event.target.value)}
-                          rows={8}
-                          placeholder={"Asha, asha@gmail.com, 9876543210\nRavi, ravi@outlook.com, 9123456780"}
-                          className="w-full rounded-xl border border-gray-200 px-4 py-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                        />
-                        <div className="flex gap-3">
-                          <button type="button" onClick={() => setShowBulkUsers(false)} className="flex-1 rounded-xl bg-gray-200 px-4 py-3 text-gray-700">Cancel</button>
-                          <button type="submit" disabled={saving === "create-users"} className="flex-1 rounded-xl bg-emerald-600 px-4 py-3 text-white disabled:opacity-60">
-                            {saving === "create-users" ? "Registering..." : "Register Accounts"}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  </div>
-                )}
                 <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="grid grid-cols-12 gap-3 px-4 py-3 text-sm font-medium text-gray-600 bg-gray-50">
-                  <div className="col-span-3">User</div>
-                  <div className="col-span-2 text-center">Contacts</div>
-                  <div className="col-span-2 text-center">Groups</div>
-                  <div className="col-span-2 text-center">Status</div>
-                  <div className="col-span-2 text-center">Attachments</div>
-                  <div className="col-span-1 text-center">Save</div>
+                  <div className="grid grid-cols-12 gap-3 px-4 py-3 text-sm font-medium text-gray-600 bg-gray-50">
+                    <div className="col-span-3">User</div>
+                    <div className="col-span-2 text-center">Contacts</div>
+                    <div className="col-span-2 text-center">Groups</div>
+                    <div className="col-span-2 text-center">Status</div>
+                    <div className="col-span-2 text-center">Attachments</div>
+                    <div className="col-span-1 text-center">Save</div>
+                  </div>
+                  {users.map((u) => (
+                    <UserRow
+                      key={u.id}
+                      user={u}
+                      onSave={(p) => updateUserPermissions(u.id, p)}
+                      saving={saving === u.id}
+                      onView={() => setSelectedUser(u)}
+                    />
+                  ))}
+                  {users.length === 0 && (
+                    <div className="px-4 py-8 text-center text-gray-500">
+                      No users found.
+                    </div>
+                  )}
                 </div>
-                {users.map((u) => (
-                  <UserRow
-                    key={u.id}
-                    user={u}
-                    onSave={(p) => updateUserPermissions(u.id, p)}
-                    saving={saving === u.id}
-                    onView={() => setSelectedUser(u)}
+                {selectedUser && (
+                  <UserDetails
+                    user={selectedUser}
+                    onClose={() => setSelectedUser(null)}
                   />
-                ))}
-                {users.length === 0 && <div className="px-4 py-8 text-center text-gray-500">No users found.</div>}
-                </div>
-                {selectedUser && <UserDetails user={selectedUser} onClose={() => setSelectedUser(null)} />}
+                )}
               </div>
             )}
 
             {activeTab === "admins" && (isSuperAdmin || isSuperSubdomain) && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-gray-800">Manage Admins</h2>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Manage Admins
+                  </h2>
                   <button
                     onClick={() => setShowCreateAdmin(true)}
                     className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
@@ -748,22 +1103,32 @@ export default function AdminDashboard() {
                 {showCreateAdmin && (
                   <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
                     <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
-                      <h3 className="text-xl font-bold mb-4">Create New Admin</h3>
+                      <h3 className="text-xl font-bold mb-4">
+                        Create New Admin
+                      </h3>
                       <form onSubmit={handleCreateAdmin} className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Sender account ID</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Sender account ID
+                          </label>
                           <input
                             type="text"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             value={newApiKeySenderUserId}
-                            onChange={(e) => setNewApiKeySenderUserId(e.target.value)}
+                            onChange={(e) =>
+                              setNewApiKeySenderUserId(e.target.value)
+                            }
                             placeholder="Provisioned user ObjectId"
                             required
                           />
-                          <p className="mt-1 text-xs text-gray-500">Bulk messages are sent from this account.</p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Bulk messages are sent from this account.
+                          </p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            User ID
+                          </label>
                           <input
                             type="text"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -773,7 +1138,9 @@ export default function AdminDashboard() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                          </label>
                           <input
                             type="email"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -783,12 +1150,16 @@ export default function AdminDashboard() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Password
+                          </label>
                           <input
                             type="password"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             value={newAdminPassword}
-                            onChange={(e) => setNewAdminPassword(e.target.value)}
+                            onChange={(e) =>
+                              setNewAdminPassword(e.target.value)
+                            }
                             required
                           />
                         </div>
@@ -797,9 +1168,14 @@ export default function AdminDashboard() {
                             type="checkbox"
                             id="new-super"
                             checked={newAdminIsSuper}
-                            onChange={(e) => setNewAdminIsSuper(e.target.checked)}
+                            onChange={(e) =>
+                              setNewAdminIsSuper(e.target.checked)
+                            }
                           />
-                          <label htmlFor="new-super" className="text-sm text-gray-700">
+                          <label
+                            htmlFor="new-super"
+                            className="text-sm text-gray-700"
+                          >
                             Is Super Admin
                           </label>
                         </div>
@@ -830,7 +1206,9 @@ export default function AdminDashboard() {
                       <h3 className="text-xl font-bold mb-4">Edit Admin</h3>
                       <form onSubmit={handleUpdateAdmin} className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            User ID
+                          </label>
                           <input
                             type="text"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -840,7 +1218,9 @@ export default function AdminDashboard() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                          </label>
                           <input
                             type="email"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -857,7 +1237,9 @@ export default function AdminDashboard() {
                             type="password"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             value={editAdminPassword}
-                            onChange={(e) => setEditAdminPassword(e.target.value)}
+                            onChange={(e) =>
+                              setEditAdminPassword(e.target.value)
+                            }
                           />
                         </div>
                         <div className="flex items-center gap-2">
@@ -865,9 +1247,14 @@ export default function AdminDashboard() {
                             type="checkbox"
                             id="edit-super"
                             checked={editAdminIsSuper}
-                            onChange={(e) => setEditAdminIsSuper(e.target.checked)}
+                            onChange={(e) =>
+                              setEditAdminIsSuper(e.target.checked)
+                            }
                           />
-                          <label htmlFor="edit-super" className="text-sm text-gray-700">
+                          <label
+                            htmlFor="edit-super"
+                            className="text-sm text-gray-700"
+                          >
                             Is Super Admin
                           </label>
                         </div>
@@ -884,7 +1271,9 @@ export default function AdminDashboard() {
                             disabled={saving === editingAdmin._id}
                             className="flex-1 px-4 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
                           >
-                            {saving === editingAdmin._id ? "Updating..." : "Update"}
+                            {saving === editingAdmin._id
+                              ? "Updating..."
+                              : "Update"}
                           </button>
                         </div>
                       </form>
@@ -900,14 +1289,25 @@ export default function AdminDashboard() {
                     <div className="col-span-3 text-center">Actions</div>
                   </div>
                   {admins.map((admin) => (
-                    <div key={admin._id} className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-gray-100 items-center">
-                      <div className="col-span-3 font-medium text-gray-900">{admin.userId}</div>
-                      <div className="col-span-4 text-gray-600">{admin.email}</div>
+                    <div
+                      key={admin._id}
+                      className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-gray-100 items-center"
+                    >
+                      <div className="col-span-3 font-medium text-gray-900">
+                        {admin.userId}
+                      </div>
+                      <div className="col-span-4 text-gray-600">
+                        {admin.email}
+                      </div>
                       <div className="col-span-2 flex justify-center">
                         {admin.isSuperAdmin ? (
-                          <span className="px-2 py-1 rounded bg-purple-100 text-purple-700 text-xs font-semibold">Yes</span>
+                          <span className="px-2 py-1 rounded bg-purple-100 text-purple-700 text-xs font-semibold">
+                            Yes
+                          </span>
                         ) : (
-                          <span className="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs font-semibold">No</span>
+                          <span className="px-2 py-1 rounded bg-gray-100 text-gray-600 text-xs font-semibold">
+                            No
+                          </span>
                         )}
                       </div>
                       <div className="col-span-3 flex justify-center gap-2">
@@ -940,7 +1340,9 @@ export default function AdminDashboard() {
             {activeTab === "api-keys" && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-gray-800">Manage API Keys</h2>
+                  <h2 className="text-lg font-semibold text-gray-800">
+                    Manage API Keys
+                  </h2>
                   <button
                     onClick={() => setShowCreateApiKey(true)}
                     className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
@@ -952,9 +1354,13 @@ export default function AdminDashboard() {
                 {newlyCreatedApiKey && (
                   <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
                     <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
-                      <h3 className="text-xl font-bold mb-4">API Key Created</h3>
+                      <h3 className="text-xl font-bold mb-4">
+                        API Key Created
+                      </h3>
                       <div className="p-4 bg-gray-100 rounded-xl mb-4">
-                        <p className="text-sm font-medium text-gray-800 mb-2">Save this key, you won't see it again:</p>
+                        <p className="text-sm font-medium text-gray-800 mb-2">
+                          Save this key, you won't see it again:
+                        </p>
                         <div className="font-mono text-sm break-all bg-white p-3 rounded border border-gray-200">
                           {newlyCreatedApiKey}
                         </div>
@@ -972,10 +1378,14 @@ export default function AdminDashboard() {
                 {showCreateApiKey && (
                   <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
                     <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
-                      <h3 className="text-xl font-bold mb-4">Create New API Key</h3>
+                      <h3 className="text-xl font-bold mb-4">
+                        Create New API Key
+                      </h3>
                       <form onSubmit={handleCreateApiKey} className="space-y-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Key Name</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Key Name
+                          </label>
                           <input
                             type="text"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -986,12 +1396,16 @@ export default function AdminDashboard() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Expires (days, optional)</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Expires (days, optional)
+                          </label>
                           <input
                             type="number"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             value={newApiKeyExpiresDays}
-                            onChange={(e) => setNewApiKeyExpiresDays(e.target.value)}
+                            onChange={(e) =>
+                              setNewApiKeyExpiresDays(e.target.value)
+                            }
                             placeholder="30"
                             min="1"
                           />
@@ -1009,7 +1423,9 @@ export default function AdminDashboard() {
                             disabled={saving === "create-api-key"}
                             className="flex-1 px-4 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
                           >
-                            {saving === "create-api-key" ? "Creating..." : "Create"}
+                            {saving === "create-api-key"
+                              ? "Creating..."
+                              : "Create"}
                           </button>
                         </div>
                       </form>
@@ -1025,12 +1441,21 @@ export default function AdminDashboard() {
                     <div className="col-span-2 text-center">Actions</div>
                   </div>
                   {apiKeys.map((apiKey) => (
-                    <div key={apiKey._id} className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-gray-100 items-center">
-                      <div className="col-span-4 font-medium text-gray-900">{apiKey.name}</div>
+                    <div
+                      key={apiKey._id}
+                      className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-gray-100 items-center"
+                    >
+                      <div className="col-span-4 font-medium text-gray-900">
+                        {apiKey.name}
+                      </div>
                       <div className="col-span-3 flex justify-center">
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          apiKey.isActive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                        }`}>
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-semibold ${
+                            apiKey.isActive
+                              ? "bg-green-100 text-green-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
                           {apiKey.isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
@@ -1039,7 +1464,12 @@ export default function AdminDashboard() {
                       </div>
                       <div className="col-span-2 flex justify-center gap-2">
                         <button
-                          onClick={() => handleToggleApiKeyActive(apiKey._id, apiKey.isActive)}
+                          onClick={() =>
+                            handleToggleApiKeyActive(
+                              apiKey._id,
+                              apiKey.isActive,
+                            )
+                          }
                           disabled={saving === apiKey._id}
                           className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
                         >
@@ -1089,22 +1519,41 @@ function UserRow({
   return (
     <div className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-gray-100 items-center">
       <div className="col-span-3">
-        <button onClick={onView} className="font-medium text-emerald-700 hover:underline text-left">
+        <button
+          onClick={onView}
+          className="font-medium text-emerald-700 hover:underline text-left"
+        >
           {user.name || user.mobile}
         </button>
         <div className="text-xs text-gray-500">{user.mobile}</div>
       </div>
       <div className="col-span-2 flex justify-center">
-        <input type="checkbox" checked={contacts} onChange={(e) => setContacts(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={contacts}
+          onChange={(e) => setContacts(e.target.checked)}
+        />
       </div>
       <div className="col-span-2 flex justify-center">
-        <input type="checkbox" checked={groups} onChange={(e) => setGroups(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={groups}
+          onChange={(e) => setGroups(e.target.checked)}
+        />
       </div>
       <div className="col-span-2 flex justify-center">
-        <input type="checkbox" checked={status} onChange={(e) => setStatus(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={status}
+          onChange={(e) => setStatus(e.target.checked)}
+        />
       </div>
       <div className="col-span-2 flex justify-center">
-        <input type="checkbox" checked={attachments} onChange={(e) => setAttachments(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={attachments}
+          onChange={(e) => setAttachments(e.target.checked)}
+        />
       </div>
       <div className="col-span-1 flex justify-center">
         <button
@@ -1119,15 +1568,28 @@ function UserRow({
   );
 }
 
-function UserDetails({ user, onClose }: { user: UserRow; onClose: () => void }) {
-  const formatDate = (value: string | null) => value ? new Date(value).toLocaleString() : "Not available";
+function UserDetails({
+  user,
+  onClose,
+}: {
+  user: UserRow;
+  onClose: () => void;
+}) {
+  const formatDate = (value: string | null) =>
+    value ? new Date(value).toLocaleString() : "Not available";
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
       <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-xl font-bold text-gray-900">User details</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-900" aria-label="Close user details">Close</button>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-900"
+            aria-label="Close user details"
+          >
+            Close
+          </button>
         </div>
         <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
           <Detail label="Name" value={user.name || "Not available"} />
@@ -1135,18 +1597,36 @@ function UserDetails({ user, onClose }: { user: UserRow; onClose: () => void }) 
           <Detail label="Email" value={user.email || "Not available"} />
           <Detail label="Gender" value={user.sex || "Not available"} />
           <Detail label="Date of birth" value={formatDate(user.dateOfBirth)} />
-          <Detail label="Terms accepted" value={user.termsAccepted ? "Yes" : "No"} />
+          <Detail
+            label="Terms accepted"
+            value={user.termsAccepted ? "Yes" : "No"}
+          />
           <Detail label="Created" value={formatDate(user.createdAt)} />
           <Detail label="Last login" value={formatDate(user.lastLoginAt)} />
-          <Detail label="Last login IP" value={user.lastLoginIp || "Not available"} />
+          <Detail
+            label="Last login IP"
+            value={user.lastLoginIp || "Not available"}
+          />
           <Detail label="About" value={user.about || "Not available"} />
         </div>
-        <button onClick={onClose} className="mt-6 w-full rounded-xl bg-gray-900 px-4 py-2 text-white hover:bg-gray-700">Close</button>
+        <button
+          onClick={onClose}
+          className="mt-6 w-full rounded-xl bg-gray-900 px-4 py-2 text-white hover:bg-gray-700"
+        >
+          Close
+        </button>
       </div>
     </div>
   );
 }
 
 function Detail({ label, value }: { label: string; value: string }) {
-  return <div><div className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</div><div className="break-words text-gray-900">{value}</div></div>;
+  return (
+    <div>
+      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+        {label}
+      </div>
+      <div className="break-words text-gray-900">{value}</div>
+    </div>
+  );
 }
