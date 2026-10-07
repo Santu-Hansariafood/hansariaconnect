@@ -26,7 +26,11 @@ import {
   emitDirectMessageReceived,
   emitGroupMessageReceived,
 } from "@/lib/socketEmitter";
-import { redisDel, CacheKeys } from "@/lib/redis/redis";
+import {
+  redisDel,
+  CacheKeys,
+  invalidateDirectMessages,
+} from "@/lib/redis/redis";
 import {
   configureSocketRedisAdapter,
   getSocketRedisClient,
@@ -584,6 +588,9 @@ export default async function handler(
             }
 
             const effectiveStatus = updatedMessage.status;
+            if (updatedMessage.status !== message.status) {
+              await invalidateDirectMessages(senderId, recipientId);
+            }
             io.to(String(updatedMessage.from)).emit("message:status:update", {
               id: updatedMessage._id.toString(),
               status: effectiveStatus,

@@ -9,6 +9,7 @@ import Conversation from "@/models/conversation/Conversation";
 import Group from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
 import { emitConversationRead } from "@/lib/socketEmitter";
+import { invalidateDirectMessages } from "@/lib/redis/redis";
 
 interface MessageLean {
   _id: Types.ObjectId;
@@ -137,6 +138,11 @@ export async function POST(req: NextRequest) {
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
+      await Message.updateOne(
+        { _id: message._id, to: userId, status: { $ne: "seen" } },
+        { $set: { status: "seen" } },
+      );
+      await invalidateDirectMessages(String(userId), String(message.from ?? ""));
       safeEmitToUser(String(message.from ?? ""), "message:status:update", {
         id: String(message._id),
         status: "seen",
@@ -312,6 +318,28 @@ export async function POST(req: NextRequest) {
         String(conversation.userA) === String(userId)
           ? String(conversation.userB)
           : String(conversation.userA);
+      const unreadMessages = (await Message.find({
+        from: toObjectId(other),
+        to: userId,
+        status: { $ne: "seen" },
+      })
+        .select("_id")
+        .lean()
+        .exec()) as Array<{ _id: Types.ObjectId }>;
+
+      if (unreadMessages.length > 0) {
+        await Message.updateMany(
+          { _id: { $in: unreadMessages.map((message) => message._id) } },
+          { $set: { status: "seen" } },
+        );
+        await invalidateDirectMessages(String(userId), other);
+        unreadMessages.forEach((message) => {
+          safeEmitToUser(other, "message:status:update", {
+            id: String(message._id),
+            status: "seen",
+          });
+        });
+      }
       safeEmitToUser(other, "conversation:read", {
         conversationId: String(conversation._id),
         userId: String(userId),

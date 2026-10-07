@@ -124,6 +124,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const mergeUnique = useCallback(
     (prev: ChatMessage[], incoming: ChatMessage[]) => {
       const map = new Map<string, ChatMessage>();
+      let hasUpdates = false;
 
       const addMessage = (msg: ChatMessage) => {
         const key =
@@ -134,8 +135,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       };
 
       prev.forEach(addMessage);
-      incoming.forEach(addMessage);
-      if (map.size === prev.length) return prev;
+      incoming.forEach((msg) => {
+        const key =
+          msg._id?.toString?.() ||
+          msg.id?.toString?.() ||
+          String(msg.createdAt || msg.timestamp || "");
+        if (!key) return;
+
+        const existing = map.get(key);
+        if (!existing) {
+          map.set(key, msg);
+          return;
+        }
+
+        const hasChangedFields = (
+          Object.keys(msg) as Array<keyof ChatMessage>
+        ).some((field) => existing[field] !== msg[field]);
+        if (hasChangedFields) {
+          map.set(key, { ...existing, ...msg });
+          hasUpdates = true;
+        }
+      });
+      if (map.size === prev.length && !hasUpdates) return prev;
       return Array.from(map.values()).sort((a: any, b: any) => {
         const ta = new Date(a?.createdAt || a?.timestamp || 0).getTime();
         const tb = new Date(b?.createdAt || b?.timestamp || 0).getTime();
