@@ -37,11 +37,19 @@ export async function POST(req: NextRequest) {
 
     await connectDB();
     const body = await req.json();
-    const { userId, email, password, isSuperAdmin = false } = body;
+    const userId =
+      typeof body?.userId === "string" ? body.userId.trim() : "";
+    const email =
+      typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password = typeof body?.password === "string" ? body.password : "";
+    const isSuperAdmin = body?.isSuperAdmin ?? false;
 
-    if (!userId || !email || !password) {
+    if (!userId || !email || !password || typeof isSuperAdmin !== "boolean") {
       return NextResponse.json(
-        { success: false, error: "User ID, email, and password are required" },
+        {
+          success: false,
+          error: "Admin ID, email, and password are required",
+        },
         { status: 400 },
       );
     }
@@ -52,8 +60,8 @@ export async function POST(req: NextRequest) {
 
     if (existingAdmin) {
       return NextResponse.json(
-        { success: false, error: "User ID or email already exists" },
-        { status: 400 },
+        { success: false, error: "Admin ID or email already exists" },
+        { status: 409 },
       );
     }
 
@@ -70,6 +78,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, admin: adminWithoutPassword });
   } catch (error: any) {
     console.error("Create admin error:", error);
+    if (error?.code === 11000) {
+      return NextResponse.json(
+        { success: false, error: "Admin ID or email already exists" },
+        { status: 409 },
+      );
+    }
     return NextResponse.json(
       { success: false, error: "Internal server error" },
       { status: 500 },

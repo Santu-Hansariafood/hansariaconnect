@@ -1312,34 +1312,23 @@ export default function AdminDashboard() {
                       <h3 className="text-xl font-bold mb-4">
                         Create New Admin
                       </h3>
+                      <p className="mb-4 text-sm text-gray-500">
+                        Create a separate admin workspace. The Admin ID is
+                        chosen here; the database record ID is generated
+                        automatically.
+                      </p>
                       <form onSubmit={handleCreateAdmin} className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Sender account ID
-                          </label>
-                          <input
-                            type="text"
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            value={newApiKeySenderUserId}
-                            onChange={(e) =>
-                              setNewApiKeySenderUserId(e.target.value)
-                            }
-                            placeholder="Provisioned user ObjectId"
-                            required
-                          />
-                          <p className="mt-1 text-xs text-gray-500">
-                            Bulk messages are sent from this account.
-                          </p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            User ID
+                            Admin ID
                           </label>
                           <input
                             type="text"
                             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                             value={newAdminUserId}
                             onChange={(e) => setNewAdminUserId(e.target.value)}
+                            autoComplete="username"
+                            placeholder="For example, branch-admin"
                             required
                           />
                         </div>
@@ -1545,158 +1534,373 @@ export default function AdminDashboard() {
 
             {activeTab === "api-keys" && (
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    {isPlatformAdmin ? "My API keys" : "Workspace API keys"}
-                  </h2>
-                  <button
-                    onClick={() => setShowCreateApiKey(true)}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
-                  >
-                    Create API Key
-                  </button>
+                <section
+                  className={`overflow-hidden rounded-3xl border p-5 shadow-sm sm:p-7 ${
+                    isPlatformAdmin
+                      ? "border-indigo-200 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-800 text-white"
+                      : "border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-100 text-slate-900"
+                  }`}
+                >
+                  <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p
+                        className={`text-xs font-bold uppercase tracking-[0.18em] ${
+                          isPlatformAdmin
+                            ? "text-indigo-200"
+                            : "text-emerald-800"
+                        }`}
+                      >
+                        Secure integrations
+                      </p>
+                      <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                        API keys
+                      </h2>
+                      <p
+                        className={`mt-2 max-w-2xl text-sm leading-6 ${
+                          isPlatformAdmin ? "text-slate-300" : "text-slate-600"
+                        }`}
+                      >
+                        {isPlatformAdmin
+                          ? "Create and manage keys for your Super Admin account. Other admins’ keys stay private."
+                          : "Create and manage keys for this admin workspace. Each admin’s keys stay private."}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowCreateApiKey(true)}
+                      className={`inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                        isPlatformAdmin
+                          ? "bg-indigo-400 text-slate-950 hover:bg-indigo-300 focus:ring-indigo-300"
+                          : "bg-emerald-700 text-white hover:bg-emerald-800 focus:ring-emerald-600"
+                      }`}
+                    >
+                      Create API key
+                    </button>
+                  </div>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        isPlatformAdmin
+                          ? "border-white/15 bg-white/5 text-slate-200"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                      }`}
+                    >
+                      {apiKeys.length} total key{apiKeys.length === 1 ? "" : "s"}
+                    </span>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        isPlatformAdmin
+                          ? "border-white/15 bg-white/5 text-slate-200"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                      }`}
+                    >
+                      {apiKeys.filter((apiKey) => apiKey.isActive).length} active
+                    </span>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        isPlatformAdmin
+                          ? "border-white/15 bg-white/5 text-slate-200"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                      }`}
+                    >
+                      Private to this admin
+                    </span>
+                  </div>
+                </section>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Keep API keys secret. Use them only from trusted servers over
+                  HTTPS, and disable or delete any key that may have been
+                  exposed.
                 </div>
-                <p className="text-sm text-gray-500">
-                  {isPlatformAdmin
-                    ? "These integrations belong to your Super Admin account; other admins' keys are not shown here."
-                    : "These integrations belong to this admin workspace and are private from other admins."}
-                </p>
 
                 {newlyCreatedApiKey && (
-                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
-                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
-                      <h3 className="text-xl font-bold mb-4">
-                        API Key Created
+                  <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
+                    <section
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="api-key-created-title"
+                      className="my-auto w-full max-w-xl rounded-3xl border border-emerald-100 bg-white p-6 shadow-2xl sm:p-8"
+                    >
+                      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-xl font-bold text-emerald-800">
+                        ✓
+                      </div>
+                      <h3
+                        id="api-key-created-title"
+                        className="text-xl font-bold text-slate-900"
+                      >
+                        API key created
                       </h3>
-                      <div className="p-4 bg-gray-100 rounded-xl mb-4">
-                        <p className="text-sm font-medium text-gray-800 mb-2">
-                          Save this key, you won't see it again:
+                      <p className="mt-2 text-sm leading-6 text-slate-600">
+                        Copy and store this key securely. It is shown only
+                        once; you cannot retrieve it after closing this
+                        message.
+                      </p>
+                      <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Secret API key
                         </p>
-                        <div className="font-mono text-sm break-all bg-white p-3 rounded border border-gray-200">
+                        <div className="break-all rounded-xl border border-slate-200 bg-white p-3 font-mono text-sm leading-6 text-slate-900">
                           {newlyCreatedApiKey}
                         </div>
                       </div>
                       <button
                         onClick={() => setNewlyCreatedApiKey(null)}
-                        className="w-full py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold"
+                        className="mt-5 w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
                       >
-                        Got it
+                        I’ve saved my key
                       </button>
-                    </div>
+                    </section>
                   </div>
                 )}
 
                 {showCreateApiKey && (
-                  <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
-                    <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
-                      <h3 className="text-xl font-bold mb-4">
-                        Create New API Key
-                      </h3>
-                      <form onSubmit={handleCreateApiKey} className="space-y-4">
+                  <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
+                    <section
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="create-api-key-title"
+                      className="my-auto w-full max-w-xl rounded-3xl border border-slate-200 bg-white shadow-2xl"
+                    >
+                      <div
+                        className={`rounded-t-3xl px-6 py-5 sm:px-8 ${
+                          isPlatformAdmin
+                            ? "bg-indigo-950 text-white"
+                            : "bg-emerald-950 text-white"
+                        }`}
+                      >
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/65">
+                          Secure integrations
+                        </p>
+                        <h3
+                          id="create-api-key-title"
+                          className="mt-1 text-xl font-bold"
+                        >
+                          Create an API key
+                        </h3>
+                        <p className="mt-1 text-sm text-white/75">
+                          Configure access for a trusted server integration.
+                        </p>
+                      </div>
+                      <form
+                        onSubmit={handleCreateApiKey}
+                        className="space-y-5 p-6 sm:p-8"
+                      >
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Key Name
+                          <label
+                            htmlFor="api-key-name"
+                            className="mb-1.5 block text-sm font-semibold text-slate-800"
+                          >
+                            Key name
                           </label>
                           <input
+                            id="api-key-name"
                             type="text"
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
                             value={newApiKeyName}
                             onChange={(e) => setNewApiKeyName(e.target.value)}
-                            placeholder="My Integration"
+                            placeholder="e.g. Order notifications"
+                            maxLength={100}
                             required
                           />
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            Use a name that identifies the application or
+                            purpose.
+                          </p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Expires (days, optional)
+                          <label
+                            htmlFor="api-key-sender"
+                            className="mb-1.5 block text-sm font-semibold text-slate-800"
+                          >
+                            Sender chat account ID{" "}
+                            <span className="font-normal text-slate-500">
+                              (optional)
+                            </span>
                           </label>
                           <input
-                            type="number"
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            value={newApiKeyExpiresDays}
-                            onChange={(e) =>
-                              setNewApiKeyExpiresDays(e.target.value)
+                            id="api-key-sender"
+                            type="text"
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                            value={newApiKeySenderUserId}
+                            onChange={(event) =>
+                              setNewApiKeySenderUserId(event.target.value)
                             }
-                            placeholder="30"
-                            min="1"
+                            placeholder="Chat account ObjectId"
                           />
+                          <p className="mt-1.5 text-xs leading-5 text-slate-500">
+                            Bind the key to a chat account for bulk sends.
+                            Leave blank when each single-send request supplies
+                            its own fromUserId.
+                          </p>
                         </div>
-                        <div className="flex gap-3">
+                        <div>
+                          <label
+                            htmlFor="api-key-expiry"
+                            className="mb-1.5 block text-sm font-semibold text-slate-800"
+                          >
+                            Expiration{" "}
+                            <span className="font-normal text-slate-500">
+                              (optional)
+                            </span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              id="api-key-expiry"
+                              type="number"
+                              className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-20 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                              value={newApiKeyExpiresDays}
+                              onChange={(e) =>
+                                setNewApiKeyExpiresDays(e.target.value)
+                              }
+                              placeholder="No expiry"
+                              min="1"
+                              max="3650"
+                            />
+                            <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-sm text-slate-500">
+                              days
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            Leave blank for a key that does not expire
+                            automatically.
+                          </p>
+                        </div>
+                        <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
                           <button
                             type="button"
                             onClick={() => setShowCreateApiKey(false)}
-                            className="flex-1 px-4 py-3 rounded-xl bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
                           >
                             Cancel
                           </button>
                           <button
                             type="submit"
                             disabled={saving === "create-api-key"}
-                            className="flex-1 px-4 py-3 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                            className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                              isPlatformAdmin
+                                ? "bg-indigo-700 hover:bg-indigo-800 focus:ring-indigo-600"
+                                : "bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
+                            }`}
                           >
                             {saving === "create-api-key"
-                              ? "Creating..."
-                              : "Create"}
+                              ? "Creating key..."
+                              : "Create API key"}
                           </button>
                         </div>
                       </form>
-                    </div>
+                    </section>
                   </div>
                 )}
 
-                <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="grid grid-cols-12 gap-3 px-4 py-3 text-sm font-medium text-gray-600 bg-gray-50">
-                    <div className="col-span-4">Name</div>
-                    <div className="col-span-3 text-center">Status</div>
-                    <div className="col-span-3 text-center">Created At</div>
-                    <div className="col-span-2 text-center">Actions</div>
-                  </div>
-                  {apiKeys.map((apiKey) => (
-                    <div
-                      key={apiKey._id}
-                      className="grid grid-cols-12 gap-3 px-4 py-3 border-t border-gray-100 items-center"
-                    >
-                      <div className="col-span-4 font-medium text-gray-900">
-                        {apiKey.name}
-                      </div>
-                      <div className="col-span-3 flex justify-center">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-semibold ${
-                            apiKey.isActive
-                              ? "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {apiKey.isActive ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                      <div className="col-span-3 flex justify-center text-sm text-gray-500">
-                        {new Date(apiKey.createdAt).toLocaleDateString()}
-                      </div>
-                      <div className="col-span-2 flex justify-center gap-2">
-                        <button
-                          onClick={() =>
-                            handleToggleApiKeyActive(
-                              apiKey._id,
-                              apiKey.isActive,
-                            )
-                          }
-                          disabled={saving === apiKey._id}
-                          className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
-                        >
-                          {apiKey.isActive ? "Disable" : "Enable"}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteApiKey(apiKey._id)}
-                          disabled={saving === apiKey._id}
-                          className="px-3 py-1 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700 disabled:opacity-60"
-                        >
-                          {saving === apiKey._id ? "..." : "Delete"}
-                        </button>
-                      </div>
+                <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="flex flex-col gap-1 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                    <div>
+                      <h3 className="font-semibold text-slate-900">
+                        {isPlatformAdmin
+                          ? "Your Super Admin keys"
+                          : "Your workspace keys"}
+                      </h3>
+                      <p className="mt-0.5 text-sm text-slate-500">
+                        Disable a key temporarily or delete one you no longer
+                        use.
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    <span className="text-sm font-medium text-slate-500">
+                      {apiKeys.length} total
+                    </span>
+                  </div>
+                  {apiKeys.length ? (
+                    <div className="divide-y divide-slate-100">
+                      {apiKeys.map((apiKey) => (
+                        <article
+                          key={apiKey._id}
+                          className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="break-all font-semibold text-slate-900">
+                                {apiKey.name}
+                              </h4>
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                  apiKey.isActive
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {apiKey.isActive ? "Active" : "Disabled"}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span>
+                                Created{" "}
+                                {new Date(apiKey.createdAt).toLocaleDateString()}
+                              </span>
+                              {apiKey.expiresAt && (
+                                <span>
+                                  Expires{" "}
+                                  {new Date(apiKey.expiresAt).toLocaleDateString()}
+                                </span>
+                              )}
+                              {apiKey.senderUserId && (
+                                <span className="break-all">
+                                  Bound sender: {apiKey.senderUserId}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 gap-2">
+                            <button
+                              onClick={() =>
+                                handleToggleApiKeyActive(
+                                  apiKey._id,
+                                  apiKey.isActive,
+                                )
+                              }
+                              disabled={saving === apiKey._id}
+                              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              {saving === apiKey._id
+                                ? "Updating..."
+                                : apiKey.isActive
+                                  ? "Disable"
+                                  : "Enable"}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteApiKey(apiKey._id)}
+                              disabled={saving === apiKey._id}
+                              className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="px-5 py-12 text-center sm:px-6">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-lg font-bold text-slate-500">
+                        API
+                      </div>
+                      <h4 className="mt-4 font-semibold text-slate-900">
+                        No API keys yet
+                      </h4>
+                      <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                        Create a key for your server integration. The secret is
+                        displayed once when it is created.
+                      </p>
+                      <button
+                        onClick={() => setShowCreateApiKey(true)}
+                        className={`mt-5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${
+                          isPlatformAdmin
+                            ? "bg-indigo-700 hover:bg-indigo-800"
+                            : "bg-emerald-700 hover:bg-emerald-800"
+                        }`}
+                      >
+                        Create your first API key
+                      </button>
+                    </div>
+                  )}
+                </section>
               </div>
             )}
           </>
