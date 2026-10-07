@@ -82,6 +82,7 @@ export default function AdminDashboard() {
   const [saving, setSaving] = useState<string | null>(null);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSuperSubdomain, setIsSuperSubdomain] = useState(false);
+  const isPlatformAdmin = isSuperAdmin || isSuperSubdomain;
   const [activeTab, setActiveTab] = useState<
     "users" | "admins" | "api-keys" | "accounts" | "templates" | "profile"
   >("users");
@@ -617,26 +618,48 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-30 border-b border-emerald-900/10 bg-white/95 shadow-sm backdrop-blur">
+      <header
+        className={`sticky top-0 z-30 border-b shadow-sm backdrop-blur ${
+          isPlatformAdmin
+            ? "border-indigo-900/20 bg-slate-950/95"
+            : "border-emerald-900/10 bg-white/95"
+        }`}
+      >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-700 text-sm font-black tracking-wide text-white shadow-md shadow-emerald-900/20">
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black tracking-wide text-white shadow-md ${
+                isPlatformAdmin
+                  ? "bg-indigo-500 shadow-indigo-950/30"
+                  : "bg-emerald-700 shadow-emerald-900/20"
+              }`}
+            >
               HC
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">
-                  {isSuperSubdomain
-                    ? "Super Admin"
-                    : isSuperAdmin
-                      ? "Administrator"
-                      : "Admin workspace"}
+                <h1
+                  className={`truncate text-base font-bold sm:text-lg ${
+                    isPlatformAdmin ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {isPlatformAdmin ? "Super Admin Console" : "Admin Workspace"}
                 </h1>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-800 ring-1 ring-emerald-700/10">
-                  {isSuperSubdomain || isSuperAdmin ? "Super admin" : "Admin"}
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ${
+                    isPlatformAdmin
+                      ? "bg-indigo-400/15 text-indigo-100 ring-indigo-300/25"
+                      : "bg-emerald-50 text-emerald-800 ring-emerald-700/10"
+                  }`}
+                >
+                  {isPlatformAdmin ? "Platform admin" : "Workspace admin"}
                 </span>
               </div>
-              <p className="hidden truncate text-xs text-slate-500 sm:block">
+              <p
+                className={`hidden truncate text-xs sm:block ${
+                  isPlatformAdmin ? "text-slate-300" : "text-slate-500"
+                }`}
+              >
                 {adminProfile.email ||
                   adminProfile.userId ||
                   "HansariaConnect control center"}
@@ -645,18 +668,28 @@ export default function AdminDashboard() {
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span
-              className={`hidden items-center gap-2 text-xs text-slate-500 transition-opacity sm:flex ${
+              className={`hidden items-center gap-2 text-xs transition-opacity sm:flex ${
+                isPlatformAdmin ? "text-slate-300" : "text-slate-500"
+              } ${
                 refreshing ? "opacity-100" : "opacity-0"
               }`}
               role="status"
               aria-live="polite"
             >
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              <span
+                className={`h-2 w-2 animate-pulse rounded-full ${
+                  isPlatformAdmin ? "bg-indigo-400" : "bg-emerald-500"
+                }`}
+              />
               Updating
             </span>
             <button
               onClick={logout}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 sm:px-4"
+              className={`rounded-xl border px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 sm:px-4 ${
+                isPlatformAdmin
+                  ? "border-white/15 bg-white/10 text-white hover:border-rose-300/40 hover:bg-rose-500/15 hover:text-rose-100"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+              }`}
             >
               Logout
             </button>
@@ -677,6 +710,97 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <>
+            <section
+              className={`mb-6 overflow-hidden rounded-3xl border p-5 shadow-sm sm:p-7 ${
+                isPlatformAdmin
+                  ? "border-indigo-200 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-800 text-white"
+                  : "border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-100 text-slate-900"
+              }`}
+              aria-labelledby="workspace-title"
+            >
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-2xl">
+                  <p
+                    className={`text-xs font-bold uppercase tracking-[0.18em] ${
+                      isPlatformAdmin ? "text-indigo-200" : "text-emerald-800"
+                    }`}
+                  >
+                    {isPlatformAdmin
+                      ? "Platform administration"
+                      : "Private admin workspace"}
+                  </p>
+                  <h2
+                    id="workspace-title"
+                    className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl"
+                  >
+                    {isPlatformAdmin
+                      ? "Platform overview"
+                      : `Welcome${adminProfile.userId ? `, ${adminProfile.userId}` : ""}`}
+                  </h2>
+                  <p
+                    className={`mt-2 text-sm leading-6 sm:text-base ${
+                      isPlatformAdmin ? "text-slate-300" : "text-slate-600"
+                    }`}
+                  >
+                    {isPlatformAdmin
+                      ? "Manage the platform user directory and admin access. Regular admin workspaces and their templates remain separate."
+                      : "Manage the accounts, message templates, and API integrations belonging to this admin workspace. Super Admin platform controls are separate."}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:min-w-[430px]">
+                  {(isPlatformAdmin
+                    ? [
+                        {
+                          label: "Platform users",
+                          value: userPagination.total,
+                        },
+                        { label: "Admin accounts", value: admins.length },
+                        {
+                          label: "My active API keys",
+                          value: apiKeys.filter((key) => key.isActive).length,
+                        },
+                      ]
+                    : [
+                        { label: "My templates", value: templates.length },
+                        { label: "My API keys", value: apiKeys.length },
+                        {
+                          label: "Active keys",
+                          value: apiKeys.filter((key) => key.isActive).length,
+                        },
+                      ]
+                  ).map((stat) => (
+                    <div
+                      key={stat.label}
+                      className={`rounded-2xl border px-4 py-3 ${
+                        isPlatformAdmin
+                          ? "border-white/10 bg-white/5"
+                          : "border-white/80 bg-white/75 shadow-sm"
+                      }`}
+                    >
+                      <p
+                        className={`text-xs font-medium ${
+                          isPlatformAdmin ? "text-slate-300" : "text-slate-500"
+                        }`}
+                      >
+                        {stat.label}
+                      </p>
+                      <p className="mt-1 text-2xl font-bold">{stat.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {!isPlatformAdmin && (
+                <p className="mt-5 border-t border-emerald-900/10 pt-4 text-xs text-slate-500">
+                  Workspace owner:{" "}
+                  <span className="font-semibold text-slate-700">
+                    {adminProfile.email || adminProfile.userId}
+                  </span>
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800">
+                    Private to this admin
+                  </span>
+                </p>
+              )}
+            </section>
             {error && (
               <div
                 role="alert"
@@ -694,67 +818,100 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Tabs */}
             <nav
-              aria-label="Admin sections"
-              className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm"
+              aria-label={isPlatformAdmin ? "Super Admin sections" : "Admin workspace sections"}
+              className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
             >
-              {!isSuperAdmin && !isSuperSubdomain && (
-                <>
+              {isPlatformAdmin ? (
+                <div>
+                  <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-700">
+                    Platform controls
+                  </p>
+                  <div className="flex gap-1 overflow-x-auto">
+                    <button
+                      onClick={() => setActiveTab("users")}
+                      aria-current={activeTab === "users" ? "page" : undefined}
+                      className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                        activeTab === "users"
+                          ? "bg-indigo-700 text-white shadow-md shadow-indigo-900/15"
+                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
+                      }`}
+                    >
+                      User directory
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("admins")}
+                      aria-current={activeTab === "admins" ? "page" : undefined}
+                      className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                        activeTab === "admins"
+                          ? "bg-indigo-700 text-white shadow-md shadow-indigo-900/15"
+                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
+                      }`}
+                    >
+                      Admin access
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-800">
+                    Workspace tools
+                  </p>
+                  <div className="flex gap-1 overflow-x-auto">
                   <button
                     onClick={() => setActiveTab("accounts")}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}
+                    aria-current={activeTab === "accounts" ? "page" : undefined}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"}`}
                   >
                     Accounts
                   </button>
                   <button
                     onClick={() => setActiveTab("templates")}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}
+                    aria-current={activeTab === "templates" ? "page" : undefined}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"}`}
                   >
                     Templates
                   </button>
                   <button
                     onClick={() => setActiveTab("profile")}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-slate-100"}`}
+                    aria-current={activeTab === "profile" ? "page" : undefined}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"}`}
                   >
                     Profile
                   </button>
-                </>
+                  </div>
+                </div>
               )}
-              {(isSuperAdmin || isSuperSubdomain) && (
-                <button
-                  onClick={() => setActiveTab("users")}
-                  className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                    activeTab === "users"
-                      ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Users
-                </button>
-              )}
-              {(isSuperAdmin || isSuperSubdomain) && (
-                <button
-                  onClick={() => setActiveTab("admins")}
-                  className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                    activeTab === "admins"
-                      ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15"
-                      : "text-slate-600 hover:bg-slate-100"
-                  }`}
-                >
-                  Admins
-                </button>
-              )}
-              <button
-                onClick={() => setActiveTab("api-keys")}
-                className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                  activeTab === "api-keys"
-                    ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15"
-                    : "text-slate-600 hover:bg-slate-100"
+              <div
+                className={`border-t pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0 ${
+                  isPlatformAdmin
+                    ? "border-indigo-100"
+                    : "border-emerald-100"
                 }`}
               >
-                API Keys
-              </button>
+                <p
+                  className={`mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] ${
+                    isPlatformAdmin ? "text-indigo-700" : "text-emerald-800"
+                  }`}
+                >
+                  {isPlatformAdmin ? "Personal integrations" : "Integrations"}
+                </p>
+                <button
+                  onClick={() => setActiveTab("api-keys")}
+                  aria-current={activeTab === "api-keys" ? "page" : undefined}
+                  className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                    activeTab === "api-keys"
+                      ? `${
+                          isPlatformAdmin ? "bg-indigo-700" : "bg-emerald-700"
+                        } text-white shadow-md`
+                      : isPlatformAdmin
+                        ? "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
+                        : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"
+                  }`}
+                >
+                  API Keys
+                </button>
+              </div>
             </nav>
 
             {showBulkUsers && (
@@ -1063,10 +1220,11 @@ export default function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-800">
-                      Users
+                      Platform user directory
                     </h2>
                     <p className="text-sm text-gray-500">
-                      {userPagination.total} total users, 100 per page
+                      {userPagination.total} total users across the platform,
+                      100 per page
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -1138,7 +1296,7 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold text-gray-800">
-                    Manage Admins
+                    Admin access and workspaces
                   </h2>
                   <button
                     onClick={() => setShowCreateAdmin(true)}
@@ -1389,7 +1547,7 @@ export default function AdminDashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold text-gray-800">
-                    Manage API Keys
+                    {isPlatformAdmin ? "My API keys" : "Workspace API keys"}
                   </h2>
                   <button
                     onClick={() => setShowCreateApiKey(true)}
@@ -1398,6 +1556,11 @@ export default function AdminDashboard() {
                     Create API Key
                   </button>
                 </div>
+                <p className="text-sm text-gray-500">
+                  {isPlatformAdmin
+                    ? "These integrations belong to your Super Admin account; other admins' keys are not shown here."
+                    : "These integrations belong to this admin workspace and are private from other admins."}
+                </p>
 
                 {newlyCreatedApiKey && (
                   <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
