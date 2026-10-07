@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { readSheet } from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
 import { getTemplateVariableNames } from "@/lib/messageTemplates";
+import AdminApplicationConnectionGuide from "@/components/admin/AdminApplicationConnectionGuide";
 
 type BulkUserInput = {
   name: string;
@@ -1737,6 +1738,11 @@ export default function AdminDashboard() {
                   HTTPS, and disable or delete any key that may have been
                   exposed.
                 </div>
+                <AdminApplicationConnectionGuide
+                  isPlatformAdmin={isPlatformAdmin}
+                  onNavigate={setActiveTab}
+                  onCreateApiKey={() => setShowCreateApiKey(true)}
+                />
 
                 {newlyCreatedApiKey && (
                   <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
