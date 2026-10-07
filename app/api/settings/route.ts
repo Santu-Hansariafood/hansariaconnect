@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
           messages: true,
           groups: true,
           enabled: true,
-          ringtone: "chime",
+          ringtone: "whatsapp",
         },
       });
     }
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
         messages: true,
         groups: true,
         enabled: true,
-        ringtone: "chime",
+        ringtone: "whatsapp",
       },
     });
   } catch (error: unknown) {
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
         ...(notifications.messages !== undefined && { messages: notifications.messages }),
         ...(notifications.groups !== undefined && { groups: notifications.groups }),
         ...(notifications.enabled !== undefined && { enabled: notifications.enabled }),
-        ...(notifications.ringtone !== undefined && { ringtone: notifications.ringtone || "chime" }),
+        ...(notifications.ringtone !== undefined && { ringtone: notifications.ringtone || "whatsapp" }),
       };
     }
 

@@ -11,7 +11,7 @@ const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   messages: true,
   groups: true,
   enabled: true,
-  ringtone: "chime",
+  ringtone: "whatsapp",
 };
 
 let notificationPreferencesSnapshot: NotificationPreferences =
@@ -303,7 +303,17 @@ export function useNotifications(userId?: string | number) {
       return;
     }
 
-    console.log("[Notifications] Attempting to show notification:", { title, body, tag, permission: Notification.permission });
+    const isVisible = document.visibilityState === "visible";
+    const isFocused = typeof document.hasFocus === "function" ? document.hasFocus() : isVisible;
+
+    console.log("[Notifications] Attempting to show notification:", {
+      title,
+      body,
+      tag,
+      permission: Notification.permission,
+      visibilityState: document.visibilityState,
+      hasFocus: isFocused,
+    });
 
     const options: NotificationOptions = {
       body,
@@ -318,38 +328,59 @@ export function useNotifications(userId?: string | number) {
         const notification = new Notification(title, options);
         console.log("[Notifications] In-page notification created successfully");
         notification.onclick = () => {
-          window.focus();
-          window.location.href = url;
-          notification.close();
+          try {
+            window.focus();
+            window.location.href = url;
+            notification.close();
+          } catch (clickErr: any) {
+            console.error("[Notifications] Notification click handler error:", clickErr?.message || clickErr);
+          }
         };
       } catch (e: any) {
-        console.error("[Notifications] Failed to create notification:", e?.message || e);
+        console.error("[Notifications] Failed to create in-page notification:", e?.message || e);
       }
     };
 
     const createServiceWorkerNotification = async () => {
       if (!("serviceWorker" in navigator)) {
-        console.log("[Notifications] ServiceWorker not available, using in-page notification");
+        console.log("[Notifications] ServiceWorker API not available, falling back to in-page notification");
         createNotification();
         return;
       }
 
+      let registration: ServiceWorkerRegistration | undefined;
       try {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration) {
-          if (document.visibilityState === "hidden") {
-            console.log("[Notifications] Tab is hidden, using SW notification");
-            await registration.showNotification(title, options);
-            console.log("[Notifications] SW notification shown successfully");
-            return;
-          } else {
-            console.log("[Notifications] Tab is visible, using in-page notification");
-          }
-        } else {
-          console.log("[Notifications] No SW registration found, using in-page notification");
-        }
+        registration = await navigator.serviceWorker.getRegistration();
       } catch (e: any) {
-        console.warn("[Notifications] SW notification failed, falling back:", e?.message || e);
+        console.warn("[Notifications] getRegistration() threw - using in-page fallback:", e?.message || e);
+        createNotification();
+        return;
+      }
+
+      if (!registration) {
+        console.log("[Notifications] No active SW registration (may still be registering). Using in-page notification.");
+        createNotification();
+        return;
+      }
+
+      const preferSW = !isVisible || !isFocused;
+      if (preferSW) {
+        try {
+          console.log(
+            "[Notifications] Using SW notification (page:",
+            isVisible ? "visible" : "hidden",
+            "| window:",
+            isFocused ? "focused" : "not focused",
+            ")",
+          );
+          await registration.showNotification(title, options);
+          console.log("[Notifications] SW notification shown successfully");
+          return;
+        } catch (e: any) {
+          console.warn("[Notifications] SW notification failed, falling back to in-page:", e?.message || e);
+        }
+      } else {
+        console.log("[Notifications] Window is focused. Using in-page notification.");
       }
 
       createNotification();
@@ -358,9 +389,15 @@ export function useNotifications(userId?: string | number) {
     if (Notification.permission === "granted") {
       void createServiceWorkerNotification();
     } else if (Notification.permission === "denied") {
-      console.warn("[Notifications] Permission denied by user - cannot show notification");
+      console.warn(
+        "[Notifications] Permission is DENIED by user. Cannot show notification.",
+        "Instruct user to unblock notifications: click 🔒 in address bar → Site settings → Notifications → Allow",
+      );
     } else {
-      console.warn("[Notifications] Permission not granted (state: default) - skipping notification. User must grant permission first via a click action.");
+      console.warn(
+        "[Notifications] Permission state is 'default' (not yet requested). Skipping notification.",
+        "User MUST grant permission via the 'Allow Notifications' button in Settings → Notifications (requires a user click gesture).",
+      );
     }
   }, [preferences.enabled]);
 

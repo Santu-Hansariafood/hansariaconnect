@@ -223,19 +223,42 @@ export default function NotificationManager({
           : "You have a new message"
         : payload.preview || "You have a new message";
       const isPageVisible = document.visibilityState === "visible";
-      const isFocusedConversation = Boolean(isActiveChat && isPageVisible);
+      const isWindowFocused = typeof document.hasFocus === "function" ? document.hasFocus() : isPageVisible;
+      const isFocusedConversation = Boolean(isActiveChat && isPageVisible && isWindowFocused);
+
+      console.log(
+        "[NotificationManager] Focus state check:",
+        "| isPageVisible:",
+        isPageVisible,
+        "| isWindowFocused:",
+        isWindowFocused,
+        "| isFocusedConversation:",
+        isFocusedConversation,
+      );
 
       if (!isFocusedConversation) {
         playRingtone(preferences.ringtone || "chime");
       }
-      if (isPageVisible && !isActiveChat) {
+
+      const showBrowserNotification = !isPageVisible || !isWindowFocused;
+      const showInAppToast = isPageVisible && isWindowFocused && !isActiveChat;
+
+      if (showInAppToast) {
         addToast({
           ...payload,
           chatName: notificationTitle,
           preview: notificationBody,
         });
       }
-      if (!isPageVisible) {
+
+      if (showBrowserNotification) {
+        console.log(
+          "[NotificationManager] → Showing browser notification (page:",
+          isPageVisible ? "visible" : "hidden",
+          "| window:",
+          isWindowFocused ? "focused" : "not focused",
+          ")",
+        );
         showNotification(
           notificationTitle,
           notificationBody,

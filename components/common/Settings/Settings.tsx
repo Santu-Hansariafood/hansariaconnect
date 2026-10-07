@@ -14,6 +14,8 @@ import {
   ShieldAlert,
   CheckCircle2,
   AlertCircle,
+  Play,
+  Volume2,
 } from "lucide-react";
 
 import { useSettings } from "@/hooks/settings/useSettings";
@@ -33,9 +35,11 @@ const notificationKeys: NotificationKey[] = ["messages", "groups", "enabled"];
 
 const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   const { initialTheme } = useSettings();
-  const { preferences: notifications, updatePreferences } = useNotifications(
-    user?.id,
-  );
+  const {
+    preferences: notifications,
+    updatePreferences,
+    playRingtone,
+  } = useNotifications(user?.id);
 
   const {
     localTheme,
@@ -141,10 +145,15 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
     }
   };
 
-  const setRingtone = async (ringtone: string) => {
+  const setRingtone = async (ringtone: string, { preview = false }: { preview?: boolean } = {}) => {
+    if (preview) {
+      playRingtone(ringtone);
+      return;
+    }
     setNotificationLoading(true);
     try {
       await updatePreferences({ ringtone });
+      setTimeout(() => playRingtone(ringtone), 80);
     } finally {
       setNotificationLoading(false);
     }
@@ -164,7 +173,9 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   };
 
   const ringtoneOptions = [
+    { value: "whatsapp", name: "WhatsApp" },
     { value: "chime", name: "Chime" },
+    { value: "bell", name: "Bell" },
     { value: "pulse", name: "Pulse" },
     { value: "spark", name: "Spark" },
     { value: "none", name: "Silent" },
@@ -512,20 +523,56 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
               Notification Ringtone
             </label>
             <div className="grid grid-cols-2 gap-3">
-              {ringtoneOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setRingtone(option.value)}
-                  className={`px-4 py-3 rounded-xl text-left border transition ${
-                    notifications.ringtone === option.value
-                      ? "bg-emerald-50 border-emerald-300"
-                      : "bg-white border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  <p className="font-medium text-gray-800">{option.name}</p>
-                </button>
-              ))}
+              {ringtoneOptions.map((option) => {
+                const isActive = notifications.ringtone === option.value;
+                return (
+                  <div
+                    key={option.value}
+                    className={`relative flex items-center gap-2 px-4 py-3 rounded-xl border transition ${
+                      isActive
+                        ? "bg-emerald-50 border-emerald-300"
+                        : "bg-white border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setRingtone(option.value)}
+                      disabled={notificationLoading}
+                      className="flex-1 min-w-0 text-left"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isActive && (
+                          <Volume2
+                            className="w-4 h-4 shrink-0"
+                            style={{ color: localTheme?.primary }}
+                          />
+                        )}
+                        <p className="font-medium text-gray-800 truncate">
+                          {option.name}
+                        </p>
+                      </div>
+                    </button>
+                    {option.value !== "none" && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRingtone(option.value, { preview: true });
+                        }}
+                        aria-label={`Preview ${option.name} ringtone`}
+                        title="Preview"
+                        className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full transition ${
+                          isActive
+                            ? "text-emerald-700 hover:bg-emerald-100"
+                            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                        }`}
+                      >
+                        <Play className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
               <button
                 type="button"
                 onClick={triggerRingtoneUpload}

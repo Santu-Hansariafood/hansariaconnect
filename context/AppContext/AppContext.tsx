@@ -96,9 +96,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
+      return;
     }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const registration = await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+        });
+        if (cancelled) return;
+        console.log(
+          "[AppProvider] ServiceWorker registered successfully for scope:",
+          registration.scope,
+          "| SW state:",
+          registration.active?.state || registration.waiting?.state || registration.installing?.state || "installing",
+        );
+        registration.addEventListener("updatefound", () => {
+          console.log("[AppProvider] ServiceWorker update found - new version installing...");
+        });
+      } catch (error: any) {
+        if (cancelled) return;
+        console.error(
+          "[AppProvider] ServiceWorker registration FAILED. In-page notifications will still work, but background push delivery may be unavailable.",
+          "Error:",
+          error?.message || String(error),
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [])
 
   useEffect(() => {

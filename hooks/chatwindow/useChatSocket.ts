@@ -26,8 +26,24 @@ export const useChatSocket = (
 
       if (!matchesChat) return;
 
+      const isFromPeer = senderId === id;
+
+      console.log(
+        "[useChatSocket] Direct message received via socket",
+        "| from:",
+        senderId,
+        "| to:",
+        recipientId,
+        "| isFromPeer:",
+        isFromPeer,
+        "| chatId (peer):",
+        id,
+      );
+
       onIncomingMessage?.(msg);
       setChatMessages((prev) => mergeUnique(prev, [msg]));
+
+      if (!isFromPeer) return;
 
       try {
         socket?.emit(
@@ -46,6 +62,13 @@ export const useChatSocket = (
                   }),
                 );
               }
+            } else {
+              console.warn(
+                "[useChatSocket] Delivered-status ack not ok for msg",
+                msg?._id,
+                ":",
+                ack,
+              );
             }
           },
         );
@@ -67,6 +90,13 @@ export const useChatSocket = (
                     }),
                   );
                 }
+              } else {
+                console.warn(
+                  "[useChatSocket] Seen-status ack not ok for msg",
+                  msg?._id,
+                  ":",
+                  ack,
+                );
               }
             },
           );
@@ -77,8 +107,18 @@ export const useChatSocket = (
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ peerId: id }),
-        }).catch(() => {});
-      } catch {}
+        }).catch((err: any) =>
+          console.error(
+            "[useChatSocket] read-receipts POST (direct) failed:",
+            err?.message || err,
+          ),
+        );
+      } catch (err: any) {
+        console.error(
+          "[useChatSocket] Delivered/seen emit error (direct):",
+          err?.message || err,
+        );
+      }
     },
     [id, setChatMessages, mergeUnique, socket, isGroup, onIncomingMessage],
   );
@@ -86,20 +126,109 @@ export const useChatSocket = (
   const handleNewGroupMessage = useCallback(
     (msg: any) => {
       if (!isGroup) return;
-      if (String(msg?.groupId) === id) {
-        onIncomingMessage?.(msg);
-        setChatMessages((prev) => mergeUnique(prev, [msg]));
+      if (String(msg?.groupId) !== id) return;
+
+      const senderId = msg?.from?.toString?.() ?? String(msg?.from ?? "");
+      const isFromOtherMember = Boolean(senderId);
+
+      console.log(
+        "[useChatSocket] Group message received via socket",
+        "| groupId:",
+        msg?.groupId,
+        "| from:",
+        senderId,
+        "| chatId:",
+        id,
+      );
+
+      onIncomingMessage?.(msg);
+      setChatMessages((prev) => mergeUnique(prev, [msg]));
+
+      if (isFromOtherMember) {
         try {
-          fetch("/api/read-receipts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ groupId: id }),
-          });
-        } catch {}
+          socket?.emit(
+            "message:status",
+            { id: msg?._id?.toString?.(), status: "delivered", groupId: id },
+            (ack: any) => {
+              if (ack?.ok && ack?.message?._id) {
+                const mid = ack.message._id?.toString?.();
+                if (mid) {
+                  setChatMessages((prev) =>
+                    prev.map((m: any) => {
+                      const idStr = m?._id?.toString?.();
+                      if (idStr && idStr === mid)
+                        return { ...m, status: ack.message.status };
+                      return m;
+                    }),
+                  );
+                }
+              } else {
+                console.warn(
+                  "[useChatSocket] Group delivered-status ack not ok for msg",
+                  msg?._id,
+                  ":",
+                  ack,
+                );
+              }
+            },
+          );
+
+          setTimeout(() => {
+            socket?.emit(
+              "message:status",
+              { id: msg?._id?.toString?.(), status: "seen", groupId: id },
+              (ack: any) => {
+                if (ack?.ok && ack?.message?._id) {
+                  const mid = ack.message._id?.toString?.();
+                  if (mid) {
+                    setChatMessages((prev) =>
+                      prev.map((m: any) => {
+                        const idStr = m?._id?.toString?.();
+                        if (idStr && idStr === mid)
+                          return { ...m, status: ack.message.status };
+                        return m;
+                      }),
+                    );
+                  }
+                } else {
+                  console.warn(
+                    "[useChatSocket] Group seen-status ack not ok for msg",
+                    msg?._id,
+                    ":",
+                    ack,
+                  );
+                }
+              },
+            );
+          }, 500);
+        } catch (err: any) {
+          console.error(
+            "[useChatSocket] Group delivered/seen emit error:",
+            err?.message || err,
+          );
+        }
+      }
+
+      try {
+        fetch("/api/read-receipts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ groupId: id }),
+        }).catch((err: any) =>
+          console.error(
+            "[useChatSocket] read-receipts POST (group) failed:",
+            err?.message || err,
+          ),
+        );
+      } catch (err: any) {
+        console.error(
+          "[useChatSocket] read-receipts wrapper error (group):",
+          err?.message || err,
+        );
       }
     },
-    [id, setChatMessages, mergeUnique, isGroup, onIncomingMessage],
+    [id, setChatMessages, mergeUnique, isGroup, onIncomingMessage, socket],
   );
 
   const handleStatusUpdate = useCallback(
@@ -176,12 +305,16 @@ export const useChatSocket = (
         lastTypingSentRef.current = now;
         try {
           socket.emit("typing:start", isGroup ? { groupId: id } : { peerId: id });
-        } catch {}
+        } catch (err: any) {
+          console.warn("[useChatSocket] typing:start emit error:", err?.message || err);
+        }
         if (typingSendDebounceRef.current) clearTimeout(typingSendDebounceRef.current);
         typingSendDebounceRef.current = setTimeout(() => {
           try {
             socket.emit("typing:stop", isGroup ? { groupId: id } : { peerId: id });
-          } catch {}
+          } catch (err: any) {
+            console.warn("[useChatSocket] typing:stop emit error (timeout):", err?.message || err);
+          }
         }, TYPING_TIMEOUT_MS);
       } else {
         if (typingSendDebounceRef.current) {
@@ -190,7 +323,9 @@ export const useChatSocket = (
         }
         try {
           socket.emit("typing:stop", isGroup ? { groupId: id } : { peerId: id });
-        } catch {}
+        } catch (err: any) {
+          console.warn("[useChatSocket] typing:stop emit error:", err?.message || err);
+        }
       }
     },
     [socket, id, isGroup, TYPING_SEND_THROTTLE_MS, TYPING_TIMEOUT_MS],
@@ -256,9 +391,15 @@ export const useChatSocket = (
   useEffect(() => {
     if (!id) return;
 
+    let lastCatchupAt = 0;
+    const CATCHUP_COOLDOWN_MS = 10_000;
+
     const fetchLatest = async (force = false) => {
-      if (!force && socket?.connected) return;
-      if (document.visibilityState !== "visible") return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (!force && now - lastCatchupAt < CATCHUP_COOLDOWN_MS) return;
+      lastCatchupAt = now;
+
       try {
         const endpoint = isGroup
           ? `/api/groups/${id}/messages?limit=30&last=true`
@@ -267,32 +408,66 @@ export const useChatSocket = (
           credentials: "include",
           cache: "no-store",
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn(
+            "[useChatSocket] Catchup fetch HTTP",
+            res.status,
+            "for chat",
+            id,
+          );
+          return;
+        }
         const data = await res.json();
         if (Array.isArray(data?.messages) && data.messages.length > 0) {
           setChatMessages((prev) => mergeUnique(prev, data.messages));
         }
-      } catch (error) {
-        console.warn("[useChatSocket] Fallback message refresh failed:", error);
+      } catch (error: any) {
+        console.warn(
+          "[useChatSocket] Catchup message refresh failed:",
+          error?.message || error,
+        );
       }
     };
 
     const handleConnect = () => {
+      console.log(
+        "[useChatSocket] Socket connected — triggering catchup fetch for chat",
+        id,
+      );
       void fetchLatest(true);
     };
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") void fetchLatest(true);
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        console.log(
+          "[useChatSocket] Tab became visible — triggering catchup fetch for chat",
+          id,
+        );
+        void fetchLatest(true);
+      }
+    };
+    const handleReconnect = (attempt: number) => {
+      console.log(
+        "[useChatSocket] Socket reconnected (attempt",
+        attempt,
+        ") — triggering catchup fetch for chat",
+        id,
+      );
+      void fetchLatest(true);
     };
 
     socket?.on("connect", handleConnect);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    const interval = setInterval(() => void fetchLatest(), 15000);
+    socket?.io?.on("reconnect", handleReconnect);
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
     void fetchLatest(true);
 
     return () => {
-      clearInterval(interval);
       socket?.off("connect", handleConnect);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      socket?.io?.off("reconnect", handleReconnect);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
     };
   }, [id, isGroup, mergeUnique, setChatMessages, socket]);
 

@@ -8,26 +8,33 @@ export const useNotificationSettings = (notifications: any, setNotifications: an
   const saveNotifications = async (updated: any) => {
     setLoading(true);
     try {
-      await fetch("/api/settings", {
+      const response = await fetch("/api/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ notifications: updated }),
       });
-    } catch {
-      // Ignore update failure; maintain app stability without console output.
+      if (!response.ok) {
+        console.error(
+          "[useNotificationSettings] saveNotifications HTTP error:",
+          response.status,
+          response.statusText,
+        );
+      }
+    } catch (error: any) {
+      console.error(
+        "[useNotificationSettings] saveNotifications network error:",
+        error?.message || String(error),
+      );
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const toggleNotification = async (key: "messages" | "groups" | "enabled") => {
     const updated = { ...notifications, [key]: !notifications[key] };
     setNotifications(updated);
     await saveNotifications(updated);
-
-    if (key === "enabled" && updated.enabled && typeof window !== "undefined" && "Notification" in window) {
-      Notification.requestPermission().catch(() => {});
-    }
   };
 
   const setRingtone = async (ringtone: string) => {

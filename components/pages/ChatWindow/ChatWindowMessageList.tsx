@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import { format, isSameDay } from "date-fns";
 import MessageBubble from "@/components/ui/MessageBubble/MessageBubble";
 import TypingIndicator from "@/components/ui/TypingIndicator/TypingIndicator";
@@ -29,6 +29,20 @@ function toSenderId(from?: string | { toString?: () => string }) {
   return from.toString ? from.toString() : "";
 }
 
+function toMsgKey(msg: ChatMessage): string {
+  return (
+    msg._id?.toString?.() ||
+    msg.id?.toString?.() ||
+    (msg && typeof msg === "object" && "timestamp" in msg
+      ? String((msg as any).timestamp || "")
+      : "") ||
+    (msg && typeof msg === "object" && "createdAt" in msg
+      ? String((msg as any).createdAt || "")
+      : "") ||
+    `${msg.from}-${msg.to}-${msg.text}-${msg.mediaUrl || ""}`
+  );
+}
+
 export default function ChatWindowMessageList({
   messages,
   theme,
@@ -45,11 +59,59 @@ export default function ChatWindowMessageList({
   unreadDividerRef,
   typingUsers = [],
 }: ChatWindowMessageListProps) {
-  const renderMessages = messages;
+  const currentUserId = String(user.id);
+
+  const meta = useMemo(() => {
+    let firstUnreadIndex = -1;
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      const sender = toSenderId(m.from);
+      const incoming = isGroup
+        ? Boolean(sender) && sender !== currentUserId
+        : sender === id;
+      const status = (m.status as string) || "sent";
+      if (incoming && status !== "seen") {
+        firstUnreadIndex = i;
+        break;
+      }
+    }
+
+    const dateDividersAt: boolean[] = new Array(messages.length);
+    const groupMemberCache = new Map<string, {
+      id: string;
+      name: string;
+      avatar: string;
+    }>();
+
+    return { firstUnreadIndex, dateDividersAt, groupMemberCache };
+  }, [messages, id, isGroup, currentUserId]);
+
+  const groupMemberContact = useCallback((fromStr: string) => {
+    const cached = meta.groupMemberCache.get(fromStr);
+    if (cached !== undefined) return cached;
+    let resolved: { id: string; name: string; avatar: string } | null = null;
+    if (isGroup && fromStr) {
+      const member = groupMembers.find(
+        (memberItem) => String(memberItem.id) === String(fromStr),
+      );
+      if (member) {
+        resolved = {
+          id: member.id,
+          name: member.name,
+          avatar: member.avatar || "/logo/logo.png",
+        };
+      }
+    }
+    if (!resolved) {
+      resolved = { id, name: headerName, avatar: headerAvatar };
+    }
+    meta.groupMemberCache.set(fromStr, resolved);
+    return resolved;
+  }, [groupMembers, headerAvatar, headerName, id, isGroup, meta.groupMemberCache]);
 
   return (
     <div className="w-full mx-auto space-y-1.5 w-full min-w-0">
-      {renderMessages.length === 0 && (
+      {messages.length === 0 && (
         <div className="text-center text-gray-600 py-6">
           <p className="text-sm">
             {isGroup
@@ -67,9 +129,8 @@ export default function ChatWindowMessageList({
         </div>
       )}
 
-      {renderMessages.map((msg, idx, arr) => {
+      {messages.map((msg, idx, arr) => {
         const fromStr = toSenderId(msg.from);
-        const currentUserId = String(user.id);
         const isIncoming = isGroup
           ? Boolean(fromStr) && fromStr !== currentUserId
           : fromStr === id;
@@ -83,38 +144,11 @@ export default function ChatWindowMessageList({
           : null;
         const showDateDivider = !prevDate || !isSameDay(currentDate, prevDate);
 
-        const firstUnread = arr.findIndex((m) => {
-          const sender = toSenderId(m.from);
-          const incoming = isGroup
-            ? Boolean(sender) && sender !== currentUserId
-            : sender === id;
-          return incoming && (m.status || "sent") !== "seen";
-        });
-
-        const bubbleContact = (() => {
-          if (isGroup && isIncoming) {
-            const senderId = fromStr;
-            const member = groupMembers.find(
-              (memberItem) => String(memberItem.id) === String(senderId),
-            );
-            if (member) {
-              return {
-                id: member.id,
-                name: member.name,
-                avatar: member.avatar || "/logo/logo.png",
-              };
-            }
-          }
-          return { id, name: headerName, avatar: headerAvatar };
-        })();
+        const bubbleContact = groupMemberContact(fromStr);
+        const stableKey = toMsgKey(msg);
 
         return (
-          <React.Fragment
-            key={
-              msg._id?.toString() ||
-              `${fromStr}-${msg.to || ""}-${msg.createdAt || msg.timestamp}-${msg.mediaUrl || msg.text || ""}`
-            }
-          >
+          <React.Fragment key={stableKey}>
             {showDateDivider && (
               <div className="flex justify-center my-4">
                 <span className="text-xs px-4 py-1 bg-gray-200 text-gray-700 rounded-full font-medium">
@@ -123,7 +157,7 @@ export default function ChatWindowMessageList({
               </div>
             )}
 
-            {idx === firstUnread && firstUnread >= 0 && (
+            {idx === meta.firstUnreadIndex && meta.firstUnreadIndex >= 0 && (
               <div className="flex justify-center my-2" ref={unreadDividerRef}>
                 <span className="text-xs px-3 py-1 bg-yellow-200 rounded-full text-yellow-800 font-medium">
                   Unread messages

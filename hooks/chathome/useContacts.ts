@@ -23,11 +23,14 @@ export interface Contact {
   registeredUserId?: string;
 }
 
+const CATCHUP_COOLDOWN_MS = 120_000;
+
 export const useContacts = (userId?: string | number) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const hasLoadedConversations = useRef(false);
-  const { onlineUserIds, socket } = useSocket();
+  const lastCatchupAtRef = useRef(0);
+  const { onlineUserIds, socket, addListener, removeListener } = useSocket();
   const { bootstrapData } = useApp();
 
   const mergeSavedContacts = useCallback((savedContacts: any[]) => {
@@ -84,8 +87,20 @@ export const useContacts = (userId?: string | number) => {
       const data = await response.json();
       if (response.ok && Array.isArray(data?.contacts)) {
         mergeSavedContacts(data.contacts);
+      } else {
+        console.warn(
+          "[useContacts] loadSavedContacts HTTP",
+          response.status,
+          "-",
+          data?.error || "no data",
+        );
       }
-    } catch {}
+    } catch (err: any) {
+      console.error(
+        "[useContacts] loadSavedContacts network error:",
+        err?.message || err,
+      );
+    }
   }, [mergeSavedContacts, userId]);
 
   const loadConversations = useCallback(async () => {
@@ -106,6 +121,23 @@ export const useContacts = (userId?: string | number) => {
       const convData = await convRes.json();
       const unreadData = await unreadRes.json();
       const unreadMap = unreadData?.conversations || {};
+
+      if (!convRes.ok) {
+        console.warn(
+          "[useContacts] conversations fetch HTTP",
+          convRes.status,
+          "-",
+          convData?.error || "failed",
+        );
+      }
+      if (!unreadRes.ok) {
+        console.warn(
+          "[useContacts] unread-counts fetch HTTP",
+          unreadRes.status,
+          "-",
+          unreadData?.error || "failed",
+        );
+      }
 
       if (Array.isArray(convData?.conversations)) {
         const mapped: Contact[] = convData.conversations.map((c: any) => {
@@ -157,7 +189,12 @@ export const useContacts = (userId?: string | number) => {
           return [...mapped, ...savedOnly];
         });
       }
-    } catch {} finally {
+    } catch (err: any) {
+      console.error(
+        "[useContacts] loadConversations error:",
+        err?.message || err,
+      );
+    } finally {
       hasLoadedConversations.current = true;
       setLoading(false);
     }
@@ -165,14 +202,44 @@ export const useContacts = (userId?: string | number) => {
 
   useEffect(() => {
     if (!socket) return;
-    const refreshConversations = () => {
+
+    const handleSocketConnect = () => {
+      console.log("[useContacts] Socket connected — refreshing conversation list");
       void loadConversations();
     };
-    socket.on("connect", refreshConversations);
-    return () => {
-      socket.off("connect", refreshConversations);
+    const handleSocketReconnect = () => {
+      console.log("[useContacts] Socket reconnected — refreshing conversation list");
+      void loadConversations();
     };
-  }, [loadConversations, socket]);
+
+    const handleCatchupConversation = (payload: any) => {
+      const peerId = String(payload?.peerId || payload?.from || payload?.to || "");
+      if (!peerId) return;
+      setContacts((previous) =>
+        previous.map((contact) => {
+          const cp = String(
+            contact.registeredUserId || contact.peerId || contact.id || "",
+          );
+          if (cp !== peerId) return contact;
+          return {
+            ...contact,
+            lastMessageTime:
+              payload?.createdAt || payload?.timestamp || new Date().toISOString(),
+          };
+        }),
+      );
+    };
+
+    socket.on("connect", handleSocketConnect);
+    socket.io?.on("reconnect", handleSocketReconnect);
+    addListener("conversation:updated", handleCatchupConversation);
+
+    return () => {
+      socket.off("connect", handleSocketConnect);
+      socket.io?.off("reconnect", handleSocketReconnect);
+      removeListener("conversation:updated", handleCatchupConversation);
+    };
+  }, [addListener, loadConversations, removeListener, socket]);
 
   useEffect(() => {
     void loadSavedContacts();
@@ -233,26 +300,30 @@ export const useContacts = (userId?: string | number) => {
       return;
     }
 
-    const refreshIfVisible = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+    const catchupIfNeeded = () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      const now = Date.now();
+      const stale = now - lastCatchupAtRef.current > CATCHUP_COOLDOWN_MS;
+      if (stale || !hasLoadedConversations.current) {
+        lastCatchupAtRef.current = now;
         void loadConversations();
       }
     };
 
-    refreshIfVisible();
+    catchupIfNeeded();
 
-    const interval = window.setInterval(refreshIfVisible, 60000);
-    window.addEventListener("focus", refreshIfVisible);
-    document.addEventListener("visibilitychange", refreshIfVisible);
+    const onWindowFocus = () => catchupIfNeeded();
+    const onVisibilityChange = () => catchupIfNeeded();
+
+    window.addEventListener("focus", onWindowFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshIfVisible);
-      document.removeEventListener("visibilitychange", refreshIfVisible);
+      window.removeEventListener("focus", onWindowFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [bootstrapData.conversations, loadConversations]);
 
-  // Only update active status for changed users, not all contacts
   useEffect(() => {
     setContacts(prev => {
       const needsUpdate = prev.some(contact => {
@@ -272,13 +343,13 @@ export const useContacts = (userId?: string | number) => {
     });
   }, [onlineUserIds]);
 
-  const updateContact = (contactId: string, updates: Partial<Contact>) => {
+  const updateContact = useCallback((contactId: string, updates: Partial<Contact>) => {
     setContacts((prev) =>
       prev.map((contact) =>
         contact.id === contactId ? { ...contact, ...updates } : contact
       )
     );
-  };
+  }, []);
 
   return {
     contacts,

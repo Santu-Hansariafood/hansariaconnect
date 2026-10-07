@@ -160,6 +160,11 @@ export default function ChatHome({
       const peerId = String(message?.from || "");
       if (!peerId || peerId === String(user.id || "")) return;
 
+      console.log(
+        "[ChatHome] Direct message arrived via socket — updating peer",
+        peerId,
+      );
+
       setContacts((previous) =>
         previous.map((contact) => {
           const contactPeerId = String(
@@ -181,7 +186,16 @@ export default function ChatHome({
 
     const handleIncomingGroupMessage = (message: any) => {
       const groupId = String(message?.groupId || "");
+      const fromId = String(message?.from || "");
       if (!groupId) return;
+      if (fromId && fromId === String(user.id || "")) return;
+
+      console.log(
+        "[ChatHome] Group message arrived via socket — updating group",
+        groupId,
+        "| from:",
+        fromId,
+      );
 
       setGroups((previous) =>
         previous.map((group) => {
@@ -194,6 +208,14 @@ export default function ChatHome({
           };
         }),
       );
+
+      setGroupUnread((previous) => {
+        const currentCount = Number(previous?.[groupId] || 0);
+        const alreadyActive = selectedChatId && String(selectedChatId) === groupId;
+        const nextCount = alreadyActive ? 0 : currentCount + 1;
+        if (currentCount === nextCount) return previous;
+        return { ...(previous || {}), [groupId]: nextCount };
+      });
     };
 
     const handleUnreadUpdate = (payload: {
@@ -213,14 +235,15 @@ export default function ChatHome({
         );
       }
       if (payload.groups) {
-        setGroupUnread(
-          Object.fromEntries(
-            Object.entries(payload.groups).map(([id, count]) => [
-              id,
-              Number(count) || 0,
-            ]),
-          ),
-        );
+        setGroupUnread((current) => {
+          const merged: Record<string, number> = { ...(current || {}) };
+          for (const [groupId, count] of Object.entries(
+            payload.groups as Record<string, number>,
+          )) {
+            merged[groupId] = Number(count) || 0;
+          }
+          return merged;
+        });
       }
     };
 

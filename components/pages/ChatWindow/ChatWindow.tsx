@@ -77,6 +77,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     : undefined;
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const containerScrollRef = useRef<{
+    isAtBottom: boolean;
+  }>({ isAtBottom: true });
+
   const [message, setMessage] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
     cachedMessagesAtOpen || [],
@@ -132,7 +136,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       prev.forEach(addMessage);
       incoming.forEach(addMessage);
       if (map.size === prev.length) return prev;
-      return Array.from(map.values());
+      return Array.from(map.values()).sort((a: any, b: any) => {
+        const ta = new Date(a?.createdAt || a?.timestamp || 0).getTime();
+        const tb = new Date(b?.createdAt || b?.timestamp || 0).getTime();
+        return ta - tb;
+      });
     },
     [],
   );
@@ -188,9 +196,79 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     user.id,
   );
 
+  const AUTO_SCROLL_THRESHOLD_PX = 80;
+  const checkIsAtBottom = useCallback((): boolean => {
+    const el = containerRef?.current ?? null;
+    if (!el) return true;
+    const distanceFromBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight;
+    return distanceFromBottom <= AUTO_SCROLL_THRESHOLD_PX;
+  }, [containerRef]);
+
+  const syncIsAtBottom = useCallback(() => {
+    containerScrollRef.current.isAtBottom = checkIsAtBottom();
+  }, [checkIsAtBottom]);
+
+  const scrollToBottom = useCallback((smooth: boolean = false) => {
+    if (!messagesEndRef.current) return;
+    messagesEndRef.current.scrollIntoView({
+      behavior: smooth ? "smooth" : "auto",
+      block: "end",
+    });
+    containerScrollRef.current.isAtBottom = true;
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+    const el = containerRef?.current;
+    if (!el) return;
+    const listener = () => {
+      syncIsAtBottom();
+    };
+    el.addEventListener("scroll", listener, { passive: true });
+    syncIsAtBottom();
+    return () => el.removeEventListener("scroll", listener);
+  }, [containerRef, syncIsAtBottom]);
+
+  useEffect(() => {
+    if (chatMessages.length === 0) return;
+
+    const fromMe = chatMessages.length > 0
+      ? String(chatMessages[chatMessages.length - 1]?.from) === String(user.id)
+      : false;
+    const isAtBottom = containerScrollRef.current.isAtBottom;
+    const el = containerRef?.current ?? null;
+
+    if (fromMe) {
+      const snap = () => scrollToBottom(true);
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(snap));
+      } else {
+        snap();
+      }
+      return;
+    }
+
+    if (isAtBottom) {
+      const snap = () => scrollToBottom(false);
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(snap));
+      } else {
+        snap();
+      }
+    } else if (el) {
+      const prevHeight = el.scrollHeight;
+      const tick = () => {
+        const newHeight = el.scrollHeight;
+        const delta = newHeight - prevHeight;
+        if (delta > 0) el.scrollTop += delta;
+      };
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(tick);
+      } else {
+        tick();
+      }
+    }
+  }, [chatMessages, containerRef, scrollToBottom, user.id]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -258,8 +336,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 });
               }
             }
-          } catch {
-            // ignore group fetch errors
+          } catch (err: any) {
+            console.error(
+              "[ChatWindow] Group info fetch error:",
+              err?.message || err,
+            );
           }
         }
 
@@ -363,8 +444,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                       registeredUserId: u?.id || u?._id || chatId,
                     } as any);
                   }
-                } catch {
-                  // ignore fallback user fetch errors
+                } catch (err: any) {
+                  console.warn(
+                    "[ChatWindow] Fallback user info fetch error:",
+                    err?.message || err,
+                  );
                 }
               }
             }
@@ -417,8 +501,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             credentials: "include",
             body: JSON.stringify(receiptBody),
           });
-        } catch {
-          // ignore marking as read failures
+        } catch (err: any) {
+          console.warn(
+            "[ChatWindow] Marking read-receipts on open failed:",
+            err?.message || err,
+          );
         }
       } finally {
         setInitialLoading(false);
@@ -485,7 +572,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         setContact(data.contact);
         setShowSaveModal(false);
       }
-    } catch {
+    } catch (err: any) {
+      console.error("[ChatWindow] Save contact error:", err?.message || err);
       setSaveError("Failed to save contact");
     } finally {
       setSavingContact(false);
@@ -523,7 +611,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         setContact(data.contact);
         setShowEditModal(false);
       }
-    } catch {
+    } catch (err: any) {
+      console.error("[ChatWindow] Update contact error:", err?.message || err);
       setEditError("Failed to update contact");
     }
   };
@@ -559,8 +648,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         }
         return true;
       }
-    } catch {
-      // ignore
+      console.warn(
+        "[ChatWindow] sendViaRest HTTP",
+        res.status,
+        "- server response:",
+        data,
+      );
+    } catch (err: any) {
+      console.error("[ChatWindow] sendViaRest network error:", err?.message || err);
     }
 
     const failedId = getMessageId(tempMessage);
@@ -581,7 +676,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     payload: OutboundMessagePayload,
     tempMessage?: ChatMessage,
   ) => {
-    if (!socket) return false;
+    if (!socket) {
+      console.warn("[ChatWindow] sendViaSocket skipped — socket not initialized yet");
+      return false;
+    }
+    if (!socket.connected) {
+      console.warn(
+        "[ChatWindow] sendViaSocket skipped — socket not connected (state:",
+        socket.disconnected ? "disconnected" : "connecting",
+        "). Will attempt REST fallback.",
+      );
+      return false;
+    }
 
     return new Promise<boolean>((resolve) => {
       const eventName = isGroup ? "group:message:send" : "message:send";
@@ -589,57 +695,81 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         ? { groupId: chatId, ...payload }
         : { to: chatId, ...payload };
 
-      socket.timeout(12_000).emit(
-        eventName,
-        socketPayload,
-        (
-          timeoutError: Error | null,
-          ack?: { ok?: boolean; message?: ChatMessage },
-        ) => {
-          if (timeoutError) {
-            const failedId = getMessageId(tempMessage);
-            if (failedId) {
-              setChatMessages((prev) =>
-                prev.map((msg) =>
-                  msg._id?.toString?.() === failedId
-                    ? { ...msg, status: "failed" }
-                    : msg,
-                ),
-              );
-            }
-            resolve(false);
-            return;
-          }
+      let resolved = false;
+      const fail = () => {
+        if (resolved) return;
+        resolved = true;
+        const failedId = getMessageId(tempMessage);
+        if (failedId) {
+          setChatMessages((prev) =>
+            prev.map((msg) =>
+              msg._id?.toString?.() === failedId
+                ? { ...msg, status: "failed" }
+                : msg,
+            ),
+          );
+        }
+        resolve(false);
+      };
 
-          const ackMessage = ack?.ok && ack?.message ? ack.message : undefined;
-          if (ackMessage) {
-            const tempId = getMessageId(tempMessage);
-            if (tempId) {
-              setChatMessages((prev) =>
-                prev.map((msg) =>
-                  msg._id?.toString?.() === tempId ? ackMessage : msg,
-                ),
+      try {
+        socket.timeout(12_000).emit(
+          eventName,
+          socketPayload,
+          (
+            timeoutError: Error | null,
+            ack?: { ok?: boolean; message?: ChatMessage; error?: string },
+          ) => {
+            if (resolved) return;
+            resolved = true;
+            if (timeoutError) {
+              console.error(
+                "[ChatWindow] sendViaSocket timed out (12s) for event",
+                eventName,
+                ":",
+                timeoutError.message,
               );
-            } else {
-              setChatMessages((prev) => mergeUnique(prev, [ackMessage]));
+              const failedId = getMessageId(tempMessage);
+              if (failedId) {
+                setChatMessages((prev) =>
+                  prev.map((msg) =>
+                    msg._id?.toString?.() === failedId
+                      ? { ...msg, status: "failed" }
+                      : msg,
+                  ),
+                );
+              }
+              resolve(false);
+              return;
             }
-            resolve(true);
-            return;
-          }
 
-          const failedId = getMessageId(tempMessage);
-          if (failedId) {
-            setChatMessages((prev) =>
-              prev.map((msg) =>
-                msg._id?.toString?.() === failedId
-                  ? { ...msg, status: "failed" }
-                  : msg,
-              ),
+            const ackMessage = ack?.ok && ack?.message ? ack.message : undefined;
+            if (ackMessage) {
+              const tempId = getMessageId(tempMessage);
+              if (tempId) {
+                setChatMessages((prev) =>
+                  prev.map((msg) =>
+                    msg._id?.toString?.() === tempId ? ackMessage : msg,
+                  ),
+                );
+              } else {
+                setChatMessages((prev) => mergeUnique(prev, [ackMessage]));
+              }
+              resolve(true);
+              return;
+            }
+
+            console.warn(
+              "[ChatWindow] sendViaSocket failed — ack not OK:",
+              ack?.error || ack,
             );
-          }
-          resolve(false);
-        },
-      );
+            fail();
+          },
+        );
+      } catch (err: any) {
+        console.error("[ChatWindow] sendViaSocket emit threw:", err?.message || err);
+        fail();
+      }
     });
   };
 
@@ -647,8 +777,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const trimmed = (await autoCorrectSpelling(message.trim())).trim();
     if (!trimmed) return;
 
+    const tempId = generateTempId();
     const optimisticMessage: ChatMessage = {
-      _id: generateTempId(),
+      _id: tempId,
       from: String(user.id),
       to: chatId,
       type: "text",
@@ -660,7 +791,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
     setMessage("");
 
-    await sendViaRest({ type: "text", text: trimmed }, optimisticMessage);
+    const payload: OutboundMessagePayload = { type: "text", text: trimmed };
+
+    const socketOk = await sendViaSocket(payload, optimisticMessage);
+    if (!socketOk) {
+      console.warn(
+        "[ChatWindow] sendViaSocket failed or no socket — falling back to REST send",
+      );
+      await sendViaRest(payload, optimisticMessage);
+    }
   };
 
   const handleReaction = async (msg: ChatMessage, emoji: string) => {
@@ -678,7 +817,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         body: JSON.stringify({ messageId, emoji }),
       });
       const data = await res.json();
-      if (!res.ok || !data?.reactions) return false;
+      if (!res.ok || !data?.reactions) {
+        console.warn("[ChatWindow] Reaction save failed:", data?.error || `HTTP ${res.status}`);
+        return false;
+      }
 
       setChatMessages((prev) =>
         prev.map((item) =>
@@ -688,7 +830,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         ),
       );
       return true;
-    } catch {
+    } catch (err: any) {
+      console.error("[ChatWindow] Reaction update error:", err?.message || err);
       return false;
     }
   };
@@ -719,7 +862,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       };
 
       setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
-      await sendViaRest(payload, optimisticMessage);
+      const socketOk = await sendViaSocket(payload, optimisticMessage);
+      if (!socketOk) {
+        console.warn(
+          "[ChatWindow] Media sendViaSocket failed — falling back to REST",
+        );
+        await sendViaRest(payload, optimisticMessage);
+      }
     };
 
     const uploadFile = async (file: File, kind: string) => {
@@ -756,8 +905,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
             duration,
           });
+        } else {
+          console.warn("[ChatWindow] Upload returned no URL:", data);
+          setMediaError("Upload failed: server did not return a file URL.");
         }
-      } catch {
+      } catch (err: any) {
+        console.error("[ChatWindow] File upload error:", err?.message || err);
         setMediaError("File upload failed. The file was not sent.");
       }
     };
