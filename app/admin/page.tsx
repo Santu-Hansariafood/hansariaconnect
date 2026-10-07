@@ -83,6 +83,12 @@ export default function AdminDashboard() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSuperSubdomain, setIsSuperSubdomain] = useState(false);
   const isPlatformAdmin = isSuperAdmin || isSuperSubdomain;
+  const [browserNotificationPermission, setBrowserNotificationPermission] =
+    useState<NotificationPermission | "unsupported">(() =>
+      typeof window !== "undefined" && "Notification" in window
+        ? Notification.permission
+        : "unsupported",
+    );
   const [activeTab, setActiveTab] = useState<
     "users" | "admins" | "api-keys" | "accounts" | "templates" | "profile"
   >("users");
@@ -261,6 +267,23 @@ export default function AdminDashboard() {
 
     void checkSession();
   }, [loadData, router]);
+
+  const requestBrowserNotifications = async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setBrowserNotificationPermission("unsupported");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setBrowserNotificationPermission(permission);
+    } catch (permissionError) {
+      console.error(
+        "[AdminDashboard] Browser notification permission request failed:",
+        permissionError,
+      );
+      setError("Could not request browser notification permission.");
+    }
+  };
 
   const createTemplate = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -743,9 +766,59 @@ export default function AdminDashboard() {
                     }`}
                   >
                     {isPlatformAdmin
-                      ? "Manage the platform user directory and admin access. Regular admin workspaces and their templates remain separate."
+                      ? "Manage platform users and admin access, plus templates and API keys private to your Super Admin account."
                       : "Manage the accounts, message templates, and API integrations belonging to this admin workspace. Super Admin platform controls are separate."}
                   </p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    {browserNotificationPermission === "granted" ? (
+                      <span
+                        className={`inline-flex items-center gap-2 text-sm font-medium ${
+                          isPlatformAdmin
+                            ? "text-emerald-200"
+                            : "text-emerald-800"
+                        }`}
+                        role="status"
+                      >
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        Browser notification permission is enabled
+                      </span>
+                    ) : browserNotificationPermission === "default" ? (
+                      <button
+                        type="button"
+                        onClick={() => void requestBrowserNotifications()}
+                        className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                          isPlatformAdmin
+                            ? "bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/15"
+                            : "bg-white text-emerald-900 ring-1 ring-emerald-900/10 hover:bg-emerald-50"
+                        }`}
+                      >
+                        Enable browser notifications
+                      </button>
+                    ) : browserNotificationPermission === "denied" ? (
+                      <span
+                        className={`text-sm ${
+                          isPlatformAdmin
+                            ? "text-amber-200"
+                            : "text-amber-800"
+                        }`}
+                        role="status"
+                      >
+                        Notifications are blocked in browser settings. Allow
+                        them for this site to receive desktop alerts.
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-sm ${
+                          isPlatformAdmin
+                            ? "text-slate-300"
+                            : "text-slate-500"
+                        }`}
+                        role="status"
+                      >
+                        Browser notifications are not supported here.
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:min-w-[430px]">
                   {(isPlatformAdmin
@@ -756,8 +829,8 @@ export default function AdminDashboard() {
                         },
                         { label: "Admin accounts", value: admins.length },
                         {
-                          label: "My active API keys",
-                          value: apiKeys.filter((key) => key.isActive).length,
+                          label: "My templates",
+                          value: templates.length,
                         },
                       ]
                     : [
@@ -849,6 +922,19 @@ export default function AdminDashboard() {
                       }`}
                     >
                       Admin access
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("templates")}
+                      aria-current={
+                        activeTab === "templates" ? "page" : undefined
+                      }
+                      className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                        activeTab === "templates"
+                          ? "bg-indigo-700 text-white shadow-md shadow-indigo-900/15"
+                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
+                      }`}
+                    >
+                      My templates
                     </button>
                   </div>
                 </div>
@@ -1016,21 +1102,42 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {activeTab === "templates" &&
-              !isSuperAdmin &&
-              !isSuperSubdomain && (
+            {activeTab === "templates" && (
                 <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
                   <form
                     onSubmit={createTemplate}
-                    className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+                    className={`rounded-2xl border bg-white p-6 shadow-sm ${
+                      isPlatformAdmin
+                        ? "border-indigo-200"
+                        : "border-gray-200"
+                    }`}
                   >
-                    <h2 className="text-lg font-semibold text-gray-800">
-                      Create message template
+                    <p
+                      className={`text-xs font-bold uppercase tracking-[0.16em] ${
+                        isPlatformAdmin
+                          ? "text-indigo-700"
+                          : "text-emerald-800"
+                      }`}
+                    >
+                      {isPlatformAdmin
+                        ? "Super Admin workspace"
+                        : "Admin workspace"}
+                    </p>
+                    <h2 className="mt-2 text-lg font-semibold text-gray-800">
+                      Create a message template
                     </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Templates created here belong only to{" "}
+                      {isPlatformAdmin
+                        ? "your Super Admin account"
+                        : "this admin account"}
+                      .
+                    </p>
                     <input
                       value={templateName}
                       onChange={(event) => setTemplateName(event.target.value)}
                       placeholder="Template name"
+                      maxLength={100}
                       className="mt-4 w-full rounded-xl border border-gray-200 px-4 py-3"
                       required
                     />
@@ -1039,6 +1146,7 @@ export default function AdminDashboard() {
                       onChange={(event) => setTemplateBody(event.target.value)}
                       placeholder="Hello {{name}}, your update is ready."
                       rows={6}
+                      maxLength={2000}
                       className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3"
                       required
                     />
@@ -1059,9 +1167,15 @@ export default function AdminDashboard() {
                     <button
                       type="submit"
                       disabled={saving === "template"}
-                      className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white"
+                      className={`mt-4 rounded-xl px-5 py-3 font-semibold text-white disabled:opacity-60 ${
+                        isPlatformAdmin
+                          ? "bg-indigo-700 hover:bg-indigo-800"
+                          : "bg-emerald-700 hover:bg-emerald-800"
+                      }`}
                     >
-                      {saving === "template" ? "Saving..." : "Save Template"}
+                      {saving === "template"
+                        ? "Saving..."
+                        : "Save template"}
                     </button>
                   </form>
                   <div className="space-y-3">
@@ -1103,7 +1217,13 @@ export default function AdminDashboard() {
                           Template ID: <code>{template._id}</code>
                         </p>
                         <details className="mt-3">
-                          <summary className="cursor-pointer text-sm font-medium text-emerald-700">
+                          <summary
+                            className={`cursor-pointer text-sm font-medium ${
+                              isPlatformAdmin
+                                ? "text-indigo-700"
+                                : "text-emerald-700"
+                            }`}
+                          >
                             API integration example
                           </summary>
                           <div className="mt-3 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
@@ -1129,6 +1249,7 @@ export default function AdminDashboard() {
     "adminUserId": "YOUR_ADMIN_USER_ID",
     "adminPassword": "YOUR_ADMIN_PASSWORD",
     "templateName": "${template.name}",
+    "fromUserId": "SENDER_CHAT_ACCOUNT_ID",
     "toUserId": "RECIPIENT_USER_ID",
     "variables": ${JSON.stringify(
       Object.fromEntries(
@@ -1150,8 +1271,10 @@ export default function AdminDashboard() {
                             </pre>
                             <p className="mt-3 text-slate-300">
                               For bulk messages use POST
-                              /api/v1/messages/bulk, replacing toUserId with a
-                              recipients array, and pass the same adminUserId,
+                              /api/v1/messages/bulk. Bind the sender chat
+                              account to the API key first; bulk requests use
+                              that bound sender. Replace toUserId with a
+                              recipients array and pass the same adminUserId,
                               adminPassword, and variables for each recipient.
                               Attachments are optional, sent from an HTTPS URL,
                               and can use image, pdf, video, excel, or file.
@@ -1159,6 +1282,9 @@ export default function AdminDashboard() {
                               expose the admin password or API key in browser or
                               mobile-app code. Credentials must belong to the
                               admin who owns both the API key and template.
+                              For single sends, fromUserId must be an account
+                              created by this admin unless the API key is
+                              already bound to a sender.
                             </p>
                           </div>
                         </details>
@@ -1729,7 +1855,8 @@ export default function AdminDashboard() {
                           <p className="mt-1.5 text-xs leading-5 text-slate-500">
                             Bind the key to a chat account for bulk sends.
                             Leave blank when each single-send request supplies
-                            its own fromUserId.
+                            its own fromUserId (the account must belong to this
+                            admin).
                           </p>
                         </div>
                         <div>
