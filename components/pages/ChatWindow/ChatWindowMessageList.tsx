@@ -5,9 +5,13 @@ import { format, isSameDay } from "date-fns";
 import MessageBubble from "@/components/ui/MessageBubble/MessageBubble";
 import TypingIndicator from "@/components/ui/TypingIndicator/TypingIndicator";
 import { ChatMessage, GroupMember, Theme, User } from "./ChatWindowTypes";
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
+import type { TemplateActionType } from "@/lib/templateActionButtons";
 
 interface ChatWindowMessageListProps {
   messages: ChatMessage[];
+  allowedTemplateActions: TemplateActionType[];
+  templateActionPreferencesError: string;
   theme: Theme;
   user: User;
   id: string;
@@ -17,6 +21,10 @@ interface ChatWindowMessageListProps {
   groupMembers: GroupMember[];
   onForwardMessage: (msg: ChatMessage) => void;
   onReaction: (msg: ChatMessage, emoji: string) => Promise<boolean>;
+  onTemplateButton: (
+    message: ChatMessage,
+    button: TemplateActionButton,
+  ) => boolean | Promise<boolean>;
   showUnreadBanner: boolean;
   unreadOnOpen: number;
   unreadDividerRef: React.RefObject<HTMLDivElement | null>;
@@ -45,6 +53,8 @@ function toMsgKey(msg: ChatMessage): string {
 
 export default function ChatWindowMessageList({
   messages,
+  allowedTemplateActions,
+  templateActionPreferencesError,
   theme,
   user,
   id,
@@ -54,6 +64,7 @@ export default function ChatWindowMessageList({
   groupMembers,
   onForwardMessage,
   onReaction,
+  onTemplateButton,
   showUnreadBanner,
   unreadOnOpen,
   unreadDividerRef,
@@ -111,6 +122,12 @@ export default function ChatWindowMessageList({
 
   return (
     <div className="w-full mx-auto space-y-1.5 w-full min-w-0">
+      {templateActionPreferencesError && (
+        <p className="px-3 text-xs text-red-700" role="status">
+          Message action buttons are hidden because your preferences could not
+          be loaded. {templateActionPreferencesError}
+        </p>
+      )}
       {messages.length === 0 && (
         <div className="text-center text-gray-600 py-6">
           <p className="text-sm">
@@ -181,6 +198,9 @@ export default function ChatWindowMessageList({
                 linkTitle: msg.linkTitle,
                 linkDescription: msg.linkDescription,
                 reactions: msg.reactions,
+                buttons: msg.buttons?.filter((button) =>
+                  allowedTemplateActions.includes(button.type),
+                ),
               }}
               user={user}
               contact={bubbleContact}
@@ -188,6 +208,7 @@ export default function ChatWindowMessageList({
               isGroup={isGroup}
               onForward={() => onForwardMessage(msg)}
               onReaction={(emoji) => onReaction(msg, emoji)}
+              onTemplateButton={(button) => onTemplateButton(msg, button)}
             />
           </React.Fragment>
         );

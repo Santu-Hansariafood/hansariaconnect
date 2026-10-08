@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
+import type { TemplateActionType } from "@/lib/templateActionButtons";
 
 export interface IUserSessionRecord {
   sessionId: string;
@@ -12,6 +13,7 @@ export interface IUserSessionRecord {
 export interface IUser extends Document {
   createdByAdminId?: string;
   preferredLanguage?: string;
+  allowedTemplateActions?: TemplateActionType[];
   mobile: string;
   stateCode?: string;
   name?: string;
@@ -36,6 +38,11 @@ const UserSchema = new Schema<IUser>(
       type: String,
       default: "en",
       match: /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i,
+    },
+    allowedTemplateActions: {
+      type: [String],
+      enum: ["call", "reply", "confirm"],
+      default: ["call", "reply", "confirm"],
     },
     mobile: { type: String, required: true, unique: true },
     stateCode: { type: String, uppercase: true, trim: true, index: true },

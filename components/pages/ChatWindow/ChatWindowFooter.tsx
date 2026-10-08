@@ -23,6 +23,7 @@ interface ChatWindowFooterProps {
   message: string;
   setMessage: React.Dispatch<React.SetStateAction<string>>;
   handleSend: () => void;
+  focusInputRequest: number;
   showEmojiPicker: boolean;
   setShowEmojiPicker: React.Dispatch<React.SetStateAction<boolean>>;
   allowAttachments: boolean;
@@ -48,6 +49,7 @@ export default function ChatWindowFooter({
   message,
   setMessage,
   handleSend,
+  focusInputRequest,
   showEmojiPicker,
   setShowEmojiPicker,
   allowAttachments,
@@ -69,6 +71,12 @@ export default function ChatWindowFooter({
     input.style.height = "auto";
     input.style.height = `${Math.min(input.scrollHeight, 144)}px`;
   }, [message]);
+
+  useEffect(() => {
+    if (focusInputRequest > 0) {
+      messageInputRef.current?.focus();
+    }
+  }, [focusInputRequest]);
 
   const handleSendWithTypingClear = () => {
     sendTyping?.(false);

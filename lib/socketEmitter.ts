@@ -9,6 +9,7 @@ import Group from "@/models/group/Group";
 import User from "@/models/user/User";
 import Profile from "@/models/profile/Profile";
 import Contact from "@/models/contact/Contact";
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
 
 import {
   invalidateDirectMessages,
@@ -67,6 +68,7 @@ type DecryptedMessage = {
   duration?: number;
   linkDescription?: string;
   linkTitle?: string;
+  buttons?: TemplateActionButton[];
   createdAt?: Date;
   timestamp?: Date;
 };

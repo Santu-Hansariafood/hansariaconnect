@@ -5,6 +5,7 @@ import AdminTemplate from "@/models/admin/AdminTemplate";
 import Admin from "@/models/admin/Admin";
 import { Types } from "mongoose";
 import { normalizeTemplateTranslations } from "@/lib/templateTranslations";
+import { templateActionButtonsSchema } from "@/lib/templateActionButtons";
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const name = String(body?.name || "").trim();
   const templateBody = String(body?.body || "").trim();
+  const header = String(body?.header || "").trim();
+  const footer = String(body?.footer || "").trim();
   const defaultLanguage = String(body?.defaultLanguage || "en").trim().toLowerCase();
   const folder = String(body?.folder || "General").trim();
   const translations =
@@ -43,10 +46,19 @@ export async function POST(req: NextRequest) {
     !Array.isArray(body.translations)
       ? body.translations as Record<string, unknown>
       : {};
+  const parsedButtons = templateActionButtonsSchema.safeParse(body?.buttons ?? []);
+  if (!parsedButtons.success) {
+    return NextResponse.json(
+      { error: parsedButtons.error.issues[0]?.message || "Invalid action buttons" },
+      { status: 400 },
+    );
+  }
   if (!name || !templateBody) return NextResponse.json({ error: "Template name and body are required" }, { status: 400 });
   if (
     name.length > 100 ||
     templateBody.length > 2000 ||
+    header.length > 2000 ||
+    footer.length > 2000 ||
     !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(defaultLanguage) ||
     !folder ||
     folder.length > 80
@@ -94,9 +106,12 @@ export async function POST(req: NextRequest) {
     adminId,
     name,
     body: templateBody,
+    header,
+    footer,
     defaultLanguage,
     folder,
     translations: normalizedTranslations,
+    buttons: parsedButtons.data,
   });
   return NextResponse.json({ template }, { status: 201 });
 }

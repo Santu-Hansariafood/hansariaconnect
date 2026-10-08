@@ -43,6 +43,8 @@ import {
 } from "@/components/pages/ChatWindow/ChatWindowTypes";
 import { detectHarmfulFileName } from "@/utils/text/formatting";
 import { autoCorrectSpelling } from "@/utils/text/autoCorrect";
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
+import type { TemplateActionType } from "@/lib/templateActionButtons";
 
 interface ChatWindowProps {
   user: User;
@@ -82,6 +84,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   }>({ isAtBottom: true });
 
   const [message, setMessage] = useState("");
+  const [focusInputRequest, setFocusInputRequest] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(
     cachedMessagesAtOpen || [],
   );
@@ -114,6 +117,44 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [contacts, setContacts] = useState<ForwardContact[]>([]);
   const [isGroup, setIsGroup] = useState(false);
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+  const [allowedTemplateActions, setAllowedTemplateActions] = useState<
+    TemplateActionType[]
+  >([]);
+  const [templateActionPreferencesError, setTemplateActionPreferencesError] =
+    useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    const loadActionPreferences = async () => {
+      try {
+        const response = await fetch("/api/settings", { cache: "no-store" });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || "Could not load message button preferences");
+        }
+        if (mounted && Array.isArray(data?.allowedTemplateActions)) {
+          setAllowedTemplateActions(data.allowedTemplateActions);
+          setTemplateActionPreferencesError("");
+        } else if (mounted) {
+          throw new Error("Message button preferences were not returned");
+        }
+      } catch (error) {
+        console.error("[ChatWindow] Failed to load message button preferences:", error);
+        if (mounted) {
+          setAllowedTemplateActions([]);
+          setTemplateActionPreferencesError(
+            error instanceof Error
+              ? error.message
+              : "Could not load message button preferences",
+          );
+        }
+      }
+    };
+    void loadActionPreferences();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const headerName =
     (contact?.registeredProfile?.isCompanyVerified &&
@@ -811,9 +852,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     });
   };
 
-  const handleSend = async () => {
-    const trimmed = (await autoCorrectSpelling(message.trim())).trim();
-    if (!trimmed) return;
+  const handleSend = async (messageOverride?: string): Promise<boolean> => {
+    const trimmed = (
+      await autoCorrectSpelling((messageOverride ?? message).trim())
+    ).trim();
+    if (!trimmed) return false;
 
     const tempId = generateTempId();
     const optimisticMessage: ChatMessage = {
@@ -827,17 +870,41 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
-    setMessage("");
+    if (messageOverride === undefined) setMessage("");
 
     const payload: OutboundMessagePayload = { type: "text", text: trimmed };
 
     const socketOk = await sendViaSocket(payload, optimisticMessage);
-    if (!socketOk) {
-      console.warn(
-        "[ChatWindow] sendViaSocket failed or no socket — falling back to REST send",
-      );
-      await sendViaRest(payload, optimisticMessage);
+    if (socketOk) return true;
+    console.warn(
+      "[ChatWindow] sendViaSocket failed or no socket — falling back to REST send",
+    );
+    return sendViaRest(payload, optimisticMessage);
+  };
+
+  const handleTemplateButton = async (
+    sourceMessage: ChatMessage,
+    button: TemplateActionButton,
+  ): Promise<boolean> => {
+    if (
+      isGroup ||
+      !chatId ||
+      String(sourceMessage.from || "") === String(user.id) ||
+      String(sourceMessage.to || "") !== String(user.id)
+    ) {
+      return false;
     }
+
+    if (button.type === "reply") {
+      setMessage(button.replyText || "");
+      setFocusInputRequest((current) => current + 1);
+      return true;
+    }
+
+    if (button.type === "confirm") {
+      return handleSend(button.replyText);
+    }
+    return false;
   };
 
   const handleReaction = async (msg: ChatMessage, emoji: string) => {
@@ -1138,6 +1205,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         >
           <ChatWindowMessageList
             messages={messagesToRender}
+            allowedTemplateActions={allowedTemplateActions}
+            templateActionPreferencesError={templateActionPreferencesError}
             theme={theme}
             user={user}
             id={chatId}
@@ -1147,6 +1216,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             groupMembers={groupMembers}
             onForwardMessage={handleForwardMessage}
             onReaction={handleReaction}
+            onTemplateButton={handleTemplateButton}
             showUnreadBanner={showUnreadBanner}
             unreadOnOpen={unreadOnOpen}
             unreadDividerRef={unreadDividerRef}
@@ -1160,6 +1230,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           message={message}
           setMessage={setMessage}
           handleSend={handleSend}
+          focusInputRequest={focusInputRequest}
           showEmojiPicker={showEmojiPicker}
           setShowEmojiPicker={setShowEmojiPicker}
           allowAttachments={allowAttachments}

@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose"
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
 
 export interface IMessage extends Document {
   from: mongoose.Types.ObjectId | string
@@ -11,6 +12,7 @@ export interface IMessage extends Document {
   fileSize?: string
   linkTitle?: string
   linkDescription?: string
+  buttons?: TemplateActionButton[]
   duration?: number
   reactions?: Map<string, number>
   status?: "sent" | "delivered" | "seen"
@@ -30,6 +32,20 @@ const MessageSchema = new Schema<IMessage>(
     fileSize: { type: String },
     linkTitle: { type: String },
     linkDescription: { type: String },
+    buttons: {
+      type: [
+        new Schema(
+          {
+            type: { type: String, enum: ["call", "reply", "confirm"], required: true },
+            label: { type: String, required: true, trim: true, maxlength: 30 },
+            phoneNumber: { type: String, trim: true },
+            replyText: { type: String, maxlength: 500 },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
     duration: { type: Number },
     reactions: { type: Map, of: Number, default: {} },
     status: { type: String, default: "sent" },

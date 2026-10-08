@@ -11,6 +11,7 @@ import AdminTemplate from "@/models/admin/AdminTemplate";
 import { encryptDirectMessageContent, decryptDirectMessageContent } from "@/lib/crypto";
 import {
   getTemplateVariableNames,
+  joinTemplateParts,
   renderMessageTemplate,
 } from "@/lib/messageTemplates";
 import { normalizeTemplateTranslations } from "@/lib/templateTranslations";
@@ -182,7 +183,7 @@ export async function POST(req: NextRequest) {
           name: parsedBody.data.templateName,
           ...templateScope,
         })
-          .select("name body translations")
+          .select("name body header footer translations buttons")
           .limit(keyOwner?.isSuperAdmin ? 2 : 1)
           .lean()
       : [];
@@ -203,7 +204,7 @@ export async function POST(req: NextRequest) {
               _id: parsedBody.data.templateId,
               ...templateScope,
             })
-              .select("name body translations")
+              .select("name body header footer translations buttons")
               .lean()
           : null
         : undefined;
@@ -216,7 +217,13 @@ export async function POST(req: NextRequest) {
         { status: 404 },
       );
     }
-    const templateText = savedTemplate?.body || parsedBody.data.template || parsedBody.data.text;
+    const templateText = savedTemplate
+      ? joinTemplateParts(
+          savedTemplate.header,
+          savedTemplate.body,
+          savedTemplate.footer,
+        )
+      : parsedBody.data.template || parsedBody.data.text;
     const savedTemplateName = savedTemplate?.name;
     if (!templateText) {
       return NextResponse.json(
@@ -242,9 +249,12 @@ export async function POST(req: NextRequest) {
     );
     const templateVariables = Array.from(
       new Set(
-        [templateText, ...Object.values(savedTranslations)].flatMap(
-          getTemplateVariableNames,
-        ),
+        [
+          templateText,
+          ...Object.values(savedTranslations).map((translation) =>
+            joinTemplateParts(savedTemplate?.header, translation, savedTemplate?.footer),
+          ),
+        ].flatMap(getTemplateVariableNames),
       ),
     );
     const recipientIds = recipients.map((recipient) =>
@@ -293,10 +303,14 @@ export async function POST(req: NextRequest) {
       const language =
         (recipient.language || recipientLanguages.get(toUserId) || "en").toLowerCase();
       const recipientTemplateText = savedTemplate
-        ? getLocalizedTemplateText(
-            templateText,
-            savedTemplate.translations,
-            language,
+        ? joinTemplateParts(
+            savedTemplate.header,
+            getLocalizedTemplateText(
+              savedTemplate.body,
+              savedTemplate.translations,
+              language,
+            ),
+            savedTemplate.footer,
           )
         : templateText;
       const { text, missingVariables } = renderMessageTemplate(
@@ -385,6 +399,7 @@ export async function POST(req: NextRequest) {
         apiKeyId: String(authResult.apiKey._id),
         type: item.type,
         ...encrypted,
+        buttons: savedTemplate?.buttons || [],
         status: "sent",
       });
 
@@ -409,6 +424,7 @@ export async function POST(req: NextRequest) {
         mediaUrl: decryptDirectMessageContent(senderId, item.toUserId, encrypted.mediaUrl),
         fileName: decryptDirectMessageContent(senderId, item.toUserId, encrypted.fileName),
         fileSize: decryptDirectMessageContent(senderId, item.toUserId, encrypted.fileSize),
+        buttons: savedTemplate?.buttons || [],
         timestamp: message.createdAt,
         status: "sent",
       };

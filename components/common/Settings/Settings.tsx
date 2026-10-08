@@ -21,6 +21,7 @@ import {
 import { useSettings } from "@/hooks/settings/useSettings";
 import { useThemeSettings } from "@/hooks/settings/useThemeSettings";
 import { useNotifications } from "@/hooks/useNotifications";
+import type { TemplateActionType } from "@/lib/templateActionButtons";
 import dynamic from "next/dynamic";
 import Loading from "../Loading/Loading";
 
@@ -81,6 +82,12 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   const [notificationLoading, setNotificationLoading] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState("en");
   const [languageSaving, setLanguageSaving] = useState(false);
+  const [allowedTemplateActions, setAllowedTemplateActions] = useState<
+    TemplateActionType[]
+  >(["call", "reply", "confirm"]);
+  const [actionPreferencesSaving, setActionPreferencesSaving] = useState(false);
+  const [actionPreferencesError, setActionPreferencesError] = useState("");
+  const [actionPreferencesSaved, setActionPreferencesSaved] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -109,6 +116,9 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
         if (mounted && typeof data?.preferredLanguage === "string") {
           setPreferredLanguage(data.preferredLanguage);
         }
+        if (mounted && Array.isArray(data?.allowedTemplateActions)) {
+          setAllowedTemplateActions(data.allowedTemplateActions);
+        }
       })
       .catch((error) => {
         console.error("[Settings] Failed to load language preference:", error);
@@ -117,6 +127,33 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       mounted = false;
     };
   }, []);
+
+  const saveAllowedTemplateActions = async () => {
+    setActionPreferencesSaving(true);
+    setActionPreferencesError("");
+    setActionPreferencesSaved(false);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allowedTemplateActions }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not save action preferences");
+      }
+      setActionPreferencesSaved(true);
+    } catch (error) {
+      console.error("[Settings] Failed to save message action preferences:", error);
+      setActionPreferencesError(
+        error instanceof Error
+          ? error.message
+          : "Could not save action preferences",
+      );
+    } finally {
+      setActionPreferencesSaving(false);
+    }
+  };
 
   const savePreferredLanguage = async (language: string) => {
     setLanguageSaving(true);
@@ -365,6 +402,70 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
               </option>
             ))}
           </select>
+        </motion.div>
+
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+          <h2 className="text-xl font-semibold text-gray-800">
+            Message button preferences
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Choose which action buttons you want to see on messages sent from
+            templates. Changes apply to messages you receive.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {(
+              [
+                ["call", "Call", "Open the phone app"],
+                ["reply", "Reply", "Open the chat composer"],
+                ["confirm", "Confirm", "Send a confirmation to the sender"],
+              ] as const
+            ).map(([action, title, description]) => (
+              <label
+                key={action}
+                className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4"
+              >
+                <input
+                  type="checkbox"
+                  checked={allowedTemplateActions.includes(action)}
+                  onChange={(event) => {
+                    setActionPreferencesSaved(false);
+                    setAllowedTemplateActions((current) =>
+                      event.target.checked
+                        ? [...current, action]
+                        : current.filter((item) => item !== action),
+                    );
+                  }}
+                  className="mt-1 h-4 w-4 accent-emerald-600"
+                />
+                <span>
+                  <span className="block font-medium text-gray-800">{title}</span>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    {description}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void saveAllowedTemplateActions()}
+              disabled={actionPreferencesSaving}
+              className="rounded-xl bg-emerald-700 px-4 py-2.5 font-semibold text-white disabled:opacity-60"
+            >
+              {actionPreferencesSaving ? "Saving..." : "Save preferences"}
+            </button>
+            {actionPreferencesSaved && (
+              <p className="text-sm text-emerald-700" role="status">
+                Preferences saved.
+              </p>
+            )}
+            {actionPreferencesError && (
+              <p className="text-sm text-red-700" role="alert">
+                {actionPreferencesError}
+              </p>
+            )}
+          </div>
         </motion.div>
 
         <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">

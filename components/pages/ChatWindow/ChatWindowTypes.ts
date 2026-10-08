@@ -1,3 +1,5 @@
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
+
 export interface Theme {
   primary: string;
   secondary?: string;
@@ -55,6 +57,7 @@ export interface ChatMessage {
   duration?: number;
   status?: "sent" | "delivered" | "seen" | "sending" | "failed";
   reactions?: Record<string, number>;
+  buttons?: TemplateActionButton[];
   createdAt?: string | Date;
   timestamp?: string | Date;
 }

@@ -16,10 +16,12 @@ import {
 import { emitDirectMessageReceived } from "@/lib/socketEmitter";
 import {
   getTemplateVariableNames,
+  joinTemplateParts,
   renderMessageTemplate,
 } from "@/lib/messageTemplates";
 import { verifyTemplateAdminCredentials } from "@/lib/templateAdminAuth";
 import { getLocalizedTemplateText } from "@/lib/templateTranslations";
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
 import { readJsonRequestBody } from "@/lib/apiRequestBody";
 import {
   applyApiRateLimitHeaders,
@@ -180,6 +182,7 @@ export async function POST(req: NextRequest) {
 
     let templateText = input.template || input.text || "";
     let savedTemplateName: string | undefined;
+    let actionButtons: TemplateActionButton[] = [];
     if (input.templateId && input.templateName) {
       return NextResponse.json(
         { success: false, error: "Provide templateName or templateId, not both" },
@@ -191,7 +194,7 @@ export async function POST(req: NextRequest) {
         name: input.templateName,
         ...templateScope,
       })
-        .select("name body translations")
+        .select("name body header footer translations buttons")
         .limit(keyOwner?.isSuperAdmin ? 2 : 1)
         .lean();
       if (matchingTemplates.length > 1) {
@@ -215,7 +218,13 @@ export async function POST(req: NextRequest) {
         savedTemplate.translations,
         language,
       );
+      templateText = joinTemplateParts(
+        savedTemplate.header,
+        templateText,
+        savedTemplate.footer,
+      );
       savedTemplateName = savedTemplate.name;
+      actionButtons = savedTemplate.buttons || [];
     } else if (input.templateId) {
       if (!Types.ObjectId.isValid(input.templateId)) {
         return NextResponse.json(
@@ -227,7 +236,7 @@ export async function POST(req: NextRequest) {
         _id: input.templateId,
         ...templateScope,
       })
-      .select("name body translations")
+      .select("name body header footer translations buttons")
         .lean();
       if (!savedTemplate) {
         return NextResponse.json(
@@ -240,7 +249,13 @@ export async function POST(req: NextRequest) {
         savedTemplate.translations,
         language,
       );
+      templateText = joinTemplateParts(
+        savedTemplate.header,
+        templateText,
+        savedTemplate.footer,
+      );
       savedTemplateName = savedTemplate.name;
+      actionButtons = savedTemplate.buttons || [];
     }
 
     const variableNames = getTemplateVariableNames(templateText);
@@ -366,6 +381,7 @@ export async function POST(req: NextRequest) {
       apiKeyId: String(authResult.apiKey._id),
       type,
       ...encrypted,
+      buttons: actionButtons,
       status: "sent",
     });
 
@@ -386,6 +402,7 @@ export async function POST(req: NextRequest) {
       mediaUrl: decryptDirectMessageContent(senderId, input.toUserId, encrypted.mediaUrl),
       fileName: decryptDirectMessageContent(senderId, input.toUserId, encrypted.fileName),
       fileSize: decryptDirectMessageContent(senderId, input.toUserId, encrypted.fileSize),
+      buttons: actionButtons,
       timestamp: message.createdAt,
       status: message.status,
     };

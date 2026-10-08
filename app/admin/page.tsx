@@ -22,6 +22,7 @@ import {
   AdminTemplatesPanel,
 } from "@/components/admin/AdminWorkspacePanels";
 import { ACCOUNT_TEMPLATE_HEADERS } from "@/components/admin/adminConstants";
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
 
 type Permission = AdminUserPermissions;
 type UserRow = AdminDirectoryUser;
@@ -32,9 +33,12 @@ type AdminTemplateRow = {
   _id: string;
   name: string;
   body: string;
+  header?: string;
+  footer?: string;
   defaultLanguage?: string;
   folder?: string;
   translations?: Record<string, string>;
+  buttons?: TemplateActionButton[];
   ownerUserId?: string;
 };
 
@@ -89,6 +93,9 @@ export default function AdminDashboard() {
   const [ownerAdminId, setOwnerAdminId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState("");
+  const [templateHeader, setTemplateHeader] = useState("");
+  const [templateFooter, setTemplateFooter] = useState("");
+  const [templateButtons, setTemplateButtons] = useState<TemplateActionButton[]>([]);
   const [templateDefaultLanguage, setTemplateDefaultLanguage] = useState("en");
   const [templateFolder, setTemplateFolder] = useState("General");
   const [templateTranslations, setTemplateTranslations] = useState<
@@ -99,6 +106,11 @@ export default function AdminDashboard() {
     useState<AdminTemplateRow | null>(null);
   const [editingTemplateName, setEditingTemplateName] = useState("");
   const [editingTemplateBody, setEditingTemplateBody] = useState("");
+  const [editingTemplateHeader, setEditingTemplateHeader] = useState("");
+  const [editingTemplateFooter, setEditingTemplateFooter] = useState("");
+  const [editingTemplateButtons, setEditingTemplateButtons] = useState<
+    TemplateActionButton[]
+  >([]);
   const [editingTemplateDefaultLanguage, setEditingTemplateDefaultLanguage] =
     useState("en");
   const [editingTemplateFolder, setEditingTemplateFolder] = useState("");
@@ -324,6 +336,9 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           name: templateName,
           body: templateBody,
+          header: templateHeader,
+          footer: templateFooter,
+          buttons: templateButtons,
           defaultLanguage: templateDefaultLanguage,
           folder: templateFolder,
           translations: templateTranslations,
@@ -335,6 +350,9 @@ export default function AdminDashboard() {
       setTemplates((previous) => [data.template, ...previous]);
       setTemplateName("");
       setTemplateBody("");
+      setTemplateHeader("");
+      setTemplateFooter("");
+      setTemplateButtons([]);
       setTemplateTranslations({});
     } catch (error: any) {
       setError(error?.message || "Failed to create template");
@@ -376,6 +394,9 @@ export default function AdminDashboard() {
           body: JSON.stringify({
             name: editingTemplateName,
             body: editingTemplateBody,
+            header: editingTemplateHeader,
+            footer: editingTemplateFooter,
+            buttons: editingTemplateButtons,
             defaultLanguage: editingTemplateDefaultLanguage,
             folder: editingTemplateFolder,
             translations: editingTemplateTranslations,
@@ -1141,17 +1162,32 @@ export default function AdminDashboard() {
                 setTemplateName={setTemplateName}
                 templateBody={templateBody}
                 setTemplateBody={setTemplateBody}
+                templateHeader={templateHeader}
+                setTemplateHeader={setTemplateHeader}
+                templateFooter={templateFooter}
+                setTemplateFooter={setTemplateFooter}
+                templateButtons={templateButtons}
+                setTemplateButtons={setTemplateButtons}
                 editingTemplateId={editingTemplate?._id || null}
                 editingTemplateName={editingTemplateName}
                 setEditingTemplateName={setEditingTemplateName}
                 editingTemplateBody={editingTemplateBody}
                 setEditingTemplateBody={setEditingTemplateBody}
+                editingTemplateHeader={editingTemplateHeader}
+                setEditingTemplateHeader={setEditingTemplateHeader}
+                editingTemplateFooter={editingTemplateFooter}
+                setEditingTemplateFooter={setEditingTemplateFooter}
+                editingTemplateButtons={editingTemplateButtons}
+                setEditingTemplateButtons={setEditingTemplateButtons}
                 isSaving={saving === "template"}
                 onCreate={createTemplate}
                 onEdit={(template) => {
                   setEditingTemplate(template);
                   setEditingTemplateName(template.name);
                   setEditingTemplateBody(template.body);
+                  setEditingTemplateHeader(template.header || "");
+                  setEditingTemplateFooter(template.footer || "");
+                  setEditingTemplateButtons(template.buttons || []);
                   setEditingTemplateDefaultLanguage(
                     template.defaultLanguage || "en",
                   );

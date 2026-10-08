@@ -26,6 +26,7 @@ import {
   formatRichText,
 } from "@/utils/text/formatting"
 import Link from "next/link"
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
 
 interface Message {
   id?: string
@@ -42,6 +43,7 @@ interface Message {
   status?: "sent" | "delivered" | "seen" | "sending" | "failed"
   reactions?: Record<string, number>
   duration?: number
+  buttons?: TemplateActionButton[]
 }
 
 interface User {
@@ -67,6 +69,9 @@ interface MessageBubbleProps {
   showSenderInfo?: boolean
   onForward?: () => void
   onReaction?: (emoji: string) => Promise<boolean> | boolean
+  onTemplateButton?: (
+    button: TemplateActionButton,
+  ) => boolean | Promise<boolean>
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -78,11 +83,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   showSenderInfo = false,
   onForward,
   onReaction,
+  onTemplateButton,
 }) => {
   const isSent = message.sender === "me"
   const senderName = isSent ? user.name : contact.name
   const [isHovered, setIsHovered] = useState(false)
   const [showReactions, setShowReactions] = useState(false)
+  const [confirmedButtonIndexes, setConfirmedButtonIndexes] = useState<number[]>([])
+  const [pendingButtonIndexes, setPendingButtonIndexes] = useState<number[]>([])
+  const [templateButtonError, setTemplateButtonError] = useState("")
   const [localReactions, setLocalReactions] = useState<Record<string, number>>(message.reactions || {})
 
   useEffect(() => {
@@ -144,6 +153,33 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     }))
     setShowReactions(false)
   }
+
+  const handleTemplateButton = async (
+    button: TemplateActionButton,
+    index: number,
+  ) => {
+    setTemplateButtonError("");
+    setPendingButtonIndexes((current) =>
+      current.includes(index) ? current : [...current, index],
+    );
+    try {
+      const completed = await onTemplateButton?.(button);
+      if (button.type === "confirm" && completed) {
+        setConfirmedButtonIndexes((current) =>
+          current.includes(index) ? current : [...current, index],
+        );
+      } else if (!completed) {
+        setTemplateButtonError("Action could not be completed. Please try again.");
+      }
+    } catch (error) {
+      console.error("[MessageBubble] Template button action failed:", error);
+      setTemplateButtonError("Action could not be completed. Please try again.");
+    } finally {
+      setPendingButtonIndexes((current) =>
+        current.filter((buttonIndex) => buttonIndex !== index),
+      );
+    }
+  };
 
   return (
     <motion.div
@@ -468,6 +504,48 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </motion.span>
                   ))}
                 </div>
+              )}
+
+              {!isSent && message.buttons && message.buttons.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-black/10 pt-3">
+                  {message.buttons.map((button, index) =>
+                    button.type === "call" ? (
+                      <a
+                        key={`${button.type}-${index}`}
+                        href={`tel:${button.phoneNumber}`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="rounded-lg border border-emerald-700/30 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                      >
+                        {button.label}
+                      </a>
+                    ) : (
+                      <button
+                        key={`${button.type}-${index}`}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handleTemplateButton(button, index);
+                        }}
+                        disabled={
+                          confirmedButtonIndexes.includes(index) ||
+                          pendingButtonIndexes.includes(index)
+                        }
+                        className="rounded-lg border border-emerald-700/30 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                      >
+                        {pendingButtonIndexes.includes(index)
+                          ? "Sending..."
+                          : confirmedButtonIndexes.includes(index)
+                            ? "Confirmed"
+                            : button.label}
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+              {templateButtonError && (
+                <p className="mt-2 text-xs text-red-700" role="alert">
+                  {templateButtonError}
+                </p>
               )}
 
               {showReactions && (

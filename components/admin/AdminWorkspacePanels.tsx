@@ -2,15 +2,21 @@
 
 import { useState, type FormEvent, type SetStateAction } from "react";
 import { getTemplateVariableNames } from "@/lib/messageTemplates";
+import type { TemplateActionButton } from "@/lib/templateActionButtons";
 import { adminFieldClass } from "@/components/admin/adminConstants";
+import TemplateActionButtonsEditor from "@/components/admin/TemplateActionButtonsEditor";
+import TemplateApiIntegrationExample from "@/components/admin/TemplateApiIntegrationExample";
 
 export interface AdminMessageTemplate {
   _id: string;
   name: string;
   body: string;
+  header?: string;
+  footer?: string;
   defaultLanguage?: string;
   folder?: string;
   translations?: Record<string, string>;
+  buttons?: TemplateActionButton[];
   ownerUserId?: string;
 }
 
@@ -48,11 +54,25 @@ interface AdminTemplatesPanelProps {
   setTemplateName: (value: SetStateAction<string>) => void;
   templateBody: string;
   setTemplateBody: (value: SetStateAction<string>) => void;
+  templateHeader: string;
+  setTemplateHeader: (value: SetStateAction<string>) => void;
+  templateFooter: string;
+  setTemplateFooter: (value: SetStateAction<string>) => void;
+  templateButtons: TemplateActionButton[];
+  setTemplateButtons: (value: SetStateAction<TemplateActionButton[]>) => void;
   editingTemplateId: string | null;
   editingTemplateName: string;
   setEditingTemplateName: (value: SetStateAction<string>) => void;
   editingTemplateBody: string;
   setEditingTemplateBody: (value: SetStateAction<string>) => void;
+  editingTemplateHeader: string;
+  setEditingTemplateHeader: (value: SetStateAction<string>) => void;
+  editingTemplateFooter: string;
+  setEditingTemplateFooter: (value: SetStateAction<string>) => void;
+  editingTemplateButtons: TemplateActionButton[];
+  setEditingTemplateButtons: (
+    value: SetStateAction<TemplateActionButton[]>,
+  ) => void;
   folder: string;
   setFolder: (value: SetStateAction<string>) => void;
   defaultLanguage: string;
@@ -89,11 +109,23 @@ export function AdminTemplatesPanel({
   setTemplateName,
   templateBody,
   setTemplateBody,
+  templateHeader,
+  setTemplateHeader,
+  templateFooter,
+  setTemplateFooter,
+  templateButtons,
+  setTemplateButtons,
   editingTemplateId,
   editingTemplateName,
   setEditingTemplateName,
   editingTemplateBody,
   setEditingTemplateBody,
+  editingTemplateHeader,
+  setEditingTemplateHeader,
+  editingTemplateFooter,
+  setEditingTemplateFooter,
+  editingTemplateButtons,
+  setEditingTemplateButtons,
   folder,
   setFolder,
   defaultLanguage,
@@ -116,7 +148,9 @@ export function AdminTemplatesPanel({
   onUpdate,
   onDelete,
 }: AdminTemplatesPanelProps) {
-  const templateVariableNames = getTemplateVariableNames(templateBody);
+  const templateVariableNames = getTemplateVariableNames(
+    [templateHeader, templateBody, templateFooter].filter(Boolean).join("\n"),
+  );
   const [selectedFolder, setSelectedFolder] = useState("All folders");
   const folders = Array.from(
     new Set(templates.map((template) => template.folder || "General")),
@@ -213,6 +247,33 @@ export function AdminTemplatesPanel({
           maxLength={2000}
           className={`mt-3 ${adminFieldClass}`}
           required
+        />
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          Optional header
+          <textarea
+            value={templateHeader}
+            onChange={(event) => setTemplateHeader(event.target.value)}
+            placeholder="Add a header (optional)"
+            rows={2}
+            maxLength={2000}
+            className={`mt-1 ${adminFieldClass}`}
+          />
+        </label>
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          Optional footer
+          <textarea
+            value={templateFooter}
+            onChange={(event) => setTemplateFooter(event.target.value)}
+            placeholder="Add a footer (optional)"
+            rows={2}
+            maxLength={2000}
+            className={`mt-1 ${adminFieldClass}`}
+          />
+        </label>
+        <TemplateActionButtonsEditor
+          value={templateButtons}
+          onChange={setTemplateButtons}
+          idPrefix="create-template"
         />
         <div className="mt-4 space-y-3 rounded-xl border border-slate-200 p-4">
           <p className="text-sm font-semibold text-slate-800">
@@ -325,17 +386,12 @@ export function AdminTemplatesPanel({
           </select>
         </label>
         {visibleTemplates.map((template) => {
-          const variableNames = getTemplateVariableNames(template.body);
-          const isEditing = editingTemplateId === template._id;
-          const variables = Object.fromEntries(
-            variableNames.map((variable) => [
-              variable,
-              `YOUR_${variable.toUpperCase()}`,
-            ]),
+          const variableNames = getTemplateVariableNames(
+            [template.header, template.body, template.footer]
+              .filter(Boolean)
+              .join("\n"),
           );
-          const phpVariables = Object.entries(variables)
-            .map(([key, value]) => `"${key}" => "${value}"`)
-            .join(", ");
+          const isEditing = editingTemplateId === template._id;
 
           return (
             <div
@@ -420,6 +476,35 @@ export function AdminTemplatesPanel({
                     className={adminFieldClass}
                     aria-label="Template message"
                     required
+                  />
+                  <label className="block text-sm font-medium text-slate-700">
+                    Optional header
+                    <textarea
+                      value={editingTemplateHeader}
+                      onChange={(event) =>
+                        setEditingTemplateHeader(event.target.value)
+                      }
+                      maxLength={2000}
+                      rows={2}
+                      className={`mt-1 ${adminFieldClass}`}
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Optional footer
+                    <textarea
+                      value={editingTemplateFooter}
+                      onChange={(event) =>
+                        setEditingTemplateFooter(event.target.value)
+                      }
+                      maxLength={2000}
+                      rows={2}
+                      className={`mt-1 ${adminFieldClass}`}
+                    />
+                  </label>
+                  <TemplateActionButtonsEditor
+                    value={editingTemplateButtons}
+                    onChange={setEditingTemplateButtons}
+                    idPrefix={`edit-template-${template._id}`}
                   />
                   <div className="flex gap-2">
                     <input
@@ -519,7 +604,9 @@ export function AdminTemplatesPanel({
                     Default ({template.defaultLanguage || "en"})
                   </p>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
+                    {template.header && `${template.header}\n`}
                     {template.body}
+                    {template.footer && `\n${template.footer}`}
                   </p>
                 </>
               )}
@@ -550,132 +637,10 @@ export function AdminTemplatesPanel({
               <p className="mt-3 break-all text-xs text-gray-500">
                 Template ID: <code>{template._id}</code>
               </p>
-              <details className="mt-3">
-                <summary
-                  className={`cursor-pointer text-sm font-medium ${
-                    isPlatformAdmin ? "text-indigo-700" : "text-emerald-700"
-                  }`}
-                >
-                  API integration example
-                </summary>
-                <div className="mt-3 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
-                  <p className="mb-2">
-                    This template has {variableNames.length} variable
-                    {variableNames.length === 1 ? "" : "s"}. Include admin
-                    credentials, this admin&apos;s API key, and the template
-                    name. Supply every listed variable; missing values are
-                    rejected.
-                  </p>
-                  <pre className="overflow-x-auto whitespace-pre-wrap break-words">
-                    {`await fetch("https://hfconnect.in/api/v1/messages/send", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer " + API_KEY,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    "adminUserId": "YOUR_ADMIN_USER_ID",
-    "adminPassword": "YOUR_ADMIN_PASSWORD",
-    "templateName": "${template.name}",
-    "language": "hi",
-    "fromUserId": "SENDER_CHAT_ACCOUNT_ID",
-    "toUserId": "RECIPIENT_USER_ID",
-    "variables": ${JSON.stringify(variables, null, 2).replace(/\n/g, "\n    ")},
-    "attachment": {
-      "type": "pdf",
-      "mediaUrl": "https://files.example.com/orders/ORD-1001.pdf",
-      "fileName": "ORD-1001.pdf"
-    }
-  })
-});`}
-                  </pre>
-                  <p className="mt-4 font-semibold text-slate-200">
-                    Bulk send with per-recipient languages
-                  </p>
-                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
-                    {`// JavaScript (Node.js)
-await fetch("https://hfconnect.in/api/v1/messages/bulk", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    adminUserId: process.env.HANSARIA_ADMIN_ID,
-    adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
-    templateId: "${template._id}",
-    recipients: [
-      { toUserId: "USER_ID_1", language: "hi", variables: ${JSON.stringify(variables)} },
-      { toUserId: "USER_ID_2", language: "bn", variables: ${JSON.stringify(variables)} }
-    ]
-  })
-});`}
-                  </pre>
-                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
-                    {`# Python (requests)
-import os, requests
-
-response = requests.post(
-    "https://hfconnect.in/api/v1/messages/bulk",
-    headers={"Authorization": f"Bearer {os.environ['HANSARIA_API_KEY']}"},
-    json={
-        "adminUserId": os.environ["HANSARIA_ADMIN_ID"],
-        "adminPassword": os.environ["HANSARIA_ADMIN_PASSWORD"],
-        "templateId": "${template._id}",
-        "recipients": [
-            {"toUserId": "USER_ID_1", "language": "hi", "variables": ${JSON.stringify(variables)}},
-            {"toUserId": "USER_ID_2", "language": "bn", "variables": ${JSON.stringify(variables)}},
-        ],
-    },
-    timeout=30,
-)
-response.raise_for_status()
-print(response.json()["sent"])`}
-                  </pre>
-                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
-                    {`<?php
-// PHP (cURL)
-$payload = [
-  "adminUserId" => getenv("HANSARIA_ADMIN_ID"),
-  "adminPassword" => getenv("HANSARIA_ADMIN_PASSWORD"),
-  "templateId" => "${template._id}",
-  "recipients" => [
-    ["toUserId" => "USER_ID_1", "language" => "hi", "variables" => [${phpVariables}]],
-    ["toUserId" => "USER_ID_2", "language" => "bn", "variables" => [${phpVariables}]]
-  ]
-];
-$ch = curl_init("https://hfconnect.in/api/v1/messages/bulk");
-curl_setopt_array($ch, [
-  CURLOPT_POST => true,
-  CURLOPT_HTTPHEADER => [
-    "Authorization: Bearer " . getenv("HANSARIA_API_KEY"),
-    "Content-Type: application/json"
-  ],
-  CURLOPT_POSTFIELDS => json_encode($payload),
-  CURLOPT_RETURNTRANSFER => true
-]);
-$result = curl_exec($ch);
-if ($result === false) throw new RuntimeException(curl_error($ch));
-curl_close($ch);
-echo $result;`}
-                  </pre>
-                  <p className="mt-3 text-slate-300">
-                    For bulk messages use POST /api/v1/messages/bulk. Bind the
-                    sender chat account to the API key first; bulk requests use
-                    that bound sender. Replace toUserId with a recipients array
-                    and pass the same adminUserId, adminPassword, and variables
-                    for each recipient. Attachments are optional, sent from an
-                    HTTPS URL, and can use image, pdf, video, excel, or file.
-                    Send requests server-to-server over HTTPS; never expose the
-                    admin password or API key in browser or mobile-app code.
-                    Regular-admin credentials and API keys can only use
-                    templates in their own workspace. Super-admin keys can
-                    use templates across workspaces. For single sends,
-                    fromUserId must be an account created by this admin unless
-                    the API key is already bound to a sender.
-                  </p>
-                </div>
-              </details>
+              <TemplateApiIntegrationExample
+                template={template}
+                isPlatformAdmin={isPlatformAdmin}
+              />
             </div>
           );
         })}

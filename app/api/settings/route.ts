@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db/db";
 import Profile from "@/models/profile/Profile";
 import User from "@/models/user/User";
 import { apiError, parseJson, requireUser } from "@/lib/api/request";
+import type { TemplateActionType } from "@/lib/templateActionButtons";
 
 type ThemeSettings = {
   wallpaper?: string;
@@ -24,12 +25,20 @@ type StoredSettings = {
   theme?: ThemeSettings;
   notifications?: NotificationSettings;
   preferredLanguage?: string;
+  allowedTemplateActions?: TemplateActionType[];
 };
 
 const settingsSchema = z.object({
   preferredLanguage: z
     .string()
     .regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i)
+    .optional(),
+  allowedTemplateActions: z
+    .array(z.enum(["call", "reply", "confirm"]))
+    .max(3)
+    .refine((actions) => new Set(actions).size === actions.length, {
+      message: "Action button preferences must be unique",
+    })
     .optional(),
   theme: z
     .object({
@@ -60,7 +69,14 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const profile = await Profile.findOne({ userId: session.id }).lean();
-    const user = await User.findById(session.id).select("preferredLanguage").lean();
+    const user = await User.findById(session.id)
+      .select("preferredLanguage allowedTemplateActions")
+      .lean();
+    const allowedTemplateActions = user?.allowedTemplateActions || [
+      "call",
+      "reply",
+      "confirm",
+    ];
     if (!profile) {
       return NextResponse.json({
         theme: {
@@ -76,6 +92,7 @@ export async function GET(req: NextRequest) {
           ringtone: "whatsapp",
         },
         preferredLanguage: user?.preferredLanguage || "en",
+        allowedTemplateActions,
       });
     }
 
@@ -93,6 +110,7 @@ export async function GET(req: NextRequest) {
         ringtone: "whatsapp",
       },
       preferredLanguage: user?.preferredLanguage || "en",
+      allowedTemplateActions,
     });
   } catch (error: unknown) {
     return apiError(error, "GET /api/settings");
@@ -110,7 +128,12 @@ export async function POST(req: NextRequest) {
 
     const parsedBody = await parseJson(req, settingsSchema);
     if (!parsedBody.success) return parsedBody.response;
-    const { theme, notifications, preferredLanguage } = parsedBody.data;
+    const {
+      theme,
+      notifications,
+      preferredLanguage,
+      allowedTemplateActions,
+    } = parsedBody.data;
 
     const updateData: StoredSettings = {};
     const currentProfile = await Profile.findOne({ userId: session.id }).lean<StoredSettings>();
@@ -138,6 +161,11 @@ export async function POST(req: NextRequest) {
         $set: { preferredLanguage },
       });
     }
+    if (allowedTemplateActions) {
+      await User.findByIdAndUpdate(session.id, {
+        $set: { allowedTemplateActions },
+      });
+    }
 
     const updated = Object.keys(updateData).length
       ? await Profile.findOneAndUpdate(
@@ -151,6 +179,8 @@ export async function POST(req: NextRequest) {
       theme: (updated as unknown as StoredSettings | null)?.theme,
       notifications: (updated as unknown as StoredSettings | null)?.notifications,
       preferredLanguage: preferredLanguage || "en",
+      allowedTemplateActions:
+        allowedTemplateActions || ["call", "reply", "confirm"],
     });
   } catch (error: unknown) {
     return apiError(error, "POST /api/settings");

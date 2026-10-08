@@ -188,6 +188,7 @@ export async function GET(
         peerIdStr,
         msg.linkDescription || "",
       ),
+      buttons: msg.buttons || [],
       timestamp: msg.createdAt,
       status: msg.status || "sent",
     }));

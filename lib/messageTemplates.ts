@@ -10,6 +10,12 @@ export const getTemplateVariableNames = (template: string): string[] =>
     ),
   );
 
+export const joinTemplateParts = (
+  header: string | undefined,
+  body: string,
+  footer: string | undefined,
+): string => [header, body, footer].filter((part) => Boolean(part?.trim())).join("\n");
+
 export const renderMessageTemplate = (
   template: string,
   variables: TemplateVariables,
