@@ -567,7 +567,7 @@ export function AdminTemplatesPanel({
                     rejected.
                   </p>
                   <pre className="overflow-x-auto whitespace-pre-wrap break-words">
-                    {`await fetch("https://YOUR_DOMAIN/api/v1/messages/send", {
+                    {`await fetch("https://hfconnect.in/api/v1/messages/send", {
   method: "POST",
   headers: {
     "Authorization": "Bearer " + API_KEY,
@@ -594,7 +594,7 @@ export function AdminTemplatesPanel({
                   </p>
                   <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
                     {`// JavaScript (Node.js)
-await fetch("https://YOUR_DOMAIN/api/v1/messages/bulk", {
+await fetch("https://hfconnect.in/api/v1/messages/bulk", {
   method: "POST",
   headers: {
     Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
@@ -616,7 +616,7 @@ await fetch("https://YOUR_DOMAIN/api/v1/messages/bulk", {
 import os, requests
 
 response = requests.post(
-    "https://YOUR_DOMAIN/api/v1/messages/bulk",
+    "https://hfconnect.in/api/v1/messages/bulk",
     headers={"Authorization": f"Bearer {os.environ['HANSARIA_API_KEY']}"},
     json={
         "adminUserId": os.environ["HANSARIA_ADMIN_ID"],
@@ -644,7 +644,7 @@ $payload = [
     ["toUserId" => "USER_ID_2", "language" => "bn", "variables" => [${phpVariables}]]
   ]
 ];
-$ch = curl_init("https://YOUR_DOMAIN/api/v1/messages/bulk");
+$ch = curl_init("https://hfconnect.in/api/v1/messages/bulk");
 curl_setopt_array($ch, [
   CURLOPT_POST => true,
   CURLOPT_HTTPHEADER => [
