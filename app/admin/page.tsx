@@ -135,6 +135,7 @@ export default function AdminDashboard() {
   );
 
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
+  const [createAdminError, setCreateAdminError] = useState("");
   const [newAdminUserId, setNewAdminUserId] = useState("");
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
@@ -635,7 +636,7 @@ export default function AdminDashboard() {
 
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setCreateAdminError("");
     setSaving("create");
     try {
       const res = await fetch("/api/admin/admins", {
@@ -650,17 +651,18 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Failed to create admin");
+        setCreateAdminError(data.error || "Failed to create admin");
         return;
       }
       setShowCreateAdmin(false);
+      setCreateAdminError("");
       setNewAdminUserId("");
       setNewAdminEmail("");
       setNewAdminPassword("");
       setNewAdminIsSuper(false);
       void refreshData();
     } catch {
-      setError("Network error");
+      setCreateAdminError("Could not create admin. Check your connection and try again.");
     } finally {
       setSaving(null);
     }
@@ -1227,7 +1229,11 @@ export default function AdminDashboard() {
                 admins={admins}
                 saving={saving}
                 showCreate={showCreateAdmin}
-                setShowCreate={setShowCreateAdmin}
+                setShowCreate={(value) => {
+                  setShowCreateAdmin(value);
+                  setCreateAdminError("");
+                }}
+                createError={createAdminError}
                 newUserId={newAdminUserId}
                 setNewUserId={setNewAdminUserId}
                 newEmail={newAdminEmail}

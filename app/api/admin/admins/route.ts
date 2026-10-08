@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
     const admins = await Admin.find({}, { password: 0 });
     return NextResponse.json({ success: true, admins });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Get admins error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error" },
@@ -36,19 +36,48 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
-    const body = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Request body must be valid JSON" },
+        { status: 400 },
+      );
+    }
     const userId =
-      typeof body?.userId === "string" ? body.userId.trim() : "";
+      typeof body === "object" && body !== null && "userId" in body &&
+      typeof body.userId === "string"
+        ? body.userId.trim()
+        : "";
     const email =
-      typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-    const password = typeof body?.password === "string" ? body.password : "";
-    const isSuperAdmin = body?.isSuperAdmin ?? false;
+      typeof body === "object" && body !== null && "email" in body &&
+      typeof body.email === "string"
+        ? body.email.trim().toLowerCase()
+        : "";
+    const password =
+      typeof body === "object" && body !== null && "password" in body &&
+      typeof body.password === "string"
+        ? body.password
+        : "";
+    const isSuperAdmin =
+      typeof body === "object" && body !== null && "isSuperAdmin" in body
+        ? body.isSuperAdmin
+        : false;
 
-    if (!userId || !email || !password || typeof isSuperAdmin !== "boolean") {
+    if (
+      !/^[a-zA-Z0-9._-]{3,40}$/.test(userId) ||
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      email.length > 254 ||
+      password.length < 8 ||
+      Buffer.byteLength(password, "utf8") > 72 ||
+      typeof isSuperAdmin !== "boolean"
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Admin ID, email, and password are required",
+          error:
+            "Enter an Admin ID (3–40 letters, numbers, dots, underscores or hyphens), a valid email, and a password of 8–72 UTF-8 bytes",
         },
         { status: 400 },
       );
@@ -74,11 +103,30 @@ export async function POST(req: NextRequest) {
 
     await newAdmin.save();
 
-    const { password: _, ...adminWithoutPassword } = newAdmin.toObject();
-    return NextResponse.json({ success: true, admin: adminWithoutPassword });
-  } catch (error: any) {
+    const adminWithoutPassword = {
+      _id: newAdmin._id,
+      userId: newAdmin.userId,
+      email: newAdmin.email,
+      isSuperAdmin: newAdmin.isSuperAdmin,
+      companyName: newAdmin.companyName,
+      companyDomain: newAdmin.companyDomain,
+      companyVerificationRequested: newAdmin.companyVerificationRequested,
+      isCompanyVerified: newAdmin.isCompanyVerified,
+      createdAt: newAdmin.createdAt,
+      updatedAt: newAdmin.updatedAt,
+    };
+    return NextResponse.json(
+      { success: true, admin: adminWithoutPassword },
+      { status: 201 },
+    );
+  } catch (error: unknown) {
     console.error("Create admin error:", error);
-    if (error?.code === 11000) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === 11000
+    ) {
       return NextResponse.json(
         { success: false, error: "Admin ID or email already exists" },
         { status: 409 },

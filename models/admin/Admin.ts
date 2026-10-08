@@ -30,21 +30,13 @@ const AdminSchema = new Schema<IAdmin>(
 );
 
 // Hash password before saving
-AdminSchema.pre("save", async function (this: IAdmin, next: any) {
-  if (!this.isModified("password")) return next();
+AdminSchema.pre("save", async function (this: IAdmin) {
+  if (!this.isModified("password")) return;
 
-  // If the password already looks like a bcrypt hash (starts with $2b$...), skip hashing
-  if (this.password && this.password.startsWith("$2b$")) {
-    return next();
-  }
+  if (/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(this.password)) return;
 
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error: any) {
-    next(error);
-  }
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Method to compare passwords
