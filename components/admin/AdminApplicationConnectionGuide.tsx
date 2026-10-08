@@ -118,9 +118,60 @@ export default function AdminApplicationConnectionGuide({
           </li>
         </ol>
 
+        <section
+          aria-labelledby="delivery-type-title"
+          className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-5"
+        >
+          <h3
+            id="delivery-type-title"
+            className="font-bold text-amber-950"
+          >
+            Important: these are HansariaConnect in-app messages, not SMS
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-amber-900">
+            Both API endpoints deliver chat messages to recipient accounts
+            inside the HansariaConnect app. They do not send texts to phone
+            numbers, and they are not an SMS gateway. The recipient must have a
+            HansariaConnect account; an in-app message or browser notification
+            is not a reliable authentication OTP channel.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-white/80 p-4">
+              <p className="font-semibold text-slate-900">
+                One in-app message
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-700">
+                POST <code>/api/v1/messages/send</code> with one{" "}
+                <code>toUserId</code>, a saved <code>templateId</code> or{" "}
+                <code>templateName</code>, and that recipient&apos;s{" "}
+                <code>variables</code>.
+              </p>
+            </div>
+            <div className="rounded-xl bg-white/80 p-4">
+              <p className="font-semibold text-slate-900">
+                Bulk in-app messages
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-700">
+                POST <code>/api/v1/messages/bulk</code> with a saved template
+                and a <code>recipients</code> array. Each recipient has their
+                own <code>toUserId</code>, optional language, and variables.
+                Use for announcements, reminders, and order updates.
+              </p>
+            </div>
+          </div>
+          <p className="mt-4 text-sm leading-6 text-amber-950">
+            <strong>For authentication OTPs sent by SMS:</strong> use a
+            dedicated OTP/SMS provider and verify the code on your server.
+            Do not use this chat API for login, password-reset, or phone
+            verification codes, and do not bulk-send the same OTP to many
+            people. The optional <code>language</code> field selects a saved
+            template translation; it does not change the delivery channel.
+          </p>
+        </section>
+
         <div className="mt-5 overflow-hidden rounded-2xl bg-slate-950 text-slate-100">
           <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-300">
-            Single-message request
+            One in-app message using a saved template
           </div>
           <pre className="overflow-x-auto p-4 text-xs leading-6">
             {`const response = await fetch(
@@ -151,7 +202,7 @@ if (!response.ok) throw new Error(result.error);`}
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-200 p-4">
             <h4 className="font-semibold text-slate-900">
-              Bulk message using a saved template
+              Bulk in-app messages using a saved template
             </h4>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Call{" "}
