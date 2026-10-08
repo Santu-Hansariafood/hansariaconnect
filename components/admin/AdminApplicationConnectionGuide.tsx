@@ -210,6 +210,182 @@ console.log(\`Messages sent: \${result.sent}\`);`}
             </p>
           </div>
         </div>
+        <section className="mt-5 overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/50">
+          <div className="border-b border-indigo-100 px-5 py-4">
+            <h3 className="font-semibold text-indigo-950">
+              Connect from a Next.js App Router application
+            </h3>
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              Keep the HansariaConnect API key and admin credentials in your
+              Next.js server environment. The browser calls your own Route
+              Handler; that handler authenticates the app user and forwards
+              only the validated recipient list.
+            </p>
+          </div>
+          <div className="grid gap-4 p-4 lg:grid-cols-2 sm:p-5">
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">
+                app/api/hansaria/bulk/route.ts
+              </p>
+              <pre className="max-h-[34rem] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
+                {`import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { z } from "zod";
+import { authOptions } from "@/lib/auth"; // Use your app's NextAuth config.
+
+const requestSchema = z.object({
+  recipients: z.array(z.object({
+    toUserId: z.string().regex(/^[a-f0-9]{24}$/i),
+    language: z.string().max(35).optional(),
+    variables: z.record(
+      z.string(),
+      z.union([z.string().max(10000), z.number(), z.boolean()])
+    ).optional()
+  })).min(1).max(1000)
+});
+
+export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const allowedEmail = process.env.BULK_MESSAGING_ALLOWED_EMAIL?.toLowerCase();
+  if (!allowedEmail || session.user.email?.toLowerCase() !== allowedEmail) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const parsed = requestSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message || "Invalid request" },
+      { status: 400 }
+    );
+  }
+
+  const { HANSARIA_API_URL, HANSARIA_API_KEY,
+    HANSARIA_ADMIN_ID, HANSARIA_ADMIN_PASSWORD } = process.env;
+  if (!HANSARIA_API_URL || !HANSARIA_API_KEY ||
+      !HANSARIA_ADMIN_ID || !HANSARIA_ADMIN_PASSWORD) {
+    return NextResponse.json(
+      { error: "Messaging integration is not configured" },
+      { status: 503 }
+    );
+  }
+
+  try {
+    const upstream = await fetch(
+      \`\${HANSARIA_API_URL.replace(/\\/+$/, "")}/api/v1/messages/bulk\`,
+      {
+        method: "POST",
+        cache: "no-store",
+        headers: {
+          Authorization: \`Bearer \${HANSARIA_API_KEY}\`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          adminUserId: HANSARIA_ADMIN_ID,
+          adminPassword: HANSARIA_ADMIN_PASSWORD,
+          templateName: "Order update",
+          recipients: parsed.data.recipients
+        })
+      }
+    );
+    const result = await upstream.json().catch(() => ({}));
+    const headers = new Headers();
+    for (const name of [
+      "Retry-After",
+      "X-RateLimit-Request-Limit",
+      "X-RateLimit-Requests-Remaining",
+      "X-RateLimit-Message-Limit",
+      "X-RateLimit-Messages-Remaining",
+      "X-RateLimit-Reset"
+    ]) {
+      const value = upstream.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+
+    if (!upstream.ok) {
+      return NextResponse.json(
+        { error: result.error || "Bulk message request failed" },
+        { status: upstream.status, headers }
+      );
+    }
+    return NextResponse.json(
+      { success: true, sent: result.sent, template: result.template },
+      { headers }
+    );
+  } catch {
+    return NextResponse.json(
+      { error: "Messaging service is unavailable" },
+      { status: 502 }
+    );
+  }
+}`}
+              </pre>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">
+                Call your own route from the app
+              </p>
+              <pre className="rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
+                {`const response = await fetch("/api/hansaria/bulk", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    recipients: [
+      {
+        toUserId: "64f1234567890abcdef12345",
+        variables: { name: "Asha", orderId: "ORD-1001" }
+      },
+      {
+        toUserId: "64f1234567890abcdef12346",
+        language: "hi",
+        variables: { name: "Rahul", orderId: "ORD-1002" }
+      }
+    ]
+  })
+});
+
+const result = await response.json();
+if (response.status === 429) {
+  const retryAfter = response.headers.get("Retry-After");
+  throw new Error(\`Rate limited. Retry after \${retryAfter} seconds.\`);
+}
+if (!response.ok) {
+  throw new Error(result.error || "Could not send messages");
+}
+console.log(\`Sent \${result.sent} messages\`);`}
+              </pre>
+              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                This example allow-lists one app user by email; configure
+                <code> BULK_MESSAGING_ALLOWED_EMAIL</code>, or replace this
+                check with your app&apos;s role/tenant authorization. Also
+                confirm the signed-in user is allowed to message each recipient
+                before forwarding. Replace <code>authOptions</code> with your
+                NextAuth config.
+                Store the four <code>HANSARIA_*</code> values in server-only
+                environment variables (never <code>NEXT_PUBLIC_*</code>), use
+                HTTPS, and never log the credentials or full upstream request.
+                Bulk sends are limited to 1,000 recipients per request.
+              </div>
+              <pre className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-700">
+                {`# .env.local (server only; do not prefix with NEXT_PUBLIC_)
+HANSARIA_API_URL=https://your-hansariaconnect-domain
+HANSARIA_API_KEY=your-one-time-generated-api-key
+HANSARIA_ADMIN_ID=your-admin-login-id
+HANSARIA_ADMIN_PASSWORD=your-admin-password
+BULK_MESSAGING_ALLOWED_EMAIL=authorized-operator@your-app.com`}
+              </pre>
+            </div>
+          </div>
+        </section>
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
           Never call this endpoint directly from browser or mobile client code:
           that would expose the API key and admin password. Keep both in your
