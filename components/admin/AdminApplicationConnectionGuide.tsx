@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 type DashboardTab = "users" | "accounts" | "templates";
+type ExampleLanguage = "JavaScript" | "Python" | "PHP";
 
 type AdminApplicationConnectionGuideProps = {
   isPlatformAdmin: boolean;
@@ -8,19 +11,98 @@ type AdminApplicationConnectionGuideProps = {
   onCreateApiKey: () => void;
 };
 
+const examples: Record<ExampleLanguage, string> = {
+  JavaScript: `const response = await fetch(
+  "https://hansariaconnect.com/api/v1/messages/send",
+  {
+    method: "POST",
+    headers: {
+      Authorization: \`Bearer \${process.env.HANSARIA_API_KEY}\`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      adminUserId: process.env.HANSARIA_ADMIN_ID,
+      adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
+      template: "Hi {{name}}, your order {{orderId}} has been updated.",
+      language: "en",
+      toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
+      variables: { name: "Asha", orderId: "ORD-1001" }
+    })
+  }
+);
+
+const result = await response.json();
+if (!response.ok) {
+  throw new Error(result.error || \`Request failed: \${response.status}\`);
+}
+console.log("Message sent");`,
+  Python: `import os
+import requests
+
+response = requests.post(
+    "https://hansariaconnect.com/api/v1/messages/send",
+    headers={
+        "Authorization": f"Bearer {os.environ['HANSARIA_API_KEY']}",
+        "Content-Type": "application/json",
+    },
+    json={
+        "adminUserId": os.environ["HANSARIA_ADMIN_ID"],
+        "adminPassword": os.environ["HANSARIA_ADMIN_PASSWORD"],
+        "template": "Hi {{name}}, your order {{orderId}} has been updated.",
+        "language": "en",
+        "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
+        "variables": {"name": "Asha", "orderId": "ORD-1001"},
+    },
+    timeout=30,
+)
+
+if not response.ok:
+    raise RuntimeError(response.json().get("error", f"Request failed: {response.status_code}"))
+print("Message sent")`,
+  PHP: `<?php
+$payload = [
+  "adminUserId" => getenv("HANSARIA_ADMIN_ID"),
+  "adminPassword" => getenv("HANSARIA_ADMIN_PASSWORD"),
+  "template" => "Hi {{name}}, your order {{orderId}} has been updated.",
+  "language" => "en",
+  "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
+  "variables" => ["name" => "Asha", "orderId" => "ORD-1001"]
+];
+
+$ch = curl_init("https://hansariaconnect.com/api/v1/messages/send");
+curl_setopt_array($ch, [
+  CURLOPT_POST => true,
+  CURLOPT_HTTPHEADER => [
+    "Authorization: Bearer " . getenv("HANSARIA_API_KEY"),
+    "Content-Type: application/json"
+  ],
+  CURLOPT_POSTFIELDS => json_encode($payload),
+  CURLOPT_RETURNTRANSFER => true
+]);
+$body = curl_exec($ch);
+if ($body === false) {
+  throw new RuntimeException(curl_error($ch));
+}
+$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+$result = json_decode($body, true);
+if ($status < 200 || $status >= 300) {
+  throw new RuntimeException($result["error"] ?? "Request failed: " . $status);
+}
+echo "Message sent";`,
+};
+
 export default function AdminApplicationConnectionGuide({
   isPlatformAdmin,
   onNavigate,
   onCreateApiKey,
 }: AdminApplicationConnectionGuideProps) {
+  const [language, setLanguage] = useState<ExampleLanguage>("JavaScript");
   const linkColor = isPlatformAdmin ? "text-indigo-700" : "text-emerald-700";
+  const borderColor = isPlatformAdmin ? "border-indigo-200" : "border-emerald-200";
 
   return (
-    <details
-      className={`group rounded-2xl border bg-white shadow-sm ${
-        isPlatformAdmin ? "border-indigo-200" : "border-emerald-200"
-      }`}
-    >
+    <details className={`group rounded-2xl border bg-white shadow-sm ${borderColor}`}>
       <summary
         className={`cursor-pointer list-none px-5 py-4 font-semibold sm:px-6 ${
           isPlatformAdmin ? "text-indigo-950" : "text-emerald-950"
@@ -28,9 +110,9 @@ export default function AdminApplicationConnectionGuide({
       >
         <span className="flex flex-wrap items-center justify-between gap-3">
           <span>
-            How to connect your application
+            Connect your application
             <span className="mt-1 block text-sm font-normal text-slate-500">
-              Setup steps, API request example, and notification requirements
+              Simple setup and code examples
             </span>
           </span>
           <span
@@ -44,59 +126,46 @@ export default function AdminApplicationConnectionGuide({
           </span>
         </span>
       </summary>
-      <div className="border-t border-slate-100 px-5 py-5 sm:px-6">
-        <ol className="grid gap-3 md:grid-cols-2">
+
+      <div className="space-y-5 border-t border-slate-100 px-5 py-5 sm:px-6">
+        <ol className="grid gap-3 sm:grid-cols-3">
           <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="font-semibold text-slate-900">
-              1. Prepare the sender and recipient accounts
-            </p>
+            <p className="font-semibold text-slate-900">1. Prepare accounts</p>
             <p className="mt-1 text-sm leading-6 text-slate-600">
+              The sender and recipient both need HansariaConnect accounts.
               {isPlatformAdmin
-                ? "Register or choose chat accounts from the User directory. Super Admin API keys can be bound to an existing chat account."
-                : "Register the chat accounts from Accounts. For an unbound key, the single-send sender must be an account created by this admin."}
+                ? " Choose accounts from the User directory."
+                : " Create accounts from Accounts."}
             </p>
             <button
               type="button"
               onClick={() => onNavigate(isPlatformAdmin ? "users" : "accounts")}
-              className={`mt-2 text-sm font-semibold hover:underline ${
-                isPlatformAdmin ? "text-indigo-700" : "text-emerald-700"
-              }`}
+              className={`mt-2 text-sm font-semibold hover:underline ${linkColor}`}
             >
               {isPlatformAdmin ? "Open User directory" : "Open Accounts"}
             </button>
           </li>
           <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="font-semibold text-slate-900">
-              2. Create a message template
-            </p>
+            <p className="font-semibold text-slate-900">2. Write your message</p>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Create it in My templates/Templates. Use placeholders like{" "}
-              {"{{name}}"} or {"{{orderId}}"}; send those exact variable names
-              in each recipient&apos;s API variables. Copy the Template ID shown
-              on its card for the bulk request. Add translations to the same
-              template and optionally choose a language per recipient.
-              Regular admins can only access their own templates; super admins
-              can access templates across workspaces.
+              The example includes a ready-to-edit message with{" "}
+              <code>{"{{name}}"}</code> and <code>{"{{orderId}}"}</code>.
+              Matching values are already included. Saved templates are
+              optional.
             </p>
             <button
               type="button"
               onClick={() => onNavigate("templates")}
               className={`mt-2 text-sm font-semibold hover:underline ${linkColor}`}
             >
-              Open My templates
+              Browse saved templates
             </button>
           </li>
           <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="font-semibold text-slate-900">
-              3. Create an API key
-            </p>
+            <p className="font-semibold text-slate-900">3. Create an API key</p>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              Select Create API key. For the easiest setup, bind the sender
-              chat account ID. Bulk sends always need a bound sender; an
-              unbound key can send one message only when the request supplies
-              fromUserId (created by this admin). The secret is displayed once,
-              so save it in your application&apos;s server-side secret store.
-              The example below assumes the sender is bound to the key.
+              Bind a sender account to the key. Save the key securely; it is
+              shown only once.
             </p>
             <button
               type="button"
@@ -106,364 +175,89 @@ export default function AdminApplicationConnectionGuide({
               Create API key
             </button>
           </li>
-          <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="font-semibold text-slate-900">
-              4. Call the message endpoint from your server
-            </p>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Use the HTTPS endpoint below and send the API key as a Bearer
-              token. Include the owner admin&apos;s login ID and password, a
-              recipient chat account ID, and values for each template variable.
-            </p>
-          </li>
         </ol>
 
-        <section
-          aria-labelledby="delivery-type-title"
-          className="mt-5 rounded-2xl border border-amber-300 bg-amber-50 p-5"
-        >
-          <h3
-            id="delivery-type-title"
-            className="font-bold text-amber-950"
-          >
-            Important: these are HansariaConnect in-app messages, not SMS
-          </h3>
-          <p className="mt-2 text-sm leading-6 text-amber-900">
-            Both API endpoints deliver chat messages to recipient accounts
-            inside the HansariaConnect app. They do not send texts to phone
-            numbers, and they are not an SMS gateway. The recipient must have a
-            HansariaConnect account; an in-app message or browser notification
-            is not a reliable authentication OTP channel.
+        <section className="rounded-xl border border-slate-200 p-4">
+          <h3 className="font-semibold text-slate-900">Send one message</h3>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            The message and variables are ready to use. Set the three{" "}
+            <code>HANSARIA_*</code> server environment values, then replace{" "}
+            <code>RECIPIENT_CHAT_ACCOUNT_ID</code> with the recipient&apos;s
+            HansariaConnect account ID. Run this on your server, never in
+            browser code. This sends an in-app message, not SMS.
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-white/80 p-4">
-              <p className="font-semibold text-slate-900">
-                One in-app message
-              </p>
-              <p className="mt-1 text-sm leading-6 text-slate-700">
-                POST <code>/api/v1/messages/send</code> with one{" "}
-                <code>toUserId</code>, a saved <code>templateId</code> or{" "}
-                <code>templateName</code>, and that recipient&apos;s{" "}
-                <code>variables</code>.
-              </p>
-            </div>
-            <div className="rounded-xl bg-white/80 p-4">
-              <p className="font-semibold text-slate-900">
-                Bulk in-app messages
-              </p>
-              <p className="mt-1 text-sm leading-6 text-slate-700">
-                POST <code>/api/v1/messages/bulk</code> with a saved template
-                and a <code>recipients</code> array. Each recipient has their
-                own <code>toUserId</code>, optional language, and variables.
-                Use for announcements, reminders, and order updates.
-              </p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-6 text-amber-950">
-            <strong>For authentication OTPs sent by SMS:</strong> use a
-            dedicated OTP/SMS provider and verify the code on your server.
-            Do not use this chat API for login, password-reset, or phone
-            verification codes, and do not bulk-send the same OTP to many
-            people. The optional <code>language</code> field selects a saved
-            template translation; it does not change the delivery channel.
-          </p>
-        </section>
-
-        <div className="mt-5 overflow-hidden rounded-2xl bg-slate-950 text-slate-100">
-          <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-300">
-            One in-app message using a saved template
-          </div>
-          <pre className="overflow-x-auto p-4 text-xs leading-6">
-            {`const response = await fetch(
-  "https://YOUR_DOMAIN/api/v1/messages/send",
-  {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      adminUserId: process.env.HANSARIA_ADMIN_ID,
-      adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
-      templateName: "Order update",
-      toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
-      variables: {
-        name: "Customer name",
-        orderId: "ORD-1001"
-      }
-    })
-  }
-);
-
-const result = await response.json();
-if (!response.ok) throw new Error(result.error);`}
+          <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-100 p-3 text-xs leading-5 text-slate-800">
+            <code>{`# Add to your server's .env file
+HANSARIA_API_KEY=paste-your-api-key
+HANSARIA_ADMIN_ID=paste-your-admin-login-id
+HANSARIA_ADMIN_PASSWORD=paste-your-admin-password`}</code>
           </pre>
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 p-4">
-            <h4 className="font-semibold text-slate-900">
-              Bulk in-app messages using a saved template
-            </h4>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Call{" "}
-              <code className="rounded bg-slate-100 px-1">
-                /api/v1/messages/bulk
-              </code>{" "}
-              with <code>templateId</code> (copied from the template card) and
-              one recipient entry per user. Each entry must provide every
-              placeholder used by that language&apos;s translation. The
-              recipient&apos;s saved language is used if <code>language</code>{" "}
-              is omitted. Bind a sender account to the API key first. Bulk
-              supports up to 1,000 recipients per request. To attach a
-              recipient-specific file, add an attachment with a supported type
-              and an HTTPS mediaUrl. Each API
-              key is limited to 60 requests and 1,000 recipient messages per
-              minute across both send endpoints; each bulk recipient counts as
-              one message. Requests are limited to 2 MB. A 429 response
-              includes a Retry-After header and rate-limit usage headers. Retry
-              only after that delay, and do not retry non-429 errors blindly.
-              The server defaults can be changed with
-              API_RATE_LIMIT_REQUESTS_PER_MINUTE and
-              API_RATE_LIMIT_MESSAGES_PER_MINUTE.
-            </p>
-            <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs leading-5 text-slate-100">
-              {`const response = await fetch(
-  "https://YOUR_DOMAIN/api/v1/messages/bulk",
-  {
-    method: "POST",
-    headers: {
-      Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      adminUserId: process.env.HANSARIA_ADMIN_ID,
-      adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
-      templateId: "YOUR_SAVED_TEMPLATE_ID",
-      recipients: [
-        {
-          toUserId: "CHAT_ACCOUNT_ID_1",
-          language: "en",
-          variables: { name: "Customer 1", orderId: "ORD-1001" }
-        },
-        {
-          toUserId: "CHAT_ACCOUNT_ID_2",
-          language: "hi",
-          variables: { name: "Customer 2", orderId: "ORD-1002" }
-        }
-      ]
-    })
-  }
-);
-
-const result = await response.json();
-if (response.status === 429) {
-  const retryAfterSeconds = Number(response.headers.get("Retry-After") || 1);
-  throw new Error(\`Rate limit reached; retry in \${retryAfterSeconds} seconds\`);
-}
-if (!response.ok) throw new Error(result.error || "Message request failed");
-console.log(\`Messages sent: \${result.sent}\`);`}
-            </pre>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <label
+              htmlFor="connection-guide-language"
+              className="text-sm font-medium text-slate-700"
+            >
+              Example language
+            </label>
+            <select
+              id="connection-guide-language"
+              value={language}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (
+                  value === "JavaScript" ||
+                  value === "Python" ||
+                  value === "PHP"
+                ) {
+                  setLanguage(value);
+                }
+              }}
+              className={`rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 ${
+                isPlatformAdmin
+                  ? "focus:ring-indigo-500"
+                  : "focus:ring-emerald-500"
+              }`}
+            >
+              {Object.keys(examples).map((exampleLanguage) => (
+                <option key={exampleLanguage} value={exampleLanguage}>
+                  {exampleLanguage}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <h4 className="font-semibold text-slate-900">
-              Browser message notifications
-            </h4>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              The recipient must sign in to HansariaConnect and allow browser
-              notifications using the dashboard control or Settings. Messages
-              sent by API are delivered to the recipient&apos;s chat. Desktop
-              notifications require the browser/app to be running; closed-
-              browser push delivery is not configured.
-            </p>
-          </div>
-        </div>
-        <section className="mt-5 overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/50">
-          <div className="border-b border-indigo-100 px-5 py-4">
-            <h3 className="font-semibold text-indigo-950">
-              Connect from a Next.js App Router application
-            </h3>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
-              Keep the HansariaConnect API key and admin credentials in your
-              Next.js server environment. The browser calls your own Route
-              Handler; that handler authenticates the app user and forwards
-              only the validated recipient list.
-            </p>
-          </div>
-          <div className="grid gap-4 p-4 lg:grid-cols-2 sm:p-5">
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">
-                app/api/hansaria/bulk/route.ts
-              </p>
-              <pre className="max-h-[34rem] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
-                {`import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { z } from "zod";
-import { authOptions } from "@/lib/auth"; // Use your app's NextAuth config.
-
-const requestSchema = z.object({
-  recipients: z.array(z.object({
-    toUserId: z.string().regex(/^[a-f0-9]{24}$/i),
-    language: z.string().max(35).optional(),
-    variables: z.record(
-      z.string(),
-      z.union([z.string().max(10000), z.number(), z.boolean()])
-    ).optional()
-  })).min(1).max(1000)
-});
-
-export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const allowedEmail = process.env.BULK_MESSAGING_ALLOWED_EMAIL?.toLowerCase();
-  if (!allowedEmail || session.user.email?.toLowerCase() !== allowedEmail) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
-  }
-
-  const parsed = requestSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message || "Invalid request" },
-      { status: 400 }
-    );
-  }
-
-  const { HANSARIA_API_URL, HANSARIA_API_KEY,
-    HANSARIA_ADMIN_ID, HANSARIA_ADMIN_PASSWORD,
-    HANSARIA_TEMPLATE_ID } = process.env;
-  if (!HANSARIA_API_URL || !HANSARIA_API_KEY ||
-      !HANSARIA_ADMIN_ID || !HANSARIA_ADMIN_PASSWORD ||
-      !HANSARIA_TEMPLATE_ID) {
-    return NextResponse.json(
-      { error: "Messaging integration is not configured" },
-      { status: 503 }
-    );
-  }
-
-  try {
-    const upstream = await fetch(
-      \`\${HANSARIA_API_URL.replace(/\\/+$/, "")}/api/v1/messages/bulk\`,
-      {
-        method: "POST",
-        cache: "no-store",
-        headers: {
-          Authorization: \`Bearer \${HANSARIA_API_KEY}\`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          adminUserId: HANSARIA_ADMIN_ID,
-          adminPassword: HANSARIA_ADMIN_PASSWORD,
-          templateId: HANSARIA_TEMPLATE_ID,
-          recipients: parsed.data.recipients
-        })
-      }
-    );
-    const result = await upstream.json().catch(() => ({}));
-    const headers = new Headers();
-    for (const name of [
-      "Retry-After",
-      "X-RateLimit-Request-Limit",
-      "X-RateLimit-Requests-Remaining",
-      "X-RateLimit-Message-Limit",
-      "X-RateLimit-Messages-Remaining",
-      "X-RateLimit-Reset"
-    ]) {
-      const value = upstream.headers.get(name);
-      if (value) headers.set(name, value);
-    }
-
-    if (!upstream.ok) {
-      return NextResponse.json(
-        { error: result.error || "Bulk message request failed" },
-        { status: upstream.status, headers }
-      );
-    }
-    return NextResponse.json(
-      { success: true, sent: result.sent, template: result.template },
-      { headers }
-    );
-  } catch {
-    return NextResponse.json(
-      { error: "Messaging service is unavailable" },
-      { status: 502 }
-    );
-  }
-}`}
-              </pre>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">
-                Call your own route from the app
-              </p>
-              <pre className="rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
-                {`const response = await fetch("/api/hansaria/bulk", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    recipients: [
-      {
-        toUserId: "64f1234567890abcdef12345",
-        variables: { name: "Asha", orderId: "ORD-1001" }
-      },
-      {
-        toUserId: "64f1234567890abcdef12346",
-        language: "hi",
-        variables: { name: "Rahul", orderId: "ORD-1002" }
-      }
-    ]
-  })
-});
-
-const result = await response.json();
-if (response.status === 429) {
-  const retryAfter = response.headers.get("Retry-After");
-  throw new Error(\`Rate limited. Retry after \${retryAfter} seconds.\`);
-}
-if (!response.ok) {
-  throw new Error(result.error || "Could not send messages");
-}
-console.log(\`Sent \${result.sent} messages\`);`}
-              </pre>
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                This example allow-lists one app user by email; configure
-                <code> BULK_MESSAGING_ALLOWED_EMAIL</code>, or replace this
-                check with your app&apos;s role/tenant authorization. Also
-                confirm the signed-in user is allowed to message each recipient
-                before forwarding. Replace <code>authOptions</code> with your
-                NextAuth config.
-                Store the <code>HANSARIA_*</code> values in server-only
-                environment variables (never <code>NEXT_PUBLIC_*</code>), use
-                HTTPS, and never log the credentials or full upstream request.
-                Set <code>HANSARIA_TEMPLATE_ID</code> to the template card&apos;s
-                ID. Template placeholders such as <code>{"{{name}}"}</code>
-                and <code>{"{{orderId}}"}</code> must be supplied for every
-                recipient. Bulk sends are limited to 1,000 recipients per
-                request.
-              </div>
-              <pre className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-700">
-                {`# .env.local (server only; do not prefix with NEXT_PUBLIC_)
-HANSARIA_API_URL=https://your-hansariaconnect-domain
-HANSARIA_API_KEY=your-one-time-generated-api-key
-HANSARIA_ADMIN_ID=your-admin-login-id
-HANSARIA_ADMIN_PASSWORD=your-admin-password
-HANSARIA_TEMPLATE_ID=your-saved-template-id
-BULK_MESSAGING_ALLOWED_EMAIL=authorized-operator@your-app.com`}
-              </pre>
-            </div>
-          </div>
+          <pre className="mt-3 overflow-x-auto rounded-xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
+            <code>{examples[language]}</code>
+          </pre>
         </section>
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-          Never call this endpoint directly from browser or mobile client code:
-          that would expose the API key and admin password. Keep both in your
-          application server&apos;s environment/secret manager and use HTTPS.
+
+        <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <h3 className="font-semibold text-amber-950">
+            Getting HTTP 401? Check these details
+          </h3>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-amber-900">
+            <li>
+              Send the API key as <code>Authorization: Bearer YOUR_API_KEY</code>
+              . Confirm it is active, not expired, and copied correctly.
+            </li>
+            <li>
+              <code>adminUserId</code> must be the key owner&apos;s login ID or
+              email, and <code>adminPassword</code> must be that admin&apos;s
+              password.
+            </li>
+            <li>
+              Read the response&apos;s <code>error</code> field; it tells you
+              whether the key or admin credentials were rejected.
+            </li>
+          </ul>
+        </section>
+
+        <p className="text-sm leading-6 text-slate-600">
+          For saved templates, replace <code>template</code> with{" "}
+          <code>templateName</code> (or <code>templateId</code>) and pass a
+          matching saved template. The <code>language</code> field selects its
+          translation. Bulk sending uses{" "}
+          <code>POST /api/v1/messages/bulk</code>. Keep your API key and admin
+          password in server-only environment variables.
         </p>
       </div>
     </details>
