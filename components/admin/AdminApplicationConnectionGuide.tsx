@@ -72,8 +72,11 @@ export default function AdminApplicationConnectionGuide({
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Create it in My templates/Templates. Use placeholders like{" "}
               {"{{name}}"} or {"{{orderId}}"}; send those exact variable names
-              in your API request. Regular admins can only access their own
-              templates; super admins can access templates across workspaces.
+              in each recipient&apos;s API variables. Copy the Template ID shown
+              on its card for the bulk request. Add translations to the same
+              template and optionally choose a language per recipient.
+              Regular admins can only access their own templates; super admins
+              can access templates across workspaces.
             </p>
             <button
               type="button"
@@ -105,7 +108,7 @@ export default function AdminApplicationConnectionGuide({
           </li>
           <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <p className="font-semibold text-slate-900">
-              4. Call the send endpoint from your server
+              4. Call the message endpoint from your server
             </p>
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Use the HTTPS endpoint below and send the API key as a Bearer
@@ -148,16 +151,21 @@ if (!response.ok) throw new Error(result.error);`}
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-200 p-4">
             <h4 className="font-semibold text-slate-900">
-              Attachments and bulk sends
+              Bulk message using a saved template
             </h4>
             <p className="mt-1 text-sm leading-6 text-slate-600">
-              For one attachment, add an attachment object with a supported
-              type and an HTTPS mediaUrl. For bulk sends, call{" "}
+              Call{" "}
               <code className="rounded bg-slate-100 px-1">
                 /api/v1/messages/bulk
               </code>{" "}
-              with a recipients array and bind the sender account to the key
-              first. Bulk supports up to 1,000 recipients per request. Each API
+              with <code>templateId</code> (copied from the template card) and
+              one recipient entry per user. Each entry must provide every
+              placeholder used by that language&apos;s translation. The
+              recipient&apos;s saved language is used if <code>language</code>{" "}
+              is omitted. Bind a sender account to the API key first. Bulk
+              supports up to 1,000 recipients per request. To attach a
+              recipient-specific file, add an attachment with a supported type
+              and an HTTPS mediaUrl. Each API
               key is limited to 60 requests and 1,000 recipient messages per
               minute across both send endpoints; each bulk recipient counts as
               one message. Requests are limited to 2 MB. A 429 response
@@ -179,10 +187,18 @@ if (!response.ok) throw new Error(result.error);`}
     body: JSON.stringify({
       adminUserId: process.env.HANSARIA_ADMIN_ID,
       adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
-      templateName: "Order update",
+      templateId: "YOUR_SAVED_TEMPLATE_ID",
       recipients: [
-        { toUserId: "CHAT_ACCOUNT_ID_1", variables: { name: "Customer 1" } },
-        { toUserId: "CHAT_ACCOUNT_ID_2", variables: { name: "Customer 2" } }
+        {
+          toUserId: "CHAT_ACCOUNT_ID_1",
+          language: "en",
+          variables: { name: "Customer 1", orderId: "ORD-1001" }
+        },
+        {
+          toUserId: "CHAT_ACCOUNT_ID_2",
+          language: "hi",
+          variables: { name: "Customer 2", orderId: "ORD-1002" }
+        }
       ]
     })
   }
@@ -270,9 +286,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { HANSARIA_API_URL, HANSARIA_API_KEY,
-    HANSARIA_ADMIN_ID, HANSARIA_ADMIN_PASSWORD } = process.env;
+    HANSARIA_ADMIN_ID, HANSARIA_ADMIN_PASSWORD,
+    HANSARIA_TEMPLATE_ID } = process.env;
   if (!HANSARIA_API_URL || !HANSARIA_API_KEY ||
-      !HANSARIA_ADMIN_ID || !HANSARIA_ADMIN_PASSWORD) {
+      !HANSARIA_ADMIN_ID || !HANSARIA_ADMIN_PASSWORD ||
+      !HANSARIA_TEMPLATE_ID) {
     return NextResponse.json(
       { error: "Messaging integration is not configured" },
       { status: 503 }
@@ -292,7 +310,7 @@ export async function POST(request: NextRequest) {
         body: JSON.stringify({
           adminUserId: HANSARIA_ADMIN_ID,
           adminPassword: HANSARIA_ADMIN_PASSWORD,
-          templateName: "Order update",
+          templateId: HANSARIA_TEMPLATE_ID,
           recipients: parsed.data.recipients
         })
       }
@@ -370,10 +388,14 @@ console.log(\`Sent \${result.sent} messages\`);`}
                 confirm the signed-in user is allowed to message each recipient
                 before forwarding. Replace <code>authOptions</code> with your
                 NextAuth config.
-                Store the four <code>HANSARIA_*</code> values in server-only
+                Store the <code>HANSARIA_*</code> values in server-only
                 environment variables (never <code>NEXT_PUBLIC_*</code>), use
                 HTTPS, and never log the credentials or full upstream request.
-                Bulk sends are limited to 1,000 recipients per request.
+                Set <code>HANSARIA_TEMPLATE_ID</code> to the template card&apos;s
+                ID. Template placeholders such as <code>{"{{name}}"}</code>
+                and <code>{"{{orderId}}"}</code> must be supplied for every
+                recipient. Bulk sends are limited to 1,000 recipients per
+                request.
               </div>
               <pre className="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-700">
                 {`# .env.local (server only; do not prefix with NEXT_PUBLIC_)
@@ -381,6 +403,7 @@ HANSARIA_API_URL=https://your-hansariaconnect-domain
 HANSARIA_API_KEY=your-one-time-generated-api-key
 HANSARIA_ADMIN_ID=your-admin-login-id
 HANSARIA_ADMIN_PASSWORD=your-admin-password
+HANSARIA_TEMPLATE_ID=your-saved-template-id
 BULK_MESSAGING_ALLOWED_EMAIL=authorized-operator@your-app.com`}
               </pre>
             </div>
