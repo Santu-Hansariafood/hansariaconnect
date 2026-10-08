@@ -13,7 +13,7 @@ type AdminApplicationConnectionGuideProps = {
 
 const examples: Record<ExampleLanguage, string> = {
   JavaScript: `const response = await fetch(
-  "https://hansariaconnect.com/api/v1/messages/send",
+  "https://hfconnect.in/api/v1/messages/send",
   {
     method: "POST",
     headers: {
@@ -40,7 +40,7 @@ console.log("Message sent");`,
 import requests
 
 response = requests.post(
-    "https://hansariaconnect.com/api/v1/messages/send",
+    "https://hfconnect.in/api/v1/messages/send",
     headers={
         "Authorization": f"Bearer {os.environ['HANSARIA_API_KEY']}",
         "Content-Type": "application/json",
@@ -69,7 +69,7 @@ $payload = [
   "variables" => ["name" => "Asha", "orderId" => "ORD-1001"]
 ];
 
-$ch = curl_init("https://hansariaconnect.com/api/v1/messages/send");
+$ch = curl_init("https://hfconnect.in/api/v1/messages/send");
 curl_setopt_array($ch, [
   CURLOPT_POST => true,
   CURLOPT_HTTPHEADER => [
