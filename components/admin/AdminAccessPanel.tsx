@@ -9,6 +9,10 @@ export interface AdminAccount {
   userId: string;
   email: string;
   isSuperAdmin: boolean;
+  companyName?: string;
+  companyDomain?: string;
+  companyVerificationRequested?: boolean;
+  isCompanyVerified?: boolean;
   createdAt: string;
 }
 
@@ -37,6 +41,12 @@ interface AdminAccessPanelProps {
   setEditPassword: (value: SetStateAction<string>) => void;
   editIsSuperAdmin: boolean;
   setEditIsSuperAdmin: (value: SetStateAction<boolean>) => void;
+  editCompanyName: string;
+  setEditCompanyName: (value: SetStateAction<string>) => void;
+  editCompanyDomain: string;
+  setEditCompanyDomain: (value: SetStateAction<string>) => void;
+  editCompanyVerified: boolean;
+  setEditCompanyVerified: (value: SetStateAction<boolean>) => void;
   onUpdate: (event: FormEvent<HTMLFormElement>) => void;
   onDelete: (adminId: string) => void;
 }
@@ -66,6 +76,12 @@ export default function AdminAccessPanel({
   setEditPassword,
   editIsSuperAdmin,
   setEditIsSuperAdmin,
+  editCompanyName,
+  setEditCompanyName,
+  editCompanyDomain,
+  setEditCompanyDomain,
+  editCompanyVerified,
+  setEditCompanyVerified,
   onUpdate,
   onDelete,
 }: AdminAccessPanelProps) {
@@ -169,6 +185,46 @@ export default function AdminAccessPanel({
                   Is Super Admin
                 </label>
               </div>
+              <div>
+                <label
+                  htmlFor="edit-company-name"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Company display name
+                </label>
+                <input
+                  id="edit-company-name"
+                  value={editCompanyName}
+                  onChange={(event) => setEditCompanyName(event.target.value)}
+                  maxLength={100}
+                  className={adminFieldClass}
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="edit-company-domain"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Company domain
+                </label>
+                <input
+                  id="edit-company-domain"
+                  value={editCompanyDomain}
+                  onChange={(event) => setEditCompanyDomain(event.target.value)}
+                  maxLength={253}
+                  className={adminFieldClass}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={editCompanyVerified}
+                  onChange={(event) =>
+                    setEditCompanyVerified(event.target.checked)
+                  }
+                />
+                Approve verified company badge
+              </label>
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -204,6 +260,14 @@ export default function AdminAccessPanel({
           >
             <div className="col-span-3 font-medium text-gray-900">
               {admin.userId}
+              <p className="text-xs font-normal text-slate-500">
+                {admin.companyName || "No company name"}
+                {admin.companyVerificationRequested && !admin.isCompanyVerified
+                  ? " · Verification pending"
+                  : admin.isCompanyVerified
+                    ? " · Verified company"
+                    : ""}
+              </p>
             </div>
             <div className="col-span-4 text-gray-600">{admin.email}</div>
             <div className="col-span-2 flex justify-center">

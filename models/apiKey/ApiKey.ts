@@ -3,6 +3,7 @@ import { randomBytesHex, pbkdf2Hex } from "@/lib/crypto";
 
 export interface IApiKey extends Document {
   adminId: string;
+  keySlot?: number;
   senderUserId?: string;
   key: string;
   name: string;
@@ -22,6 +23,7 @@ export interface IApiKey extends Document {
 const ApiKeySchema = new Schema<IApiKey>(
   {
     adminId: { type: String, required: true },
+    keySlot: { type: Number },
     senderUserId: { type: String },
     key: { type: String, required: true, unique: true },
     name: { type: String, required: true },
@@ -35,6 +37,14 @@ const ApiKeySchema = new Schema<IApiKey>(
     isActive: { type: Boolean, default: true }
   },
   { timestamps: true }
+);
+
+ApiKeySchema.index(
+  { adminId: 1, keySlot: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { keySlot: { $type: "number" } },
+  },
 );
 
 // Generate a unique API key and store its hash

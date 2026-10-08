@@ -79,6 +79,8 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   const [browserPerm, setBrowserPerm] = useState<NotificationPermission | "unsupported">("default");
   const [permRequesting, setPermRequesting] = useState(false);
   const [notificationLoading, setNotificationLoading] = useState(false);
+  const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [languageSaving, setLanguageSaving] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -95,6 +97,47 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    void fetch("/api/settings", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Failed to load language preference");
+        return response.json();
+      })
+      .then((data) => {
+        if (mounted && typeof data?.preferredLanguage === "string") {
+          setPreferredLanguage(data.preferredLanguage);
+        }
+      })
+      .catch((error) => {
+        console.error("[Settings] Failed to load language preference:", error);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const savePreferredLanguage = async (language: string) => {
+    setLanguageSaving(true);
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferredLanguage: language }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Failed to save language");
+      setPreferredLanguage(language);
+    } catch (error) {
+      console.error("[Settings] Failed to save language preference:", error);
+      window.alert(
+        error instanceof Error ? error.message : "Failed to save language",
+      );
+    } finally {
+      setLanguageSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -284,6 +327,44 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
             <div className={`px-4 py-3 rounded-xl border ${perm?.status ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Status</div>
             <div className={`px-4 py-3 rounded-xl border ${perm?.attachments ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Attachments</div>
           </div>
+        </motion.div>
+
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+          <label
+            htmlFor="preferred-language"
+            className="block text-xl font-semibold text-gray-800"
+          >
+            Message language preference
+          </label>
+          <p className="mt-1 text-sm text-gray-600">
+            Bulk template messages use this language when no language is
+            provided for your recipient.
+          </p>
+          <select
+            id="preferred-language"
+            value={preferredLanguage}
+            disabled={languageSaving}
+            onChange={(event) => void savePreferredLanguage(event.target.value)}
+            className="mt-4 w-full max-w-sm rounded-xl border border-gray-300 px-4 py-3 disabled:opacity-60"
+          >
+            {[
+              ["en", "English"],
+              ["hi", "Hindi"],
+              ["bn", "Bengali"],
+              ["gu", "Gujarati"],
+              ["ta", "Tamil"],
+              ["te", "Telugu"],
+              ["mr", "Marathi"],
+              ["ur", "Urdu"],
+              ["es", "Spanish"],
+              ["fr", "French"],
+              ["ar", "Arabic"],
+            ].map(([code, label]) => (
+              <option key={code} value={code}>
+                {label}
+              </option>
+            ))}
+          </select>
         </motion.div>
 
         <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">

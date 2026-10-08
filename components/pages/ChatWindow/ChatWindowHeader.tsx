@@ -8,6 +8,7 @@ import {
   Search as SearchIcon,
   Ban,
   CircleUserRound,
+  BadgeCheck,
 } from "lucide-react";
 import { Theme } from "./ChatWindowTypes";
 
@@ -41,6 +42,8 @@ interface ChatWindowHeaderProps {
   theme: Theme;
   onBack: () => void;
   headerName: string;
+  isCompanyVerified: boolean;
+  companyDomain?: string;
   headerAvatar: string;
   isContactOnline: boolean;
   isGroup: boolean;
@@ -64,6 +67,8 @@ export default function ChatWindowHeader({
   theme,
   onBack,
   headerName,
+  isCompanyVerified,
+  companyDomain,
   headerAvatar,
   isContactOnline,
   isGroup,
@@ -152,9 +157,20 @@ export default function ChatWindowHeader({
         </div>
 
         <div className="flex flex-col min-w-0">
-          <h2 className="truncate text-[15px] font-semibold text-white">
-            {headerName}
-          </h2>
+          <div className="flex min-w-0 items-center gap-1">
+            <h2 className="truncate text-[15px] font-semibold text-white">
+              {headerName}
+            </h2>
+            {isCompanyVerified && (
+              <span
+                title={`Verified company${companyDomain ? ` · ${companyDomain}` : ""}`}
+                aria-label="Verified company"
+                role="img"
+              >
+                <BadgeCheck className="h-4 w-4 shrink-0 fill-sky-500 text-white" />
+              </span>
+            )}
+          </div>
           <span
             className={`truncate text-[12px] ${
               typingStatus

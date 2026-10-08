@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { connectDB } from "@/lib/db/db";
 import Profile from "@/models/profile/Profile";
+import User from "@/models/user/User";
 import { apiError, parseJson, requireUser } from "@/lib/api/request";
 
 type ThemeSettings = {
@@ -22,9 +23,14 @@ type NotificationSettings = {
 type StoredSettings = {
   theme?: ThemeSettings;
   notifications?: NotificationSettings;
+  preferredLanguage?: string;
 };
 
 const settingsSchema = z.object({
+  preferredLanguage: z
+    .string()
+    .regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i)
+    .optional(),
   theme: z
     .object({
       wallpaper: z.string().max(200).optional(),
@@ -54,6 +60,7 @@ export async function GET(req: NextRequest) {
     await connectDB();
 
     const profile = await Profile.findOne({ userId: session.id }).lean();
+    const user = await User.findById(session.id).select("preferredLanguage").lean();
     if (!profile) {
       return NextResponse.json({
         theme: {
@@ -68,6 +75,7 @@ export async function GET(req: NextRequest) {
           enabled: true,
           ringtone: "whatsapp",
         },
+        preferredLanguage: user?.preferredLanguage || "en",
       });
     }
 
@@ -84,6 +92,7 @@ export async function GET(req: NextRequest) {
         enabled: true,
         ringtone: "whatsapp",
       },
+      preferredLanguage: user?.preferredLanguage || "en",
     });
   } catch (error: unknown) {
     return apiError(error, "GET /api/settings");
@@ -101,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     const parsedBody = await parseJson(req, settingsSchema);
     if (!parsedBody.success) return parsedBody.response;
-    const { theme, notifications } = parsedBody.data;
+    const { theme, notifications, preferredLanguage } = parsedBody.data;
 
     const updateData: StoredSettings = {};
     const currentProfile = await Profile.findOne({ userId: session.id }).lean<StoredSettings>();
@@ -124,16 +133,24 @@ export async function POST(req: NextRequest) {
         ...(notifications.ringtone !== undefined && { ringtone: notifications.ringtone || "whatsapp" }),
       };
     }
+    if (preferredLanguage) {
+      await User.findByIdAndUpdate(session.id, {
+        $set: { preferredLanguage },
+      });
+    }
 
-    const updated = await Profile.findOneAndUpdate(
-      { userId: session.id },
-      { $set: updateData },
-      { new: true, upsert: true },
-    );
+    const updated = Object.keys(updateData).length
+      ? await Profile.findOneAndUpdate(
+          { userId: session.id },
+          { $set: updateData },
+          { new: true, upsert: true },
+        )
+      : await Profile.findOne({ userId: session.id });
 
     return NextResponse.json({
-      theme: (updated as unknown as StoredSettings).theme,
-      notifications: (updated as unknown as StoredSettings).notifications,
+      theme: (updated as unknown as StoredSettings | null)?.theme,
+      notifications: (updated as unknown as StoredSettings | null)?.notifications,
+      preferredLanguage: preferredLanguage || "en",
     });
   } catch (error: unknown) {
     return apiError(error, "POST /api/settings");

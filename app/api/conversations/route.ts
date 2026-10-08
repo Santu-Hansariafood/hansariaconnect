@@ -9,6 +9,7 @@ import GroupMessage from "@/models/group/GroupMessage";
 import { Types } from "mongoose";
 import { getUserSession } from "@/lib/sessionAuth";
 import Contact from "@/models/contact/Contact";
+import Admin from "@/models/admin/Admin";
 import {
   decryptDirectMessageContent,
   decryptGroupMessageContent,
@@ -147,11 +148,21 @@ export async function GET(req: NextRequest) {
       if (!peerUser) continue;
 
       const peerIdStr = String(peerId);
+      const businessAdmin = peerUser.createdByAdminId
+        ? await Admin.findById(peerUser.createdByAdminId)
+            .select("companyName companyDomain isCompanyVerified")
+            .lean()
+        : null;
+      const isCompanyVerified = Boolean(
+        businessAdmin?.isCompanyVerified && businessAdmin.companyName,
+      );
       const normalizedPeerMobile = normalizeMobile(peerUser.mobile);
       const savedContactName = normalizedPeerMobile
         ? contactNameByMobile.get(normalizedPeerMobile) || ""
         : "";
-      const displayName = savedContactName || peerProfile?.name || peerUser.mobile || "Unknown";
+      const displayName = isCompanyVerified
+        ? businessAdmin?.companyName || ""
+        : savedContactName || peerProfile?.name || peerUser.mobile || "Unknown";
 
       const decryptedLastMessage = lastMessage
         ? {
@@ -175,6 +186,9 @@ export async function GET(req: NextRequest) {
         mobile: peerUser.mobile || "",
         name: displayName,
         avatar: peerProfile?.photo || "",
+        companyName: businessAdmin?.companyName || "",
+        companyDomain: businessAdmin?.companyDomain || "",
+        isCompanyVerified,
         registered: true,
         lastMessageAt: conv.lastMessageAt || conv.createdAt || new Date(),
         lastMessage: decryptedLastMessage,

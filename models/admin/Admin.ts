@@ -6,6 +6,10 @@ export interface IAdmin extends Document {
   email: string;
   password: string;
   isSuperAdmin: boolean;
+  companyName?: string;
+  companyDomain?: string;
+  companyVerificationRequested: boolean;
+  isCompanyVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -17,6 +21,10 @@ const AdminSchema = new Schema<IAdmin>(
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true },
     isSuperAdmin: { type: Boolean, default: false },
+    companyName: { type: String, trim: true, maxlength: 100 },
+    companyDomain: { type: String, trim: true, lowercase: true, maxlength: 253 },
+    companyVerificationRequested: { type: Boolean, default: false },
+    isCompanyVerified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

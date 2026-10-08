@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import Profile from "@/models/profile/Profile";
+import Admin from "@/models/admin/Admin";
 
 export async function GET(
   req: NextRequest,
@@ -39,12 +40,25 @@ export async function GET(
 
     const profile = await Profile.findOne({ userId: resolvedParams.id }).lean();
     const profileData = Array.isArray(profile) ? profile[0] : profile;
+    const ownerAdmin = user.createdByAdminId
+      ? await Admin.findById(user.createdByAdminId)
+          .select("companyName companyDomain isCompanyVerified")
+          .lean()
+      : null;
+    const isCompanyVerified = Boolean(
+      ownerAdmin?.isCompanyVerified && ownerAdmin.companyName,
+    );
 
     return NextResponse.json({
       id: user._id.toString(),
       mobile: user.mobile || "",
-      name: (profileData as any)?.name || "",
+      name: isCompanyVerified
+        ? ownerAdmin?.companyName
+        : (profileData as any)?.name || "",
       avatar: (profileData as any)?.photo || "",
+      companyName: ownerAdmin?.companyName || "",
+      companyDomain: ownerAdmin?.companyDomain || "",
+      isCompanyVerified,
     });
   } catch (e: any) {
     return NextResponse.json(

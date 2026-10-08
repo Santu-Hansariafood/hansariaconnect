@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/db/db";
 import { getUserSession } from "@/lib/sessionAuth";
 import Contact from "@/models/contact/Contact";
 import Profile from "@/models/profile/Profile";
+import Admin from "@/models/admin/Admin";
 import User from "@/models/user/User";
 
 interface ContactPayload {
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const registeredUsers = extractedMobiles.length
       ? await User.find(
           { mobile: { $in: extractedMobiles } },
-          { mobile: 1 },
+          { mobile: 1, createdByAdminId: 1 },
         ).lean()
       : [];
 
@@ -80,6 +81,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     const uniqueUserIds = Array.from(new Set(candidateUserIds));
+    const adminIds = [
+      ...new Set(
+        registeredUsers
+          .map((user: any) => String(user.createdByAdminId || ""))
+          .filter(Boolean),
+      ),
+    ];
+    const businessAdmins = adminIds.length
+      ? await Admin.find({ _id: { $in: adminIds } })
+          .select("companyName companyDomain isCompanyVerified")
+          .lean()
+      : [];
+    const adminMap = new Map(
+      businessAdmins.map((admin) => [String(admin._id), admin]),
+    );
+    const registeredUserMap = new Map(
+      registeredUsers.map((user: any) => [String(user._id), user]),
+    );
     const profiles = uniqueUserIds.length
       ? await Profile.find(
           { userId: { $in: uniqueUserIds } },
@@ -96,8 +115,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const cid = String(contactObj._id);
       const registeredUserId = perContactUserId[cid] || "";
       const prof = registeredUserId ? profileMap.get(registeredUserId) : null;
+      const registeredUser = registeredUserMap.get(registeredUserId);
+      const ownerAdmin = registeredUser?.createdByAdminId
+        ? adminMap.get(String(registeredUser.createdByAdminId))
+        : null;
+      const isCompanyVerified = Boolean(
+        ownerAdmin?.isCompanyVerified && ownerAdmin.companyName,
+      );
       const registeredProfile = prof
-        ? { name: prof.name, photo: prof.photo }
+        ? {
+            name: isCompanyVerified ? ownerAdmin?.companyName : prof.name,
+            photo: prof.photo,
+            companyName: ownerAdmin?.companyName || "",
+            companyDomain: ownerAdmin?.companyDomain || "",
+            isCompanyVerified,
+          }
         : null;
       return {
         ...contactObj,

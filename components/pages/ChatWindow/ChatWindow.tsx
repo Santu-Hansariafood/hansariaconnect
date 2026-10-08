@@ -116,7 +116,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
 
   const headerName =
-    contact?.registeredProfile?.name || contact?.name || "User";
+    (contact?.registeredProfile?.isCompanyVerified &&
+      contact.registeredProfile.companyName) ||
+    contact?.registeredProfile?.name ||
+    contact?.name ||
+    "User";
   const headerAvatar =
     contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png";
   const isSavedContact = Boolean(contact?.id || contact?._id);
@@ -392,7 +396,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             name?: string;
             mobile?: string;
             avatar?: string;
-            registeredProfile?: { name?: string; photo?: string };
+            registeredProfile?: {
+              name?: string;
+              photo?: string;
+              companyName?: string;
+              companyDomain?: string;
+              isCompanyVerified?: boolean;
+            };
           };
 
           if (Array.isArray(contactsData?.contacts)) {
@@ -463,6 +473,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                       mobile: u?.mobile || u?.phone || "",
                       registered: true,
                       registeredUserId: u?.id || u?._id || chatId,
+                      registeredProfile: {
+                        name: u?.name || u?.fullName || u?.mobile || "Unknown",
+                        photo: u?.avatar || u?.photo || u?.profilePhoto || "",
+                        companyName: u?.companyName || "",
+                        companyDomain: u?.companyDomain || "",
+                        isCompanyVerified: Boolean(u?.isCompanyVerified),
+                      },
                     } as any);
                   }
                 } catch (err: any) {
@@ -1069,6 +1086,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           theme={theme}
           onBack={onBack || (() => router.push("/"))}
           headerName={headerName}
+          isCompanyVerified={Boolean(
+            contact?.registeredProfile?.isCompanyVerified,
+          )}
+          companyDomain={contact?.registeredProfile?.companyDomain}
           headerAvatar={headerAvatar}
           isContactOnline={isContactOnline}
           isGroup={isGroup}

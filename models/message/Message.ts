@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from "mongoose"
 export interface IMessage extends Document {
   from: mongoose.Types.ObjectId | string
   to: mongoose.Types.ObjectId | string
+  apiKeyId?: string
   type: "text" | "image" | "video" | "voice" | "pdf" | "excel" | "link"
   text?: string
   mediaUrl?: string
@@ -21,6 +22,7 @@ const MessageSchema = new Schema<IMessage>(
   {
     from: { type: Schema.Types.ObjectId, ref: "User", required: true },
     to: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    apiKeyId: { type: String, index: true },
     type: { type: String, required: true },
     text: { type: String },
     mediaUrl: { type: String },

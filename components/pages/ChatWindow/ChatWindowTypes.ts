@@ -24,6 +24,9 @@ export interface ContactInfo {
   registeredProfile?: {
     name?: string;
     photo?: string;
+    companyName?: string;
+    companyDomain?: string;
+    isCompanyVerified?: boolean;
   };
 }
 

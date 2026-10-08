@@ -11,6 +11,7 @@ export interface IUserSessionRecord {
 
 export interface IUser extends Document {
   createdByAdminId?: string;
+  preferredLanguage?: string;
   mobile: string;
   stateCode?: string;
   name?: string;
@@ -31,6 +32,11 @@ export interface IUser extends Document {
 const UserSchema = new Schema<IUser>(
   {
     createdByAdminId: { type: String, index: true },
+    preferredLanguage: {
+      type: String,
+      default: "en",
+      match: /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i,
+    },
     mobile: { type: String, required: true, unique: true },
     stateCode: { type: String, uppercase: true, trim: true, index: true },
     name: { type: String },

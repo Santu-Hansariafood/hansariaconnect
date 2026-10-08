@@ -6,6 +6,7 @@ import { connectDB } from "@/lib/db/db";
 import Message from "@/models/message/Message";
 import Conversation from "@/models/conversation/Conversation";
 import User from "@/models/user/User";
+import Admin from "@/models/admin/Admin";
 import AdminTemplate from "@/models/admin/AdminTemplate";
 import { decryptDirectMessageContent, encryptDirectMessageContent } from "@/lib/crypto";
 import {
@@ -18,6 +19,13 @@ import {
   renderMessageTemplate,
 } from "@/lib/messageTemplates";
 import { verifyTemplateAdminCredentials } from "@/lib/templateAdminAuth";
+import { getLocalizedTemplateText } from "@/lib/templateTranslations";
+import { readJsonRequestBody } from "@/lib/apiRequestBody";
+import {
+  applyApiRateLimitHeaders,
+  consumeApiRateLimit,
+  RateLimitStoreUnavailableError,
+} from "@/lib/apiRateLimit";
 
 const messageTypes = [
   "text",
@@ -31,11 +39,12 @@ const messageTypes = [
 ] as const;
 
 const requestSchema = z.object({
-  adminUserId: z.string().min(1),
-  adminPassword: z.string().min(1),
+  adminUserId: z.string().min(1).max(100),
+  adminPassword: z.string().min(1).max(256),
   fromUserId: z.string().optional(),
   toUserId: z.string(),
   templateId: z.string().optional(),
+  language: z.string().trim().regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i).optional(),
   templateName: z.string().trim().min(1).max(100).optional(),
   template: z.string().max(2000).optional(),
   variables: z
@@ -44,7 +53,10 @@ const requestSchema = z.object({
       z.union([z.string().max(10000), z.number(), z.boolean()]),
     )
     .optional()
-    .default({}),
+    .default({})
+    .refine((variables) => Object.keys(variables).length <= 100, {
+      message: "A maximum of 100 template variables is allowed",
+    }),
   type: z.enum(messageTypes).optional().default("text"),
   text: z.string().max(10000).optional(),
   mediaUrl: z.string().max(2048).optional().or(z.literal("")),
@@ -78,16 +90,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
+    const rateLimit = await consumeApiRateLimit(
+      String(authResult.apiKey._id),
+      1,
+    );
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: "API rate limit exceeded",
+          retryAfter: rateLimit.retryAfter,
+        },
+        { status: 429 },
+      );
+      applyApiRateLimitHeaders(response.headers, rateLimit);
+      return response;
+    }
+
+    const bodyResult = await readJsonRequestBody(req);
+    if (!bodyResult.success) {
       return NextResponse.json(
-        { success: false, error: "Request body must be valid JSON" },
-        { status: 400 },
+        {
+          success: false,
+          error:
+            bodyResult.reason === "too_large"
+              ? "Request body exceeds the 2 MB limit"
+              : "Request body must be valid JSON",
+        },
+        { status: bodyResult.reason === "too_large" ? 413 : 400 },
       );
     }
-    const parsed = requestSchema.safeParse(body);
+    const parsed = requestSchema.safeParse(bodyResult.body);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -134,6 +167,16 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
+    const recipientProfile = await User.findById(input.toUserId)
+      .select("preferredLanguage")
+      .lean();
+    const language = input.language || recipientProfile?.preferredLanguage || "en";
+    const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
+      .select("isSuperAdmin")
+      .lean();
+    const templateScope = keyOwner?.isSuperAdmin
+      ? {}
+      : { adminId: String(authResult.apiKey.adminId) };
 
     let templateText = input.template || input.text || "";
     let savedTemplateName: string | undefined;
@@ -144,19 +187,34 @@ export async function POST(req: NextRequest) {
       );
     }
     if (input.templateName) {
-      const savedTemplate = await AdminTemplate.findOne({
+      const matchingTemplates = await AdminTemplate.find({
         name: input.templateName,
-        adminId: String(authResult.apiKey.adminId),
+        ...templateScope,
       })
-        .select("name body")
+        .select("name body translations")
+        .limit(keyOwner?.isSuperAdmin ? 2 : 1)
         .lean();
+      if (matchingTemplates.length > 1) {
+          return NextResponse.json(
+          {
+            success: false,
+            error: "Template name is used by multiple workspaces; provide templateId instead",
+          },
+          { status: 409 },
+        );
+      }
+      const savedTemplate = matchingTemplates[0];
       if (!savedTemplate) {
         return NextResponse.json(
           { success: false, error: "Template not found for this API key" },
           { status: 404 },
         );
       }
-      templateText = savedTemplate.body;
+      templateText = getLocalizedTemplateText(
+        savedTemplate.body,
+        savedTemplate.translations,
+        language,
+      );
       savedTemplateName = savedTemplate.name;
     } else if (input.templateId) {
       if (!Types.ObjectId.isValid(input.templateId)) {
@@ -167,9 +225,9 @@ export async function POST(req: NextRequest) {
       }
       const savedTemplate = await AdminTemplate.findOne({
         _id: input.templateId,
-        adminId: String(authResult.apiKey.adminId),
+        ...templateScope,
       })
-      .select("name body")
+      .select("name body translations")
         .lean();
       if (!savedTemplate) {
         return NextResponse.json(
@@ -177,7 +235,11 @@ export async function POST(req: NextRequest) {
           { status: 404 },
         );
       }
-      templateText = savedTemplate.body;
+      templateText = getLocalizedTemplateText(
+        savedTemplate.body,
+        savedTemplate.translations,
+        language,
+      );
       savedTemplateName = savedTemplate.name;
     }
 
@@ -301,6 +363,7 @@ export async function POST(req: NextRequest) {
     const message = await Message.create({
       from: senderObjectId,
       to: recipientObjectId,
+      apiKeyId: String(authResult.apiKey._id),
       type,
       ...encrypted,
       status: "sent",
@@ -334,7 +397,7 @@ export async function POST(req: NextRequest) {
     ]);
     await emitDirectMessageReceived(senderId, input.toUserId, payload);
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         success: true,
         message: payload,
@@ -343,17 +406,26 @@ export async function POST(req: NextRequest) {
               name: savedTemplateName,
               variableCount: variableNames.length,
               variables: variableNames,
+              language,
             }
           : undefined,
       },
       { status: 201 },
     );
+    applyApiRateLimitHeaders(response.headers, rateLimit);
+    return response;
   } catch (error: unknown) {
+    if (error instanceof RateLimitStoreUnavailableError) {
+      return NextResponse.json(
+        { success: false, error: "API rate limiting is temporarily unavailable" },
+        { status: 503 },
+      );
+    }
     console.error("[api/v1/messages/send] Failed to send message:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Internal server error",
+        error: "Failed to send message",
       },
       { status: 500 },
     );

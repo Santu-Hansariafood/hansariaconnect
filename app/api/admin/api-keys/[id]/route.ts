@@ -24,7 +24,9 @@ export async function PATCH(
 
     const apiKey = await ApiKey.findOne({
       _id: resolved.id,
-      adminId: adminResult.admin._id,
+      ...(adminResult.admin.isSuperAdmin
+        ? {}
+        : { adminId: String(adminResult.admin._id) }),
     });
 
     if (!apiKey) {
@@ -76,7 +78,9 @@ export async function DELETE(
       context.params instanceof Promise ? await context.params : context.params;
     await ApiKey.findOneAndDelete({
       _id: resolved.id,
-      adminId: adminResult.admin._id,
+      ...(adminResult.admin.isSuperAdmin
+        ? {}
+        : { adminId: String(adminResult.admin._id) }),
     });
 
     return NextResponse.json({ success: true });

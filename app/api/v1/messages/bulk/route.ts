@@ -6,41 +6,54 @@ import { connectDB } from "@/lib/db/db";
 import Message from "@/models/message/Message";
 import Conversation from "@/models/conversation/Conversation";
 import User from "@/models/user/User";
+import Admin from "@/models/admin/Admin";
 import AdminTemplate from "@/models/admin/AdminTemplate";
 import { encryptDirectMessageContent, decryptDirectMessageContent } from "@/lib/crypto";
 import {
   getTemplateVariableNames,
   renderMessageTemplate,
 } from "@/lib/messageTemplates";
+import { normalizeTemplateTranslations } from "@/lib/templateTranslations";
 import { verifyTemplateAdminCredentials } from "@/lib/templateAdminAuth";
 import {
   invalidateDirectMessages,
   invalidateUserConversations,
 } from "@/lib/redis/redis";
 import { emitDirectMessageReceived } from "@/lib/socketEmitter";
+import { getLocalizedTemplateText } from "@/lib/templateTranslations";
+import { readJsonRequestBody } from "@/lib/apiRequestBody";
+import {
+  applyApiRateLimitHeaders,
+  consumeApiRateLimit,
+  RateLimitStoreUnavailableError,
+} from "@/lib/apiRateLimit";
 
-const MAX_RECIPIENTS = 100;
+const MAX_RECIPIENTS = 1000;
 const messageTypes = ["image", "video", "voice", "pdf", "excel", "file"] as const;
 
 const requestSchema = z.object({
-  adminUserId: z.string().min(1),
-  adminPassword: z.string().min(1),
+  adminUserId: z.string().min(1).max(100),
+  adminPassword: z.string().min(1).max(256),
   templateId: z.string().optional(),
   templateName: z.string().trim().min(1).max(100).optional(),
-  template: z.string().optional(),
-  text: z.string().optional(),
+  template: z.string().max(2000).optional(),
+  text: z.string().max(10000).optional(),
   recipients: z
     .array(
       z.object({
         toUserId: z.string().optional(),
         userId: z.string().optional(),
+        language: z.string().trim().regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i).optional(),
         variables: z
           .record(
             z.string(),
             z.union([z.string().max(10000), z.number(), z.boolean()]),
           )
           .optional()
-          .default({}),
+          .default({})
+          .refine((variables) => Object.keys(variables).length <= 100, {
+            message: "A maximum of 100 template variables is allowed",
+          }),
         attachment: z
           .object({
             type: z.enum(messageTypes),
@@ -73,21 +86,60 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
+    let rateLimit = await consumeApiRateLimit(
+      String(authResult.apiKey._id),
+      0,
+    );
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: "API rate limit exceeded",
+          retryAfter: rateLimit.retryAfter,
+        },
+        { status: 429 },
+      );
+      applyApiRateLimitHeaders(response.headers, rateLimit);
+      return response;
+    }
+
+    const bodyResult = await readJsonRequestBody(req);
+    if (!bodyResult.success) {
       return NextResponse.json(
-        { success: false, error: "Request body must be valid JSON" },
-        { status: 400 },
+        {
+          success: false,
+          error:
+            bodyResult.reason === "too_large"
+              ? "Request body exceeds the 2 MB limit"
+              : "Request body must be valid JSON",
+        },
+        { status: bodyResult.reason === "too_large" ? 413 : 400 },
       );
     }
-    const parsedBody = requestSchema.safeParse(body);
+    const parsedBody = requestSchema.safeParse(bodyResult.body);
     if (!parsedBody.success) {
       return NextResponse.json(
         { success: false, error: parsedBody.error.issues[0]?.message || "Invalid request" },
         { status: 400 },
       );
+    }
+
+    rateLimit = await consumeApiRateLimit(
+      String(authResult.apiKey._id),
+      parsedBody.data.recipients.length,
+      false,
+    );
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: "API rate limit exceeded",
+          retryAfter: rateLimit.retryAfter,
+        },
+        { status: 429 },
+      );
+      applyApiRateLimitHeaders(response.headers, rateLimit);
+      return response;
     }
 
     const credentialsValid = await verifyTemplateAdminCredentials(
@@ -111,6 +163,12 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
+    const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
+      .select("isSuperAdmin")
+      .lean();
+    const templateScope = keyOwner?.isSuperAdmin
+      ? {}
+      : { adminId: String(authResult.apiKey.adminId) };
 
     if (parsedBody.data.templateId && parsedBody.data.templateName) {
       return NextResponse.json(
@@ -119,20 +177,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const matchingTemplates = parsedBody.data.templateName
+      ? await AdminTemplate.find({
+          name: parsedBody.data.templateName,
+          ...templateScope,
+        })
+          .select("name body translations")
+          .limit(keyOwner?.isSuperAdmin ? 2 : 1)
+          .lean()
+      : [];
+    if (matchingTemplates.length > 1) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Template name is used by multiple workspaces; provide templateId instead",
+        },
+        { status: 409 },
+      );
+    }
     const savedTemplate = parsedBody.data.templateName
-      ? await AdminTemplate.findOne({
-            name: parsedBody.data.templateName,
-            adminId: String(authResult.apiKey.adminId),
-          })
-            .select("name body")
-            .lean()
+      ? matchingTemplates[0]
       : parsedBody.data.templateId
         ? Types.ObjectId.isValid(parsedBody.data.templateId)
           ? await AdminTemplate.findOne({
               _id: parsedBody.data.templateId,
-              adminId: String(authResult.apiKey.adminId),
+              ...templateScope,
             })
-              .select("name body")
+              .select("name body translations")
               .lean()
           : null
         : undefined;
@@ -166,7 +237,16 @@ export async function POST(req: NextRequest) {
     }
 
     const recipients = parsedBody.data.recipients;
-    const templateVariables = getTemplateVariableNames(templateText);
+    const savedTranslations = normalizeTemplateTranslations(
+      savedTemplate?.translations,
+    );
+    const templateVariables = Array.from(
+      new Set(
+        [templateText, ...Object.values(savedTranslations)].flatMap(
+          getTemplateVariableNames,
+        ),
+      ),
+    );
     const recipientIds = recipients.map((recipient) =>
       String(recipient.toUserId || recipient.userId || ""),
     );
@@ -185,6 +265,17 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    const recipientProfiles = await User.find({
+      _id: { $in: recipientIds },
+    })
+      .select("_id preferredLanguage")
+      .lean();
+    const recipientLanguages = new Map(
+      recipientProfiles.map((profile) => [
+        String(profile._id),
+        profile.preferredLanguage || "en",
+      ]),
+    );
 
     const preparedMessages: Array<{
       toUserId: string;
@@ -199,8 +290,17 @@ export async function POST(req: NextRequest) {
       const toUserId = String(recipient.toUserId || recipient.userId);
       if (toUserId === senderId) continue;
 
+      const language =
+        (recipient.language || recipientLanguages.get(toUserId) || "en").toLowerCase();
+      const recipientTemplateText = savedTemplate
+        ? getLocalizedTemplateText(
+            templateText,
+            savedTemplate.translations,
+            language,
+          )
+        : templateText;
       const { text, missingVariables } = renderMessageTemplate(
-        templateText,
+        recipientTemplateText,
         recipient.variables,
       );
       if (missingVariables.length) {
@@ -282,6 +382,7 @@ export async function POST(req: NextRequest) {
       const message = await Message.create({
         from: new Types.ObjectId(senderId),
         to: new Types.ObjectId(item.toUserId),
+        apiKeyId: String(authResult.apiKey._id),
         type: item.type,
         ...encrypted,
         status: "sent",
@@ -324,7 +425,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       sent: created.length,
       messages: created,
@@ -333,15 +434,24 @@ export async function POST(req: NextRequest) {
             name: savedTemplateName,
             variableCount: templateVariables.length,
             variables: templateVariables,
+            languages: Object.keys(savedTranslations),
           }
         : undefined,
     });
+    applyApiRateLimitHeaders(response.headers, rateLimit);
+    return response;
   } catch (error: unknown) {
+    if (error instanceof RateLimitStoreUnavailableError) {
+      return NextResponse.json(
+        { success: false, error: "API rate limiting is temporarily unavailable" },
+        { status: 503 },
+      );
+    }
     console.error("[api/v1/messages/bulk] Failed to send messages:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Bulk send failed",
+        error: "Failed to send bulk messages",
       },
       { status: 500 },
     );

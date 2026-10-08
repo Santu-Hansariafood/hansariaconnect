@@ -72,8 +72,8 @@ export default function AdminApplicationConnectionGuide({
             <p className="mt-1 text-sm leading-6 text-slate-600">
               Create it in My templates/Templates. Use placeholders like{" "}
               {"{{name}}"} or {"{{orderId}}"}; send those exact variable names
-              in your API request. Templates belong to the signed-in admin
-              only.
+              in your API request. Regular admins can only access their own
+              templates; super admins can access templates across workspaces.
             </p>
             <button
               type="button"
@@ -157,8 +157,45 @@ if (!response.ok) throw new Error(result.error);`}
                 /api/v1/messages/bulk
               </code>{" "}
               with a recipients array and bind the sender account to the key
-              first. Bulk supports up to 100 recipients per request.
+              first. Bulk supports up to 1,000 recipients per request. Each API
+              key is limited to 60 requests and 1,000 recipient messages per
+              minute across both send endpoints; each bulk recipient counts as
+              one message. Requests are limited to 2 MB. A 429 response
+              includes a Retry-After header and rate-limit usage headers. Retry
+              only after that delay, and do not retry non-429 errors blindly.
+              The server defaults can be changed with
+              API_RATE_LIMIT_REQUESTS_PER_MINUTE and
+              API_RATE_LIMIT_MESSAGES_PER_MINUTE.
             </p>
+            <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs leading-5 text-slate-100">
+              {`const response = await fetch(
+  "https://YOUR_DOMAIN/api/v1/messages/bulk",
+  {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      adminUserId: process.env.HANSARIA_ADMIN_ID,
+      adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
+      templateName: "Order update",
+      recipients: [
+        { toUserId: "CHAT_ACCOUNT_ID_1", variables: { name: "Customer 1" } },
+        { toUserId: "CHAT_ACCOUNT_ID_2", variables: { name: "Customer 2" } }
+      ]
+    })
+  }
+);
+
+const result = await response.json();
+if (response.status === 429) {
+  const retryAfterSeconds = Number(response.headers.get("Retry-After") || 1);
+  throw new Error(\`Rate limit reached; retry in \${retryAfterSeconds} seconds\`);
+}
+if (!response.ok) throw new Error(result.error || "Message request failed");
+console.log(\`Messages sent: \${result.sent}\`);`}
+            </pre>
           </div>
           <div className="rounded-xl border border-slate-200 p-4">
             <h4 className="font-semibold text-slate-900">

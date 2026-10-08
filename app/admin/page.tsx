@@ -28,11 +28,27 @@ type UserRow = AdminDirectoryUser;
 type UserPagination = AdminUserPagination;
 
 type AdminRow = AdminAccount;
+type AdminTemplateRow = {
+  _id: string;
+  name: string;
+  body: string;
+  defaultLanguage?: string;
+  folder?: string;
+  translations?: Record<string, string>;
+  ownerUserId?: string;
+};
 
 type ApiKeyRow = {
   _id: string;
+  adminId: string;
+  ownerUserId: string;
   name: string;
-  permissions: any;
+  permissions: {
+    sendMessage: boolean;
+    readMessages: boolean;
+    manageContacts: boolean;
+  };
+  sentCount: number;
   lastUsed?: string;
   expiresAt?: string;
   isActive: boolean;
@@ -69,18 +85,47 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<
     "users" | "admins" | "api-keys" | "accounts" | "templates" | "profile"
   >("users");
-  const [templates, setTemplates] = useState<
-    { _id: string; name: string; body: string }[]
-  >([]);
+  const [templates, setTemplates] = useState<AdminTemplateRow[]>([]);
+  const [ownerAdminId, setOwnerAdminId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState("");
+  const [templateDefaultLanguage, setTemplateDefaultLanguage] = useState("en");
+  const [templateFolder, setTemplateFolder] = useState("General");
+  const [templateTranslations, setTemplateTranslations] = useState<
+    Record<string, string>
+  >({});
+  const [newTranslationLanguage, setNewTranslationLanguage] = useState("hi");
+  const [editingTemplate, setEditingTemplate] =
+    useState<AdminTemplateRow | null>(null);
+  const [editingTemplateName, setEditingTemplateName] = useState("");
+  const [editingTemplateBody, setEditingTemplateBody] = useState("");
+  const [editingTemplateDefaultLanguage, setEditingTemplateDefaultLanguage] =
+    useState("en");
+  const [editingTemplateFolder, setEditingTemplateFolder] = useState("");
+  const [editingTemplateTranslations, setEditingTemplateTranslations] =
+    useState<Record<string, string>>({});
   const [adminProfile, setAdminProfile] = useState({
+    adminId: "",
     userId: "",
     email: "",
     isSuperAdmin: false,
+    companyName: "",
+    companyDomain: "",
+    companyVerificationRequested: false,
+    isCompanyVerified: false,
   });
+  const currentAdminId =
+    adminProfile.adminId ||
+    admins.find((admin) => admin.userId === adminProfile.userId)?._id ||
+    "";
+  const effectiveKeyOwnerId = ownerAdminId || currentAdminId;
+  const effectiveKeyOwnerCount = apiKeys.filter(
+    (apiKey) => apiKey.adminId === effectiveKeyOwnerId,
+  ).length;
   const [profileEmail, setProfileEmail] = useState("");
   const [profilePassword, setProfilePassword] = useState("");
+  const [profileCompanyName, setProfileCompanyName] = useState("");
+  const [profileCompanyDomain, setProfileCompanyDomain] = useState("");
   const [showCreateApiKey, setShowCreateApiKey] = useState(false);
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [newApiKeyExpiresDays, setNewApiKeyExpiresDays] = useState("");
@@ -99,6 +144,10 @@ export default function AdminDashboard() {
   const [editAdminEmail, setEditAdminEmail] = useState("");
   const [editAdminPassword, setEditAdminPassword] = useState("");
   const [editAdminIsSuper, setEditAdminIsSuper] = useState(false);
+  const [editAdminCompanyName, setEditAdminCompanyName] = useState("");
+  const [editAdminCompanyDomain, setEditAdminCompanyDomain] = useState("");
+  const [editAdminCompanyVerified, setEditAdminCompanyVerified] =
+    useState(false);
   const [showBulkUsers, setShowBulkUsers] = useState(false);
   const [bulkUsers, setBulkUsers] = useState<BulkUserInput[]>([]);
   const [bulkUsersFileName, setBulkUsersFileName] = useState("");
@@ -174,6 +223,8 @@ export default function AdminDashboard() {
         if (profileRes.ok && profileData?.profile) {
           setAdminProfile(profileData.profile);
           setProfileEmail(profileData.profile.email || "");
+          setProfileCompanyName(profileData.profile.companyName || "");
+          setProfileCompanyDomain(profileData.profile.companyDomain || "");
         } else if (!profileRes.ok) {
           loadErrors.push(profileData?.error || "Failed to load admin profile");
         }
@@ -269,13 +320,21 @@ export default function AdminDashboard() {
       const res = await fetch("/api/admin/templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: templateName, body: templateBody }),
+        body: JSON.stringify({
+          name: templateName,
+          body: templateBody,
+          defaultLanguage: templateDefaultLanguage,
+          folder: templateFolder,
+          translations: templateTranslations,
+          adminId: ownerAdminId || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to create template");
       setTemplates((previous) => [data.template, ...previous]);
       setTemplateName("");
       setTemplateBody("");
+      setTemplateTranslations({});
     } catch (error: any) {
       setError(error?.message || "Failed to create template");
     } finally {
@@ -284,11 +343,62 @@ export default function AdminDashboard() {
   };
 
   const deleteTemplate = async (id: string) => {
-    const res = await fetch(`/api/admin/templates/${id}`, { method: "DELETE" });
-    if (res.ok)
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/templates/${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to delete template");
       setTemplates((previous) =>
         previous.filter((template) => template._id !== id),
       );
+    } catch (error) {
+      console.error("[AdminDashboard] Failed to delete template:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to delete template",
+      );
+    }
+  };
+
+  const updateTemplate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingTemplate) return;
+    setSaving("template");
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/admin/templates/${editingTemplate._id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: editingTemplateName,
+            body: editingTemplateBody,
+            defaultLanguage: editingTemplateDefaultLanguage,
+            folder: editingTemplateFolder,
+            translations: editingTemplateTranslations,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to update template");
+      setTemplates((previous) =>
+        previous.map((template) =>
+          template._id === editingTemplate._id
+            ? { ...template, ...data.template }
+            : template,
+        ),
+      );
+      setEditingTemplate(null);
+    } catch (error) {
+      console.error("[AdminDashboard] Failed to update template:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to update template",
+      );
+    } finally {
+      setSaving(null);
+    }
   };
 
   const saveProfile = async (event: React.FormEvent) => {
@@ -302,6 +412,8 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           email: profileEmail,
           password: profilePassword || undefined,
+          companyName: profileCompanyName,
+          companyDomain: profileCompanyDomain,
         }),
       });
       const data = await res.json();
@@ -325,6 +437,7 @@ export default function AdminDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newApiKeyName,
+          adminId: ownerAdminId || undefined,
           senderUserId: newApiKeySenderUserId.trim() || undefined,
           expiresDays: newApiKeyExpiresDays
             ? parseInt(newApiKeyExpiresDays)
@@ -559,7 +672,7 @@ export default function AdminDashboard() {
     setError("");
     setSaving(editingAdmin._id);
     try {
-      const updateData: any = {};
+      const updateData: Record<string, string | boolean> = {};
       if (editAdminUserId !== editingAdmin.userId)
         updateData.userId = editAdminUserId;
       if (editAdminEmail !== editingAdmin.email)
@@ -567,6 +680,12 @@ export default function AdminDashboard() {
       if (editAdminPassword) updateData.password = editAdminPassword;
       if (editAdminIsSuper !== editingAdmin.isSuperAdmin)
         updateData.isSuperAdmin = editAdminIsSuper;
+      if (editAdminCompanyName !== (editingAdmin.companyName || ""))
+        updateData.companyName = editAdminCompanyName;
+      if (editAdminCompanyDomain !== (editingAdmin.companyDomain || ""))
+        updateData.companyDomain = editAdminCompanyDomain;
+      if (editAdminCompanyVerified !== Boolean(editingAdmin.isCompanyVerified))
+        updateData.isCompanyVerified = editAdminCompanyVerified;
 
       const res = await fetch(`/api/admin/admins/${editingAdmin._id}`, {
         method: "PATCH",
@@ -742,7 +861,7 @@ export default function AdminDashboard() {
                     }`}
                   >
                     {isPlatformAdmin
-                      ? "Manage platform users and admin access, plus templates and API keys private to your Super Admin account."
+                      ? "Manage platform users, admins, templates, and API keys across all workspaces."
                       : "Manage the accounts, message templates, and API integrations belonging to this admin workspace. Super Admin platform controls are separate."}
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -845,7 +964,7 @@ export default function AdminDashboard() {
                     {adminProfile.email || adminProfile.userId}
                   </span>
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800">
-                    Private to this admin
+                    {isPlatformAdmin ? "All workspaces" : "Private to this admin"}
                   </span>
                 </p>
               )}
@@ -1011,14 +1130,57 @@ export default function AdminDashboard() {
             {activeTab === "templates" && (
               <AdminTemplatesPanel
                 isPlatformAdmin={isPlatformAdmin}
+                admins={admins}
+                currentAdminUserId={adminProfile.userId}
+                ownerAdminId={ownerAdminId}
+                setOwnerAdminId={setOwnerAdminId}
                 templates={templates}
                 templateName={templateName}
                 setTemplateName={setTemplateName}
                 templateBody={templateBody}
                 setTemplateBody={setTemplateBody}
+                editingTemplateId={editingTemplate?._id || null}
+                editingTemplateName={editingTemplateName}
+                setEditingTemplateName={setEditingTemplateName}
+                editingTemplateBody={editingTemplateBody}
+                setEditingTemplateBody={setEditingTemplateBody}
                 isSaving={saving === "template"}
                 onCreate={createTemplate}
+                onEdit={(template) => {
+                  setEditingTemplate(template);
+                  setEditingTemplateName(template.name);
+                  setEditingTemplateBody(template.body);
+                  setEditingTemplateDefaultLanguage(
+                    template.defaultLanguage || "en",
+                  );
+                  setEditingTemplateFolder(template.folder || "General");
+                  setEditingTemplateTranslations(
+                    template.translations || {},
+                  );
+                }}
+                onCancelEdit={() => setEditingTemplate(null)}
+                onUpdate={updateTemplate}
                 onDelete={deleteTemplate}
+                folder={templateFolder}
+                setFolder={setTemplateFolder}
+                defaultLanguage={templateDefaultLanguage}
+                setDefaultLanguage={setTemplateDefaultLanguage}
+                translations={templateTranslations}
+                setTranslations={setTemplateTranslations}
+                newTranslationLanguage={newTranslationLanguage}
+                setNewTranslationLanguage={setNewTranslationLanguage}
+                onAddTranslation={() => {
+                  setTemplateTranslations((previous) => ({
+                    ...previous,
+                    [newTranslationLanguage]: previous[newTranslationLanguage] || "",
+                  }));
+                }}
+                editingFolder={editingTemplateFolder}
+                setEditingFolder={setEditingTemplateFolder}
+                editingDefaultLanguage={editingTemplateDefaultLanguage}
+                setEditingDefaultLanguage={setEditingTemplateDefaultLanguage}
+                editingTranslations={editingTemplateTranslations}
+                setEditingTranslations={setEditingTemplateTranslations}
               />
             )}
 
@@ -1027,6 +1189,14 @@ export default function AdminDashboard() {
                 userId={adminProfile.userId}
                 email={profileEmail}
                 setEmail={setProfileEmail}
+                companyName={profileCompanyName}
+                setCompanyName={setProfileCompanyName}
+                companyDomain={profileCompanyDomain}
+                setCompanyDomain={setProfileCompanyDomain}
+                companyVerificationRequested={
+                  adminProfile.companyVerificationRequested
+                }
+                isCompanyVerified={adminProfile.isCompanyVerified}
                 password={profilePassword}
                 setPassword={setProfilePassword}
                 isSaving={saving === "profile"}
@@ -1074,6 +1244,11 @@ export default function AdminDashboard() {
                   setEditAdminEmail(admin.email);
                   setEditAdminPassword("");
                   setEditAdminIsSuper(admin.isSuperAdmin);
+                  setEditAdminCompanyName(admin.companyName || "");
+                  setEditAdminCompanyDomain(admin.companyDomain || "");
+                  setEditAdminCompanyVerified(
+                    Boolean(admin.isCompanyVerified),
+                  );
                 }}
                 onCloseEdit={() => setEditingAdmin(null)}
                 editUserId={editAdminUserId}
@@ -1084,6 +1259,12 @@ export default function AdminDashboard() {
                 setEditPassword={setEditAdminPassword}
                 editIsSuperAdmin={editAdminIsSuper}
                 setEditIsSuperAdmin={setEditAdminIsSuper}
+                editCompanyName={editAdminCompanyName}
+                setEditCompanyName={setEditAdminCompanyName}
+                editCompanyDomain={editAdminCompanyDomain}
+                setEditCompanyDomain={setEditAdminCompanyDomain}
+                editCompanyVerified={editAdminCompanyVerified}
+                setEditCompanyVerified={setEditAdminCompanyVerified}
                 onUpdate={handleUpdateAdmin}
                 onDelete={handleDeleteAdmin}
               />
@@ -1118,19 +1299,20 @@ export default function AdminDashboard() {
                         }`}
                       >
                         {isPlatformAdmin
-                          ? "Create and manage keys for your Super Admin account. Other admins’ keys stay private."
+                          ? "View and manage API keys across all admin workspaces."
                           : "Create and manage keys for this admin workspace. Each admin’s keys stay private."}
                       </p>
                     </div>
                     <button
                       onClick={() => setShowCreateApiKey(true)}
+                      disabled={effectiveKeyOwnerCount >= 3}
                       className={`inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                         isPlatformAdmin
                           ? "bg-indigo-400 text-slate-950 hover:bg-indigo-300 focus:ring-indigo-300"
                           : "bg-emerald-700 text-white hover:bg-emerald-800 focus:ring-emerald-600"
-                      }`}
+                      } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
-                      Create API key
+                      {effectiveKeyOwnerCount >= 3 ? "Key limit reached (3)" : "Create API key"}
                     </button>
                   </div>
                   <div className="mt-5 flex flex-wrap gap-2">
@@ -1159,7 +1341,16 @@ export default function AdminDashboard() {
                           : "border-emerald-900/10 bg-white/70 text-emerald-900"
                       }`}
                     >
-                      Private to this admin
+                      {apiKeys.reduce((total, apiKey) => total + apiKey.sentCount, 0)} messages sent
+                    </span>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        isPlatformAdmin
+                          ? "border-white/15 bg-white/5 text-slate-200"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                      }`}
+                    >
+                      {isPlatformAdmin ? "All workspaces" : "Private to this admin"}
                     </span>
                   </div>
                 </section>
@@ -1268,6 +1459,42 @@ export default function AdminDashboard() {
                             purpose.
                           </p>
                         </div>
+                        {isPlatformAdmin && (
+                          <div>
+                            <label
+                              htmlFor="api-key-owner"
+                              className="mb-1.5 block text-sm font-semibold text-slate-800"
+                            >
+                              Create key for admin
+                            </label>
+                            <select
+                              id="api-key-owner"
+                              value={ownerAdminId}
+                              onChange={(event) =>
+                                setOwnerAdminId(event.target.value)
+                              }
+                              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
+                            >
+                              <option value="">
+                                Your Super Admin workspace
+                              </option>
+                              {admins
+                                .filter(
+                                  (admin) =>
+                                    admin.userId !== adminProfile.userId,
+                                )
+                                .map((admin) => (
+                                  <option key={admin._id} value={admin._id}>
+                                    {admin.userId} workspace
+                                  </option>
+                                ))}
+                            </select>
+                            <p className="mt-1.5 text-xs text-slate-500">
+                              The key counts toward the selected admin&apos;s
+                              3-key limit.
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <label
                             htmlFor="api-key-sender"
@@ -1337,7 +1564,10 @@ export default function AdminDashboard() {
                           </button>
                           <button
                             type="submit"
-                            disabled={saving === "create-api-key"}
+                            disabled={
+                              saving === "create-api-key" ||
+                              effectiveKeyOwnerCount >= 3
+                            }
                             className={`rounded-xl px-5 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                               isPlatformAdmin
                                 ? "bg-indigo-700 hover:bg-indigo-800 focus:ring-indigo-600"
@@ -1359,11 +1589,12 @@ export default function AdminDashboard() {
                     <div>
                       <h3 className="font-semibold text-slate-900">
                         {isPlatformAdmin
-                          ? "Your Super Admin keys"
+                          ? "API keys across admin workspaces"
                           : "Your workspace keys"}
                       </h3>
                       <p className="mt-0.5 text-sm text-slate-500">
-                        Disable a key temporarily or delete one you no longer
+                        Each admin can have up to 3 keys. Sent counts are
+                        tracked per key; disable or delete keys you no longer
                         use.
                       </p>
                     </div>
@@ -1409,6 +1640,10 @@ export default function AdminDashboard() {
                                   Bound sender: {apiKey.senderUserId}
                                 </span>
                               )}
+                              {isPlatformAdmin && (
+                                <span>Owner: {apiKey.ownerUserId}</span>
+                              )}
+                              <span>{apiKey.sentCount} messages sent</span>
                             </div>
                           </div>
                           <div className="flex shrink-0 gap-2">
