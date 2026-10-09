@@ -142,6 +142,7 @@ export default function AdminDashboard() {
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [newApiKeyExpiresDays, setNewApiKeyExpiresDays] = useState("");
   const [newApiKeySenderUserId, setNewApiKeySenderUserId] = useState("");
+  const [apiKeyCreateError, setApiKeyCreateError] = useState("");
   const [newlyCreatedApiKey, setNewlyCreatedApiKey] = useState<string | null>(
     null,
   );
@@ -452,6 +453,7 @@ export default function AdminDashboard() {
   const handleCreateApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setApiKeyCreateError("");
     setSaving("create-api-key");
     try {
       const res = await fetch("/api/admin/api-keys", {
@@ -466,10 +468,24 @@ export default function AdminDashboard() {
             : undefined,
         }),
       });
-      const data = await res.json();
+      const responseText = await res.text();
+      let data: { error?: string; apiKey?: { key?: string } };
+      try {
+        data = JSON.parse(responseText) as typeof data;
+      } catch {
+        throw new Error(
+          `API key request failed with HTTP ${res.status}; the server returned an invalid response`,
+        );
+      }
       if (!res.ok) {
-        setError(data.error || "Failed to create API key");
-        return;
+        throw new Error(
+          data.error || `Failed to create API key (HTTP ${res.status})`,
+        );
+      }
+      if (!data.apiKey?.key) {
+        throw new Error(
+          "API key was created but the secret was not returned. Check server logs before retrying.",
+        );
       }
       setNewlyCreatedApiKey(data.apiKey.key);
       setShowCreateApiKey(false);
@@ -477,8 +493,12 @@ export default function AdminDashboard() {
       setNewApiKeyExpiresDays("");
       setNewApiKeySenderUserId("");
       void refreshData();
-    } catch {
-      setError("Network error");
+    } catch (error) {
+      console.error("[AdminDashboard] Failed to create API key:", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to create API key";
+      setApiKeyCreateError(message);
+      setError(message);
     } finally {
       setSaving(null);
     }
@@ -1346,7 +1366,10 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <button
-                      onClick={() => setShowCreateApiKey(true)}
+                      onClick={() => {
+                        setApiKeyCreateError("");
+                        setShowCreateApiKey(true);
+                      }}
                       disabled={effectiveKeyOwnerCount >= 3}
                       className={`inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                         isPlatformAdmin
@@ -1404,7 +1427,10 @@ export default function AdminDashboard() {
                 <AdminApplicationConnectionGuide
                   isPlatformAdmin={isPlatformAdmin}
                   onNavigate={setActiveTab}
-                  onCreateApiKey={() => setShowCreateApiKey(true)}
+                  onCreateApiKey={() => {
+                    setApiKeyCreateError("");
+                    setShowCreateApiKey(true);
+                  }}
                 />
 
                 {newlyCreatedApiKey && (
@@ -1479,6 +1505,14 @@ export default function AdminDashboard() {
                         onSubmit={handleCreateApiKey}
                         className="space-y-5 p-6 sm:p-8"
                       >
+                        {apiKeyCreateError && (
+                          <div
+                            role="alert"
+                            className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+                          >
+                            {apiKeyCreateError}
+                          </div>
+                        )}
                         <div>
                           <label
                             htmlFor="api-key-name"
@@ -1599,7 +1633,10 @@ export default function AdminDashboard() {
                         <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
                           <button
                             type="button"
-                            onClick={() => setShowCreateApiKey(false)}
+                            onClick={() => {
+                              setShowCreateApiKey(false);
+                              setApiKeyCreateError("");
+                            }}
                             className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
                           >
                             Cancel
@@ -1729,7 +1766,10 @@ export default function AdminDashboard() {
                         displayed once when it is created.
                       </p>
                       <button
-                        onClick={() => setShowCreateApiKey(true)}
+                        onClick={() => {
+                          setApiKeyCreateError("");
+                          setShowCreateApiKey(true);
+                        }}
                         className={`mt-5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${
                           isPlatformAdmin
                             ? "bg-indigo-700 hover:bg-indigo-800"

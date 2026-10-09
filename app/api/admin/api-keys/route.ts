@@ -6,6 +6,20 @@ import Message from "@/models/message/Message";
 import User from "@/models/user/User";
 import Admin from "@/models/admin/Admin";
 import { Types } from "mongoose";
+import { z } from "zod";
+
+const createApiKeySchema = z.object({
+  name: z.string().trim().min(1, "Key name is required").max(100),
+  adminId: z.string().trim().optional(),
+  senderUserId: z
+    .string()
+    .trim()
+    .refine((value) => Types.ObjectId.isValid(value), {
+      message: "Sender chat account ID must be a valid account ObjectId",
+    })
+    .optional(),
+  expiresDays: z.number().int().min(1).max(3650).optional(),
+});
 
 export async function GET(req: NextRequest) {
   try {
@@ -68,15 +82,25 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
-    const body = await req.json();
-    const { name, expiresDays, senderUserId } = body;
-
-    if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    let requestBody: unknown;
+    try {
+      requestBody = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Request body must be valid JSON" },
+        { status: 400 },
+      );
     }
+    const parsedBody = createApiKeySchema.safeParse(requestBody);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: parsedBody.error.issues[0]?.message || "Invalid API key settings" },
+        { status: 400 },
+      );
+    }
+    const { name, expiresDays, senderUserId, adminId: requestedAdminId } =
+      parsedBody.data;
 
-    const requestedAdminId =
-      typeof body?.adminId === "string" ? body.adminId.trim() : "";
     const ownerAdminId =
       adminResult.admin.isSuperAdmin && requestedAdminId
         ? requestedAdminId
@@ -133,7 +157,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (senderUserId) {
-      const senderQuery: Record<string, unknown> = { _id: senderUserId };
+      const senderQuery: Record<string, unknown> = {
+        _id: new Types.ObjectId(senderUserId),
+      };
       if (!adminResult.admin.isSuperAdmin) {
         senderQuery.createdByAdminId = ownerAdminId;
       }
@@ -177,12 +203,35 @@ export async function POST(req: NextRequest) {
       "code" in error &&
       error.code === 11000
     ) {
+      const duplicateError = error as {
+        keyPattern?: Record<string, unknown>;
+      };
+      if (duplicateError.keyPattern?.keySlot) {
+        console.error(
+          "[api/admin/api-keys] API key slot collision while creating key:",
+          error,
+        );
+        return NextResponse.json(
+          { error: "Another API key was created at the same time. Please retry." },
+          { status: 409 },
+        );
+      }
       return NextResponse.json(
         { error: "The maximum of 3 API keys has been reached. Delete a key before creating another." },
         { status: 409 },
       );
     }
-    console.error(error);
+    console.error("[api/admin/api-keys] Failed to create API key:", error);
+    if (
+      error &&
+      typeof error === "object" &&
+      "name" in error &&
+      error.name === "ValidationError" &&
+      "message" in error &&
+      typeof error.message === "string"
+    ) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
       { error: "Failed to create API key" },
       { status: 500 },
