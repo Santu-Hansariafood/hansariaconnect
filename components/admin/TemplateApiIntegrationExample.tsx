@@ -11,19 +11,24 @@ const phpString = (value: string) =>
 export default function TemplateApiIntegrationExample({
   template,
   isPlatformAdmin,
+  adminUserId,
 }: {
   template: {
+    _id: string;
     name: string;
     body: string;
     header?: string;
     footer?: string;
     translations?: Record<string, string>;
     defaultLanguage?: string;
+    ownerUserId?: string;
   };
   isPlatformAdmin: boolean;
+  adminUserId: string;
 }) {
   const [language, setLanguage] = useState<CodeLanguage>("JavaScript");
   const [copyStatus, setCopyStatus] = useState("");
+  const [environmentCopyStatus, setEnvironmentCopyStatus] = useState("");
   const variableNames = Array.from(
     new Set(
       [
@@ -121,6 +126,12 @@ if ($status < 200 || $status >= 300) {
 echo "Message sent";`,
   };
   const example = examples[language];
+  const environmentExample = `HANSARIA_API_BASE_URL=https://hfconnect.in
+HANSARIA_API_KEY=paste-your-api-key-here
+HANSARIA_ADMIN_ID=${template.ownerUserId || adminUserId}
+HANSARIA_ADMIN_PASSWORD=paste-that-admins-password-here
+HANSARIA_RATE_TEMPLATE_ID=${template._id}
+HANSARIA_RATE_TO_USER_ID=paste-recipient-chat-account-id-here`;
 
   const copyCode = async () => {
     try {
@@ -128,6 +139,17 @@ echo "Message sent";`,
       setCopyStatus("Code copied.");
     } catch {
       setCopyStatus("Copy failed. Select the code and copy it manually.");
+    }
+  };
+
+  const copyEnvironment = async () => {
+    try {
+      await navigator.clipboard.writeText(environmentExample);
+      setEnvironmentCopyStatus("Environment configuration copied.");
+    } catch {
+      setEnvironmentCopyStatus(
+        "Copy failed. Select the configuration and copy it manually.",
+      );
     }
   };
 
@@ -194,6 +216,38 @@ echo "Message sent";`,
             : "no template variables"}{" "}
           values. For a bound API key, the sender is selected automatically.
         </p>
+        <div className="mt-5 border-t border-white/15 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-white">
+                Rate notification .env
+              </h3>
+              <p className="mt-1 leading-5 text-slate-300">
+                Template ID and admin login are filled from this saved
+                template. Add the key, password, and recipient ID on your
+                other app&apos;s server.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={copyEnvironment}
+              className="rounded-md bg-emerald-400 px-3 py-1.5 font-semibold text-slate-950 hover:bg-emerald-300"
+            >
+              Copy .env settings
+            </button>
+          </div>
+          <pre className="mt-3 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/30 p-3">
+            <code>{environmentExample}</code>
+          </pre>
+          <p className="mt-2 min-h-5 text-slate-300" aria-live="polite">
+            {environmentCopyStatus}
+          </p>
+          <p className="mt-1 leading-5 text-amber-200">
+            Create an API key under Admin → API Keys and copy its secret when
+            shown. The key is only displayed once. Use the chat account ID
+            (MongoDB ObjectId) for the recipient, not an email address.
+          </p>
+        </div>
       </div>
     </details>
   );

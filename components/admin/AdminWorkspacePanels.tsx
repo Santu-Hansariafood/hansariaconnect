@@ -640,6 +640,7 @@ export function AdminTemplatesPanel({
               <TemplateApiIntegrationExample
                 template={template}
                 isPlatformAdmin={isPlatformAdmin}
+                adminUserId={currentAdminUserId}
               />
             </div>
           );
