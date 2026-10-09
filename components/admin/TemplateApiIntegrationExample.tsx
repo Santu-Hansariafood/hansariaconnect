@@ -29,6 +29,9 @@ export default function TemplateApiIntegrationExample({
   const [language, setLanguage] = useState<CodeLanguage>("JavaScript");
   const [copyStatus, setCopyStatus] = useState("");
   const [environmentCopyStatus, setEnvironmentCopyStatus] = useState("");
+  const [rateApiKey, setRateApiKey] = useState("");
+  const [rateAdminPassword, setRateAdminPassword] = useState("");
+  const [rateRecipientPhone, setRateRecipientPhone] = useState("");
   const variableNames = Array.from(
     new Set(
       [
@@ -127,11 +130,11 @@ echo "Message sent";`,
   };
   const example = examples[language];
   const environmentExample = `HANSARIA_API_BASE_URL=https://hfconnect.in
-HANSARIA_API_KEY=paste-your-api-key-here
+  HANSARIA_API_KEY=${rateApiKey || "paste-your-api-key-here"}
 HANSARIA_ADMIN_ID=${template.ownerUserId || adminUserId}
-HANSARIA_ADMIN_PASSWORD=paste-that-admins-password-here
+  HANSARIA_ADMIN_PASSWORD=${rateAdminPassword || "paste-the-template-admin-password-here"}
 HANSARIA_RATE_TEMPLATE_ID=${template._id}
-HANSARIA_RATE_TO_USER_ID=9876543210`;
+  HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-here"}`;
 
   const copyCode = async () => {
     try {
@@ -223,31 +226,75 @@ HANSARIA_RATE_TO_USER_ID=9876543210`;
                 Rate notification .env
               </h3>
               <p className="mt-1 leading-5 text-slate-300">
-                Template ID and admin login are filled from this saved
-                template. Add the key and password, and replace the example
-                with the recipient&apos;s registered phone number.
+                The template ID and owning admin login are filled in. Enter
+                the exact API key and password for that admin, plus the
+                recipient&apos;s registered phone number, then copy the
+                completed settings.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={copyEnvironment}
-              className="rounded-md bg-emerald-400 px-3 py-1.5 font-semibold text-slate-950 hover:bg-emerald-300"
-            >
-              Copy .env settings
-            </button>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block font-medium">API key</span>
+              <input
+                type="password"
+                autoComplete="off"
+                value={rateApiKey}
+                onChange={(event) => setRateApiKey(event.target.value.trim())}
+                placeholder="Paste the key shown when you created it"
+                className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block font-medium">
+                Template owner&apos;s admin password
+              </span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={rateAdminPassword}
+                onChange={(event) => setRateAdminPassword(event.target.value)}
+                placeholder="Enter this admin account's password"
+                className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
+              />
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="mb-1 block font-medium">
+                Recipient&apos;s registered phone number
+              </span>
+              <input
+                type="tel"
+                autoComplete="off"
+                value={rateRecipientPhone}
+                onChange={(event) =>
+                  setRateRecipientPhone(event.target.value.trim())
+                }
+                placeholder="10 digits or +91 followed by 10 digits"
+                className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
+              />
+            </label>
           </div>
           <pre className="mt-3 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/30 p-3">
             <code>{environmentExample}</code>
           </pre>
+          <button
+            type="button"
+            onClick={copyEnvironment}
+            className="mt-3 rounded-md bg-emerald-400 px-3 py-1.5 font-semibold text-slate-950 hover:bg-emerald-300"
+          >
+            Copy .env settings
+          </button>
           <p className="mt-2 min-h-5 text-slate-300" aria-live="polite">
             {environmentCopyStatus}
           </p>
           <p className="mt-1 leading-5 text-amber-200">
-            Create an API key under Admin → API Keys and copy its secret when
-            shown. The key is only displayed once. Set
-            HANSARIA_RATE_TO_USER_ID to the recipient&apos;s registered Indian
-            mobile number (10 digits or +91 format), not their email. The API
-            resolves it to their chat account.
+            The API key and password are kept only in this page&apos;s temporary
+            form state and are not saved by HansariaConnect. Create the API key
+            in the template owner&apos;s workspace; its raw secret is shown only
+            once. The API verifies that both the key and login credentials
+            belong to the template owner. The recipient must be registered;
+            their 10-digit Indian number or +91 format is resolved to their
+            chat account.
           </p>
         </div>
       </div>
