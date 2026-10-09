@@ -82,6 +82,14 @@ const isHttpsUrl = (value: string) => {
   }
 };
 
+const normalizeIndianMobile = (value: string): string | null => {
+  if (!/^\+?[\d\s().-]+$/.test(value)) return null;
+  const digits = value.replace(/\D/g, "");
+  const mobile =
+    digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+  return /^[6-9]\d{9}$/.test(mobile) ? mobile : null;
+};
+
 export async function POST(req: NextRequest) {
   try {
     const authResult = await validateApiKey(req, "sendMessage");
@@ -145,9 +153,9 @@ export async function POST(req: NextRequest) {
       );
     }
     const senderId = String(authResult.apiKey.senderUserId || input.fromUserId || "");
-    if (!Types.ObjectId.isValid(senderId) || !Types.ObjectId.isValid(input.toUserId)) {
+    if (!Types.ObjectId.isValid(senderId)) {
       return NextResponse.json(
-        { success: false, error: "A valid sender and recipient user ID are required" },
+        { success: false, error: "A valid sender user ID is required" },
         { status: 400 },
       );
     }
@@ -161,17 +169,38 @@ export async function POST(req: NextRequest) {
         { status: 403 },
       );
     }
-    if (senderId === input.toUserId) {
+    await connectDB();
+    const recipientPhone = normalizeIndianMobile(input.toUserId);
+    if (!Types.ObjectId.isValid(input.toUserId) && !recipientPhone) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "toUserId must be a chat account ID or a valid registered Indian mobile number",
+        },
+        { status: 400 },
+      );
+    }
+    const recipientProfile = await User.findOne(
+      Types.ObjectId.isValid(input.toUserId)
+        ? { _id: input.toUserId }
+        : { mobile: recipientPhone },
+    )
+      .select("_id preferredLanguage")
+      .lean();
+    if (!recipientProfile) {
+      return NextResponse.json(
+        { success: false, error: "Recipient account not found" },
+        { status: 404 },
+      );
+    }
+    const recipientId = String(recipientProfile._id);
+    if (senderId === recipientId) {
       return NextResponse.json(
         { success: false, error: "Sender and recipient must be different users" },
         { status: 400 },
       );
     }
-
-    await connectDB();
-    const recipientProfile = await User.findById(input.toUserId)
-      .select("preferredLanguage")
-      .lean();
     const language = input.language || recipientProfile?.preferredLanguage || "en";
     const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
       .select("isSuperAdmin")
@@ -342,21 +371,12 @@ export async function POST(req: NextRequest) {
     }
 
     const senderObjectId = new Types.ObjectId(senderId);
-    const recipientObjectId = new Types.ObjectId(input.toUserId);
-    const [sender, recipient] = await Promise.all([
-      User.exists({ _id: senderObjectId }),
-      User.exists({ _id: recipientObjectId }),
-    ]);
+    const recipientObjectId = new Types.ObjectId(recipientId);
+    const sender = await User.exists({ _id: senderObjectId });
     if (!sender) {
       return NextResponse.json(
         { success: false, error: "Sender account not found" },
         { status: 400 },
-      );
-    }
-    if (!recipient) {
-      return NextResponse.json(
-        { success: false, error: "Recipient account not found" },
-        { status: 404 },
       );
     }
 
@@ -370,10 +390,10 @@ export async function POST(req: NextRequest) {
       ? renderMessageTemplate(fileSize, input.variables).text
       : fileSize;
     const encrypted = {
-      text: encryptDirectMessageContent(senderId, input.toUserId, templateText),
-      mediaUrl: encryptDirectMessageContent(senderId, input.toUserId, renderedMediaUrl),
-      fileName: encryptDirectMessageContent(senderId, input.toUserId, renderedFileName),
-      fileSize: encryptDirectMessageContent(senderId, input.toUserId, renderedFileSize),
+      text: encryptDirectMessageContent(senderId, recipientId, templateText),
+      mediaUrl: encryptDirectMessageContent(senderId, recipientId, renderedMediaUrl),
+      fileName: encryptDirectMessageContent(senderId, recipientId, renderedFileName),
+      fileSize: encryptDirectMessageContent(senderId, recipientId, renderedFileSize),
     };
     const message = await Message.create({
       from: senderObjectId,
@@ -385,8 +405,8 @@ export async function POST(req: NextRequest) {
       status: "sent",
     });
 
-    const userA = senderId < input.toUserId ? senderObjectId : recipientObjectId;
-    const userB = senderId < input.toUserId ? recipientObjectId : senderObjectId;
+    const userA = senderId < recipientId ? senderObjectId : recipientObjectId;
+    const userB = senderId < recipientId ? recipientObjectId : senderObjectId;
     await Conversation.findOneAndUpdate(
       { userA, userB },
       { userA, userB, lastMessageAt: message.createdAt },
@@ -396,23 +416,23 @@ export async function POST(req: NextRequest) {
     const payload = {
       id: String(message._id),
       from: senderId,
-      to: input.toUserId,
+      to: recipientId,
       type,
-      text: decryptDirectMessageContent(senderId, input.toUserId, encrypted.text),
-      mediaUrl: decryptDirectMessageContent(senderId, input.toUserId, encrypted.mediaUrl),
-      fileName: decryptDirectMessageContent(senderId, input.toUserId, encrypted.fileName),
-      fileSize: decryptDirectMessageContent(senderId, input.toUserId, encrypted.fileSize),
+      text: decryptDirectMessageContent(senderId, recipientId, encrypted.text),
+      mediaUrl: decryptDirectMessageContent(senderId, recipientId, encrypted.mediaUrl),
+      fileName: decryptDirectMessageContent(senderId, recipientId, encrypted.fileName),
+      fileSize: decryptDirectMessageContent(senderId, recipientId, encrypted.fileSize),
       buttons: actionButtons,
       timestamp: message.createdAt,
       status: message.status,
     };
 
     await Promise.all([
-      invalidateDirectMessages(senderId, input.toUserId),
+      invalidateDirectMessages(senderId, recipientId),
       invalidateUserConversations(senderId),
-      invalidateUserConversations(input.toUserId),
+      invalidateUserConversations(recipientId),
     ]);
-    await emitDirectMessageReceived(senderId, input.toUserId, payload);
+    await emitDirectMessageReceived(senderId, recipientId, payload);
 
     const response = NextResponse.json(
       {

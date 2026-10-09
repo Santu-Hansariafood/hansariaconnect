@@ -131,7 +131,7 @@ HANSARIA_API_KEY=paste-your-api-key-here
 HANSARIA_ADMIN_ID=${template.ownerUserId || adminUserId}
 HANSARIA_ADMIN_PASSWORD=paste-that-admins-password-here
 HANSARIA_RATE_TEMPLATE_ID=${template._id}
-HANSARIA_RATE_TO_USER_ID=paste-recipient-chat-account-id-here`;
+HANSARIA_RATE_TO_USER_ID=9876543210`;
 
   const copyCode = async () => {
     try {
@@ -224,8 +224,8 @@ HANSARIA_RATE_TO_USER_ID=paste-recipient-chat-account-id-here`;
               </h3>
               <p className="mt-1 leading-5 text-slate-300">
                 Template ID and admin login are filled from this saved
-                template. Add the key, password, and recipient ID on your
-                other app&apos;s server.
+                template. Add the key and password, and replace the example
+                with the recipient&apos;s registered phone number.
               </p>
             </div>
             <button
@@ -244,8 +244,10 @@ HANSARIA_RATE_TO_USER_ID=paste-recipient-chat-account-id-here`;
           </p>
           <p className="mt-1 leading-5 text-amber-200">
             Create an API key under Admin → API Keys and copy its secret when
-            shown. The key is only displayed once. Use the chat account ID
-            (MongoDB ObjectId) for the recipient, not an email address.
+            shown. The key is only displayed once. Set
+            HANSARIA_RATE_TO_USER_ID to the recipient&apos;s registered Indian
+            mobile number (10 digits or +91 format), not their email. The API
+            resolves it to their chat account.
           </p>
         </div>
       </div>
