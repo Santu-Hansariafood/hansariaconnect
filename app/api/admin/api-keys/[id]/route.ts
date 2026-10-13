@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import { requireAdmin } from "@/lib/adminAuth";
 import ApiKey from "@/models/apiKey/ApiKey";
+import User from "@/models/user/User";
+import { Types } from "mongoose";
 
 export async function PATCH(
   req: NextRequest,
@@ -18,7 +20,7 @@ export async function PATCH(
 
     await connectDB();
     const body = await req.json();
-    const { isActive } = body;
+    const { isActive, senderUserId } = body;
     const resolved =
       context.params instanceof Promise ? await context.params : context.params;
 
@@ -37,6 +39,49 @@ export async function PATCH(
       apiKey.isActive = isActive;
     }
 
+    if (Object.prototype.hasOwnProperty.call(body, "senderUserId")) {
+      if (typeof senderUserId !== "string") {
+        return NextResponse.json(
+          { error: "Sender chat account ID must be a string" },
+          { status: 400 },
+        );
+      }
+
+      const normalizedSenderUserId = senderUserId.trim();
+      if (normalizedSenderUserId) {
+        if (!Types.ObjectId.isValid(normalizedSenderUserId)) {
+          return NextResponse.json(
+            { error: "Enter a valid sender chat account ID" },
+            { status: 400 },
+          );
+        }
+
+        const senderQuery: Record<string, unknown> = {
+          _id: new Types.ObjectId(normalizedSenderUserId),
+        };
+        if (!adminResult.admin.isSuperAdmin) {
+          senderQuery.$or = [
+            { createdByAdminId: apiKey.adminId },
+            { createdByAdminId: null },
+          ];
+        }
+        const sender = await User.exists(senderQuery);
+        if (!sender) {
+          return NextResponse.json(
+            {
+              error:
+                "Sender account not found in this workspace. Use an existing chat account ID, not an admin ID or phone number.",
+            },
+            { status: 404 },
+          );
+        }
+
+        apiKey.senderUserId = normalizedSenderUserId;
+      } else {
+        apiKey.senderUserId = undefined;
+      }
+    }
+
     await apiKey.save();
 
     return NextResponse.json({
@@ -44,6 +89,7 @@ export async function PATCH(
       apiKey: {
         _id: apiKey._id,
         name: apiKey.name,
+        senderUserId: apiKey.senderUserId,
         permissions: apiKey.permissions,
         lastUsed: apiKey.lastUsed,
         expiresAt: apiKey.expiresAt,
@@ -51,8 +97,8 @@ export async function PATCH(
         createdAt: apiKey.createdAt,
       },
     });
-  } catch (error: any) {
-    console.error(error);
+  } catch (error: unknown) {
+    console.error("[api/admin/api-keys] Failed to update API key:", error);
     return NextResponse.json(
       { error: "Failed to update API key" },
       { status: 500 },
@@ -88,8 +134,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true, deleted: true });
-  } catch (error: any) {
-    console.error(error);
+  } catch (error: unknown) {
+    console.error("[api/admin/api-keys] Failed to delete API key:", error);
     return NextResponse.json(
       { error: "Failed to delete API key" },
       { status: 500 },

@@ -643,6 +643,37 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleChangeApiKeySender = async (id: string) => {
+    const apiKey = apiKeys.find((item) => item._id === id);
+    if (!apiKey) {
+      setError("API key not found. Refresh the page and try again.");
+      return;
+    }
+    const senderUserId = window.prompt(
+      "Enter the existing chat account ID to bind to this API key. Leave blank to remove the sender binding.",
+      apiKey.senderUserId || "",
+    );
+    if (senderUserId === null) return;
+
+    setSaving(id);
+    try {
+      const res = await fetch(`/api/admin/api-keys/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ senderUserId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to update sender");
+      await refreshData();
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Failed to update sender",
+      );
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const handleDeleteApiKey = async (id: string) => {
     const apiKey = apiKeys.find((item) => item._id === id);
     if (!apiKey) {
@@ -1743,6 +1774,9 @@ export default function AdminDashboard() {
                                   Bound sender: {apiKey.senderUserId}
                                 </span>
                               )}
+                              {!apiKey.senderUserId && (
+                                <span>Sender: Not set</span>
+                              )}
                               {isPlatformAdmin && (
                                 <span>Owner: {apiKey.ownerUserId}</span>
                               )}
@@ -1759,6 +1793,15 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <div className="flex shrink-0 gap-2">
+                            <button
+                              onClick={() =>
+                                handleChangeApiKeySender(apiKey._id)
+                              }
+                              disabled={saving === apiKey._id}
+                              className="rounded-lg border border-emerald-200 px-3 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-50 disabled:opacity-50"
+                            >
+                              Change sender
+                            </button>
                             <button
                               onClick={() =>
                                 handleToggleApiKeyActive(

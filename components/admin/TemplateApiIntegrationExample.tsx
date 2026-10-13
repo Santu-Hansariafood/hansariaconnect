@@ -224,6 +224,12 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
                 update <code>HANSARIA_API_KEY</code> in the other app. Keep the
                 template ID unchanged.
               </p>
+              <p className="mt-2 leading-5 text-amber-200">
+                Rate notifications also need a valid sender chat account bound
+                to the API key. In API Keys, use <strong>Change sender</strong>
+                and enter the existing account&apos;s chat ID; do not register
+                the account again or use the admin ID or phone number.
+              </p>
             </div>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
