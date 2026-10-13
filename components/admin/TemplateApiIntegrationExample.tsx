@@ -218,6 +218,12 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
                 then copy the
                 completed settings.
               </p>
+              <p className="mt-2 leading-5 text-slate-300">
+                Templates belong to this admin account, not to an API key. If
+                you replace a key, create the new key in this same account and
+                update <code>HANSARIA_API_KEY</code> in the other app. Keep the
+                template ID unchanged.
+              </p>
             </div>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
