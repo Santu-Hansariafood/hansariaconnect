@@ -24,7 +24,7 @@ const createExamples = (
 
   return {
     JavaScript: `const response = await fetch(
-  "https://hfconnect.in/api/v1/messages/bulk",
+  "https://hfconnect.in/api/v1/messages/send",
   {
     method: "POST",
     headers: {
@@ -49,7 +49,7 @@ console.log("Message sent");`,
 import requests
 
 response = requests.post(
-    "https://hfconnect.in/api/v1/messages/bulk",
+    "https://hfconnect.in/api/v1/messages/send",
     headers={
         "Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"],
         "Content-Type": "application/json",
@@ -76,7 +76,7 @@ ${phpVariables}
   ]
 ];
 
-$ch = curl_init("https://hfconnect.in/api/v1/messages/bulk");
+$ch = curl_init("https://hfconnect.in/api/v1/messages/send");
 curl_setopt_array($ch, [
   CURLOPT_POST => true,
   CURLOPT_HTTPHEADER => [

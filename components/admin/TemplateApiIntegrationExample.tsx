@@ -46,7 +46,7 @@ export default function TemplateApiIntegrationExample({
     .map(([name, value]) => `    ${phpString(name)} => ${phpString(value)}`)
     .join(",\n");
   const examples: Record<CodeLanguage, string> = {
-    JavaScript: `const response = await fetch("https://hfconnect.in/api/v1/messages/bulk", {
+    JavaScript: `const response = await fetch("https://hfconnect.in/api/v1/messages/send", {
   method: "POST",
   headers: {
     Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
@@ -69,7 +69,7 @@ console.log("Message sent", result);`,
 import requests
 
 response = requests.post(
-    "https://hfconnect.in/api/v1/messages/bulk",
+    "https://hfconnect.in/api/v1/messages/send",
     headers={
         "Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"],
         "Content-Type": "application/json",
@@ -96,7 +96,7 @@ ${phpVariables}
   ]
 ];
 
-$ch = curl_init("https://hfconnect.in/api/v1/messages/bulk");
+$ch = curl_init("https://hfconnect.in/api/v1/messages/send");
 curl_setopt_array($ch, [
   CURLOPT_POST => true,
   CURLOPT_HTTPHEADER => [
@@ -118,7 +118,63 @@ if ($status < 200 || $status >= 300) {
 }
 echo "Message sent";`,
   };
+  const connectionTestExamples: Record<CodeLanguage, string> = {
+    JavaScript: `const url = new URL(
+  process.env.HANSARIA_API_BASE_URL + "/api/v1/connection/test"
+);
+url.searchParams.set("templateId", process.env.HANSARIA_RATE_TEMPLATE_ID);
+url.searchParams.set("toUserId", process.env.HANSARIA_RATE_TO_USER_ID);
+
+const response = await fetch(url, {
+  headers: {
+    Authorization: "Bearer " + process.env.HANSARIA_API_KEY
+  }
+});
+const result = await response.json();
+if (!response.ok) {
+  throw new Error(result.error || \`Connection test failed: \${response.status}\`);
+}
+console.log(result.message, result.checks);`,
+    Python: `import os
+import requests
+
+response = requests.get(
+    os.environ["HANSARIA_API_BASE_URL"] + "/api/v1/connection/test",
+    headers={"Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"]},
+    params={
+        "templateId": os.environ["HANSARIA_RATE_TEMPLATE_ID"],
+        "toUserId": os.environ["HANSARIA_RATE_TO_USER_ID"],
+    },
+    timeout=30,
+)
+result = response.json()
+if not response.ok:
+    raise RuntimeError(result.get("error", f"Connection test failed: {response.status_code}"))
+print(result["message"], result["checks"])`,
+    PHP: `<?php
+$url = getenv("HANSARIA_API_BASE_URL") . "/api/v1/connection/test?" . http_build_query([
+  "templateId" => getenv("HANSARIA_RATE_TEMPLATE_ID"),
+  "toUserId" => getenv("HANSARIA_RATE_TO_USER_ID")
+]);
+$ch = curl_init($url);
+curl_setopt_array($ch, [
+  CURLOPT_HTTPHEADER => ["Authorization: Bearer " . getenv("HANSARIA_API_KEY")],
+  CURLOPT_RETURNTRANSFER => true
+]);
+$body = curl_exec($ch);
+if ($body === false) {
+  throw new RuntimeException(curl_error($ch));
+}
+$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+$result = json_decode($body, true);
+if ($status < 200 || $status >= 300) {
+  throw new RuntimeException($result["error"] ?? "Connection test failed: " . $status);
+}
+echo $result["message"];`,
+  };
   const example = examples[language];
+  const connectionTestExample = connectionTestExamples[language];
   const environmentExample = `HANSARIA_API_BASE_URL=https://hfconnect.in
 HANSARIA_API_KEY=${rateApiKey || "paste-the-template-owners-api-key-here"}
 HANSARIA_RATE_TEMPLATE_ID=${template._id}
@@ -283,6 +339,19 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
             must be registered; their 10-digit Indian number or +91 format is
             resolved to their chat account.
           </p>
+          <div className="mt-4 border-t border-white/15 pt-4">
+            <h4 className="font-semibold text-white">
+              Test the other app connection (no message sent)
+            </h4>
+            <p className="mt-1 leading-5 text-slate-300">
+              Run this from the other app&apos;s server after setting the
+              environment values above. A successful response confirms the
+              API key, sender, template, and recipient are all valid.
+            </p>
+            <pre className="mt-3 max-h-[28rem] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
+              <code>{connectionTestExample}</code>
+            </pre>
+          </div>
         </div>
       </div>
     </details>
