@@ -22,10 +22,11 @@ export default function ConnectionTroubleshooting() {
         </ul>
       </section>
       <p className="text-sm leading-6 text-slate-600">
-        The example sends an in-app message, not SMS. To use a saved template
-        instead, create it in My templates and use <code>templateName</code> or{" "}
-        <code>templateId</code>. Bulk sends use{" "}
-        <code>POST /api/v1/messages/bulk</code>.
+        The example sends an in-app message, not SMS. It sends to one recipient
+        using <code>POST /api/v1/messages/bulk</code>. To send to multiple
+        recipients, use <code>POST /api/v1/messages/send</code> with a{" "}
+        <code>recipients</code> array. To use a saved template, create it in My
+        templates and use <code>templateName</code> or <code>templateId</code>.
       </p>
     </>
   );

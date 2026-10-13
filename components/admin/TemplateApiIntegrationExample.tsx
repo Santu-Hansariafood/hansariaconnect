@@ -50,7 +50,7 @@ export default function TemplateApiIntegrationExample({
     .join(",\n");
 
   const examples: Record<CodeLanguage, string> = {
-    JavaScript: `const response = await fetch("https://hfconnect.in/api/v1/messages/send", {
+    JavaScript: `const response = await fetch("https://hfconnect.in/api/v1/messages/bulk", {
   method: "POST",
   headers: {
     Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
@@ -75,7 +75,7 @@ console.log("Message sent", result);`,
 import requests
 
 response = requests.post(
-    "https://hfconnect.in/api/v1/messages/send",
+    "https://hfconnect.in/api/v1/messages/bulk",
     headers={
         "Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"],
         "Content-Type": "application/json",
@@ -106,7 +106,7 @@ ${phpVariables}
   ]
 ];
 
-$ch = curl_init("https://hfconnect.in/api/v1/messages/send");
+$ch = curl_init("https://hfconnect.in/api/v1/messages/bulk");
 curl_setopt_array($ch, [
   CURLOPT_POST => true,
   CURLOPT_HTTPHEADER => [
