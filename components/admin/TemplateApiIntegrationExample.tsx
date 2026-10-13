@@ -20,6 +20,7 @@ export default function TemplateApiIntegrationExample({
     footer?: string;
     translations?: Record<string, string>;
     defaultLanguage?: string;
+    ownerUserId?: string;
   };
   isPlatformAdmin: boolean;
 }) {
@@ -44,6 +45,10 @@ export default function TemplateApiIntegrationExample({
   const phpVariables = Object.entries(variables)
     .map(([name, value]) => `    ${phpString(name)} => ${phpString(value)}`)
     .join(",\n");
+  const templateOwnerUserId =
+    template.ownerUserId && template.ownerUserId !== "Deleted admin"
+      ? template.ownerUserId
+      : "not-available";
 
   const examples: Record<CodeLanguage, string> = {
     JavaScript: `const response = await fetch("https://hfconnect.in/api/v1/messages/bulk", {
@@ -121,6 +126,7 @@ echo "Message sent";`,
   const example = examples[language];
   const environmentExample = `HANSARIA_API_BASE_URL=https://hfconnect.in
 HANSARIA_API_KEY=${rateApiKey || "paste-the-template-owners-api-key-here"}
+HANSARIA_ADMIN_ID=${templateOwnerUserId}
 HANSARIA_RATE_TEMPLATE_ID=${template._id}
 HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-here"}`;
 
@@ -160,6 +166,13 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
           Supply each listed variable. Run it on your server and keep all
           credentials secret. Configured Call, Reply, and Confirm buttons are
           included automatically when the saved template is sent.
+        </p>
+        <p className="mb-3 break-all leading-5">
+          Template owner user ID:{" "}
+          <code className="rounded bg-white/10 px-1">
+            {templateOwnerUserId}
+          </code>
+          . Use an API key created for this account.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex items-center gap-2">
@@ -213,8 +226,8 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
                 Rate notification .env
               </h3>
               <p className="mt-1 leading-5 text-slate-300">
-                The template ID is filled in. Enter an active API key from the
-                template owner&apos;s account and the recipient&apos;s
+                The template ID and owner user ID are filled in. Enter an
+                active API key from this account and the recipient&apos;s
                 registered phone number, then copy the
                 completed settings.
               </p>
