@@ -1614,10 +1614,12 @@ export default function AdminDashboard() {
                             placeholder="Chat account ObjectId"
                           />
                           <p className="mt-1.5 text-xs leading-5 text-slate-500">
-                            Bind the key to a chat account for bulk sends.
+                            Bind the key to an existing chat account for bulk
+                            sends. Regular registered accounts can be used
+                            without registering again; enter the chat account
+                            ID, not the admin ID or phone number.
                             Leave blank when each single-send request supplies
-                            its own fromUserId (the account must belong to this
-                            admin).
+                            its own fromUserId.
                           </p>
                         </div>
                         <div>

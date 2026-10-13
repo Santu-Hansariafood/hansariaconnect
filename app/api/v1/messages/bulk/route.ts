@@ -223,7 +223,11 @@ export async function POST(req: NextRequest) {
     const sender = await User.exists({ _id: senderId });
     if (!sender) {
       return NextResponse.json(
-        { success: false, error: "Sender account not found" },
+        {
+          success: false,
+          error:
+            "Sender account not found. Check the chat account ID bound to this API key; the account must still exist.",
+        },
         { status: 400 },
       );
     }

@@ -161,11 +161,20 @@ export async function POST(req: NextRequest) {
         _id: new Types.ObjectId(senderUserId),
       };
       if (!adminResult.admin.isSuperAdmin) {
-        senderQuery.createdByAdminId = ownerAdminId;
+        senderQuery.$or = [
+          { createdByAdminId: ownerAdminId },
+          { createdByAdminId: null },
+        ];
       }
       const sender = await User.exists(senderQuery);
       if (!sender) {
-        return NextResponse.json({ error: "Sender account not found" }, { status: 400 });
+        return NextResponse.json(
+          {
+            error:
+              "Sender account not found. Use an existing chat account ID from this workspace or a regular registered account.",
+          },
+          { status: 400 },
+        );
       }
     }
 
