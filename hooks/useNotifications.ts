@@ -169,6 +169,10 @@ export function useNotifications(userId?: string | number) {
     notificationPreferencesSnapshot,
   );
   const audioContextRef = useRef<AudioContext | null>(null);
+  const customAudioRef = useRef<HTMLAudioElement | null>(null);
+  const customAudioStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   useEffect(() => {
     const unsubscribe = subscribeToNotificationPreferences(setPreferences);
@@ -236,16 +240,39 @@ export function useNotifications(userId?: string | number) {
     }
   }, []);
 
+  const clearCustomRingtone = useCallback(() => {
+    if (customAudioStopTimerRef.current) {
+      clearTimeout(customAudioStopTimerRef.current);
+      customAudioStopTimerRef.current = null;
+    }
+
+    if (customAudioRef.current) {
+      customAudioRef.current.pause();
+      customAudioRef.current.currentTime = 0;
+      customAudioRef.current = null;
+    }
+  }, []);
+
   const playRingtone = useCallback((ringtone: string) => {
     if (typeof window === "undefined") return;
     if (ringtone === "none") return;
     if (!preferences.enabled) return;
+
+    clearCustomRingtone();
 
     const isUrl = /^https?:\/\//i.test(ringtone) || ringtone.startsWith("blob:");
     if (isUrl) {
       try {
         const audio = new Audio(ringtone);
         audio.volume = 0.35;
+        customAudioRef.current = audio;
+        customAudioStopTimerRef.current = setTimeout(() => {
+          if (!customAudioRef.current) return;
+          customAudioRef.current.pause();
+          customAudioRef.current.currentTime = 0;
+          customAudioRef.current = null;
+          customAudioStopTimerRef.current = null;
+        }, 3200);
         audio.play().catch((e) => {
           console.warn("[Notifications] Ringtone URL playback failed:", e?.message || e);
         });
@@ -274,23 +301,37 @@ export function useNotifications(userId?: string | number) {
     try {
       const now = ctx.currentTime;
       const pattern = ringtonePatterns[ringtone] || ringtonePatterns.chime;
+      const patternDuration =
+        pattern.reduce(
+          (longest, note) => Math.max(longest, note.start + note.duration),
+          0,
+        ) || 0.5;
+      const repeatCount = ringtone === "whatsapp" ? 3 : 2;
+      const repeatGap = 0.18;
 
-      pattern.forEach((note) => {
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-        oscillator.type = note.type || "sine";
-        oscillator.frequency.setValueAtTime(note.freq, now + note.start);
-        gain.gain.setValueAtTime(note.volume ?? 0.12, now + note.start);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + note.start + note.duration);
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-        oscillator.start(now + note.start);
-        oscillator.stop(now + note.start + note.duration + 0.02);
-      });
+      for (let repeatIndex = 0; repeatIndex < repeatCount; repeatIndex += 1) {
+        const offset = repeatIndex * (patternDuration + repeatGap);
+        pattern.forEach((note) => {
+          const oscillator = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const startAt = now + offset + note.start;
+          oscillator.type = note.type || "sine";
+          oscillator.frequency.setValueAtTime(note.freq, startAt);
+          gain.gain.setValueAtTime(note.volume ?? 0.12, startAt);
+          gain.gain.exponentialRampToValueAtTime(
+            0.001,
+            startAt + note.duration,
+          );
+          oscillator.connect(gain);
+          gain.connect(ctx.destination);
+          oscillator.start(startAt);
+          oscillator.stop(startAt + note.duration + 0.02);
+        });
+      }
     } catch (e: any) {
       console.warn("[Notifications] Ringtone generation failed:", e?.message || e);
     }
-  }, [preferences.enabled]);
+  }, [clearCustomRingtone, preferences.enabled]);
 
   const showNotification = useCallback((title: string, body: string, tag?: string, url = "/chat") => {
     if (!preferences.enabled) {
@@ -327,6 +368,9 @@ export function useNotifications(userId?: string | number) {
       try {
         const notification = new Notification(title, options);
         console.log("[Notifications] In-page notification created successfully");
+        window.setTimeout(() => {
+          notification.close();
+        }, 6500);
         notification.onclick = () => {
           try {
             window.focus();
@@ -375,6 +419,21 @@ export function useNotifications(userId?: string | number) {
           );
           await registration.showNotification(title, options);
           console.log("[Notifications] SW notification shown successfully");
+          window.setTimeout(async () => {
+            try {
+              const notifications = await registration.getNotifications({
+                tag,
+              });
+              notifications.forEach((notificationInstance) =>
+                notificationInstance.close(),
+              );
+            } catch (closeError: any) {
+              console.warn(
+                "[Notifications] Could not auto-close SW notification:",
+                closeError?.message || closeError,
+              );
+            }
+          }, 6500);
           return;
         } catch (e: any) {
           console.warn("[Notifications] SW notification failed, falling back to in-page:", e?.message || e);
@@ -421,6 +480,8 @@ export function useNotifications(userId?: string | number) {
       window.removeEventListener("keydown", unlockAudio);
     };
   }, []);
+
+  useEffect(() => clearCustomRingtone, [clearCustomRingtone]);
 
   return {
     preferences,

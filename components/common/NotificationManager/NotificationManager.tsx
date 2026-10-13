@@ -24,6 +24,15 @@ type NotifyPayload = {
 
 type ToastNotification = NotifyPayload & { id: number };
 
+const isStandaloneApp = () => {
+  if (typeof window === "undefined") return false;
+  const standaloneMatch =
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(display-mode: standalone)").matches;
+  const iosStandalone = Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+  return standaloneMatch || iosStandalone;
+};
+
 const buildUrlFromPayload = (p: NotifyPayload, adminSurface = false) => {
   if (adminSurface) return "/admin";
   const path =
@@ -46,6 +55,7 @@ export default function NotificationManager({
   const notifiedMessageIds = useRef(new Set<string>());
   const nextToastId = useRef(0);
   const toastTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  const baseDocumentTitleRef = useRef("HansariaConnect");
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const isAdminSurface = Boolean(
@@ -108,6 +118,38 @@ export default function NotificationManager({
       cancelled = true;
     };
   }, [isAdminSurface, pathname]);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      baseDocumentTitleRef.current = document.title || "HansariaConnect";
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const resetDocumentTitle = () => {
+      document.title = baseDocumentTitleRef.current;
+    };
+
+    const handleVisibilityOrFocus = () => {
+      if (
+        document.visibilityState === "visible" &&
+        (typeof document.hasFocus !== "function" || document.hasFocus())
+      ) {
+        resetDocumentTitle();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    return () => {
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      resetDocumentTitle();
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -225,6 +267,7 @@ export default function NotificationManager({
       const isPageVisible = document.visibilityState === "visible";
       const isWindowFocused = typeof document.hasFocus === "function" ? document.hasFocus() : isPageVisible;
       const isFocusedConversation = Boolean(isActiveChat && isPageVisible && isWindowFocused);
+      const runningAsInstalledApp = isStandaloneApp();
 
       console.log(
         "[NotificationManager] Focus state check:",
@@ -234,14 +277,30 @@ export default function NotificationManager({
         isWindowFocused,
         "| isFocusedConversation:",
         isFocusedConversation,
+        "| standalone:",
+        runningAsInstalledApp,
       );
 
       if (!isFocusedConversation) {
         playRingtone(preferences.ringtone || "chime");
       }
 
-      const showBrowserNotification = !isPageVisible || !isWindowFocused;
+      const showBrowserNotification =
+        !isFocusedConversation &&
+        (!isPageVisible || !isWindowFocused || runningAsInstalledApp);
       const showInAppToast = isPageVisible && isWindowFocused && !isActiveChat;
+      const titleSource =
+        payload.kind === "group"
+          ? `${payload.fromName} in ${payload.chatName || "Group"}`
+          : payload.fromName || payload.chatName || "New message";
+
+      if (
+        typeof document !== "undefined" &&
+        !isFocusedConversation &&
+        (!isPageVisible || !isWindowFocused)
+      ) {
+        document.title = `${titleSource} - ${baseDocumentTitleRef.current}`;
+      }
 
       if (showInAppToast) {
         addToast({

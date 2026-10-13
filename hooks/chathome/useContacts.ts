@@ -356,5 +356,6 @@ export const useContacts = (userId?: string | number) => {
     loading,
     setContacts,
     updateContact,
+    refreshContacts: loadConversations,
   };
 };

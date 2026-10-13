@@ -55,6 +55,17 @@ export interface Contact {
   registeredUserId?: string;
 }
 
+type GroupSummary = {
+  id?: string;
+  _id?: string;
+  name?: string;
+  avatar?: string;
+  members?: string[];
+  lastMessage?: string;
+  lastMessageTime?: string;
+  updatedAt?: string;
+};
+
 interface Theme {
   wallpaper?: string;
   textSize?: string;
@@ -91,59 +102,55 @@ export default function ChatHome({
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [groups, setGroups] = useState<any[]>([]);
+  const [groups, setGroups] = useState<GroupSummary[]>([]);
   const [groupUnread, setGroupUnread] = useState<Record<string, number>>({});
 
-  const { contacts, loading, setContacts } = useContacts(user.id);
+  const { contacts, loading, setContacts, refreshContacts } = useContacts(user.id);
   const { socket, addListener, removeListener } = useSocket();
   const filteredContacts = useFilteredContacts({ contacts, searchQuery });
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadGroups = async () => {
-      try {
-        const [res, unreadRes] = await Promise.all([
-          fetch("/api/groups", {
-            credentials: "include",
-            cache: "no-store",
-          }),
-          fetch("/api/unread-counts", {
-            credentials: "include",
-            cache: "no-store",
-          }),
-        ]);
-        const data = await res.json();
-        if (!cancelled && res.ok && Array.isArray(data?.groups)) {
-          setGroups(data.groups);
-        } else if (!res.ok) {
-          throw new Error(`Failed to load groups (${res.status})`);
-        }
-
-        if (!cancelled && unreadRes.ok) {
-          const unreadData = await unreadRes.json();
-          setGroupUnread(
-            Object.fromEntries(
-              Object.entries(unreadData?.groups || {}).map(([id, count]) => [
-                id,
-                Number(count) || 0,
-              ]),
-            ),
-          );
-        } else if (!unreadRes.ok) {
-          console.error(
-            `Failed to load group unread counts (${unreadRes.status})`,
-          );
-        }
-      } catch (error) {
-        console.error("Failed to load chat groups:", error);
+  const loadGroups = useCallback(async () => {
+    try {
+      const [res, unreadRes] = await Promise.all([
+        fetch("/api/groups", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch("/api/unread-counts", {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data?.groups)) {
+        setGroups(data.groups);
+      } else if (!res.ok) {
+        throw new Error(`Failed to load groups (${res.status})`);
       }
-    };
 
-    loadGroups();
-    return () => {
-      cancelled = true;
-    };
+      if (unreadRes.ok) {
+        const unreadData = await unreadRes.json();
+        setGroupUnread(
+          Object.fromEntries(
+            Object.entries(unreadData?.groups || {}).map(([id, count]) => [
+              id,
+              Number(count) || 0,
+            ]),
+          ),
+        );
+      } else if (!unreadRes.ok) {
+        console.error(
+          `Failed to load group unread counts (${unreadRes.status})`,
+        );
+      }
+    } catch (error) {
+      console.error("Failed to load chat groups:", error);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadGroups();
+  }, [loadGroups]);
 
   useEffect(() => {
     const getMessagePreview = (message: any) => {
@@ -185,12 +192,14 @@ export default function ChatHome({
         peerId,
       );
 
+      let foundPeer = false;
       setContacts((previous) =>
         previous.map((contact) => {
           const contactPeerId = String(
             contact.registeredUserId || contact.peerId || contact.id || "",
           );
           if (contactPeerId !== peerId) return contact;
+          foundPeer = true;
 
           return {
             ...contact,
@@ -202,6 +211,14 @@ export default function ChatHome({
           };
         }),
       );
+
+      if (!foundPeer) {
+        console.log(
+          "[ChatHome] Incoming direct message belongs to a peer outside the local list. Refreshing conversations.",
+          peerId,
+        );
+        void refreshContacts();
+      }
     };
 
     const handleIncomingGroupMessage = (message: any) => {
@@ -217,9 +234,11 @@ export default function ChatHome({
         fromId,
       );
 
+      let foundGroup = false;
       setGroups((previous) =>
         previous.map((group) => {
           if (String(group?.id || group?._id || "") !== groupId) return group;
+          foundGroup = true;
           return {
             ...group,
             lastMessage: getMessagePreview(message),
@@ -236,6 +255,14 @@ export default function ChatHome({
         if (currentCount === nextCount) return previous;
         return { ...(previous || {}), [groupId]: nextCount };
       });
+
+      if (!foundGroup) {
+        console.log(
+          "[ChatHome] Incoming group message belongs to a group outside the local list. Refreshing groups.",
+          groupId,
+        );
+        void loadGroups();
+      }
     };
 
     const handleUnreadUpdate = (payload: {
@@ -276,7 +303,16 @@ export default function ChatHome({
       removeListener("group:message:new", handleIncomingGroupMessage);
       removeListener("unread:update", handleUnreadUpdate);
     };
-  }, [addListener, removeListener, selectedChatId, setContacts, socket, user.id]);
+  }, [
+    addListener,
+    loadGroups,
+    refreshContacts,
+    removeListener,
+    selectedChatId,
+    setContacts,
+    socket,
+    user.id,
+  ]);
 
   const handleSearch = useCallback(
     (query: string) => setSearchQuery(query),
