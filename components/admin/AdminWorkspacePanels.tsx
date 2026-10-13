@@ -640,7 +640,6 @@ export function AdminTemplatesPanel({
               <TemplateApiIntegrationExample
                 template={template}
                 isPlatformAdmin={isPlatformAdmin}
-                viewerAdminUserId={currentAdminUserId}
               />
             </div>
           );
@@ -656,6 +655,7 @@ export function AdminTemplatesPanel({
 }
 
 export function AdminProfilePanel({
+  adminId,
   userId,
   email,
   setEmail,
@@ -670,6 +670,7 @@ export function AdminProfilePanel({
   isSaving,
   onSave,
 }: {
+  adminId: string;
   userId: string;
   email: string;
   setEmail: (value: SetStateAction<string>) => void;
@@ -691,6 +692,9 @@ export function AdminProfilePanel({
     >
       <h2 className="text-lg font-semibold text-gray-800">Admin profile</h2>
       <p className="mt-1 text-sm text-gray-500">Signed in as {userId}</p>
+      <p className="mt-2 break-all text-sm text-gray-600">
+        Admin ID: <code>{adminId}</code>
+      </p>
       <label
         htmlFor="admin-profile-email"
         className="mt-5 block text-sm font-medium text-gray-700"

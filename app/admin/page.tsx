@@ -1265,6 +1265,7 @@ export default function AdminDashboard() {
 
             {activeTab === "profile" && !isSuperAdmin && !isSuperSubdomain && (
               <AdminProfilePanel
+                adminId={adminProfile.adminId}
                 userId={adminProfile.userId}
                 email={profileEmail}
                 setEmail={setProfileEmail}
