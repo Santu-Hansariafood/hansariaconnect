@@ -15,7 +15,6 @@ import {
   renderMessageTemplate,
 } from "@/lib/messageTemplates";
 import { normalizeTemplateTranslations } from "@/lib/templateTranslations";
-import { verifyTemplateAdminCredentials } from "@/lib/templateAdminAuth";
 import {
   invalidateDirectMessages,
   invalidateUserConversations,
@@ -33,8 +32,6 @@ const MAX_RECIPIENTS = 1000;
 const messageTypes = ["image", "video", "voice", "pdf", "excel", "file"] as const;
 
 const requestSchema = z.object({
-  adminUserId: z.string().min(1).max(100),
-  adminPassword: z.string().min(1).max(256),
   templateId: z.string().optional(),
   templateName: z.string().trim().min(1).max(100).optional(),
   template: z.string().max(2000).optional(),
@@ -141,18 +138,6 @@ export async function POST(req: NextRequest) {
       );
       applyApiRateLimitHeaders(response.headers, rateLimit);
       return response;
-    }
-
-    const credentialsValid = await verifyTemplateAdminCredentials(
-      String(authResult.apiKey.adminId),
-      parsedBody.data.adminUserId,
-      parsedBody.data.adminPassword,
-    );
-    if (!credentialsValid) {
-      return NextResponse.json(
-        { success: false, error: "Invalid admin credentials for this API key" },
-        { status: 401 },
-      );
     }
 
     const senderId = String(authResult.apiKey.senderUserId || "");

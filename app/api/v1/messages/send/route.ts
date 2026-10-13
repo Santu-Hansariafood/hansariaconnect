@@ -19,7 +19,6 @@ import {
   joinTemplateParts,
   renderMessageTemplate,
 } from "@/lib/messageTemplates";
-import { verifyTemplateAdminCredentials } from "@/lib/templateAdminAuth";
 import { getLocalizedTemplateText } from "@/lib/templateTranslations";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 import { readJsonRequestBody } from "@/lib/apiRequestBody";
@@ -41,8 +40,6 @@ const messageTypes = [
 ] as const;
 
 const requestSchema = z.object({
-  adminUserId: z.string().min(1).max(100),
-  adminPassword: z.string().min(1).max(256),
   fromUserId: z.string().optional(),
   toUserId: z.string(),
   templateId: z.string().optional(),
@@ -141,17 +138,6 @@ export async function POST(req: NextRequest) {
       );
     }
     const input = parsed.data;
-    const credentialsValid = await verifyTemplateAdminCredentials(
-      String(authResult.apiKey.adminId),
-      input.adminUserId,
-      input.adminPassword,
-    );
-    if (!credentialsValid) {
-      return NextResponse.json(
-        { success: false, error: "Invalid admin credentials for this API key" },
-        { status: 401 },
-      );
-    }
     const senderId = String(authResult.apiKey.senderUserId || input.fromUserId || "");
     if (!Types.ObjectId.isValid(senderId)) {
       return NextResponse.json(

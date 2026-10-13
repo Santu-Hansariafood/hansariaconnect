@@ -76,14 +76,18 @@ export async function DELETE(
     await connectDB();
     const resolved =
       context.params instanceof Promise ? await context.params : context.params;
-    await ApiKey.findOneAndDelete({
+    const deletedApiKey = await ApiKey.findOneAndDelete({
       _id: resolved.id,
       ...(adminResult.admin.isSuperAdmin
         ? {}
         : { adminId: String(adminResult.admin._id) }),
     });
 
-    return NextResponse.json({ success: true });
+    if (!deletedApiKey) {
+      return NextResponse.json({ error: "API key not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, deleted: true });
   } catch (error: any) {
     console.error(error);
     return NextResponse.json(

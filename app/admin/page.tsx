@@ -626,29 +626,50 @@ export default function AdminDashboard() {
   const handleToggleApiKeyActive = async (id: string, isActive: boolean) => {
     setSaving(id);
     try {
-      await fetch(`/api/admin/api-keys/${id}`, {
+      const res = await fetch(`/api/admin/api-keys/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !isActive }),
       });
-      void refreshData();
-    } catch {
-      setError("Network error");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to update API key");
+      await refreshData();
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Failed to update API key",
+      );
     } finally {
       setSaving(null);
     }
   };
 
   const handleDeleteApiKey = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this API key?")) return;
+    const apiKey = apiKeys.find((item) => item._id === id);
+    if (!apiKey) {
+      setError("API key not found. Refresh the page and try again.");
+      return;
+    }
+    if (
+      !confirm(
+        `Permanently delete "${apiKey.name}" (${apiKey._id})? This will immediately stop integrations using this key. Messages already sent will not be deleted. This cannot be undone.`,
+      )
+    )
+      return;
     setSaving(id);
     try {
-      await fetch(`/api/admin/api-keys/${id}`, {
+      const res = await fetch(`/api/admin/api-keys/${id}`, {
         method: "DELETE",
       });
-      void refreshData();
-    } catch {
-      setError("Network error");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to delete API key");
+      if (!data?.deleted) {
+        throw new Error("The API key was not deleted. Refresh and try again.");
+      }
+      await refreshData();
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Failed to delete API key",
+      );
     } finally {
       setSaving(null);
     }
@@ -1722,6 +1743,15 @@ export default function AdminDashboard() {
                               {isPlatformAdmin && (
                                 <span>Owner: {apiKey.ownerUserId}</span>
                               )}
+                              <span className="break-all">
+                                Key ID: {apiKey._id}
+                              </span>
+                              <span>
+                                Last used:{" "}
+                                {apiKey.lastUsed
+                                  ? new Date(apiKey.lastUsed).toLocaleString()
+                                  : "Never"}
+                              </span>
                               <span>{apiKey.sentCount} messages sent</span>
                             </div>
                           </div>
@@ -1747,7 +1777,7 @@ export default function AdminDashboard() {
                               disabled={saving === apiKey._id}
                               className="rounded-lg border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
                             >
-                              Delete
+                              Delete permanently
                             </button>
                           </div>
                         </article>

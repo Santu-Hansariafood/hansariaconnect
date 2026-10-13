@@ -32,8 +32,6 @@ const createExamples = (
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      adminUserId: process.env.HANSARIA_ADMIN_ID,
-      adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
       template: ${JSON.stringify(template)},
       language: "en",
       toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
@@ -57,8 +55,6 @@ response = requests.post(
         "Content-Type": "application/json",
     },
     json={
-        "adminUserId": os.environ["HANSARIA_ADMIN_ID"],
-        "adminPassword": os.environ["HANSARIA_ADMIN_PASSWORD"],
         "template": ${JSON.stringify(template)},
         "language": "en",
         "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
@@ -72,8 +68,6 @@ if not response.ok:
 print("Message sent")`,
     PHP: `<?php
 $payload = [
-  "adminUserId" => getenv("HANSARIA_ADMIN_ID"),
-  "adminPassword" => getenv("HANSARIA_ADMIN_PASSWORD"),
   "template" => ${phpString(template)},
   "language" => "en",
   "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
@@ -137,7 +131,7 @@ export default function CodeExamplePanel({
         <div>
           <h3 className="font-semibold text-slate-900">Copy your code</h3>
           <p className="mt-1 text-sm text-slate-600">
-            Replace the recipient ID. Keep your credentials on your server.
+            Replace the recipient ID. Keep your API key on your server.
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -189,10 +183,8 @@ export default function CodeExamplePanel({
         </p>
       )}
       <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-100 p-3 text-xs leading-5 text-slate-800">
-        <code>{`# Add these to your server's environment
-HANSARIA_API_KEY=paste-your-api-key
-HANSARIA_ADMIN_ID=paste-your-admin-login-id
-HANSARIA_ADMIN_PASSWORD=paste-your-admin-password`}</code>
+        <code>{`# Add this to your server's environment
+HANSARIA_API_KEY=paste-your-api-key`}</code>
       </pre>
     </section>
   );

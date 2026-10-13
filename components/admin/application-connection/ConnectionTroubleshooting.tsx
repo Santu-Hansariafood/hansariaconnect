@@ -3,7 +3,7 @@ export default function ConnectionTroubleshooting() {
     <>
       <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
         <h3 className="font-semibold text-amber-950">
-          Getting HTTP 401? Check these details
+          Getting HTTP 401? Check your API key
         </h3>
         <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-amber-900">
           <li>
@@ -11,14 +11,11 @@ export default function ConnectionTroubleshooting() {
             Confirm it is active, not expired, and copied correctly.
           </li>
           <li>
-            <code>adminUserId</code> must be the key owner&apos;s login ID or
-            email, and <code>adminPassword</code> must be that admin&apos;s
-            password.
+            Use an active API key created in the account that owns the
+            template. The API key alone authenticates the request; no admin
+            login ID or password is needed.
           </li>
-          <li>
-            Read the response&apos;s <code>error</code> field; it tells you
-            whether the key or admin credentials were rejected.
-          </li>
+          <li>Read the response&apos;s <code>error</code> field for details.</li>
         </ul>
       </section>
       <p className="text-sm leading-6 text-slate-600">

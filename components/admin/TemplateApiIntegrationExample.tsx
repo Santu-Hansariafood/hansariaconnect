@@ -11,7 +11,6 @@ const phpString = (value: string) =>
 export default function TemplateApiIntegrationExample({
   template,
   isPlatformAdmin,
-  adminUserId,
 }: {
   template: {
     _id: string;
@@ -21,16 +20,13 @@ export default function TemplateApiIntegrationExample({
     footer?: string;
     translations?: Record<string, string>;
     defaultLanguage?: string;
-    ownerUserId?: string;
   };
   isPlatformAdmin: boolean;
-  adminUserId: string;
 }) {
   const [language, setLanguage] = useState<CodeLanguage>("JavaScript");
   const [copyStatus, setCopyStatus] = useState("");
   const [environmentCopyStatus, setEnvironmentCopyStatus] = useState("");
   const [rateApiKey, setRateApiKey] = useState("");
-  const [rateAdminPassword, setRateAdminPassword] = useState("");
   const [rateRecipientPhone, setRateRecipientPhone] = useState("");
   const variableNames = Array.from(
     new Set(
@@ -57,8 +53,6 @@ export default function TemplateApiIntegrationExample({
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    adminUserId: process.env.HANSARIA_ADMIN_ID,
-    adminPassword: process.env.HANSARIA_ADMIN_PASSWORD,
     templateName: ${JSON.stringify(template.name)},
     language: ${JSON.stringify(template.defaultLanguage || "en")},
     toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
@@ -81,8 +75,6 @@ response = requests.post(
         "Content-Type": "application/json",
     },
     json={
-        "adminUserId": os.environ["HANSARIA_ADMIN_ID"],
-        "adminPassword": os.environ["HANSARIA_ADMIN_PASSWORD"],
         "templateName": ${JSON.stringify(template.name)},
         "language": ${JSON.stringify(template.defaultLanguage || "en")},
         "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
@@ -96,8 +88,6 @@ if not response.ok:
 print("Message sent", response.json())`,
     PHP: `<?php
 $payload = [
-  "adminUserId" => getenv("HANSARIA_ADMIN_ID"),
-  "adminPassword" => getenv("HANSARIA_ADMIN_PASSWORD"),
   "templateName" => ${phpString(template.name)},
   "language" => ${phpString(template.defaultLanguage || "en")},
   "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
@@ -130,11 +120,9 @@ echo "Message sent";`,
   };
   const example = examples[language];
   const environmentExample = `HANSARIA_API_BASE_URL=https://hfconnect.in
-  HANSARIA_API_KEY=${rateApiKey || "paste-your-api-key-here"}
-HANSARIA_ADMIN_ID=${template.ownerUserId || adminUserId}
-  HANSARIA_ADMIN_PASSWORD=${rateAdminPassword || "paste-the-template-admin-password-here"}
+HANSARIA_API_KEY=${rateApiKey || "paste-the-template-owners-api-key-here"}
 HANSARIA_RATE_TEMPLATE_ID=${template._id}
-  HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-here"}`;
+HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-here"}`;
 
   const copyCode = async () => {
     try {
@@ -210,9 +198,8 @@ HANSARIA_RATE_TEMPLATE_ID=${template._id}
           {copyStatus}
         </p>
         <p className="mt-2 leading-5 text-slate-300">
-          Add <code>HANSARIA_API_KEY</code>, <code>HANSARIA_ADMIN_ID</code>, and{" "}
-          <code>HANSARIA_ADMIN_PASSWORD</code> as server-only environment
-          variables. Replace <code>RECIPIENT_CHAT_ACCOUNT_ID</code> and
+          Add <code>HANSARIA_API_KEY</code> as a server-only environment
+          variable. Replace <code>RECIPIENT_CHAT_ACCOUNT_ID</code> and
           the{" "}
           {variableNames.length
             ? variableNames.map((name) => `YOUR_${name.toUpperCase()}`).join(", ")
@@ -226,35 +213,24 @@ HANSARIA_RATE_TEMPLATE_ID=${template._id}
                 Rate notification .env
               </h3>
               <p className="mt-1 leading-5 text-slate-300">
-                The template ID and owning admin login are filled in. Enter
-                the exact API key and password for that admin, plus the
-                recipient&apos;s registered phone number, then copy the
+                The template ID is filled in. Enter an active API key from the
+                template owner&apos;s account and the recipient&apos;s
+                registered phone number, then copy the
                 completed settings.
               </p>
             </div>
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1 block font-medium">API key</span>
+              <span className="mb-1 block font-medium">
+                Template owner&apos;s API key
+              </span>
               <input
                 type="password"
                 autoComplete="off"
                 value={rateApiKey}
                 onChange={(event) => setRateApiKey(event.target.value.trim())}
                 placeholder="Paste the key shown when you created it"
-                className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block font-medium">
-                Template owner&apos;s admin password
-              </span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={rateAdminPassword}
-                onChange={(event) => setRateAdminPassword(event.target.value)}
-                placeholder="Enter this admin account's password"
                 className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
               />
             </label>
@@ -288,13 +264,12 @@ HANSARIA_RATE_TEMPLATE_ID=${template._id}
             {environmentCopyStatus}
           </p>
           <p className="mt-1 leading-5 text-amber-200">
-            The API key and password are kept only in this page&apos;s temporary
-            form state and are not saved by HansariaConnect. Create the API key
-            in the template owner&apos;s workspace; its raw secret is shown only
-            once. The API verifies that both the key and login credentials
-            belong to the template owner. The recipient must be registered;
-            their 10-digit Indian number or +91 format is resolved to their
-            chat account.
+            The API key is kept only in this page&apos;s temporary form state
+            and is not saved by HansariaConnect. Use an active key created in
+            the template owner&apos;s workspace; its raw secret is shown only
+            once, so create a new key if you no longer have it. The recipient
+            must be registered; their 10-digit Indian number or +91 format is
+            resolved to their chat account.
           </p>
         </div>
       </div>
