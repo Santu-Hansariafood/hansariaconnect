@@ -11,6 +11,7 @@ const phpString = (value: string) =>
 export default function TemplateApiIntegrationExample({
   template,
   isPlatformAdmin,
+  viewerAdminUserId,
 }: {
   template: {
     _id: string;
@@ -23,6 +24,7 @@ export default function TemplateApiIntegrationExample({
     ownerUserId?: string;
   };
   isPlatformAdmin: boolean;
+  viewerAdminUserId: string;
 }) {
   const [language, setLanguage] = useState<CodeLanguage>("JavaScript");
   const [copyStatus, setCopyStatus] = useState("");
@@ -45,10 +47,13 @@ export default function TemplateApiIntegrationExample({
   const phpVariables = Object.entries(variables)
     .map(([name, value]) => `    ${phpString(name)} => ${phpString(value)}`)
     .join(",\n");
-  const templateOwnerUserId =
-    template.ownerUserId && template.ownerUserId !== "Deleted admin"
-      ? template.ownerUserId
-      : "not-available";
+  const canViewOwnerUserId =
+    Boolean(template.ownerUserId) &&
+    template.ownerUserId !== "Deleted admin" &&
+    template.ownerUserId === viewerAdminUserId;
+  const templateOwnerUserId = canViewOwnerUserId
+    ? template.ownerUserId ?? "not-available"
+    : "not-available";
 
   const examples: Record<CodeLanguage, string> = {
     JavaScript: `const response = await fetch("https://hfconnect.in/api/v1/messages/bulk", {
@@ -167,13 +172,15 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
           credentials secret. Configured Call, Reply, and Confirm buttons are
           included automatically when the saved template is sent.
         </p>
-        <p className="mb-3 break-all leading-5">
-          Template owner user ID:{" "}
-          <code className="rounded bg-white/10 px-1">
-            {templateOwnerUserId}
-          </code>
-          . Use an API key created for this account.
-        </p>
+        {canViewOwnerUserId && (
+          <p className="mb-3 break-all leading-5">
+            Your admin user ID:{" "}
+            <code className="rounded bg-white/10 px-1">
+              {templateOwnerUserId}
+            </code>
+            . Use an API key created for your account.
+          </p>
+        )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex items-center gap-2">
             Programming language
@@ -226,9 +233,9 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
                 Rate notification .env
               </h3>
               <p className="mt-1 leading-5 text-slate-300">
-                The template ID and owner user ID are filled in. Enter an
-                active API key from this account and the recipient&apos;s
-                registered phone number, then copy the
+                The template ID is filled in. Enter an active API key from
+                your account and the recipient&apos;s registered phone number,
+                then copy the
                 completed settings.
               </p>
             </div>
