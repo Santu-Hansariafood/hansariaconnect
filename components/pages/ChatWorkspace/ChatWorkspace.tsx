@@ -49,7 +49,7 @@ export default function ChatWorkspace() {
   return (
     <div className="flex h-[100dvh] min-h-0 w-screen overflow-hidden bg-[#f0f2f5] touch-manipulation">
       <aside
-        className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full min-w-0 shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white md:w-[360px] md:max-w-[45%] md:flex-none lg:w-[400px] xl:w-[420px]`}
+        className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full min-w-0 shrink-0 flex-col overflow-hidden border-r border-[#e9edef] bg-white md:w-[360px] md:max-w-[45%] md:flex-none lg:w-[400px] xl:w-[420px]`}
       >
         <ChatHome
           user={user!}

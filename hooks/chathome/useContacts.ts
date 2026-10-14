@@ -21,6 +21,9 @@ export interface Contact {
   email?: string;
   registered?: boolean;
   registeredUserId?: string;
+  isGroup?: boolean;
+  memberCount?: number;
+  lastMessageFromMe?: boolean;
 }
 
 const CATCHUP_COOLDOWN_MS = 120_000;
@@ -60,6 +63,9 @@ export const useContacts = (userId?: string | number) => {
         email: contact?.email || "",
         registered: !!registeredUserId,
         registeredUserId: registeredUserId || undefined,
+        isGroup: false,
+        memberCount: 0,
+        lastMessageFromMe: false,
       };
     });
 
@@ -120,7 +126,10 @@ export const useContacts = (userId?: string | number) => {
 
       const convData = await convRes.json();
       const unreadData = await unreadRes.json();
-      const unreadMap = unreadData?.conversations || {};
+      const unreadMap = {
+        ...(unreadData?.conversations || {}),
+        ...(unreadData?.groups || {}),
+      };
 
       if (!convRes.ok) {
         console.warn(
@@ -140,6 +149,7 @@ export const useContacts = (userId?: string | number) => {
       }
 
       if (Array.isArray(convData?.conversations)) {
+        const currentUserId = String(userId || "");
         const mapped: Contact[] = convData.conversations.map((c: any) => {
           let lastMessageText = "";
 
@@ -155,6 +165,7 @@ export const useContacts = (userId?: string | number) => {
           }
 
           const displayName = c.name || c.mobile || "Unknown";
+          const lastMessageFrom = c.lastMessage?.from ? String(c.lastMessage.from) : "";
 
           return {
             id: c.id || c.peerId,
@@ -173,6 +184,9 @@ export const useContacts = (userId?: string | number) => {
             email: c.email || "",
             registered: c.registered || false,
             registeredUserId: c.peerId || c.id,
+            isGroup: !!c.isGroup,
+            memberCount: c.memberCount || 0,
+            lastMessageFromMe: lastMessageFrom === currentUserId,
           };
         });
 
@@ -198,7 +212,7 @@ export const useContacts = (userId?: string | number) => {
       hasLoadedConversations.current = true;
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (!socket) return;
@@ -247,6 +261,7 @@ export const useContacts = (userId?: string | number) => {
 
   useEffect(() => {
     if (Array.isArray(bootstrapData.conversations) && bootstrapData.conversations.length > 0) {
+      const currentUserId = String(userId || "");
       const mapped: Contact[] = bootstrapData.conversations.map((c: any) => {
         let lastMessageText = "";
 
@@ -262,6 +277,7 @@ export const useContacts = (userId?: string | number) => {
         }
 
         const displayName = c.name || c.mobile || "Unknown";
+        const lastMessageFrom = c.lastMessage?.from ? String(c.lastMessage.from) : "";
 
         return {
           id: c.id || c.peerId,
@@ -280,6 +296,9 @@ export const useContacts = (userId?: string | number) => {
           email: c.email || "",
           registered: c.registered || false,
           registeredUserId: c.peerId || c.id,
+          isGroup: !!c.isGroup,
+          memberCount: c.memberCount || 0,
+          lastMessageFromMe: lastMessageFrom === currentUserId,
         };
       });
 

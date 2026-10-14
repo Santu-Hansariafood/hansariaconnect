@@ -49,7 +49,7 @@ export default function NotificationManager({
 }: NotificationManagerProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { addListener, removeListener } = useSocket();
+  const { addListener, removeListener } = useSocket({ subscribeOnline: false });
   const { preferences, playRingtone, showNotification } = useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());

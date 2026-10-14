@@ -624,8 +624,12 @@ export const emitDirectMessageReceived = async (
 
     const recipientCounts = await computeUnreadForUser(rawToId);
 
+    // Emit to recipient (incoming message)
     await emitRoomEvent(io, rawToId, "message:new", decryptedMessage);
     await emitRoomEvent(io, rawToId, "unread:update", recipientCounts);
+
+    // Emit to sender too so their chat list re-sorts to the top with lastMessageFromMe = true
+    await emitRoomEvent(io, rawFromId, "message:new", decryptedMessage);
 
     const notification = await buildDirectNotification(
       rawFromId,
@@ -784,6 +788,9 @@ export const emitGroupMessageReceived = async (
         },
       ),
     );
+
+    // Emit to sender too so their group chat list re-sorts to the top with lastMessageFromMe = true
+    await emitRoomEvent(io, rawFromId, "group:message:new", decryptedMessage);
   } catch (error: unknown) {
     console.error(
       "[socketEmitter] emitGroupMessageReceived error:",

@@ -18,7 +18,12 @@ const publishOnlineUsers = (update: (current: string[]) => string[]) => {
   onlineListeners.forEach((listener) => listener(onlineUsersSnapshot));
 };
 
-export const useSocket = () => {
+interface UseSocketOptions {
+  subscribeOnline?: boolean;
+}
+
+export const useSocket = (options: UseSocketOptions = {}) => {
+  const { subscribeOnline = true } = options;
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const isInitializedRef = useRef(false);
@@ -172,9 +177,10 @@ export const useSocket = () => {
   }, []);
 
   useEffect(() => {
+    if (!subscribeOnline) return;
     addOnlineListener(syncOnlineUsers);
     return () => removeOnlineListener(syncOnlineUsers);
-  }, [addOnlineListener, removeOnlineListener, syncOnlineUsers]);
+  }, [addOnlineListener, removeOnlineListener, syncOnlineUsers, subscribeOnline]);
 
   useEffect(() => {
     const initialize = () => {

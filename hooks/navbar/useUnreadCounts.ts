@@ -15,7 +15,7 @@ export function useUnreadCounts() {
     chats: 0,
     groups: 0,
   });
-  const { addListener, removeListener } = useSocket();
+  const { addListener, removeListener } = useSocket({ subscribeOnline: false });
   const loadedRef = useRef(false);
 
   const parseResponse = (data: UnreadResponse) => {

@@ -4,12 +4,10 @@ import { useState } from "react";
 import { Contact } from "./useContacts";
 
 interface UseCreateContactProps {
-  contacts: Contact[];
   setContacts: React.Dispatch<React.SetStateAction<Contact[]>>;
 }
 
 export const useCreateContact = ({
-  contacts,
   setContacts,
 }: UseCreateContactProps) => {
   const [showCreateModal, setShowCreateModal] = useState(false);

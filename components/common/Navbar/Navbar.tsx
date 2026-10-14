@@ -27,7 +27,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const pathname = usePathname();
 
   const { theme } = useApp();
-  const { socket } = useSocket();
+  const { socket } = useSocket({ subscribeOnline: false });
 
   const navUser = useNavbarUser(user);
   const unreadCounts = useUnreadCounts();

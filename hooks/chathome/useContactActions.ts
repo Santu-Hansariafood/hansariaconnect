@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Contact } from "./useContacts";
 
@@ -16,7 +16,7 @@ export const useContactActions = ({
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
 
-  const handleContactClick = async (contact: Contact) => {
+  const handleContactClick = useCallback(async (contact: Contact) => {
     const peerId = contact.peerId || contact.registeredUserId || contact.id;
     if (peerId) {
       router.push(`/chat/${peerId}`);
@@ -25,25 +25,25 @@ export const useContactActions = ({
 
     setSelectedContact(contact);
     setShowContactModal(true);
-  };
+  }, [router]);
 
-  const handlePinContact = (contactId: string) => {
+  const handlePinContact = useCallback((contactId: string) => {
     setContacts((prev) =>
       prev.map((contact) =>
         contact.id === contactId ? { ...contact, pinned: true } : contact
       )
     );
-  };
+  }, [setContacts]);
 
-  const handleUnpinContact = (contactId: string) => {
+  const handleUnpinContact = useCallback((contactId: string) => {
     setContacts((prev) =>
       prev.map((contact) =>
         contact.id === contactId ? { ...contact, pinned: false } : contact
       )
     );
-  };
+  }, [setContacts]);
 
-  const handleBlockUnblock = (contactId: string) => {
+  const handleBlockUnblock = useCallback((contactId: string) => {
     setContacts((prev) =>
       prev.map((contact) =>
         contact.id === contactId
@@ -52,18 +52,17 @@ export const useContactActions = ({
       )
     );
 
-    if (selectedContact?.id === contactId) {
-      setSelectedContact({
-        ...selectedContact,
-        blocked: !selectedContact.blocked,
-      });
-    }
-  };
+    setSelectedContact((current) =>
+      current?.id === contactId
+        ? { ...current, blocked: !current.blocked }
+        : current
+    );
+  }, [setContacts]);
 
-  const closeContactModal = () => {
+  const closeContactModal = useCallback(() => {
     setShowContactModal(false);
     setSelectedContact(null);
-  };
+  }, []);
 
   return {
     selectedContact,

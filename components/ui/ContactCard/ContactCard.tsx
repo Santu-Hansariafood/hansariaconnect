@@ -1,7 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
-import { formatDistanceToNow, format } from "date-fns"
+import { format } from "date-fns"
 import { Pin, Pencil, Trash2 } from "lucide-react"
 import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
@@ -115,17 +114,19 @@ const ContactCard: React.FC<ContactCardProps> = ({
   }
 
   return (
-    <motion.div
+    <div
       ref={cardRef}
-      whileTap={{ scale: 0.99 }}
       onClick={onClick}
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      className={`relative cursor-pointer px-4 py-3 transition-colors ${
-        active ? "bg-[#ebebeb]" : "hover:bg-[#f5f6f6]"
-      } border-b border-[#ececec]`}
+      className={`relative cursor-pointer px-4 py-3 transition-colors duration-150 active:scale-[0.995] ${
+        active ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"
+      } border-b border-[#e9edef]`}
     >
+      {active && (
+        <span className="absolute left-0 top-0 h-full w-1 bg-[#00a884]" />
+      )}
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
           <Image
@@ -183,9 +184,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
       </div>
 
       {contextMenu.visible && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
+        <div
           className="absolute z-50 bg-white rounded-xl shadow-2xl py-2 min-w-[180px]"
           style={{
             top: `${contextMenu.y}px`,
@@ -233,20 +232,26 @@ const ContactCard: React.FC<ContactCardProps> = ({
             <Trash2 className="w-4 h-4" />
             <span>Delete Contact</span>
           </button>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+    </div>
   )
 }
 
 // Memoize ContactCard to prevent unnecessary re-renders when parent updates
 export default React.memo(ContactCard, (prevProps, nextProps) => {
   // Return true if props are equal (don't re-render), false if different (do re-render)
+  const pc = prevProps.contact;
+  const nc = nextProps.contact;
   return (
-    prevProps.contact.id === nextProps.contact.id &&
-    prevProps.contact.unread === nextProps.contact.unread &&
-    prevProps.contact.active === nextProps.contact.active &&
-    prevProps.contact.lastMessage === nextProps.contact.lastMessage &&
+    pc.id === nc.id &&
+    pc.name === nc.name &&
+    pc.avatar === nc.avatar &&
+    pc.unread === nc.unread &&
+    pc.active === nc.active &&
+    pc.pinned === nc.pinned &&
+    pc.lastMessage === nc.lastMessage &&
+    pc.lastMessageTime === nc.lastMessageTime &&
     prevProps.active === nextProps.active
   );
 })

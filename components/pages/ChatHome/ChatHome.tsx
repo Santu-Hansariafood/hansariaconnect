@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { format } from "date-fns";
@@ -15,12 +15,13 @@ import {
   MoreVertical,
   LogOut,
   CircleUserRound,
+  Pin,
 } from "lucide-react";
 import React from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useContacts } from "@/hooks/chathome/useContacts";
-import { useFilteredContacts } from "@/hooks/chathome/useFilteredContacts";
+import { useFilteredContacts, ChatFilter } from "@/hooks/chathome/useFilteredContacts";
 import { useCreateContact } from "@/hooks/chathome/useCreateContact";
 import { useForwardMessage } from "@/hooks/chathome/useForwardMessage";
 import { useContactActions } from "@/hooks/chathome/useContactActions";
@@ -53,18 +54,10 @@ export interface Contact {
   email?: string;
   registered?: boolean;
   registeredUserId?: string;
+  isGroup?: boolean;
+  memberCount?: number;
+  lastMessageFromMe?: boolean;
 }
-
-type GroupSummary = {
-  id?: string;
-  _id?: string;
-  name?: string;
-  avatar?: string;
-  members?: string[];
-  lastMessage?: string;
-  lastMessageTime?: string;
-  updatedAt?: string;
-};
 
 interface Theme {
   wallpaper?: string;
@@ -84,6 +77,141 @@ interface User {
   step?: string;
 }
 
+const getMessagePreview = (message: any): string => {
+  if (message?.type === "image") return "📷 Image";
+  if (message?.type === "video") return "🎥 Video";
+  if (message?.type === "voice") return "🎤 Voice";
+  if (message?.type === "pdf") return "📄 PDF";
+  if (message?.type === "excel") return "📊 Excel";
+  if (message?.type === "link") return message?.linkTitle || "🔗 Link";
+  return message?.text || "New message";
+};
+
+const FILTER_TABS: { key: ChatFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "groups", label: "Groups" },
+  { key: "me", label: "Me" },
+];
+
+interface GroupContactItemProps {
+  contact: Contact;
+  active: boolean;
+  primaryColor: string;
+  textMuted: string;
+  textColor: string;
+  onClick: () => void;
+}
+
+const GroupContactItem = React.memo(
+  function GroupContactItem({
+    contact,
+    active,
+    primaryColor,
+    textMuted,
+    textColor,
+    onClick,
+  }: GroupContactItemProps) {
+    const unread = contact.unread || 0;
+    let lastText = contact.lastMessage || "No messages yet";
+    if (typeof lastText !== "string") lastText = "No messages yet";
+    if (lastText.length > 50) lastText = lastText.slice(0, 49) + "…";
+    let when = "";
+    try {
+      const d = new Date(contact.lastMessageTime || Date.now());
+      if (!isNaN(d.getTime())) when = format(d, "h:mm a").toLowerCase();
+    } catch {}
+    const memberCount = contact.memberCount || 0;
+
+    return (
+      <button
+        onClick={onClick}
+        className={`relative w-full text-left flex items-center gap-3 px-4 py-3 transition-colors duration-150 border-b border-[#e9edef] ${
+          active ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"
+        } active:scale-[0.995]`}
+      >
+        {active && (
+          <span className="absolute left-0 top-0 h-full w-1 bg-[#00a884]" />
+        )}
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shadow-sm"
+            style={{
+              background: contact.avatar
+                ? undefined
+                : "linear-gradient(135deg, #00a884 0%, #008069 100%)",
+            }}
+          >
+            {contact.avatar ? (
+              <Image
+                src={contact.avatar}
+                alt={contact.name || "Group"}
+                width={48}
+                height={48}
+                className="w-12 h-12 rounded-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            ) : (
+              <Users className="w-5 h-5 text-white" />
+            )}
+          </div>
+        </div>
+        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              {contact.pinned && (
+                <Pin
+                  className="w-3.5 h-3.5 flex-shrink-0 text-[#667781]"
+                  fill="currentColor"
+                />
+              )}
+              <Users className={`w-3.5 h-3.5 flex-shrink-0 ${textMuted}`} />
+              <p className={`font-semibold text-[15.5px] truncate ${textColor}`}>
+                {contact.name || "Group"}
+              </p>
+            </div>
+            <p className={`text-[13.5px] truncate mt-0.5 ${textMuted}`}>
+              {memberCount
+                ? `${memberCount} member${memberCount > 1 ? "s" : ""} · `
+                : ""}
+              {lastText}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+            {when && (
+              <span
+                className={`text-[11px] ${
+                  unread > 0 ? "font-medium text-[#0a9488]" : textMuted
+                }`}
+              >
+                {when}
+              </span>
+            )}
+            {unread > 0 && (
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+    );
+  },
+  (prev, next) =>
+    prev.contact.id === next.contact.id &&
+    prev.contact.name === next.contact.name &&
+    prev.contact.avatar === next.contact.avatar &&
+    prev.contact.unread === next.contact.unread &&
+    prev.contact.pinned === next.contact.pinned &&
+    prev.contact.lastMessage === next.contact.lastMessage &&
+    prev.contact.lastMessageTime === next.contact.lastMessageTime &&
+    prev.contact.memberCount === next.contact.memberCount &&
+    prev.active === next.active &&
+    prev.primaryColor === next.primaryColor,
+);
+
 interface ChatHomeProps {
   user: User;
   theme: Theme;
@@ -102,78 +230,49 @@ export default function ChatHome({
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [groups, setGroups] = useState<GroupSummary[]>([]);
-  const [groupUnread, setGroupUnread] = useState<Record<string, number>>({});
+  const [activeFilter, setActiveFilter] = useState<ChatFilter>("all");
 
   const { contacts, loading, setContacts, refreshContacts } = useContacts(user.id);
-  const { socket, addListener, removeListener } = useSocket();
-  const filteredContacts = useFilteredContacts({ contacts, searchQuery });
+  const { socket, addListener, removeListener } = useSocket({ subscribeOnline: false });
+  const filteredContacts = useFilteredContacts({ contacts, searchQuery, filter: activeFilter });
 
-  const loadGroups = useCallback(async () => {
-    try {
-      const [res, unreadRes] = await Promise.all([
-        fetch("/api/groups", {
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch("/api/unread-counts", {
-          credentials: "include",
-          cache: "no-store",
-        }),
-      ]);
-      const data = await res.json();
-      if (res.ok && Array.isArray(data?.groups)) {
-        setGroups(data.groups);
-      } else if (!res.ok) {
-        throw new Error(`Failed to load groups (${res.status})`);
-      }
+  // Refs avoid re-subscribing socket listeners whenever selectedChatId or user changes
+  const selectedChatIdRef = useRef<string | undefined>(selectedChatId);
+  const userIdRef = useRef<string>(String(user.id || ""));
+  useEffect(() => {
+    selectedChatIdRef.current = selectedChatId;
+  }, [selectedChatId]);
+  useEffect(() => {
+    userIdRef.current = String(user.id || "");
+  }, [user.id]);
 
-      if (unreadRes.ok) {
-        const unreadData = await unreadRes.json();
-        setGroupUnread(
-          Object.fromEntries(
-            Object.entries(unreadData?.groups || {}).map(([id, count]) => [
-              id,
-              Number(count) || 0,
-            ]),
-          ),
-        );
-      } else if (!unreadRes.ok) {
-        console.error(
-          `Failed to load group unread counts (${unreadRes.status})`,
-        );
-      }
-    } catch (error) {
-      console.error("Failed to load chat groups:", error);
-    }
-  }, []);
+  // Stable socket reference for handlers
+  const socketRef = useRef(socket);
+  useEffect(() => {
+    socketRef.current = socket;
+  }, [socket]);
 
   useEffect(() => {
-    void loadGroups();
-  }, [loadGroups]);
-
-  useEffect(() => {
-    const getMessagePreview = (message: any) => {
-      if (message?.type === "image") return "📷 Image";
-      if (message?.type === "video") return "🎥 Video";
-      if (message?.type === "voice") return "🎤 Voice";
-      if (message?.type === "pdf") return "📄 PDF";
-      if (message?.type === "excel") return "📊 Excel";
-      if (message?.type === "link") return message?.linkTitle || "🔗 Link";
-      return message?.text || "New message";
-    };
-
     const handleIncomingMessage = (message: any) => {
-      const peerId = String(message?.from || "");
-      if (!peerId || peerId === String(user.id || "")) return;
+      const fromId = String(message?.from || "");
+      const toId = String(message?.to || "");
+      const myId = userIdRef.current;
 
-      const recipientId = String(message?.to || "");
+      if (!fromId || !toId) return;
+
+      const isFromMe = fromId === myId;
+      const peerId = isFromMe ? toId : fromId;
+
+      if (!peerId || peerId === myId) return;
+
+      const recipientId = toId;
       const messageId = String(message?._id || message?.id || "");
       if (
-        recipientId === String(user.id || "") &&
+        !isFromMe &&
+        recipientId === myId &&
         /^[0-9a-f]{24}$/i.test(messageId)
       ) {
-        socket?.emit(
+        socketRef.current?.emit(
           "message:status",
           { id: messageId, status: "delivered" },
           (ack: { ok?: boolean; error?: string }) => {
@@ -190,6 +289,7 @@ export default function ChatHome({
       console.log(
         "[ChatHome] Direct message arrived via socket — updating peer",
         peerId,
+        isFromMe ? "(sent by me)" : "(incoming)",
       );
 
       let foundPeer = false;
@@ -206,8 +306,11 @@ export default function ChatHome({
             lastMessage: getMessagePreview(message),
             lastMessageTime:
               message?.createdAt || message?.timestamp || new Date().toISOString(),
+            lastMessageFromMe: isFromMe,
             unread:
-              selectedChatId === peerId ? 0 : Number(contact.unread || 0) + 1,
+              isFromMe || selectedChatIdRef.current === peerId
+                ? 0
+                : Number(contact.unread || 0) + 1,
           };
         }),
       );
@@ -224,44 +327,47 @@ export default function ChatHome({
     const handleIncomingGroupMessage = (message: any) => {
       const groupId = String(message?.groupId || "");
       const fromId = String(message?.from || "");
+      const myId = userIdRef.current;
       if (!groupId) return;
-      if (fromId && fromId === String(user.id || "")) return;
+
+      const isFromMe = fromId === myId;
 
       console.log(
         "[ChatHome] Group message arrived via socket — updating group",
         groupId,
         "| from:",
         fromId,
+        isFromMe ? "(sent by me)" : "(incoming)",
       );
 
       let foundGroup = false;
-      setGroups((previous) =>
-        previous.map((group) => {
-          if (String(group?.id || group?._id || "") !== groupId) return group;
+      setContacts((previous) =>
+        previous.map((contact) => {
+          const contactId = String(
+            contact.registeredUserId || contact.peerId || contact.id || "",
+          );
+          if (contactId !== groupId || !contact.isGroup) return contact;
           foundGroup = true;
           return {
-            ...group,
+            ...contact,
             lastMessage: getMessagePreview(message),
             lastMessageTime:
               message?.createdAt || message?.timestamp || new Date().toISOString(),
+            lastMessageFromMe: isFromMe,
+            unread:
+              isFromMe || selectedChatIdRef.current === groupId
+                ? 0
+                : Number(contact.unread || 0) + 1,
           };
         }),
       );
 
-      setGroupUnread((previous) => {
-        const currentCount = Number(previous?.[groupId] || 0);
-        const alreadyActive = selectedChatId && String(selectedChatId) === groupId;
-        const nextCount = alreadyActive ? 0 : currentCount + 1;
-        if (currentCount === nextCount) return previous;
-        return { ...(previous || {}), [groupId]: nextCount };
-      });
-
       if (!foundGroup) {
         console.log(
-          "[ChatHome] Incoming group message belongs to a group outside the local list. Refreshing groups.",
+          "[ChatHome] Incoming group message belongs to a group outside the local list. Refreshing conversations.",
           groupId,
         );
-        void loadGroups();
+        void refreshContacts();
       }
     };
 
@@ -270,28 +376,19 @@ export default function ChatHome({
       groups?: Record<string, number>;
     }) => {
       if (!payload || typeof payload !== "object") return;
-      if (payload.conversations) {
-        setContacts((previous) =>
-          previous.map((contact) => {
-            const peerId = String(
-              contact.registeredUserId || contact.peerId || contact.id || "",
-            );
-            const unread = Number(payload.conversations?.[peerId] || 0);
-            return contact.unread === unread ? contact : { ...contact, unread };
-          }),
-        );
-      }
-      if (payload.groups) {
-        setGroupUnread((current) => {
-          const merged: Record<string, number> = { ...(current || {}) };
-          for (const [groupId, count] of Object.entries(
-            payload.groups as Record<string, number>,
-          )) {
-            merged[groupId] = Number(count) || 0;
-          }
-          return merged;
-        });
-      }
+      const mergedUnread: Record<string, number> = {
+        ...(payload.conversations || {}),
+        ...(payload.groups || {}),
+      };
+      setContacts((previous) =>
+        previous.map((contact) => {
+          const peerId = String(
+            contact.registeredUserId || contact.peerId || contact.id || "",
+          );
+          const unread = Number(mergedUnread[peerId] || 0);
+          return contact.unread === unread ? contact : { ...contact, unread };
+        }),
+      );
     };
 
     addListener("message:new", handleIncomingMessage);
@@ -305,31 +402,16 @@ export default function ChatHome({
     };
   }, [
     addListener,
-    loadGroups,
     refreshContacts,
     removeListener,
-    selectedChatId,
     setContacts,
     socket,
-    user.id,
   ]);
 
   const handleSearch = useCallback(
     (query: string) => setSearchQuery(query),
     [],
   );
-
-  const visibleGroups = useMemo(() => {
-    const q = (searchQuery || "").trim().toLowerCase();
-    const filteredGroups = q
-      ? groups.filter((g: any) => (g?.name || "").toLowerCase().includes(q))
-      : groups;
-    return [...filteredGroups].sort(
-      (a: any, b: any) =>
-        new Date(b?.lastMessageTime || b?.updatedAt || 0).getTime() -
-        new Date(a?.lastMessageTime || a?.updatedAt || 0).getTime(),
-    );
-  }, [groups, searchQuery]);
 
   const {
     showCreateModal,
@@ -345,7 +427,7 @@ export default function ChatHome({
     updateMobileField,
     removeMobileField,
     submitCreateContact,
-  } = useCreateContact({ contacts, setContacts });
+  } = useCreateContact({ setContacts });
 
   const { forwardModalData, handleForwardMessage, handleForwardSubmit } =
     useForwardMessage({ contacts });
@@ -359,6 +441,34 @@ export default function ChatHome({
     handleBlockUnblock,
     closeContactModal,
   } = useContactActions({ contacts, setContacts });
+
+  // Stable callbacks for list items — refs keep them fresh without re-creating
+  const onSelectChatRef = useRef(onSelectChat);
+  const handleContactClickRef = useRef(handleContactClick);
+  useEffect(() => {
+    onSelectChatRef.current = onSelectChat;
+  }, [onSelectChat]);
+  useEffect(() => {
+    handleContactClickRef.current = handleContactClick;
+  }, [handleContactClick]);
+
+  const handleContactCardClick = useCallback((contact: Contact) => {
+    const chatId = contact.peerId || contact.registeredUserId || contact.id;
+    if (onSelectChatRef.current && contact.registeredUserId) {
+      onSelectChatRef.current(chatId);
+    } else {
+      handleContactClickRef.current(contact);
+    }
+  }, []);
+
+  const handleGroupClick = useCallback((contact: Contact) => {
+    const chatId = contact.peerId || contact.registeredUserId || contact.id;
+    if (onSelectChatRef.current) onSelectChatRef.current(chatId);
+    else router.push(`/chat/${chatId}`);
+  }, [router]);
+
+  const noopEdit = useCallback(() => {}, []);
+  const noopDelete = useCallback(() => {}, []);
 
   const themeColors = useMemo(
     () => ({
@@ -430,10 +540,9 @@ export default function ChatHome({
           className="h-14 sm:h-[60px] min-h-[56px] px-3 sm:px-4 flex items-center justify-between relative z-20 shadow-sm"
           style={{ backgroundColor: theme.primary }}
         >
-          <motion.button
-            whileTap={{ scale: 0.96 }}
+          <button
             onClick={() => router.push("/profile")}
-            className="flex items-center justify-center flex-shrink-0"
+            className="flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform duration-150"
             title="Profile"
           >
             <div className="relative">
@@ -456,51 +565,47 @@ export default function ChatHome({
                 </div>
               )}
               <span
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 ${
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 transition-colors duration-200 ${
                   socket?.connected ? "bg-green-500" : "bg-gray-400"
                 }`}
                 style={{ borderColor: theme.primary }}
               />
             </div>
-          </motion.button>
+          </button>
 
           <div className="flex items-center gap-1 sm:gap-2 text-white">
-            <motion.button
-              whileTap={{ scale: 0.9 }}
+            <button
               onClick={() => router.push("/status")}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
               title="Status"
             >
               <CircleUserRound className="w-5 h-5" />
-            </motion.button>
+            </button>
 
-            <motion.button
-              whileTap={{ scale: 0.9 }}
+            <button
               onClick={() => router.push("/groups")}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
               title="Groups"
             >
               <Users className="w-5 h-5" />
-            </motion.button>
+            </button>
 
-            <motion.button
-              whileTap={{ scale: 0.9 }}
+            <button
               onClick={() => setShowCreateModal(true)}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
               title="New Chat"
             >
               <MessageSquarePlus className="w-5 h-5" />
-            </motion.button>
+            </button>
 
             <div className="relative">
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="p-2 rounded-full hover:bg-white/10 transition-colors"
+                className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
                 title="Menu"
               >
                 <MoreVertical className="w-5 h-5" />
-              </motion.button>
+              </button>
               {menuOpen && (
                 <>
                   <div
@@ -513,7 +618,7 @@ export default function ChatHome({
                         setMenuOpen(false);
                         router.push("/profile");
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 flex items-center gap-3"
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 transition-colors flex items-center gap-3"
                     >
                       Profile
                     </button>
@@ -522,7 +627,7 @@ export default function ChatHome({
                         setMenuOpen(false);
                         router.push("/contacts");
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 flex items-center gap-3"
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 transition-colors flex items-center gap-3"
                     >
                       Contacts
                     </button>
@@ -531,7 +636,7 @@ export default function ChatHome({
                         setMenuOpen(false);
                         router.push("/status");
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 flex items-center gap-3"
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 transition-colors flex items-center gap-3"
                     >
                       Status
                     </button>
@@ -541,7 +646,7 @@ export default function ChatHome({
                         setMenuOpen(false);
                         onLogout?.();
                       }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3"
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3"
                     >
                       <LogOut className="w-4 h-4" />
                       Log out
@@ -553,20 +658,14 @@ export default function ChatHome({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-[#f0f2f5] px-3 py-2 shadow-[inset_0_-1px_0_#e9edef]"
-          >
+        <div className="flex-1 overflow-y-auto min-h-0 scroll-smooth">
+          <div className="bg-[#f0f2f5] px-3 py-2 border-b border-[#e9edef]">
             <div className="mb-2 flex items-center justify-between px-1">
               <h1 className="text-xl font-semibold text-[#111b21]">Chats</h1>
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+              <button
                 onClick={() => setShowCreateModal(true)}
                 style={{ backgroundColor: theme.primary }}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm hover:opacity-90 transition-opacity duration-150 active:scale-95"
                 title="New Contact"
               >
                 <svg
@@ -582,7 +681,7 @@ export default function ChatHome({
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
-              </motion.button>
+              </button>
             </div>
             <div className="px-1">
               <SearchBar
@@ -590,153 +689,81 @@ export default function ChatHome({
                 placeholder="Search or start new chat..."
               />
             </div>
-          </motion.div>
-          <div className="flex flex-col">
-            {filteredContacts.map((contact) => (
-              <div key={contact.id}>
-                <ContactCard
-                  contact={contact}
-                  onClick={() => {
-                    const peerId =
-                      contact.peerId || contact.registeredUserId || contact.id;
-                    if (onSelectChat && contact.registeredUserId) {
-                      onSelectChat(peerId);
-                    } else {
-                      handleContactClick(contact);
-                    }
-                  }}
-                  onPin={handlePinContact}
-                  onUnpin={handleUnpinContact}
-                  onForward={handleForwardMessage}
-                  onEdit={(c) => {}}
-                  onDelete={(id) => {}}
-                  theme={theme}
-                  active={
-                    selectedChatId ===
-                    (contact.peerId || contact.registeredUserId || contact.id)
-                  }
-                />
-              </div>
-            ))}
-
-            {visibleGroups.length > 0 && (
-              <div className="px-4 pt-4 pb-1 flex items-center gap-2">
-                <span
-                  className={`text-[11px] font-semibold uppercase tracking-wide ${textMuted}`}
-                >
-                  Groups
-                </span>
-                <span className={`flex-1 h-px ${borderColor}`} />
-              </div>
-            )}
-            {visibleGroups.map((g: any) => {
-              const groupId = String(g.id || g._id || "");
-              const isActive = selectedChatId === groupId;
-              const unread = groupUnread[groupId] || 0;
-              let lastText = g?.lastMessage || "No messages yet";
-              if (typeof lastText !== "string") lastText = "No messages yet";
-              if (lastText.length > 50) lastText = lastText.slice(0, 49) + "…";
-              let when = "";
-              try {
-                const d = new Date(
-                  g?.lastMessageTime || g?.updatedAt || Date.now(),
-                );
-                if (!isNaN(d.getTime()))
-                  when = format(d, "h:mm a").toLowerCase();
-              } catch {}
-              const memberCount = Array.isArray(g?.members)
-                ? g.members.length
-                : 0;
-              return (
-                <motion.button
-                  key={groupId}
-                  whileTap={{ scale: 0.995 }}
-                  onClick={() => {
-                    if (onSelectChat) onSelectChat(groupId);
-                    else router.push(`/chat/${groupId}`);
-                  }}
-                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 transition-colors border-b ${borderColor} ${
-                    isActive ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"
+            <div className="mt-2 flex items-center gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
+              {FILTER_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveFilter(tab.key)}
+                  className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all duration-150 active:scale-95 ${
+                    activeFilter === tab.key
+                      ? "text-white shadow-sm"
+                      : "text-[#54656f] hover:bg-black/5"
                   }`}
+                  style={
+                    activeFilter === tab.key
+                      ? { backgroundColor: theme.primary }
+                      : undefined
+                  }
                 >
-                  <div className="relative flex-shrink-0">
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden shadow-sm"
-                      style={{
-                        background: g?.avatar
-                          ? undefined
-                          : "linear-gradient(135deg, #00a884 0%, #008069 100%)",
-                      }}
-                    >
-                      {g?.avatar ? (
-                        <Image
-                          src={g.avatar}
-                          alt={g.name || "Group"}
-                          width={48}
-                          height={48}
-                          className="w-12 h-12 rounded-full object-cover"
-                          onError={(e) => {
-                            (
-                              e.currentTarget as HTMLImageElement
-                            ).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <Users className="w-5 h-5 text-white" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <Users
-                          className={`w-3.5 h-3.5 flex-shrink-0 ${textMuted}`}
-                        />
-                        <p
-                          className={`font-semibold text-[15.5px] truncate ${textColor}`}
-                        >
-                          {g.name || "Group"}
-                        </p>
-                      </div>
-                      <p
-                        className={`text-[13.5px] truncate mt-0.5 ${textMuted}`}
-                      >
-                        {memberCount
-                          ? `${memberCount} member${memberCount > 1 ? "s" : ""} · `
-                          : ""}
-                        {lastText}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      {when && (
-                        <span className={`text-[11px] ${unread > 0 ? "font-medium text-[#0a9488]" : textMuted}`}>
-                          {when}
-                        </span>
-                      )}
-                      {unread > 0 && (
-                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
-                          {unread > 99 ? "99+" : unread}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </motion.button>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col">
+            {filteredContacts.map((contact) => {
+              const chatId =
+                contact.peerId || contact.registeredUserId || contact.id;
+              const isActive = selectedChatId === chatId;
+
+              if (contact.isGroup) {
+                return (
+                  <GroupContactItem
+                    key={contact.id}
+                    contact={contact}
+                    active={isActive}
+                    primaryColor={theme.primary}
+                    textMuted={textMuted}
+                    textColor={textColor}
+                    onClick={() => handleGroupClick(contact)}
+                  />
+                );
+              }
+
+              return (
+                <div key={contact.id}>
+                  <ContactCard
+                    contact={contact}
+                    onClick={() => handleContactCardClick(contact)}
+                    onPin={handlePinContact}
+                    onUnpin={handleUnpinContact}
+                    onForward={handleForwardMessage}
+                    onEdit={noopEdit}
+                    onDelete={noopDelete}
+                    theme={theme}
+                    active={isActive}
+                  />
+                </div>
               );
             })}
           </div>
-          {filteredContacts.length === 0 &&
-            visibleGroups.length === 0 &&
-            !loading && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-center py-12"
-              >
-                <p className={`text-sm ${textMuted}`}>
-                  No contacts or groups found
-                </p>
-              </motion.div>
-            )}
+          {filteredContacts.length === 0 && !loading && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12"
+            >
+              <p className={`text-sm ${textMuted}`}>
+                {activeFilter === "unread"
+                  ? "No unread chats"
+                  : activeFilter === "groups"
+                    ? "No group chats"
+                    : activeFilter === "me"
+                      ? "No chats with your last message"
+                      : "No contacts or groups found"}
+              </p>
+            </motion.div>
+          )}
           {showContactModal && selectedContact && (
             <motion.div
               initial={{ opacity: 0 }}
