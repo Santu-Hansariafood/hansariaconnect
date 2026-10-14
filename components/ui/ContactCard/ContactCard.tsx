@@ -1,7 +1,7 @@
 "use client"
 
 import { format } from "date-fns"
-import { Pin, Pencil, Trash2 } from "lucide-react"
+import { Pin, Pencil, Trash2, Forward } from "lucide-react"
 import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 
@@ -203,19 +203,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
             onClick={handleForwardClick}
             className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 7l5 5m0 0l-5 5m5-5H6"
-              />
-            </svg>
+            <Forward className="w-4 h-4" />
             <span>Forward Message</span>
           </button>
           <button

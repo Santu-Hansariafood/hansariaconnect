@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import {
   ArrowLeft,
   MoreVertical,
@@ -204,11 +203,7 @@ export default function ChatWindowHeader({
         </button>
 
         {showOptionsMenu && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="absolute right-0 top-12 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50"
-          >
+          <div className="absolute right-0 top-12 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50">
             <div
               className="px-4 py-3"
               style={{
@@ -281,7 +276,7 @@ export default function ChatWindowHeader({
                 <span className="text-gray-700 font-medium">Block/Mute</span>
               </button>
             </div>
-          </motion.div>
+          </div>
         )}
       </div>
     </header>

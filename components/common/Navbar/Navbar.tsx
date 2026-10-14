@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -42,27 +41,21 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   };
 
   return (
-    <motion.nav
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.2 }}
+    <nav
       style={{
         backgroundColor: theme.primary,
         borderBottomColor: `${theme.primary}80`,
       }}
-      className="sticky top-0 z-50 border-b shadow-md"
+      className="sticky top-0 z-50 border-b shadow-sm"
     >
       <div className="px-2 sm:px-4">
         <div className="flex h-14 items-center justify-between sm:h-16">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <motion.button
+            <button
               type="button"
               onClick={() => handleNavigation("/")}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.2 }}
               aria-label="Go to home"
-              className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-md ring-1 ring-white/20 sm:h-10 sm:w-10"
+              className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-sm ring-1 ring-white/20 transition-transform duration-150 active:scale-95 sm:h-10 sm:w-10"
             >
               <Image
                 src="/logo/logo.png"
@@ -72,7 +65,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 className="object-cover"
                 priority
               />
-            </motion.button>
+            </button>
 
             <h1 className="truncate text-base font-bold text-white sm:text-lg">
               HansariaConnect
@@ -87,18 +80,12 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               const hasUnread = count > 0;
 
               return (
-                <motion.button
+                <button
                   key={item.path}
                   type="button"
-                  whileTap={{ scale: 0.95 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 400,
-                    damping: 25,
-                  }}
                   onClick={() => handleNavigation(item.path)}
                   aria-current={isActive ? "page" : undefined}
-                  className={`relative flex items-center gap-2 rounded-lg px-3 py-2 font-medium transition-all duration-200 sm:px-4 ${
+                  className={`relative flex items-center gap-2 rounded-lg px-3 py-2 font-medium transition-all duration-150 active:scale-95 sm:px-4 ${
                     isActive ? "text-white" : "text-gray-100 hover:bg-white/10"
                   }`}
                   style={
@@ -121,7 +108,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                       {count > 99 ? "99+" : count}
                     </span>
                   )}
-                </motion.button>
+                </button>
               );
             })}
           </div>
@@ -138,12 +125,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               </span>
             )}
 
-            <motion.button
+            <button
               type="button"
-              whileTap={{ scale: 0.97 }}
               onClick={() => handleNavigation("/profile")}
               aria-label="Open profile"
-              className="flex items-center gap-1 rounded-lg px-2 py-1.5 transition-all duration-200 hover:bg-white/10 sm:gap-2"
+              className="flex items-center gap-1 rounded-lg px-2 py-1.5 transition-all duration-150 hover:bg-white/10 active:scale-95 sm:gap-2"
             >
               <div className="relative shrink-0">
                 {navUser.photo ? (
@@ -170,10 +156,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 )}
 
                 <span
-                  className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-2 ring-white sm:h-4 sm:w-4 ${
-                    isSelfOnline
-                      ? "animate-pulse bg-emerald-500"
-                      : "bg-gray-400"
+                  className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full ring-2 ring-white transition-colors duration-200 sm:h-4 sm:w-4 ${
+                    isSelfOnline ? "bg-emerald-500" : "bg-gray-400"
                   }`}
                   title={isSelfOnline ? "Online" : "Offline"}
                 />
@@ -192,25 +176,24 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                   {isSelfOnline ? "online" : "offline"}
                 </span>
               </div>
-            </motion.button>
+            </button>
 
             {onLogout && (
-              <motion.button
+              <button
                 type="button"
-                whileTap={{ scale: 0.92 }}
                 onClick={onLogout}
                 aria-label="Logout"
                 title="Logout"
-                className="rounded-lg p-2 text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                className="rounded-lg p-2 text-white/70 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
               >
                 <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-              </motion.button>
+              </button>
             )}
           </div>
         </div>
 
         <div
-          className="flex items-center gap-1 overflow-x-auto border-t py-1.5 md:hidden"
+          className="flex items-center gap-1 overflow-x-auto border-t py-1.5 md:hidden scrollbar-hide"
           style={{
             borderTopColor: `${theme.primary}80`,
             backgroundColor: theme.primary,
@@ -224,13 +207,12 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             const hasUnread = count > 0;
 
             return (
-              <motion.button
+              <button
                 key={item.path}
                 type="button"
-                whileTap={{ scale: 0.92 }}
                 onClick={() => handleNavigation(item.path)}
                 aria-current={isActive ? "page" : undefined}
-                className={`relative flex min-w-[52px] flex-1 shrink-0 flex-col items-center gap-0.5 rounded-lg p-1.5 transition-all duration-200 sm:min-w-[60px] sm:p-2 ${
+                className={`relative flex min-w-[52px] flex-1 shrink-0 flex-col items-center gap-0.5 rounded-lg p-1.5 transition-all duration-150 active:scale-95 sm:min-w-[60px] sm:p-2 ${
                   isActive
                     ? "bg-white/20 text-white"
                     : "text-gray-100 hover:bg-white/10"
@@ -250,12 +232,12 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                     {count > 9 ? "9+" : count}
                   </span>
                 )}
-              </motion.button>
+              </button>
             );
           })}
         </div>
       </div>
-    </motion.nav>
+    </nav>
   );
 };
 
