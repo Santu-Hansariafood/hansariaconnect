@@ -96,7 +96,7 @@ type IncomingNotificationPayload = {
   preview: string;
   messageType: string;
   timestamp: Date | string;
-  unreadCounts: UnreadPayload;
+  unreadCounts?: UnreadPayload;
 };
 
 type NotificationMeta = Omit<IncomingNotificationPayload, "unreadCounts">;
@@ -217,7 +217,13 @@ const emitRoomEvent = async (
     );
   }
 
-  io?.to(room).emit(event, payload);
+  if (io) {
+    io.to(room).emit(event, payload);
+  } else {
+    console.error(
+      `[socketEmitter] Could not deliver ${event} to ${room}: Socket.IO server is unavailable`,
+    );
+  }
 };
 
 const normalizeMobile = (value?: string | null): string => {
@@ -661,7 +667,19 @@ const buildDirectNotification = async (
       "[socketEmitter] buildDirectNotification failed:",
       errMsg(error),
     );
-    return null;
+    return {
+      kind: "direct",
+      chatId: rawFromId,
+      messageId: getMessageId(decryptedMessage),
+      chatName: "New message",
+      chatAvatar: DEFAULT_AVATAR,
+      fromUserId: rawFromId,
+      fromName: "New message",
+      fromAvatar: DEFAULT_AVATAR,
+      preview: buildPreview(decryptedMessage),
+      messageType: decryptedMessage.type,
+      timestamp: decryptedMessage.createdAt ?? new Date(),
+    };
   }
 };
 
@@ -709,7 +727,19 @@ const buildGroupNotificationMeta = async (
       "[socketEmitter] buildGroupNotificationMeta failed:",
       errMsg(error),
     );
-    return null;
+    return {
+      kind: "group",
+      chatId: rawGroupId,
+      messageId: getMessageId(decryptedMessage),
+      chatName: "Group",
+      chatAvatar: DEFAULT_AVATAR,
+      fromUserId: rawFromId,
+      fromName: "New message",
+      fromAvatar: DEFAULT_AVATAR,
+      preview: `New message: ${buildPreview(decryptedMessage)}`,
+      messageType: decryptedMessage.type,
+      timestamp: decryptedMessage.createdAt ?? new Date(),
+    };
   }
 };
 
@@ -748,11 +778,9 @@ export const emitDirectMessageReceived = async (
       deliver,
     ]);
 
-    if (!recipientCounts) {
-      return;
+    if (recipientCounts) {
+      await emitRoomEvent(io, rawToId, "unread:update", recipientCounts);
     }
-
-    await emitRoomEvent(io, rawToId, "unread:update", recipientCounts);
 
     if (!notification) {
       console.warn(
@@ -769,7 +797,7 @@ export const emitDirectMessageReceived = async (
     await Promise.all([
       emitRoomEvent(io, rawToId, "message:notify", {
         ...notification,
-        unreadCounts: recipientCounts,
+        ...(recipientCounts ? { unreadCounts: recipientCounts } : {}),
       }),
       emitRoomEvent(
         io,
@@ -868,17 +896,18 @@ export const emitGroupMessageReceived = async (
 
         const unread = await getUnreadCountsForUser(memberId);
 
-        if (!unread) return;
-
-        const notificationTasks: Promise<void>[] = [
-          emitRoomEvent(io, memberId, "unread:update", unread),
-        ];
+        const notificationTasks: Promise<void>[] = [];
+        if (unread) {
+          notificationTasks.push(
+            emitRoomEvent(io, memberId, "unread:update", unread),
+          );
+        }
 
         if (meta) {
           notificationTasks.push(
             emitRoomEvent(io, memberId, "message:notify", {
               ...meta,
-              unreadCounts: unread,
+              ...(unread ? { unreadCounts: unread } : {}),
             }),
             emitRoomEvent(
               io,

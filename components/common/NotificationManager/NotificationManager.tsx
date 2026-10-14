@@ -288,7 +288,7 @@ export default function NotificationManager({
       const showBrowserNotification =
         !isFocusedConversation &&
         (!isPageVisible || !isWindowFocused || runningAsInstalledApp);
-      const showInAppToast = isPageVisible && isWindowFocused && !isActiveChat;
+      const showInAppToast = isPageVisible && isWindowFocused;
       const titleSource =
         payload.kind === "group"
           ? `${payload.fromName} in ${payload.chatName || "Group"}`
