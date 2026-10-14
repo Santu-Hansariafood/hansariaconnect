@@ -12,12 +12,21 @@ import Contact from "@/models/contact/Contact";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 
 import {
+  getRedis,
   invalidateDirectMessages,
   invalidateGroupMessages,
   invalidateUserConversations,
-  redisDel,
 } from "@/lib/redis/redis";
 import { publishSocketRoomEvent } from "@/lib/socketRedisAdapter";
+import {
+  clearAllUnread,
+  clearChatUnread,
+  incrDirectUnread,
+  incrGroupUnread,
+  readUnread,
+  writeUnread,
+  type UnreadPayload,
+} from "@/lib/unreadCounters";
 
 type ContactLean = {
   name?: string;
@@ -31,12 +40,9 @@ type ConversationLean = {
 };
 
 type GroupLean = {
-  _id: Types.ObjectId;
+  _id?: Types.ObjectId | string;
   name?: string;
   avatar?: string;
-  members?: Array<{
-    userId: Types.ObjectId | string;
-  }>;
 };
 
 type ReadReceiptLean = {
@@ -47,7 +53,7 @@ type ReadReceiptLean = {
 };
 
 type SenderUserLean = {
-  _id: Types.ObjectId;
+  _id?: Types.ObjectId | string;
   mobile?: string;
   name?: string;
 };
@@ -55,6 +61,11 @@ type SenderUserLean = {
 type SenderProfileLean = {
   name?: string;
   photo?: string;
+};
+
+type SenderInfo = {
+  user: SenderUserLean | null;
+  profile: SenderProfileLean | null;
 };
 
 type DecryptedMessage = {
@@ -73,12 +84,6 @@ type DecryptedMessage = {
   timestamp?: Date;
 };
 
-type UnreadPayload = {
-  total: number;
-  conversations: Record<string, number>;
-  groups: Record<string, number>;
-};
-
 type IncomingNotificationPayload = {
   kind: "direct" | "group";
   chatId: string;
@@ -94,6 +99,8 @@ type IncomingNotificationPayload = {
   unreadCounts: UnreadPayload;
 };
 
+type NotificationMeta = Omit<IncomingNotificationPayload, "unreadCounts">;
+
 type AdminNotificationPayload = Pick<
   IncomingNotificationPayload,
   | "kind"
@@ -106,13 +113,44 @@ type AdminNotificationPayload = Pick<
   | "timestamp"
 >;
 
-const EMPTY_UNREAD: UnreadPayload = {
+const EMPTY_UNREAD: UnreadPayload = Object.freeze({
   total: 0,
   conversations: {},
   groups: {},
-};
+});
 
 const DEFAULT_AVATAR = "/logo/logo.png";
+const META_CACHE_TTL_SECONDS = 300;
+const FAN_OUT_CONCURRENCY = 20;
+const DEBUG = process.env.SOCKET_DEBUG === "1";
+let activeFanOut = 0;
+const fanOutWaiters: Array<() => void> = [];
+
+const debugLog = (...args: unknown[]) => {
+  if (DEBUG) console.log(...args);
+};
+
+const errMsg = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
+const withFanOutSlot = async (work: () => Promise<void>): Promise<void> => {
+  if (activeFanOut >= FAN_OUT_CONCURRENCY) {
+    await new Promise<void>((resolve) => fanOutWaiters.push(resolve));
+  } else {
+    activeFanOut += 1;
+  }
+
+  try {
+    await work();
+  } finally {
+    const next = fanOutWaiters.shift();
+    if (next) {
+      next();
+    } else {
+      activeFanOut -= 1;
+    }
+  }
+};
 
 let socketBootstrap: Promise<void> | null = null;
 
@@ -137,7 +175,7 @@ const getIo = async (): Promise<ServerIO | null> => {
         socketBootstrap = null;
         console.error(
           "[socketEmitter] Could not initialize the local Socket.IO server:",
-          error instanceof Error ? error.message : "Unknown error",
+          errMsg(error),
         );
       });
   }
@@ -158,7 +196,7 @@ export const disconnectUserSession = async (
   } catch (error) {
     console.error(
       "[socketEmitter] Could not disconnect revoked session:",
-      error instanceof Error ? error.message : String(error),
+      errMsg(error),
     );
   }
 };
@@ -175,7 +213,7 @@ const emitRoomEvent = async (
   } catch (error) {
     console.error(
       `[socketEmitter] Redis publish failed for ${event}:`,
-      error instanceof Error ? error.message : "Unknown error",
+      errMsg(error),
     );
   }
 
@@ -192,6 +230,58 @@ const toObjectId = (value: string): Types.ObjectId | null => {
   }
 
   return new Types.ObjectId(value);
+};
+
+const forEachConcurrent = async <T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> => {
+  let nextIndex = 0;
+  const workerCount = Math.min(items.length, Math.max(1, concurrency));
+
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const item = items[nextIndex++];
+
+        try {
+          await withFanOutSlot(() => fn(item));
+        } catch (error) {
+          console.error("[socketEmitter] fan-out item failed:", errMsg(error));
+        }
+      }
+    }),
+  );
+};
+
+const getCached = async <T>(
+  cacheKey: string,
+  ttlSeconds: number,
+  loader: () => Promise<T>,
+): Promise<T> => {
+  const client = await getRedis();
+
+  try {
+    if (client) {
+      const hit = await client.get(cacheKey);
+      if (hit) return JSON.parse(hit) as T;
+    }
+  } catch (error) {
+    console.error("[socketEmitter] cache read failed:", errMsg(error));
+  }
+
+  const value = await loader();
+
+  if (client) {
+    try {
+      await client.set(cacheKey, JSON.stringify(value), "EX", ttlSeconds);
+    } catch (error) {
+      console.error("[socketEmitter] cache write failed:", errMsg(error));
+    }
+  }
+
+  return value;
 };
 
 const buildPreview = (
@@ -223,6 +313,22 @@ const buildPreview = (
     }
   }
 };
+
+const toAdminNotification = (
+  notification: NotificationMeta,
+): AdminNotificationPayload => ({
+  kind: notification.kind,
+  chatId: notification.chatId,
+  chatName: notification.chatName,
+  chatAvatar: notification.chatAvatar,
+  fromUserId: notification.fromUserId,
+  fromName: notification.fromName,
+  fromAvatar: notification.fromAvatar,
+  timestamp: notification.timestamp,
+});
+
+const getMessageId = (message: DecryptedMessage): string | undefined =>
+  message.id || String(message._id ?? "") || undefined;
 
 const computeDirectUnread = async (
   userId: Types.ObjectId,
@@ -261,9 +367,10 @@ const computeDirectUnread = async (
     from: Types.ObjectId;
     to: Types.ObjectId;
     createdAt: { $gt: Date };
+    status: { $ne: "seen" };
   }> = [];
 
-  const peerMap = new Map<string, string>();
+  const peerIds = new Set<string>();
 
   for (const conversation of conversations) {
     const peerId =
@@ -273,16 +380,13 @@ const computeDirectUnread = async (
 
     const lastReadAt = receiptMap.get(String(conversation._id)) ?? new Date(0);
 
-    const peerIdString = String(peerId);
-
-    peerMap.set(peerIdString, peerIdString);
+    peerIds.add(String(peerId));
 
     conditions.push({
       from: peerId,
       to: userId,
-      createdAt: {
-        $gt: lastReadAt,
-      },
+      createdAt: { $gt: lastReadAt },
+      status: { $ne: "seen" },
     });
   }
 
@@ -294,19 +398,8 @@ const computeDirectUnread = async (
     _id: Types.ObjectId;
     count: number;
   }>([
-    {
-      $match: {
-        $or: conditions,
-      },
-    },
-    {
-      $group: {
-        _id: "$from",
-        count: {
-          $sum: 1,
-        },
-      },
-    },
+    { $match: { $or: conditions } },
+    { $group: { _id: "$from", count: { $sum: 1 } } },
   ]);
 
   const counts: Record<string, number> = {};
@@ -314,7 +407,7 @@ const computeDirectUnread = async (
   for (const result of results) {
     const peerId = String(result._id);
 
-    if (peerMap.has(peerId) && result.count > 0) {
+    if (peerIds.has(peerId) && result.count > 0) {
       counts[peerId] = result.count;
     }
   }
@@ -340,6 +433,7 @@ const computeGroupUnread = async (
   const receipts = (await ReadReceipt.find({
     userId,
     groupId: { $in: groupIds },
+    groupMessageId: { $exists: false },
   })
     .select("groupId readAt")
     .lean()) as ReadReceiptLean[];
@@ -363,12 +457,8 @@ const computeGroupUnread = async (
 
     conditions.push({
       groupId: group._id,
-      from: {
-        $ne: userId,
-      },
-      createdAt: {
-        $gt: lastReadAt,
-      },
+      from: { $ne: userId },
+      createdAt: { $gt: lastReadAt },
     });
   }
 
@@ -380,19 +470,30 @@ const computeGroupUnread = async (
     _id: Types.ObjectId;
     count: number;
   }>([
+    { $match: { $or: conditions } },
     {
-      $match: {
-        $or: conditions,
+      $lookup: {
+        from: ReadReceipt.collection.name,
+        let: { messageId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$groupMessageId", "$$messageId"] },
+                  { $eq: ["$userId", userId] },
+                ],
+              },
+            },
+          },
+          { $limit: 1 },
+          { $project: { _id: 1 } },
+        ],
+        as: "userReadReceipts",
       },
     },
-    {
-      $group: {
-        _id: "$groupId",
-        count: {
-          $sum: 1,
-        },
-      },
-    },
+    { $match: { "userReadReceipts.0": { $exists: false } } },
+    { $group: { _id: "$groupId", count: { $sum: 1 } } },
   ]);
 
   const counts: Record<string, number> = {};
@@ -406,13 +507,20 @@ const computeGroupUnread = async (
   return counts;
 };
 
-const computeUnreadForUser = async (
+export const getUnreadCountsForUser = async (
   rawUserId: string,
-): Promise<UnreadPayload> => {
+): Promise<UnreadPayload | null> => {
   const userId = toObjectId(rawUserId);
 
   if (!userId) {
     return EMPTY_UNREAD;
+  }
+
+  try {
+    const cached = await readUnread(rawUserId);
+    if (cached) return cached;
+  } catch (error) {
+    console.error("[socketEmitter] unread cache read failed:", errMsg(error));
   }
 
   try {
@@ -421,17 +529,27 @@ const computeUnreadForUser = async (
       computeGroupUnread(userId),
     ]);
 
-    const total =
-      Object.values(conversations).reduce((sum, count) => sum + count, 0) +
-      Object.values(groups).reduce((sum, count) => sum + count, 0);
-
-    return {
-      total,
+    const payload: UnreadPayload = {
+      total:
+        Object.values(conversations).reduce((sum, count) => sum + count, 0) +
+        Object.values(groups).reduce((sum, count) => sum + count, 0),
       conversations,
       groups,
     };
-  } catch {
-    return EMPTY_UNREAD;
+
+    try {
+      await writeUnread(rawUserId, payload);
+    } catch (error) {
+      console.error(
+        "[socketEmitter] unread cache write failed:",
+        errMsg(error),
+      );
+    }
+
+    return payload;
+  } catch (error) {
+    console.error("[socketEmitter] unread compute failed:", errMsg(error));
+    return null;
   }
 };
 
@@ -463,139 +581,135 @@ const findSavedContactName = (
   return "";
 };
 
+const getSenderInfo = async (rawFromId: string): Promise<SenderInfo> => {
+  return getCached<SenderInfo>(
+    `meta:user:${rawFromId}`,
+    META_CACHE_TTL_SECONDS,
+    async () => {
+      const fromId = new Types.ObjectId(rawFromId);
+
+      const [user, profile] = await Promise.all([
+        User.findById(fromId)
+          .select("_id mobile name")
+          .lean() as Promise<SenderUserLean | null>,
+        Profile.findOne({ userId: fromId })
+          .select("name photo")
+          .lean() as Promise<SenderProfileLean | null>,
+      ]);
+
+      return { user, profile };
+    },
+  );
+};
+
+const getGroupInfo = async (rawGroupId: string): Promise<GroupLean | null> => {
+  return getCached<GroupLean | null>(
+    `meta:group:${rawGroupId}`,
+    META_CACHE_TTL_SECONDS,
+    async () =>
+      (await Group.findById(rawGroupId)
+        .select("name avatar")
+        .lean()) as GroupLean | null,
+  );
+};
+
 const buildDirectNotification = async (
   rawFromId: string,
   rawToId: string,
   decryptedMessage: DecryptedMessage,
-  unreadCounts: UnreadPayload,
-): Promise<IncomingNotificationPayload | null> => {
-  const fromId = toObjectId(rawFromId);
+): Promise<NotificationMeta | null> => {
   const toUserId = toObjectId(rawToId);
 
-  if (!fromId || !toUserId) {
+  if (!toObjectId(rawFromId) || !toUserId) {
     return null;
   }
 
   try {
-    const [senderUser, senderProfile, myContacts] = await Promise.all([
-      User.findById(fromId)
-        .select("_id mobile name")
-        .lean() as Promise<SenderUserLean | null>,
-
-      Profile.findOne({ userId: fromId })
-        .select("name photo")
-        .lean() as Promise<SenderProfileLean | null>,
-
+    const [sender, myContacts] = await Promise.all([
+      getSenderInfo(rawFromId),
       Contact.find({ userId: toUserId })
         .select("name mobiles")
         .lean() as Promise<ContactLean[]>,
     ]);
 
-    const savedByName = findSavedContactName(myContacts, senderUser?.mobile);
+    const savedByName = findSavedContactName(myContacts, sender.user?.mobile);
 
     const senderName =
       savedByName ||
-      senderProfile?.name ||
-      senderUser?.name ||
-      senderUser?.mobile ||
+      sender.profile?.name ||
+      sender.user?.name ||
+      sender.user?.mobile ||
       "Unknown";
 
-    const senderAvatar = senderProfile?.photo || DEFAULT_AVATAR;
-
-    const preview = buildPreview(decryptedMessage);
+    const senderAvatar = sender.profile?.photo || DEFAULT_AVATAR;
 
     return {
       kind: "direct",
       chatId: rawFromId,
-      messageId:
-        decryptedMessage.id || String(decryptedMessage._id ?? "") || undefined,
+      messageId: getMessageId(decryptedMessage),
       chatName: senderName,
       chatAvatar: senderAvatar,
       fromUserId: rawFromId,
       fromName: senderName,
       fromAvatar: senderAvatar,
-      preview,
+      preview: buildPreview(decryptedMessage),
       messageType: decryptedMessage.type,
       timestamp: decryptedMessage.createdAt ?? new Date(),
-      unreadCounts,
     };
-  } catch {
+  } catch (error) {
+    console.error(
+      "[socketEmitter] buildDirectNotification failed:",
+      errMsg(error),
+    );
     return null;
   }
 };
 
-const buildGroupNotification = async (
+const buildGroupNotificationMeta = async (
   rawGroupId: string,
   rawFromId: string,
-  memberIds: string[],
   decryptedMessage: DecryptedMessage,
-  unreadCountsByMember: Record<string, UnreadPayload>,
-): Promise<Record<string, IncomingNotificationPayload>> => {
-  const output: Record<string, IncomingNotificationPayload> = {};
-
-  const groupId = toObjectId(rawGroupId);
-  const fromId = toObjectId(rawFromId);
-
-  if (!groupId || !fromId) {
-    return output;
+): Promise<NotificationMeta | null> => {
+  if (!toObjectId(rawGroupId) || !toObjectId(rawFromId)) {
+    return null;
   }
 
   try {
-    const [groupDoc, senderUser, senderProfile] = await Promise.all([
-      Group.findById(groupId)
-        .select("name avatar")
-        .lean() as Promise<GroupLean | null>,
-
-      User.findById(fromId)
-        .select("_id mobile name")
-        .lean() as Promise<SenderUserLean | null>,
-
-      Profile.findOne({ userId: fromId })
-        .select("name photo")
-        .lean() as Promise<SenderProfileLean | null>,
+    const [groupDoc, sender] = await Promise.all([
+      getGroupInfo(rawGroupId),
+      getSenderInfo(rawFromId),
     ]);
 
     const groupName = groupDoc?.name || "Group";
     const groupAvatar = groupDoc?.avatar || DEFAULT_AVATAR;
 
     const senderName =
-      senderProfile?.name ||
-      senderUser?.name ||
-      senderUser?.mobile ||
+      sender.profile?.name ||
+      sender.user?.name ||
+      sender.user?.mobile ||
       "Unknown";
 
-    const senderAvatar = senderProfile?.photo || DEFAULT_AVATAR;
+    const senderAvatar = sender.profile?.photo || DEFAULT_AVATAR;
 
-    const preview = buildPreview(decryptedMessage);
-
-    for (const memberId of memberIds) {
-      if (!memberId || memberId === rawFromId) {
-        continue;
-      }
-
-      const counts = unreadCountsByMember[memberId] ?? EMPTY_UNREAD;
-
-      output[memberId] = {
-        kind: "group",
-        chatId: rawGroupId,
-        messageId:
-          decryptedMessage.id || String(decryptedMessage._id ?? "") || undefined,
-        chatName: groupName,
-        chatAvatar: groupAvatar,
-        fromUserId: rawFromId,
-        fromName: senderName,
-        fromAvatar: senderAvatar,
-        preview:
-          groupName !== senderName ? `${senderName}: ${preview}` : preview,
-        messageType: decryptedMessage.type,
-        timestamp: decryptedMessage.createdAt ?? new Date(),
-        unreadCounts: counts,
-      };
-    }
-
-    return output;
-  } catch {
-    return output;
+    return {
+      kind: "group",
+      chatId: rawGroupId,
+      messageId: getMessageId(decryptedMessage),
+      chatName: groupName,
+      chatAvatar: groupAvatar,
+      fromUserId: rawFromId,
+      fromName: senderName,
+      fromAvatar: senderAvatar,
+      preview: `${senderName}: ${buildPreview(decryptedMessage)}`,
+      messageType: decryptedMessage.type,
+      timestamp: decryptedMessage.createdAt ?? new Date(),
+    };
+  } catch (error) {
+    console.error(
+      "[socketEmitter] buildGroupNotificationMeta failed:",
+      errMsg(error),
+    );
+    return null;
   }
 };
 
@@ -604,71 +718,77 @@ export const emitDirectMessageReceived = async (
   rawToId: string,
   decryptedMessage: DecryptedMessage,
 ): Promise<void> => {
-  const io = await getIo();
-
-  const fromId = toObjectId(rawFromId);
-  const toId = toObjectId(rawToId);
-
-  if (!fromId || !toId) {
+  if (!toObjectId(rawFromId) || !toObjectId(rawToId)) {
     return;
   }
 
   try {
+    const io = await getIo();
+
     await Promise.all([
       invalidateDirectMessages(rawFromId, rawToId),
       invalidateUserConversations(rawFromId),
       invalidateUserConversations(rawToId),
-      redisDel(`unread:${rawToId}`),
-      redisDel(`unread:${rawFromId}`),
+      incrDirectUnread(rawToId, rawFromId).catch((error) =>
+        console.error(
+          "[socketEmitter] incrDirectUnread failed:",
+          errMsg(error),
+        ),
+      ),
     ]);
 
-    const recipientCounts = await computeUnreadForUser(rawToId);
+    const deliver = Promise.all([
+      emitRoomEvent(io, rawToId, "message:new", decryptedMessage),
+      emitRoomEvent(io, rawFromId, "message:new", decryptedMessage),
+    ]);
 
-    // Emit to recipient (incoming message)
-    await emitRoomEvent(io, rawToId, "message:new", decryptedMessage);
+    const [recipientCounts, notification] = await Promise.all([
+      getUnreadCountsForUser(rawToId),
+      buildDirectNotification(rawFromId, rawToId, decryptedMessage),
+      deliver,
+    ]);
+
+    if (!recipientCounts) {
+      return;
+    }
+
     await emitRoomEvent(io, rawToId, "unread:update", recipientCounts);
 
-    // Emit to sender too so their chat list re-sorts to the top with lastMessageFromMe = true
-    await emitRoomEvent(io, rawFromId, "message:new", decryptedMessage);
+    if (!notification) {
+      console.warn(
+        "[socketEmitter] direct notification unavailable - skipping notify",
+      );
+      return;
+    }
 
-    const notification = await buildDirectNotification(
-      rawFromId,
-      rawToId,
-      decryptedMessage,
-      recipientCounts,
-    );
+    debugLog("[socketEmitter] message:notify ->", rawToId, {
+      kind: notification.kind,
+      from: notification.fromUserId,
+    });
 
-    if (notification) {
-      console.log("[socketEmitter] Emitting message:notify to", rawToId, { kind: notification.kind, from: notification.fromUserId });
-      await emitRoomEvent(io, rawToId, "message:notify", notification);
-      const adminNotification: AdminNotificationPayload = {
-        kind: notification.kind,
-        chatId: notification.chatId,
-        chatName: notification.chatName,
-        chatAvatar: notification.chatAvatar,
-        fromUserId: notification.fromUserId,
-        fromName: notification.fromName,
-        fromAvatar: notification.fromAvatar,
-        timestamp: notification.timestamp,
-      };
-      await emitRoomEvent(
+    await Promise.all([
+      emitRoomEvent(io, rawToId, "message:notify", {
+        ...notification,
+        unreadCounts: recipientCounts,
+      }),
+      emitRoomEvent(
         io,
         `admin-notifications:${rawToId}`,
         "admin:message:notify",
-        adminNotification,
-      );
-    } else {
-      console.warn("[socketEmitter] buildDirectNotification returned null - skipping notification emit");
-    }
+        toAdminNotification(notification),
+      ),
+    ]);
   } catch (error: unknown) {
     console.error(
       "[socketEmitter] emitDirectMessageReceived error:",
-      error instanceof Error ? error.message : String(error),
+      errMsg(error),
     );
-    return;
   }
 };
 
+/**
+ * IMPORTANT: call this AFTER the group message has been saved to MongoDB.
+ */
 export const emitGroupMessageReceived = async (
   rawGroupId: string,
   rawFromId: string,
@@ -680,28 +800,21 @@ export const emitGroupMessageReceived = async (
   >,
   decryptedMessage: DecryptedMessage,
 ): Promise<void> => {
-  const io = await getIo();
-
-  const groupId = toObjectId(rawGroupId);
-  const fromId = toObjectId(rawFromId);
-
-  if (!groupId || !fromId) {
+  if (!toObjectId(rawGroupId) || !toObjectId(rawFromId)) {
     return;
   }
 
   try {
+    const io = await getIo();
+
     await invalidateGroupMessages(rawGroupId);
 
     const memberIds = Array.from(
       new Set(
         members
-          .map((member) => {
-            if (typeof member === "string") {
-              return member;
-            }
-
-            return String(member?.userId ?? "");
-          })
+          .map((member) =>
+            typeof member === "string" ? member : String(member?.userId ?? ""),
+          )
           .filter(
             (memberId): memberId is string =>
               Boolean(memberId) && Types.ObjectId.isValid(memberId),
@@ -711,117 +824,116 @@ export const emitGroupMessageReceived = async (
 
     const recipientIds = memberIds.filter((memberId) => memberId !== rawFromId);
 
+    await emitRoomEvent(io, rawFromId, "group:message:new", decryptedMessage);
+
     if (recipientIds.length === 0) {
       return;
     }
 
-    await Promise.all(
-      recipientIds.map((memberId) => invalidateUserConversations(memberId)),
-    );
-
-    const unreadResults = await Promise.all(
-      recipientIds.map(async (memberId) => {
-        const counts = await computeUnreadForUser(memberId);
-
-        return {
-          memberId,
-          counts,
-        };
-      }),
-    );
-
-    const unreadCountsByMember: Record<string, UnreadPayload> = {};
-
-    for (const result of unreadResults) {
-      unreadCountsByMember[result.memberId] = result.counts;
-    }
-
-    await Promise.all(
-      recipientIds.map(async (memberId) => {
-        await redisDel(`unread:${memberId}`);
-
-        await emitRoomEvent(
-          io,
-          memberId,
-          "unread:update",
-          unreadCountsByMember[memberId],
-        );
-      }),
-    );
-
-    const notifications = await buildGroupNotification(
+    const meta = await buildGroupNotificationMeta(
       rawGroupId,
       rawFromId,
-      memberIds,
       decryptedMessage,
-      unreadCountsByMember,
     );
 
-    const memberNotifCount = Object.keys(notifications).length;
-    if (memberNotifCount > 0) {
-      console.log("[socketEmitter] Emitting group message:notify to", memberNotifCount, "members for group", rawGroupId);
-    } else {
-      console.warn("[socketEmitter] buildGroupNotification returned empty map - skipping group", rawGroupId);
-    }
-    await Promise.all(
-      Object.entries(notifications).map(
-        async ([memberId, notification]) => {
-          console.log("[socketEmitter]   → notify", memberId, { from: notification.fromUserId });
-          await emitRoomEvent(io, memberId, "group:message:new", decryptedMessage);
-          await emitRoomEvent(io, memberId, "message:notify", notification);
-          const adminNotification: AdminNotificationPayload = {
-            kind: notification.kind,
-            chatId: notification.chatId,
-            chatName: notification.chatName,
-            chatAvatar: notification.chatAvatar,
-            fromUserId: notification.fromUserId,
-            fromName: notification.fromName,
-            fromAvatar: notification.fromAvatar,
-            timestamp: notification.timestamp,
-          };
-          await emitRoomEvent(
-            io,
-            `admin-notifications:${memberId}`,
-            "admin:message:notify",
-            adminNotification,
+    debugLog(
+      "[socketEmitter] group fan-out:",
+      rawGroupId,
+      `${recipientIds.length} recipients`,
+    );
+
+    await forEachConcurrent(
+      recipientIds,
+      FAN_OUT_CONCURRENCY,
+      async (memberId) => {
+        const initialTasks = await Promise.allSettled([
+          emitRoomEvent(io, memberId, "group:message:new", decryptedMessage),
+          invalidateUserConversations(memberId),
+          incrGroupUnread(memberId, rawGroupId).catch((error) =>
+            console.error(
+              "[socketEmitter] incrGroupUnread failed:",
+              errMsg(error),
+            ),
+          ),
+        ]);
+
+        for (const result of initialTasks) {
+          if (result.status === "rejected") {
+            console.error(
+              "[socketEmitter] group recipient update failed:",
+              errMsg(result.reason),
+            );
+          }
+        }
+
+        const unread = await getUnreadCountsForUser(memberId);
+
+        if (!unread) return;
+
+        const notificationTasks: Promise<void>[] = [
+          emitRoomEvent(io, memberId, "unread:update", unread),
+        ];
+
+        if (meta) {
+          notificationTasks.push(
+            emitRoomEvent(io, memberId, "message:notify", {
+              ...meta,
+              unreadCounts: unread,
+            }),
+            emitRoomEvent(
+              io,
+              `admin-notifications:${memberId}`,
+              "admin:message:notify",
+              toAdminNotification(meta),
+            ),
           );
-        },
-      ),
-    );
+        }
 
-    // Emit to sender too so their group chat list re-sorts to the top with lastMessageFromMe = true
-    await emitRoomEvent(io, rawFromId, "group:message:new", decryptedMessage);
+        const notificationResults = await Promise.allSettled(notificationTasks);
+        for (const result of notificationResults) {
+          if (result.status === "rejected") {
+            console.error(
+              "[socketEmitter] group notification delivery failed:",
+              errMsg(result.reason),
+            );
+          }
+        }
+      },
+    );
   } catch (error: unknown) {
     console.error(
       "[socketEmitter] emitGroupMessageReceived error:",
-      error instanceof Error ? error.message : String(error),
+      errMsg(error),
     );
-    return;
   }
 };
 
 export const emitConversationRead = async (
   rawUserId: string,
+  chat?: { kind: "direct" | "group"; chatId: string },
 ): Promise<void> => {
-  const io = await getIo();
-
-  const userId = toObjectId(rawUserId);
-
-  if (!userId) {
+  if (!toObjectId(rawUserId)) {
     return;
   }
 
   try {
-    await redisDel(`unread:${rawUserId}`);
+    const io = await getIo();
 
-    const counts = await computeUnreadForUser(rawUserId);
+    if (chat) {
+      await clearChatUnread(
+        rawUserId,
+        `${chat.kind === "direct" ? "c" : "g"}:${chat.chatId}`,
+      );
+    } else {
+      await clearAllUnread(rawUserId);
+    }
 
-    await emitRoomEvent(io, rawUserId, "unread:update", counts);
+    const counts = await getUnreadCountsForUser(rawUserId);
+
+    if (counts) {
+      await emitRoomEvent(io, rawUserId, "unread:update", counts);
+    }
   } catch (error: unknown) {
-    console.error(
-      "[socketEmitter] emitConversationRead error:",
-      error instanceof Error ? error.message : String(error),
-    );
-    return;
+    console.error("[socketEmitter] emitConversationRead error:", errMsg(error));
   }
 };

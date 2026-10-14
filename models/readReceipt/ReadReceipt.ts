@@ -25,9 +25,9 @@ const ReadReceiptSchema = new Schema<IReadReceipt>(
 
 ReadReceiptSchema.index({ userId: 1, conversationId: 1 });
 ReadReceiptSchema.index({ userId: 1, groupId: 1 });
+ReadReceiptSchema.index({ userId: 1, groupMessageId: 1 });
 ReadReceiptSchema.index({ messageId: 1 });
 ReadReceiptSchema.index({ groupMessageId: 1 });
 
 export default mongoose.models.ReadReceipt ||
   mongoose.model<IReadReceipt>("ReadReceipt", ReadReceiptSchema);
-

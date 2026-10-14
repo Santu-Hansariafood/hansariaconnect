@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
         id: String(message._id),
         status: "seen",
       });
+      void emitConversationRead(String(userId));
 
       return NextResponse.json({ success: true, readAt: now });
     }
@@ -204,6 +205,7 @@ export async function POST(req: NextRequest) {
         groupId: String(gm.groupId),
         userId: String(userId),
       });
+      void emitConversationRead(String(userId));
 
       return NextResponse.json({ success: true, readAt: now });
     }
