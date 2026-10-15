@@ -26,7 +26,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json();
   const name = body?.name === undefined ? result.template.name : String(body.name).trim();
   const templateBody = body?.body === undefined ? result.template.body : String(body.body).trim();
-  const header = body?.header === undefined ? result.template.header || "" : String(body.header).trim();
+  const subject = body?.subject === undefined
+    ? body?.header === undefined
+      ? result.template.subject || result.template.header || ""
+      : String(body.header).trim()
+    : String(body.subject).trim();
   const footer = body?.footer === undefined ? result.template.footer || "" : String(body.footer).trim();
   const defaultLanguage =
     body?.defaultLanguage === undefined
@@ -50,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (
     name.length > 100 ||
     templateBody.length > 2000 ||
-    header.length > 2000 ||
+    subject.length > 2000 ||
     footer.length > 2000 ||
     !folder ||
     folder.length > 80 ||
@@ -94,7 +98,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   result.template.name = name;
   result.template.body = templateBody;
-  result.template.header = header;
+  result.template.subject = subject;
+  result.template.header = "";
   result.template.footer = footer;
   result.template.defaultLanguage = defaultLanguage;
   result.template.folder = folder;
@@ -105,7 +110,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     result.template.buttons = parsedButtons.data;
   }
   await result.template.save();
-  return NextResponse.json({ template: result.template });
+  return NextResponse.json({
+    template: {
+      ...result.template.toObject(),
+      subject: result.template.subject || result.template.header || "",
+    },
+  });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

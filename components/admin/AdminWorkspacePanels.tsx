@@ -9,8 +9,10 @@ import TemplateApiIntegrationExample from "@/components/admin/TemplateApiIntegra
 
 export interface AdminMessageTemplate {
   _id: string;
+  adminId: string;
   name: string;
   body: string;
+  subject?: string;
   header?: string;
   footer?: string;
   defaultLanguage?: string;
@@ -56,8 +58,6 @@ interface AdminTemplatesPanelProps {
   setTemplateBody: (value: SetStateAction<string>) => void;
   templateHeader: string;
   setTemplateHeader: (value: SetStateAction<string>) => void;
-  templateFooter: string;
-  setTemplateFooter: (value: SetStateAction<string>) => void;
   templateButtons: TemplateActionButton[];
   setTemplateButtons: (value: SetStateAction<TemplateActionButton[]>) => void;
   editingTemplateId: string | null;
@@ -67,8 +67,6 @@ interface AdminTemplatesPanelProps {
   setEditingTemplateBody: (value: SetStateAction<string>) => void;
   editingTemplateHeader: string;
   setEditingTemplateHeader: (value: SetStateAction<string>) => void;
-  editingTemplateFooter: string;
-  setEditingTemplateFooter: (value: SetStateAction<string>) => void;
   editingTemplateButtons: TemplateActionButton[];
   setEditingTemplateButtons: (
     value: SetStateAction<TemplateActionButton[]>,
@@ -111,8 +109,6 @@ export function AdminTemplatesPanel({
   setTemplateBody,
   templateHeader,
   setTemplateHeader,
-  templateFooter,
-  setTemplateFooter,
   templateButtons,
   setTemplateButtons,
   editingTemplateId,
@@ -122,8 +118,6 @@ export function AdminTemplatesPanel({
   setEditingTemplateBody,
   editingTemplateHeader,
   setEditingTemplateHeader,
-  editingTemplateFooter,
-  setEditingTemplateFooter,
   editingTemplateButtons,
   setEditingTemplateButtons,
   folder,
@@ -149,7 +143,7 @@ export function AdminTemplatesPanel({
   onDelete,
 }: AdminTemplatesPanelProps) {
   const templateVariableNames = getTemplateVariableNames(
-    [templateHeader, templateBody, templateFooter].filter(Boolean).join("\n"),
+    [templateHeader, templateBody].filter(Boolean).join("\n"),
   );
   const [selectedFolder, setSelectedFolder] = useState("All folders");
   const folders = Array.from(
@@ -239,32 +233,24 @@ export function AdminTemplatesPanel({
           placeholder="en"
           required
         />
-        <textarea
-          value={templateBody}
-          onChange={(event) => setTemplateBody(event.target.value)}
-          placeholder="Hello {{name}}, your update is ready."
-          rows={6}
-          maxLength={2000}
-          className={`mt-3 ${adminFieldClass}`}
-          required
-        />
         <label className="mt-3 block text-sm font-medium text-slate-700">
-          Optional header
+          Body
           <textarea
-            value={templateHeader}
-            onChange={(event) => setTemplateHeader(event.target.value)}
-            placeholder="Add a header (optional)"
-            rows={2}
+            value={templateBody}
+            onChange={(event) => setTemplateBody(event.target.value)}
+            placeholder="Hello {{name}}, your update is ready."
+            rows={6}
             maxLength={2000}
             className={`mt-1 ${adminFieldClass}`}
+            required
           />
         </label>
         <label className="mt-3 block text-sm font-medium text-slate-700">
-          Optional footer
+          Subject (optional)
           <textarea
-            value={templateFooter}
-            onChange={(event) => setTemplateFooter(event.target.value)}
-            placeholder="Add a footer (optional)"
+            value={templateHeader}
+            onChange={(event) => setTemplateHeader(event.target.value)}
+            placeholder="Add an email-style subject (optional)"
             rows={2}
             maxLength={2000}
             className={`mt-1 ${adminFieldClass}`}
@@ -387,7 +373,7 @@ export function AdminTemplatesPanel({
         </label>
         {visibleTemplates.map((template) => {
           const variableNames = getTemplateVariableNames(
-            [template.header, template.body, template.footer]
+            [template.subject || template.header, template.body, template.footer]
               .filter(Boolean)
               .join("\n"),
           );
@@ -466,35 +452,25 @@ export function AdminTemplatesPanel({
                     className={adminFieldClass}
                     required
                   />
-                  <textarea
-                    value={editingTemplateBody}
-                    onChange={(event) =>
-                      setEditingTemplateBody(event.target.value)
-                    }
-                    maxLength={2000}
-                    rows={5}
-                    className={adminFieldClass}
-                    aria-label="Template message"
-                    required
-                  />
                   <label className="block text-sm font-medium text-slate-700">
-                    Optional header
+                    Body
+                    <textarea
+                      value={editingTemplateBody}
+                      onChange={(event) =>
+                        setEditingTemplateBody(event.target.value)
+                      }
+                      maxLength={2000}
+                      rows={5}
+                      className={`mt-1 ${adminFieldClass}`}
+                      required
+                    />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Subject (optional)
                     <textarea
                       value={editingTemplateHeader}
                       onChange={(event) =>
                         setEditingTemplateHeader(event.target.value)
-                      }
-                      maxLength={2000}
-                      rows={2}
-                      className={`mt-1 ${adminFieldClass}`}
-                    />
-                  </label>
-                  <label className="block text-sm font-medium text-slate-700">
-                    Optional footer
-                    <textarea
-                      value={editingTemplateFooter}
-                      onChange={(event) =>
-                        setEditingTemplateFooter(event.target.value)
                       }
                       maxLength={2000}
                       rows={2}
@@ -604,7 +580,8 @@ export function AdminTemplatesPanel({
                     Default ({template.defaultLanguage || "en"})
                   </p>
                   <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
-                    {template.header && `${template.header}\n`}
+                    {(template.subject || template.header) &&
+                      `${template.subject || template.header}\n`}
                     {template.body}
                     {template.footer && `\n${template.footer}`}
                   </p>

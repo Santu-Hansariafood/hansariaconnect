@@ -32,6 +32,7 @@ const MAX_RECIPIENTS = 1000;
 const messageTypes = ["image", "video", "voice", "pdf", "excel", "file"] as const;
 
 const requestSchema = z.object({
+  adminId: z.string().optional(),
   templateId: z.string().optional(),
   templateName: z.string().trim().min(1).max(100).optional(),
   template: z.string().max(2000).optional(),
@@ -152,8 +153,37 @@ export async function POST(req: NextRequest) {
     const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
       .select("isSuperAdmin")
       .lean();
+    const requestedAdminId = parsedBody.data.adminId?.trim();
+    if (requestedAdminId && !Types.ObjectId.isValid(requestedAdminId)) {
+      return NextResponse.json(
+        { success: false, error: "adminId must be a valid workspace ID" },
+        { status: 400 },
+      );
+    }
+    if (
+      requestedAdminId &&
+      !keyOwner?.isSuperAdmin &&
+      requestedAdminId !== String(authResult.apiKey.adminId)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "This API key cannot access that admin workspace" },
+        { status: 403 },
+      );
+    }
+    if (
+      requestedAdminId &&
+      keyOwner?.isSuperAdmin &&
+      !(await Admin.exists({ _id: requestedAdminId }))
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Admin workspace not found" },
+        { status: 404 },
+      );
+    }
     const templateScope = keyOwner?.isSuperAdmin
-      ? {}
+      ? requestedAdminId
+        ? { adminId: requestedAdminId }
+        : {}
       : { adminId: String(authResult.apiKey.adminId) };
 
     if (parsedBody.data.templateId && parsedBody.data.templateName) {
@@ -168,7 +198,7 @@ export async function POST(req: NextRequest) {
           name: parsedBody.data.templateName,
           ...templateScope,
         })
-          .select("name body header footer translations buttons")
+          .select("name body subject header footer translations buttons")
           .limit(keyOwner?.isSuperAdmin ? 2 : 1)
           .lean()
       : [];
@@ -189,7 +219,7 @@ export async function POST(req: NextRequest) {
               _id: parsedBody.data.templateId,
               ...templateScope,
             })
-              .select("name body header footer translations buttons")
+              .select("name body subject header footer translations buttons")
               .lean()
           : null
         : undefined;
@@ -204,7 +234,7 @@ export async function POST(req: NextRequest) {
     }
     const templateText = savedTemplate
       ? joinTemplateParts(
-          savedTemplate.header,
+          savedTemplate.subject || savedTemplate.header,
           savedTemplate.body,
           savedTemplate.footer,
         )
@@ -241,7 +271,11 @@ export async function POST(req: NextRequest) {
         [
           templateText,
           ...Object.values(savedTranslations).map((translation) =>
-            joinTemplateParts(savedTemplate?.header, translation, savedTemplate?.footer),
+            joinTemplateParts(
+              savedTemplate?.subject || savedTemplate?.header,
+              translation,
+              savedTemplate?.footer,
+            ),
           ),
         ].flatMap(getTemplateVariableNames),
       ),

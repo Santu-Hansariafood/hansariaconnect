@@ -5,6 +5,7 @@ export interface IAdminTemplate extends Document {
   adminId: string;
   name: string;
   body: string;
+  subject?: string;
   header: string;
   footer: string;
   defaultLanguage: string;
@@ -20,6 +21,7 @@ const AdminTemplateSchema = new Schema<IAdminTemplate>(
     adminId: { type: String, required: true, index: true },
     name: { type: String, required: true, trim: true },
     body: { type: String, required: true, trim: true },
+    subject: { type: String, default: "", trim: true, maxlength: 2000 },
     header: { type: String, default: "", trim: true, maxlength: 2000 },
     footer: { type: String, default: "", trim: true, maxlength: 2000 },
     defaultLanguage: {

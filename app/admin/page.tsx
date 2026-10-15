@@ -31,8 +31,10 @@ type UserPagination = AdminUserPagination;
 type AdminRow = AdminAccount;
 type AdminTemplateRow = {
   _id: string;
+  adminId: string;
   name: string;
   body: string;
+  subject?: string;
   header?: string;
   footer?: string;
   defaultLanguage?: string;
@@ -94,7 +96,6 @@ export default function AdminDashboard() {
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState("");
   const [templateHeader, setTemplateHeader] = useState("");
-  const [templateFooter, setTemplateFooter] = useState("");
   const [templateButtons, setTemplateButtons] = useState<TemplateActionButton[]>([]);
   const [templateDefaultLanguage, setTemplateDefaultLanguage] = useState("en");
   const [templateFolder, setTemplateFolder] = useState("General");
@@ -107,7 +108,6 @@ export default function AdminDashboard() {
   const [editingTemplateName, setEditingTemplateName] = useState("");
   const [editingTemplateBody, setEditingTemplateBody] = useState("");
   const [editingTemplateHeader, setEditingTemplateHeader] = useState("");
-  const [editingTemplateFooter, setEditingTemplateFooter] = useState("");
   const [editingTemplateButtons, setEditingTemplateButtons] = useState<
     TemplateActionButton[]
   >([]);
@@ -337,8 +337,7 @@ export default function AdminDashboard() {
         body: JSON.stringify({
           name: templateName,
           body: templateBody,
-          header: templateHeader,
-          footer: templateFooter,
+          subject: templateHeader,
           buttons: templateButtons,
           defaultLanguage: templateDefaultLanguage,
           folder: templateFolder,
@@ -352,7 +351,6 @@ export default function AdminDashboard() {
       setTemplateName("");
       setTemplateBody("");
       setTemplateHeader("");
-      setTemplateFooter("");
       setTemplateButtons([]);
       setTemplateTranslations({});
     } catch (error: any) {
@@ -395,8 +393,7 @@ export default function AdminDashboard() {
           body: JSON.stringify({
             name: editingTemplateName,
             body: editingTemplateBody,
-            header: editingTemplateHeader,
-            footer: editingTemplateFooter,
+            subject: editingTemplateHeader,
             buttons: editingTemplateButtons,
             defaultLanguage: editingTemplateDefaultLanguage,
             folder: editingTemplateFolder,
@@ -1236,8 +1233,6 @@ export default function AdminDashboard() {
                 setTemplateBody={setTemplateBody}
                 templateHeader={templateHeader}
                 setTemplateHeader={setTemplateHeader}
-                templateFooter={templateFooter}
-                setTemplateFooter={setTemplateFooter}
                 templateButtons={templateButtons}
                 setTemplateButtons={setTemplateButtons}
                 editingTemplateId={editingTemplate?._id || null}
@@ -1247,8 +1242,6 @@ export default function AdminDashboard() {
                 setEditingTemplateBody={setEditingTemplateBody}
                 editingTemplateHeader={editingTemplateHeader}
                 setEditingTemplateHeader={setEditingTemplateHeader}
-                editingTemplateFooter={editingTemplateFooter}
-                setEditingTemplateFooter={setEditingTemplateFooter}
                 editingTemplateButtons={editingTemplateButtons}
                 setEditingTemplateButtons={setEditingTemplateButtons}
                 isSaving={saving === "template"}
@@ -1257,8 +1250,9 @@ export default function AdminDashboard() {
                   setEditingTemplate(template);
                   setEditingTemplateName(template.name);
                   setEditingTemplateBody(template.body);
-                  setEditingTemplateHeader(template.header || "");
-                  setEditingTemplateFooter(template.footer || "");
+                  setEditingTemplateHeader(
+                    template.subject || template.header || "",
+                  );
                   setEditingTemplateButtons(template.buttons || []);
                   setEditingTemplateDefaultLanguage(
                     template.defaultLanguage || "en",

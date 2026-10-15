@@ -6,14 +6,6 @@ import Admin from "@/models/admin/Admin";
 import AdminTemplate from "@/models/admin/AdminTemplate";
 import User from "@/models/user/User";
 
-const normalizeIndianMobile = (value: string): string | null => {
-  if (!/^\+?[\d\s().-]+$/.test(value)) return null;
-  const digits = value.replace(/\D/g, "");
-  const mobile =
-    digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
-  return /^[6-9]\d{9}$/.test(mobile) ? mobile : null;
-};
-
 export async function GET(req: NextRequest) {
   const authResult = await validateApiKey(req, "sendMessage");
   if ("error" in authResult) {
@@ -24,12 +16,15 @@ export async function GET(req: NextRequest) {
   }
 
   const templateId = req.nextUrl.searchParams.get("templateId")?.trim() || "";
-  const toUserId = req.nextUrl.searchParams.get("toUserId")?.trim() || "";
-  if (!Types.ObjectId.isValid(templateId) || !toUserId) {
+  const adminId = req.nextUrl.searchParams.get("adminId")?.trim() || "";
+  if (
+    !Types.ObjectId.isValid(templateId) ||
+    !Types.ObjectId.isValid(adminId)
+  ) {
     return NextResponse.json(
       {
         success: false,
-        error: "Provide a valid templateId and registered recipient toUserId",
+        error: "Provide a valid adminId and templateId",
       },
       { status: 400 },
     );
@@ -63,11 +58,30 @@ export async function GET(req: NextRequest) {
   const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
     .select("isSuperAdmin")
     .lean();
+  if (
+    !keyOwner?.isSuperAdmin &&
+    adminId !== String(authResult.apiKey.adminId)
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "This API key cannot access that admin workspace",
+      },
+      { status: 403 },
+    );
+  }
+  if (
+    keyOwner?.isSuperAdmin &&
+    !(await Admin.exists({ _id: adminId }))
+  ) {
+    return NextResponse.json(
+      { success: false, error: "Admin workspace not found" },
+      { status: 404 },
+    );
+  }
   const template = await AdminTemplate.findOne({
     _id: templateId,
-    ...(keyOwner?.isSuperAdmin
-      ? {}
-      : { adminId: String(authResult.apiKey.adminId) }),
+    adminId,
   })
     .select("_id")
     .lean();
@@ -82,52 +96,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const recipientPhone = normalizeIndianMobile(toUserId);
-  if (!Types.ObjectId.isValid(toUserId) && !recipientPhone) {
-    return NextResponse.json(
-      {
-        success: false,
-        error:
-          "toUserId must be a chat account ID or a valid registered Indian mobile number",
-      },
-      { status: 400 },
-    );
-  }
-  const recipient = await User.findOne(
-    Types.ObjectId.isValid(toUserId)
-      ? { _id: toUserId }
-      : { mobile: recipientPhone },
-  )
-    .select("_id")
-    .lean();
-  if (!recipient) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Recipient account not found. Register the recipient first.",
-      },
-      { status: 404 },
-    );
-  }
-  if (String(recipient._id) === senderId) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Sender and recipient must be different chat accounts.",
-      },
-      { status: 400 },
-    );
-  }
-
   return NextResponse.json({
     success: true,
     message:
-      "Connection successful. The API key, sender, template, and recipient are ready.",
+      "Connection successful. The API key, admin workspace, sender, and template are ready.",
     checks: {
       apiKey: "ok",
+      adminWorkspace: "ok",
       sender: "ok",
       template: "ok",
-      recipient: "ok",
     },
   });
 }

@@ -14,8 +14,10 @@ export default function TemplateApiIntegrationExample({
 }: {
   template: {
     _id: string;
+    adminId: string;
     name: string;
     body: string;
+    subject?: string;
     header?: string;
     footer?: string;
     translations?: Record<string, string>;
@@ -27,12 +29,12 @@ export default function TemplateApiIntegrationExample({
   const [language, setLanguage] = useState<CodeLanguage>("JavaScript");
   const [copyStatus, setCopyStatus] = useState("");
   const [environmentCopyStatus, setEnvironmentCopyStatus] = useState("");
-  const [rateApiKey, setRateApiKey] = useState("");
-  const [rateRecipientPhone, setRateRecipientPhone] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const subject = template.subject || template.header || "";
   const variableNames = Array.from(
     new Set(
       [
-        template.header || "",
+        subject,
         template.body,
         template.footer || "",
         ...Object.values(template.translations || {}),
@@ -53,7 +55,8 @@ export default function TemplateApiIntegrationExample({
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    templateName: ${JSON.stringify(template.name)},
+    adminId: process.env.HANSARIA_ADMIN_ID,
+    templateId: process.env.HANSARIA_TEMPLATE_ID,
     language: ${JSON.stringify(template.defaultLanguage || "en")},
     toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
     variables: ${JSON.stringify(variables, null, 2)}
@@ -75,7 +78,8 @@ response = requests.post(
         "Content-Type": "application/json",
     },
     json={
-        "templateName": ${JSON.stringify(template.name)},
+        "adminId": os.environ["HANSARIA_ADMIN_ID"],
+        "templateId": os.environ["HANSARIA_TEMPLATE_ID"],
         "language": ${JSON.stringify(template.defaultLanguage || "en")},
         "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
         "variables": ${JSON.stringify(variables, null, 2)},
@@ -88,7 +92,8 @@ if not response.ok:
 print("Message sent", response.json())`,
     PHP: `<?php
 $payload = [
-  "templateName" => ${phpString(template.name)},
+  "adminId" => getenv("HANSARIA_ADMIN_ID"),
+  "templateId" => getenv("HANSARIA_TEMPLATE_ID"),
   "language" => ${phpString(template.defaultLanguage || "en")},
   "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
   "variables" => [
@@ -119,11 +124,9 @@ if ($status < 200 || $status >= 300) {
 echo "Message sent";`,
   };
   const connectionTestExamples: Record<CodeLanguage, string> = {
-    JavaScript: `const url = new URL(
-  process.env.HANSARIA_API_BASE_URL + "/api/v1/connection/test"
-);
-url.searchParams.set("templateId", process.env.HANSARIA_RATE_TEMPLATE_ID);
-url.searchParams.set("toUserId", process.env.HANSARIA_RATE_TO_USER_ID);
+    JavaScript: `const url = new URL("https://hfconnect.in/api/v1/connection/test");
+url.searchParams.set("adminId", process.env.HANSARIA_ADMIN_ID);
+url.searchParams.set("templateId", process.env.HANSARIA_TEMPLATE_ID);
 
 const response = await fetch(url, {
   headers: {
@@ -139,11 +142,11 @@ console.log(result.message, result.checks);`,
 import requests
 
 response = requests.get(
-    os.environ["HANSARIA_API_BASE_URL"] + "/api/v1/connection/test",
+    "https://hfconnect.in/api/v1/connection/test",
     headers={"Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"]},
     params={
-        "templateId": os.environ["HANSARIA_RATE_TEMPLATE_ID"],
-        "toUserId": os.environ["HANSARIA_RATE_TO_USER_ID"],
+        "adminId": os.environ["HANSARIA_ADMIN_ID"],
+        "templateId": os.environ["HANSARIA_TEMPLATE_ID"],
     },
     timeout=30,
 )
@@ -152,9 +155,9 @@ if not response.ok:
     raise RuntimeError(result.get("error", f"Connection test failed: {response.status_code}"))
 print(result["message"], result["checks"])`,
     PHP: `<?php
-$url = getenv("HANSARIA_API_BASE_URL") . "/api/v1/connection/test?" . http_build_query([
-  "templateId" => getenv("HANSARIA_RATE_TEMPLATE_ID"),
-  "toUserId" => getenv("HANSARIA_RATE_TO_USER_ID")
+$url = "https://hfconnect.in/api/v1/connection/test?" . http_build_query([
+  "adminId" => getenv("HANSARIA_ADMIN_ID"),
+  "templateId" => getenv("HANSARIA_TEMPLATE_ID")
 ]);
 $ch = curl_init($url);
 curl_setopt_array($ch, [
@@ -175,10 +178,9 @@ echo $result["message"];`,
   };
   const example = examples[language];
   const connectionTestExample = connectionTestExamples[language];
-  const environmentExample = `HANSARIA_API_BASE_URL=https://hfconnect.in
-HANSARIA_API_KEY=${rateApiKey || "paste-the-template-owners-api-key-here"}
-HANSARIA_RATE_TEMPLATE_ID=${template._id}
-HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-here"}`;
+  const environmentExample = `HANSARIA_ADMIN_ID=${template.adminId}
+HANSARIA_API_KEY=${apiKey || "paste-your-admin-workspace-api-key-here"}
+HANSARIA_TEMPLATE_ID=${template._id}`;
 
   const copyCode = async () => {
     try {
@@ -211,11 +213,11 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
       </summary>
       <div className="mt-3 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
         <p className="mb-3 leading-5">
-          This example uses the saved template name{" "}
-          <code className="rounded bg-white/10 px-1">{template.name}</code>.
-          Supply each listed variable. Run it on your server and keep all
-          credentials secret. Configured Call, Reply, and Confirm buttons are
-          included automatically when the saved template is sent.
+          Connect with the admin/workspace ID, an API key created for that
+          workspace, and this template ID. The saved subject and body are sent
+          as one chat message; fill in the listed variables. The recipient ID
+          is supplied for each message, not stored as a connection credential.
+          Run this on your server and keep the API key secret.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex items-center gap-2">
@@ -254,70 +256,31 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
           {copyStatus}
         </p>
         <p className="mt-2 leading-5 text-slate-300">
-          Add <code>HANSARIA_API_KEY</code> as a server-only environment
-          variable. Replace <code>RECIPIENT_CHAT_ACCOUNT_ID</code> and
-          the{" "}
+          Replace <code>RECIPIENT_CHAT_ACCOUNT_ID</code> with the recipient for
+          each send and supply{" "}
           {variableNames.length
             ? variableNames.map((name) => `YOUR_${name.toUpperCase()}`).join(", ")
-            : "no template variables"}{" "}
-          values. For a bound API key, the sender is selected automatically.
+            : "no template variables"}.
+          The sender account is selected from the API key.
         </p>
         <div className="mt-5 border-t border-white/15 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-white">
-                Rate notification .env
-              </h3>
-              <p className="mt-1 leading-5 text-slate-300">
-                The template ID is filled in. Enter an active API key from
-                your account and the recipient&apos;s registered phone number,
-                then copy the
-                completed settings.
-              </p>
-              <p className="mt-2 leading-5 text-slate-300">
-                Templates belong to this admin account, not to an API key. If
-                you replace a key, create the new key in this same account and
-                update <code>HANSARIA_API_KEY</code> in the other app. Keep the
-                template ID unchanged.
-              </p>
-              <p className="mt-2 leading-5 text-amber-200">
-                Rate notifications also need a valid sender chat account bound
-                to the API key. In API Keys, use <strong>Change sender</strong>
-                and enter the existing account&apos;s chat ID; do not register
-                the account again or use the admin ID or phone number.
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block font-medium">
-                Template owner&apos;s API key
-              </span>
-              <input
-                type="password"
-                autoComplete="off"
-                value={rateApiKey}
-                onChange={(event) => setRateApiKey(event.target.value.trim())}
-                placeholder="Paste the key shown when you created it"
-                className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
-              />
-            </label>
-            <label className="block sm:col-span-2">
-              <span className="mb-1 block font-medium">
-                Recipient&apos;s registered phone number
-              </span>
-              <input
-                type="tel"
-                autoComplete="off"
-                value={rateRecipientPhone}
-                onChange={(event) =>
-                  setRateRecipientPhone(event.target.value.trim())
-                }
-                placeholder="10 digits or +91 followed by 10 digits"
-                className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
-              />
-            </label>
-          </div>
+          <h3 className="font-semibold text-white">Connection credentials</h3>
+          <p className="mt-1 leading-5 text-slate-300">
+            The workspace ID and template ID are filled in. Enter an active API
+            key created for this workspace. The sender account must already be
+            bound to that key in Admin &gt; API Keys.
+          </p>
+          <label className="mt-3 block">
+            <span className="mb-1 block font-medium">Workspace API key</span>
+            <input
+              type="password"
+              autoComplete="off"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value.trim())}
+              placeholder="Paste the key shown when you created it"
+              className="w-full rounded-md border border-white/20 bg-slate-800 px-3 py-2 text-white placeholder:text-slate-400"
+            />
+          </label>
           <pre className="mt-3 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/30 p-3">
             <code>{environmentExample}</code>
           </pre>
@@ -326,27 +289,23 @@ HANSARIA_RATE_TO_USER_ID=${rateRecipientPhone || "paste-recipient-phone-number-h
             onClick={copyEnvironment}
             className="mt-3 rounded-md bg-emerald-400 px-3 py-1.5 font-semibold text-slate-950 hover:bg-emerald-300"
           >
-            Copy .env settings
+            Copy connection settings
           </button>
           <p className="mt-2 min-h-5 text-slate-300" aria-live="polite">
             {environmentCopyStatus}
           </p>
           <p className="mt-1 leading-5 text-amber-200">
-            The API key is kept only in this page&apos;s temporary form state
-            and is not saved by HansariaConnect. Use an active key created in
-            the template owner&apos;s workspace; its raw secret is shown only
-            once, so create a new key if you no longer have it. The recipient
-            must be registered; their 10-digit Indian number or +91 format is
-            resolved to their chat account.
+            The API key is kept only in this page&apos;s temporary form state;
+            HansariaConnect does not save it. Its raw secret is shown only
+            once, so create a new key if it is lost.
           </p>
           <div className="mt-4 border-t border-white/15 pt-4">
             <h4 className="font-semibold text-white">
-              Test the other app connection (no message sent)
+              Test the connection (no message sent)
             </h4>
             <p className="mt-1 leading-5 text-slate-300">
-              Run this from the other app&apos;s server after setting the
-              environment values above. A successful response confirms the
-              API key, sender, template, and recipient are all valid.
+              The test checks the API key, workspace, bound sender, and saved
+              template. A recipient is not required until you send a message.
             </p>
             <pre className="mt-3 max-h-[28rem] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
               <code>{connectionTestExample}</code>

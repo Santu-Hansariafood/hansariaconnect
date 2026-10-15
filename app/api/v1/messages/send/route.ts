@@ -42,6 +42,7 @@ const messageTypes = [
 const requestSchema = z.object({
   fromUserId: z.string().optional(),
   toUserId: z.string(),
+  adminId: z.string().optional(),
   templateId: z.string().optional(),
   language: z.string().trim().regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i).optional(),
   templateName: z.string().trim().min(1).max(100).optional(),
@@ -191,8 +192,37 @@ export async function POST(req: NextRequest) {
     const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
       .select("isSuperAdmin")
       .lean();
+    const requestedAdminId = input.adminId?.trim();
+    if (requestedAdminId && !Types.ObjectId.isValid(requestedAdminId)) {
+      return NextResponse.json(
+        { success: false, error: "adminId must be a valid workspace ID" },
+        { status: 400 },
+      );
+    }
+    if (
+      requestedAdminId &&
+      !keyOwner?.isSuperAdmin &&
+      requestedAdminId !== String(authResult.apiKey.adminId)
+    ) {
+      return NextResponse.json(
+        { success: false, error: "This API key cannot access that admin workspace" },
+        { status: 403 },
+      );
+    }
+    if (
+      requestedAdminId &&
+      keyOwner?.isSuperAdmin &&
+      !(await Admin.exists({ _id: requestedAdminId }))
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Admin workspace not found" },
+        { status: 404 },
+      );
+    }
     const templateScope = keyOwner?.isSuperAdmin
-      ? {}
+      ? requestedAdminId
+        ? { adminId: requestedAdminId }
+        : {}
       : { adminId: String(authResult.apiKey.adminId) };
 
     let templateText = input.template || input.text || "";
@@ -209,7 +239,7 @@ export async function POST(req: NextRequest) {
         name: input.templateName,
         ...templateScope,
       })
-        .select("name body header footer translations buttons")
+        .select("name body subject header footer translations buttons")
         .limit(keyOwner?.isSuperAdmin ? 2 : 1)
         .lean();
       if (matchingTemplates.length > 1) {
@@ -234,7 +264,7 @@ export async function POST(req: NextRequest) {
         language,
       );
       templateText = joinTemplateParts(
-        savedTemplate.header,
+        savedTemplate.subject || savedTemplate.header,
         templateText,
         savedTemplate.footer,
       );
@@ -251,7 +281,7 @@ export async function POST(req: NextRequest) {
         _id: input.templateId,
         ...templateScope,
       })
-      .select("name body header footer translations buttons")
+      .select("name body subject header footer translations buttons")
         .lean();
       if (!savedTemplate) {
         return NextResponse.json(
@@ -265,7 +295,7 @@ export async function POST(req: NextRequest) {
         language,
       );
       templateText = joinTemplateParts(
-        savedTemplate.header,
+        savedTemplate.subject || savedTemplate.header,
         templateText,
         savedTemplate.footer,
       );

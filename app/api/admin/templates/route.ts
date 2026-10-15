@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     templates: templates.map((template) => ({
       ...template,
+      subject: template.subject || template.header || "",
       folder: template.folder || "General",
       translations: normalizeTemplateTranslations(template.translations),
       ownerUserId: ownerNames.get(template.adminId) || "Deleted admin",
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const name = String(body?.name || "").trim();
   const templateBody = String(body?.body || "").trim();
-  const header = String(body?.header || "").trim();
+  const subject = String(body?.subject ?? body?.header ?? "").trim();
   const footer = String(body?.footer || "").trim();
   const defaultLanguage = String(body?.defaultLanguage || "en").trim().toLowerCase();
   const folder = String(body?.folder || "General").trim();
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
   if (
     name.length > 100 ||
     templateBody.length > 2000 ||
-    header.length > 2000 ||
+    subject.length > 2000 ||
     footer.length > 2000 ||
     !/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/.test(defaultLanguage) ||
     !folder ||
@@ -106,12 +107,14 @@ export async function POST(req: NextRequest) {
     adminId,
     name,
     body: templateBody,
-    header,
+    subject,
     footer,
     defaultLanguage,
     folder,
     translations: normalizedTranslations,
     buttons: parsedButtons.data,
   });
-  return NextResponse.json({ template }, { status: 201 });
+  return NextResponse.json({
+    template: { ...template.toObject(), subject: template.subject || "" },
+  }, { status: 201 });
 }
