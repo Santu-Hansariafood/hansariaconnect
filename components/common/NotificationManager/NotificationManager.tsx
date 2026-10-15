@@ -49,9 +49,12 @@ export default function NotificationManager({
 }: NotificationManagerProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { addListener, removeListener } = useSocket({ subscribeOnline: false });
+  const { socket, addListener, removeListener } = useSocket({
+    subscribeOnline: false,
+  });
   const { preferences, playRingtone, showNotification } = useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
+  const socketAdminUserId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());
   const nextToastId = useRef(0);
   const toastTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
@@ -99,7 +102,17 @@ export default function NotificationManager({
           credentials: "include",
           cache: "no-store",
         });
-        if (!response.ok) return;
+        if (response.status === 401) {
+          if (!cancelled) setAdminUserId(null);
+          return;
+        }
+        if (!response.ok) {
+          console.warn(
+            "[NotificationManager] Could not load admin notification identity:",
+            response.status,
+          );
+          return;
+        }
         const data = await response.json();
         const userId = data?.admin?.userId;
         if (!cancelled && data?.success && typeof userId === "string") {
@@ -118,6 +131,15 @@ export default function NotificationManager({
       cancelled = true;
     };
   }, [isAdminSurface, pathname]);
+
+  useEffect(() => {
+    if (!isAdminSurface || !socket) return;
+    if (socketAdminUserId.current === adminUserId) return;
+
+    socketAdminUserId.current = adminUserId;
+    socket.disconnect();
+    socket.connect();
+  }, [adminUserId, isAdminSurface, socket]);
 
   useEffect(() => {
     if (typeof document !== "undefined") {
