@@ -19,6 +19,7 @@ import { fadeIn } from "@/utils/animations/animations";
 import Image from "next/image";
 import QRCode from "react-qr-code";
 import Loading from "@/components/common/Loading/Loading";
+import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
 
 type LoginProps = {
   prefillMobile?: string;
@@ -26,7 +27,6 @@ type LoginProps = {
   returnTo?: string;
 };
 
-const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 const ALLOWED_EMAIL_REGEX =
   /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)$/i;
 
@@ -146,7 +146,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
   const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!INDIAN_MOBILE_REGEX.test(mobile)) {
+    const normalizedMobile = normalizeIndianMobile(mobile);
+    if (!normalizedMobile) {
       setError("Please enter a valid Indian mobile number");
       return;
     }
@@ -160,7 +161,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ mobile }),
+        body: JSON.stringify({ mobile: normalizedMobile }),
       });
       const data = await res.json();
       if (data.success) {
@@ -172,7 +173,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
           ? `&returnTo=${encodeURIComponent(returnTo)}`
           : "";
         router.push(
-          `/verify-otp?mobile=${mobile}${queryEmail}${queryReturnTo}`,
+          `/verify-otp?mobile=${normalizedMobile}${queryEmail}${queryReturnTo}`,
         );
       } else {
         if (data.notRegistered) {
@@ -203,7 +204,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
       return;
     }
 
-    if (!INDIAN_MOBILE_REGEX.test(registerMobile)) {
+    const normalizedMobile = normalizeIndianMobile(registerMobile);
+    if (!normalizedMobile) {
       setError("Please enter a valid Indian mobile number");
       return;
     }
@@ -227,7 +229,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
         body: JSON.stringify({
           name,
           email,
-          mobile: registerMobile,
+          mobile: normalizedMobile,
           sex,
           dateOfBirth: dob,
           termsAccepted: terms,
@@ -240,7 +242,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
           ? `&returnTo=${encodeURIComponent(returnTo)}`
           : "";
         router.push(
-          `/verify-otp?mobile=${registerMobile}&email=${encodeURIComponent(email)}${queryReturnTo}`,
+          `/verify-otp?mobile=${normalizedMobile}&email=${encodeURIComponent(email)}${queryReturnTo}`,
         );
       } else {
         setError(data.error || "Something went wrong");
@@ -423,7 +425,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <input
                           type="tel"
-                          maxLength={10}
+                          maxLength={20}
+                          inputMode="tel"
                           value={mobile}
                           onChange={(e) => {
                             setMobile(e.target.value);

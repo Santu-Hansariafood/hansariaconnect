@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
+import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -21,14 +22,12 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
-
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const mobile: string = String(body?.mobile || "").trim();
+    const mobile = normalizeIndianMobile(body?.mobile);
 
-    if (!INDIAN_MOBILE_REGEX.test(mobile)) {
+    if (!mobile) {
       return NextResponse.json(
         { success: false, error: "Please enter a valid Indian mobile number" },
         { status: 400 },
