@@ -25,6 +25,7 @@ import { useFilteredContacts, ChatFilter } from "@/hooks/chathome/useFilteredCon
 import { useCreateContact } from "@/hooks/chathome/useCreateContact";
 import { useForwardMessage } from "@/hooks/chathome/useForwardMessage";
 import { useContactActions } from "@/hooks/chathome/useContactActions";
+import { useNavbarUser } from "@/hooks/navbar/useNavbarUser";
 import Loading from "@/components/common/Loading/Loading";
 import { useSocket } from "@/hooks/useSocket";
 const ContactCard = dynamic(
@@ -232,6 +233,7 @@ export default function ChatHome({
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ChatFilter>("all");
 
+  const profileUser = useNavbarUser(user);
   const { contacts, loading, setContacts, refreshContacts } = useContacts(user.id);
   const { socket, addListener, removeListener } = useSocket({ subscribeOnline: false });
   const filteredContacts = useFilteredContacts({ contacts, searchQuery, filter: activeFilter });
@@ -546,10 +548,10 @@ export default function ChatHome({
             title="Profile"
           >
             <div className="relative">
-              {user?.photo || user?.avatar ? (
+              {profileUser.photo || user?.photo || user?.avatar ? (
                 <Image
-                  src={user.photo || user.avatar || "/logo/logo.png"}
-                  alt={user.name || "User"}
+                  src={profileUser.photo || user.photo || user.avatar || "/logo/logo.png"}
+                  alt={profileUser.name || user.name || "User"}
                   width={40}
                   height={40}
                   className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover ring-2 ring-white/20"
@@ -561,7 +563,7 @@ export default function ChatHome({
                     background: `linear-gradient(135deg, ${theme.primary} 0%, ${theme.primary}cc 100%)`,
                   }}
                 >
-                  {(user?.name || "U").charAt(0).toUpperCase()}
+                  {(profileUser.name || user?.name || "U").charAt(0).toUpperCase()}
                 </div>
               )}
               <span
