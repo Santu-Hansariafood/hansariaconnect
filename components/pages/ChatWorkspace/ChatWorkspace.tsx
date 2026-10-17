@@ -1,12 +1,27 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import Loading from "@/components/common/Loading/Loading";
 import ChatHome from "@/components/pages/ChatHome/ChatHome";
-import ChatWindow from "@/components/pages/ChatWindow/ChatWindow";
 import { useApp } from "@/context/AppContext/AppContext";
+
+const ChatWindow = dynamic(
+  () => import("@/components/pages/ChatWindow/ChatWindow"),
+  {
+    loading: () => (
+      <div
+        className="flex h-full min-h-0 flex-1 items-center justify-center bg-[#efeae2]"
+        role="status"
+      >
+        <span className="sr-only">Loading conversation…</span>
+        <div className="h-2 w-24 animate-pulse rounded-full bg-[#00a884]/40" />
+      </div>
+    ),
+  },
+);
 
 type MinimalUser = {
   id?: string | number;

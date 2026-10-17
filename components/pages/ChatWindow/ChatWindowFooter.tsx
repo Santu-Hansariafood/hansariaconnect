@@ -13,9 +13,17 @@ const ForwardModal = dynamic(
 const VoiceRecorder = dynamic(
   () => import("@/components/ui/VoiceRecorder/VoiceRecorder"),
 );
-import Picker from "emoji-picker-react";
 import { ChatMessage, Theme, ForwardContact } from "./ChatWindowTypes";
 import Loading from "@/components/common/Loading/Loading";
+
+const Picker = dynamic(() => import("emoji-picker-react"), {
+  loading: () => (
+    <div
+      className="h-[360px] w-full animate-pulse rounded-xl bg-slate-100"
+      aria-label="Loading emoji picker"
+    />
+  ),
+});
 
 interface ChatWindowFooterProps {
   theme: Theme;
