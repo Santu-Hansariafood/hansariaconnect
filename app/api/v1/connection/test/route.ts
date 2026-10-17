@@ -17,6 +17,8 @@ export async function GET(req: NextRequest) {
 
   const templateId = req.nextUrl.searchParams.get("templateId")?.trim() || "";
   const adminId = req.nextUrl.searchParams.get("adminId")?.trim() || "";
+  const requestedSenderUserId =
+    req.nextUrl.searchParams.get("senderUserId")?.trim() || "";
   if (
     !Types.ObjectId.isValid(templateId) ||
     !Types.ObjectId.isValid(adminId)
@@ -30,15 +32,30 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const senderId = String(authResult.apiKey.senderUserId || "");
+  const senderId = String(
+    authResult.apiKey.senderUserId || requestedSenderUserId,
+  );
   if (!Types.ObjectId.isValid(senderId)) {
     return NextResponse.json(
       {
         success: false,
         error:
-          "No valid sender account is bound to this API key. Bind an existing chat account ID in Admin > API Keys.",
+          "Provide a valid sender chat-account ID or bind one to this API key in Admin > API Keys.",
       },
       { status: 400 },
+    );
+  }
+  if (
+    authResult.apiKey.senderUserId &&
+    requestedSenderUserId &&
+    String(authResult.apiKey.senderUserId) !== requestedSenderUserId
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "senderUserId must match the sender bound to this API key",
+      },
+      { status: 403 },
     );
   }
 

@@ -18,6 +18,7 @@ const createApiKeySchema = z.object({
       message: "Sender chat account ID must be a valid account ObjectId",
     })
     .optional(),
+  isPrimary: z.boolean().optional().default(false),
   expiresDays: z.number().int().min(1).max(3650).optional(),
 });
 
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
         ownerUserId: ownerNames.get(key.adminId) || "Deleted admin",
         name: key.name,
         senderUserId: key.senderUserId,
+        isPrimary: key.isPrimary,
         permissions: key.permissions,
         lastUsed: key.lastUsed,
         expiresAt: key.expiresAt,
@@ -98,8 +100,13 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const { name, expiresDays, senderUserId, adminId: requestedAdminId } =
-      parsedBody.data;
+    const {
+      name,
+      expiresDays,
+      senderUserId,
+      isPrimary,
+      adminId: requestedAdminId,
+    } = parsedBody.data;
 
     const ownerAdminId =
       adminResult.admin.isSuperAdmin && requestedAdminId
@@ -182,6 +189,7 @@ export async function POST(req: NextRequest) {
       adminId: ownerAdminId,
       keySlot,
       senderUserId: senderUserId ? String(senderUserId) : undefined,
+      isPrimary,
       name,
       expiresAt: expiresDays
         ? new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
@@ -189,6 +197,12 @@ export async function POST(req: NextRequest) {
     });
 
     const rawKey = await apiKey.generateHash();
+    if (isPrimary) {
+      await ApiKey.updateMany(
+        { adminId: ownerAdminId, isPrimary: true },
+        { $set: { isPrimary: false } },
+      );
+    }
     await apiKey.save();
 
     return NextResponse.json({
@@ -198,6 +212,7 @@ export async function POST(req: NextRequest) {
         keySlot: apiKey.keySlot,
         name: apiKey.name,
         senderUserId: apiKey.senderUserId,
+        isPrimary: apiKey.isPrimary,
         key: rawKey,
         permissions: apiKey.permissions,
         expiresAt: apiKey.expiresAt,
@@ -215,6 +230,12 @@ export async function POST(req: NextRequest) {
       const duplicateError = error as {
         keyPattern?: Record<string, unknown>;
       };
+      if (duplicateError.keyPattern?.isPrimary) {
+        return NextResponse.json(
+          { error: "Another primary API key was selected at the same time. Please retry." },
+          { status: 409 },
+        );
+      }
       if (duplicateError.keyPattern?.keySlot) {
         console.error(
           "[api/admin/api-keys] API key slot collision while creating key:",

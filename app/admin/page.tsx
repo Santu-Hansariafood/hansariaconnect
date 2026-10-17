@@ -60,6 +60,7 @@ type ApiKeyRow = {
   isActive: boolean;
   createdAt: string;
   senderUserId?: string;
+  isPrimary: boolean;
 };
 
 export default function AdminDashboard() {
@@ -142,6 +143,7 @@ export default function AdminDashboard() {
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [newApiKeyExpiresDays, setNewApiKeyExpiresDays] = useState("");
   const [newApiKeySenderUserId, setNewApiKeySenderUserId] = useState("");
+  const [newApiKeyIsPrimary, setNewApiKeyIsPrimary] = useState(false);
   const [apiKeyCreateError, setApiKeyCreateError] = useState("");
   const [newlyCreatedApiKey, setNewlyCreatedApiKey] = useState<string | null>(
     null,
@@ -460,6 +462,7 @@ export default function AdminDashboard() {
           name: newApiKeyName,
           adminId: ownerAdminId || undefined,
           senderUserId: newApiKeySenderUserId.trim() || undefined,
+          isPrimary: newApiKeyIsPrimary,
           expiresDays: newApiKeyExpiresDays
             ? parseInt(newApiKeyExpiresDays)
             : undefined,
@@ -489,6 +492,7 @@ export default function AdminDashboard() {
       setNewApiKeyName("");
       setNewApiKeyExpiresDays("");
       setNewApiKeySenderUserId("");
+      setNewApiKeyIsPrimary(false);
       void refreshData();
     } catch (error) {
       console.error("[AdminDashboard] Failed to create API key:", error);
@@ -496,6 +500,37 @@ export default function AdminDashboard() {
         error instanceof Error ? error.message : "Failed to create API key";
       setApiKeyCreateError(message);
       setError(message);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const openCreateApiKey = () => {
+    setApiKeyCreateError("");
+    setNewApiKeyIsPrimary(
+      !apiKeys.some(
+        (apiKey) =>
+          apiKey.adminId === effectiveKeyOwnerId && apiKey.isPrimary,
+      ),
+    );
+    setShowCreateApiKey(true);
+  };
+
+  const handleSetPrimaryApiKey = async (id: string) => {
+    setSaving(id);
+    try {
+      const res = await fetch(`/api/admin/api-keys/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPrimary: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to set primary key");
+      await refreshData();
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Failed to set primary key",
+      );
     } finally {
       setSaving(null);
     }
@@ -1413,10 +1448,7 @@ export default function AdminDashboard() {
                       </p>
                     </div>
                     <button
-                      onClick={() => {
-                        setApiKeyCreateError("");
-                        setShowCreateApiKey(true);
-                      }}
+                      onClick={openCreateApiKey}
                       disabled={effectiveKeyOwnerCount >= 3}
                       className={`inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                         isPlatformAdmin
@@ -1474,10 +1506,7 @@ export default function AdminDashboard() {
                 <AdminApplicationConnectionGuide
                   isPlatformAdmin={isPlatformAdmin}
                   onNavigate={setActiveTab}
-                  onCreateApiKey={() => {
-                    setApiKeyCreateError("");
-                    setShowCreateApiKey(true);
-                  }}
+                  onCreateApiKey={openCreateApiKey}
                 />
 
                 {newlyCreatedApiKey && (
@@ -1593,9 +1622,18 @@ export default function AdminDashboard() {
                             <select
                               id="api-key-owner"
                               value={ownerAdminId}
-                              onChange={(event) =>
-                                setOwnerAdminId(event.target.value)
-                              }
+                              onChange={(event) => {
+                                setOwnerAdminId(event.target.value);
+                                const selectedOwnerId =
+                                  event.target.value || currentAdminId;
+                                setNewApiKeyIsPrimary(
+                                  !apiKeys.some(
+                                    (apiKey) =>
+                                      apiKey.adminId === selectedOwnerId &&
+                                      apiKey.isPrimary,
+                                  ),
+                                );
+                              }}
                               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-100"
                             >
                               <option value="">
@@ -1618,6 +1656,27 @@ export default function AdminDashboard() {
                             </p>
                           </div>
                         )}
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                          <input
+                            type="checkbox"
+                            checked={newApiKeyIsPrimary}
+                            onChange={(event) =>
+                              setNewApiKeyIsPrimary(event.target.checked)
+                            }
+                            className="mt-0.5 h-4 w-4 accent-emerald-700"
+                          />
+                          <span>
+                            <span className="block text-sm font-semibold text-emerald-950">
+                              Set as primary API key
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-emerald-800">
+                              Use this key as the default secret in your
+                              integration&apos;s HANSARIA_API_KEY setting.
+                              Other keys stay active; this replaces the
+                              workspace&apos;s previous primary key.
+                            </span>
+                          </span>
+                        </label>
                         <div>
                           <label
                             htmlFor="api-key-sender"
@@ -1751,6 +1810,11 @@ export default function AdminDashboard() {
                               >
                                 {apiKey.isActive ? "Active" : "Disabled"}
                               </span>
+                              {apiKey.isPrimary && (
+                                <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800">
+                                  Primary
+                                </span>
+                              )}
                             </div>
                             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                               <span>
@@ -1787,6 +1851,19 @@ export default function AdminDashboard() {
                             </div>
                           </div>
                           <div className="flex shrink-0 gap-2">
+                            {!apiKey.isPrimary && apiKey.isActive && (
+                              <button
+                                onClick={() =>
+                                  handleSetPrimaryApiKey(apiKey._id)
+                                }
+                                disabled={saving === apiKey._id}
+                                className="rounded-lg border border-indigo-200 px-3 py-2 text-sm font-semibold text-indigo-800 transition hover:bg-indigo-50 disabled:opacity-50"
+                              >
+                                {saving === apiKey._id
+                                  ? "Updating..."
+                                  : "Set primary"}
+                              </button>
+                            )}
                             <button
                               onClick={() =>
                                 handleChangeApiKeySender(apiKey._id)
@@ -1836,10 +1913,7 @@ export default function AdminDashboard() {
                         displayed once when it is created.
                       </p>
                       <button
-                        onClick={() => {
-                          setApiKeyCreateError("");
-                          setShowCreateApiKey(true);
-                        }}
+                        onClick={openCreateApiKey}
                         className={`mt-5 rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${
                           isPlatformAdmin
                             ? "bg-indigo-700 hover:bg-indigo-800"

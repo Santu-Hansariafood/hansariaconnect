@@ -55,9 +55,10 @@ export default function TemplateApiIntegrationExample({
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    adminId: process.env.HANSARIA_ADMIN_ID,
+    adminId: process.env.HANSARIA_WORKSPACE_ID,
     templateId: process.env.HANSARIA_TEMPLATE_ID,
     language: ${JSON.stringify(template.defaultLanguage || "en")},
+    fromUserId: process.env.HANSARIA_ADMIN_ID,
     toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
     variables: ${JSON.stringify(variables, null, 2)}
   })
@@ -78,9 +79,10 @@ response = requests.post(
         "Content-Type": "application/json",
     },
     json={
-        "adminId": os.environ["HANSARIA_ADMIN_ID"],
+        "adminId": os.environ["HANSARIA_WORKSPACE_ID"],
         "templateId": os.environ["HANSARIA_TEMPLATE_ID"],
         "language": ${JSON.stringify(template.defaultLanguage || "en")},
+        "fromUserId": os.environ["HANSARIA_ADMIN_ID"],
         "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
         "variables": ${JSON.stringify(variables, null, 2)},
     },
@@ -92,9 +94,10 @@ if not response.ok:
 print("Message sent", response.json())`,
     PHP: `<?php
 $payload = [
-  "adminId" => getenv("HANSARIA_ADMIN_ID"),
+  "adminId" => getenv("HANSARIA_WORKSPACE_ID"),
   "templateId" => getenv("HANSARIA_TEMPLATE_ID"),
   "language" => ${phpString(template.defaultLanguage || "en")},
+  "fromUserId" => getenv("HANSARIA_ADMIN_ID"),
   "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
   "variables" => [
 ${phpVariables}
@@ -125,7 +128,8 @@ echo "Message sent";`,
   };
   const connectionTestExamples: Record<CodeLanguage, string> = {
     JavaScript: `const url = new URL("https://hfconnect.in/api/v1/connection/test");
-url.searchParams.set("adminId", process.env.HANSARIA_ADMIN_ID);
+url.searchParams.set("adminId", process.env.HANSARIA_WORKSPACE_ID);
+url.searchParams.set("senderUserId", process.env.HANSARIA_ADMIN_ID);
 url.searchParams.set("templateId", process.env.HANSARIA_TEMPLATE_ID);
 
 const response = await fetch(url, {
@@ -145,7 +149,8 @@ response = requests.get(
     "https://hfconnect.in/api/v1/connection/test",
     headers={"Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"]},
     params={
-        "adminId": os.environ["HANSARIA_ADMIN_ID"],
+        "adminId": os.environ["HANSARIA_WORKSPACE_ID"],
+        "senderUserId": os.environ["HANSARIA_ADMIN_ID"],
         "templateId": os.environ["HANSARIA_TEMPLATE_ID"],
     },
     timeout=30,
@@ -156,7 +161,8 @@ if not response.ok:
 print(result["message"], result["checks"])`,
     PHP: `<?php
 $url = "https://hfconnect.in/api/v1/connection/test?" . http_build_query([
-  "adminId" => getenv("HANSARIA_ADMIN_ID"),
+  "adminId" => getenv("HANSARIA_WORKSPACE_ID"),
+  "senderUserId" => getenv("HANSARIA_ADMIN_ID"),
   "templateId" => getenv("HANSARIA_TEMPLATE_ID")
 ]);
 $ch = curl_init($url);
@@ -178,8 +184,9 @@ echo $result["message"];`,
   };
   const example = examples[language];
   const connectionTestExample = connectionTestExamples[language];
-  const environmentExample = `HANSARIA_ADMIN_ID=${template.adminId}
-HANSARIA_API_KEY=${apiKey || "paste-your-admin-workspace-api-key-here"}
+  const environmentExample = `HANSARIA_ADMIN_ID=<sender-chat-account-ObjectId>
+HANSARIA_WORKSPACE_ID=${template.adminId}
+HANSARIA_API_KEY=${apiKey || "paste-your-primary-api-key-here"}
 HANSARIA_TEMPLATE_ID=${template._id}`;
 
   const copyCode = async () => {
@@ -213,11 +220,12 @@ HANSARIA_TEMPLATE_ID=${template._id}`;
       </summary>
       <div className="mt-3 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
         <p className="mb-3 leading-5">
-          Connect with the admin/workspace ID, an API key created for that
-          workspace, and this template ID. The saved subject and body are sent
-          as one chat message; fill in the listed variables. The recipient ID
-          is supplied for each message, not stored as a connection credential.
-          Run this on your server and keep the API key secret.
+          Connect with the workspace ID, a primary API key created for that
+          workspace, this template ID, and the sender chat-account ID in
+          HANSARIA_ADMIN_ID. The sender ID must be a 24-character MongoDB user
+          ID; it is not the API key, a phone number, or the recipient ID. The
+          recipient is supplied separately for each message. Run this on your
+          server and keep the API key secret.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex items-center gap-2">

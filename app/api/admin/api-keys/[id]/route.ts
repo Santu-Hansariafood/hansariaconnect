@@ -20,7 +20,7 @@ export async function PATCH(
 
     await connectDB();
     const body = await req.json();
-    const { isActive, senderUserId } = body;
+    const { isActive, isPrimary, senderUserId } = body;
     const resolved =
       context.params instanceof Promise ? await context.params : context.params;
 
@@ -35,8 +35,35 @@ export async function PATCH(
       return NextResponse.json({ error: "API key not found" }, { status: 404 });
     }
 
+    if (
+      isPrimary === true &&
+      (isActive === false || (!isActive && !apiKey.isActive))
+    ) {
+      return NextResponse.json(
+        { error: "Only an active API key can be primary" },
+        { status: 400 },
+      );
+    }
+
     if (typeof isActive === "boolean") {
       apiKey.isActive = isActive;
+      if (!isActive) {
+        apiKey.isPrimary = false;
+      }
+    }
+
+    if (typeof isPrimary === "boolean") {
+      if (isPrimary) {
+        await ApiKey.updateMany(
+          {
+            adminId: apiKey.adminId,
+            _id: { $ne: apiKey._id },
+            isPrimary: true,
+          },
+          { $set: { isPrimary: false } },
+        );
+      }
+      apiKey.isPrimary = isPrimary;
     }
 
     if (Object.prototype.hasOwnProperty.call(body, "senderUserId")) {
@@ -90,6 +117,7 @@ export async function PATCH(
         _id: apiKey._id,
         name: apiKey.name,
         senderUserId: apiKey.senderUserId,
+        isPrimary: apiKey.isPrimary,
         permissions: apiKey.permissions,
         lastUsed: apiKey.lastUsed,
         expiresAt: apiKey.expiresAt,
@@ -98,6 +126,17 @@ export async function PATCH(
       },
     });
   } catch (error: unknown) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === 11000
+    ) {
+      return NextResponse.json(
+        { error: "Another primary API key was selected at the same time. Please retry." },
+        { status: 409 },
+      );
+    }
     console.error("[api/admin/api-keys] Failed to update API key:", error);
     return NextResponse.json(
       { error: "Failed to update API key" },

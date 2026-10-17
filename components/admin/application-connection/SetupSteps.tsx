@@ -63,8 +63,9 @@ export default function SetupSteps({
       <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <p className="font-semibold text-slate-900">4. Create an API key</p>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Bind the sender account to this key and save its secret securely; it
-          is shown only once.
+          Optionally bind the sender chat account to this key. Mark your
+          preferred key as primary and use its secret as HANSARIA_API_KEY; the
+          secret is shown only once. Other keys remain active for rotation.
         </p>
         <button
           type="button"

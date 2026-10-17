@@ -5,6 +5,7 @@ export interface IApiKey extends Document {
   adminId: string;
   keySlot?: number;
   senderUserId?: string;
+  isPrimary: boolean;
   key: string;
   name: string;
   permissions: {
@@ -25,6 +26,7 @@ const ApiKeySchema = new Schema<IApiKey>(
     adminId: { type: String, required: true },
     keySlot: { type: Number },
     senderUserId: { type: String },
+    isPrimary: { type: Boolean, default: false },
     key: { type: String, required: true, unique: true },
     name: { type: String, required: true },
     permissions: {
@@ -44,6 +46,13 @@ ApiKeySchema.index(
   {
     unique: true,
     partialFilterExpression: { keySlot: { $type: "number" } },
+  },
+);
+ApiKeySchema.index(
+  { adminId: 1, isPrimary: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { isPrimary: true },
   },
 );
 
