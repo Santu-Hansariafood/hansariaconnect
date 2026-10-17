@@ -15,6 +15,7 @@ import {
   MoreVertical,
   LogOut,
   CircleUserRound,
+  Contact as ContactIcon,
   Pin,
 } from "lucide-react";
 import React from "react";
@@ -578,6 +579,7 @@ export default function ChatHome({
           <div className="flex items-center gap-1 sm:gap-2 text-white">
             <button
               onClick={() => router.push("/status")}
+              aria-label="Open status"
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
               title="Status"
             >
@@ -585,7 +587,17 @@ export default function ChatHome({
             </button>
 
             <button
+              onClick={() => router.push("/contacts")}
+              aria-label="Open contacts"
+              className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
+              title="Contacts"
+            >
+              <ContactIcon className="w-5 h-5" />
+            </button>
+
+            <button
               onClick={() => router.push("/groups")}
+              aria-label="Open groups"
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
               title="Groups"
             >
@@ -594,6 +606,7 @@ export default function ChatHome({
 
             <button
               onClick={() => setShowCreateModal(true)}
+              aria-label="Create new chat"
               className="p-2 rounded-full hover:bg-white/10 transition-colors duration-150 active:scale-90"
               title="New Chat"
             >

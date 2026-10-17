@@ -8,7 +8,9 @@ import {
   Ban,
   CircleUserRound,
   BadgeCheck,
+  Contact,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Theme } from "./ChatWindowTypes";
 
 const getSafeAvatarUrl = (value?: string | null) => {
@@ -86,6 +88,7 @@ export default function ChatWindowHeader({
   maskedUrl,
   lastSeenStatus,
 }: ChatWindowHeaderProps) {
+  const router = useRouter();
   const primaryColor = theme.primary || "#0CA678";
   const borderColor = theme.primary ? theme.primary + "80" : "#0b4d45";
   const typingStatus = typingUsers.length
@@ -194,9 +197,31 @@ export default function ChatWindowHeader({
         )}
       </div>
 
+      <button
+        type="button"
+        onClick={() => router.push("/contacts")}
+        aria-label="Open contacts"
+        title="Contacts"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+      >
+        <Contact className="h-5 w-5" />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => router.push("/status")}
+        aria-label="Open status"
+        title="Status"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+      >
+        <CircleUserRound className="h-5 w-5" />
+      </button>
+
       <div className="relative">
         <button
+          type="button"
           onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+          aria-label="Chat options"
           className="rounded-full p-2 text-white transition-all duration-200 hover:bg-white/10"
         >
           <MoreVertical className="h-5 w-5" />

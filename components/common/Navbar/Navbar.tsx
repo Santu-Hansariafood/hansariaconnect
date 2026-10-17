@@ -75,7 +75,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
           <div className="hidden items-center gap-1 md:flex">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.path;
+              const isActive = Boolean(
+                pathname &&
+                  (pathname === item.path ||
+                    (item.path === "/chat" && pathname.startsWith("/chat/"))),
+              );
               const count = Number(item.count || 0);
               const hasUnread = count > 0;
 
@@ -202,7 +206,11 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
         >
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.path;
+            const isActive = Boolean(
+              pathname &&
+                (pathname === item.path ||
+                  (item.path === "/chat" && pathname.startsWith("/chat/"))),
+            );
             const count = Number(item.count || 0);
             const hasUnread = count > 0;
 
