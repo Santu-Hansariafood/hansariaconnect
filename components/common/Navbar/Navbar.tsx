@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useCallback, useSyncExternalStore } from "react";
 import { LogOut } from "lucide-react";
 
 import { useApp } from "@/context/AppContext/AppContext";
@@ -22,7 +24,6 @@ type NavbarProps = {
 };
 
 const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
-  const router = useRouter();
   const pathname = usePathname();
 
   const { theme } = useApp();
@@ -32,13 +33,29 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const unreadCounts = useUnreadCounts();
   const navItems = useNavbarItems(unreadCounts);
 
-  const isSelfOnline = Boolean(socket?.connected);
+  const subscribeToSocket = useCallback(
+    (onStoreChange: () => void) => {
+      if (!socket) return () => {};
 
-  const handleNavigation = (path: string) => {
-    if (path !== pathname) {
-      router.push(path);
-    }
-  };
+      socket.on("connect", onStoreChange);
+      socket.on("disconnect", onStoreChange);
+
+      return () => {
+        socket.off("connect", onStoreChange);
+        socket.off("disconnect", onStoreChange);
+      };
+    },
+    [socket],
+  );
+  const getSocketSnapshot = useCallback(
+    () => Boolean(socket?.connected),
+    [socket],
+  );
+  const isSelfOnline = useSyncExternalStore(
+    subscribeToSocket,
+    getSocketSnapshot,
+    () => false,
+  );
 
   return (
     <nav
@@ -51,10 +68,9 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
       <div className="px-2 sm:px-4">
         <div className="flex h-14 items-center justify-between sm:h-16">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => handleNavigation("/")}
-              aria-label="Go to home"
+            <Link
+              href="/chat"
+              aria-label="Go to chats"
               className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full shadow-sm ring-1 ring-white/20 transition-transform duration-150 active:scale-95 sm:h-10 sm:w-10"
             >
               <Image
@@ -65,7 +81,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                 className="object-cover"
                 priority
               />
-            </button>
+            </Link>
 
             <h1 className="truncate text-base font-bold text-white sm:text-lg">
               HansariaConnect
@@ -84,10 +100,9 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               const hasUnread = count > 0;
 
               return (
-                <button
+                <Link
                   key={item.path}
-                  type="button"
-                  onClick={() => handleNavigation(item.path)}
+                  href={item.path}
                   aria-current={isActive ? "page" : undefined}
                   className={`relative flex items-center gap-2 rounded-lg px-3 py-2 font-medium transition-all duration-150 active:scale-95 sm:px-4 ${
                     isActive ? "text-white" : "text-gray-100 hover:bg-white/10"
@@ -112,7 +127,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                       {count > 99 ? "99+" : count}
                     </span>
                   )}
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -129,9 +144,8 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               </span>
             )}
 
-            <button
-              type="button"
-              onClick={() => handleNavigation("/profile")}
+            <Link
+              href="/profile"
               aria-label="Open profile"
               className="flex items-center gap-1 rounded-lg px-2 py-1.5 transition-all duration-150 hover:bg-white/10 active:scale-95 sm:gap-2"
             >
@@ -180,7 +194,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                   {isSelfOnline ? "online" : "offline"}
                 </span>
               </div>
-            </button>
+            </Link>
 
             {onLogout && (
               <button
@@ -215,10 +229,9 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             const hasUnread = count > 0;
 
             return (
-              <button
+              <Link
                 key={item.path}
-                type="button"
-                onClick={() => handleNavigation(item.path)}
+                href={item.path}
                 aria-current={isActive ? "page" : undefined}
                 className={`relative flex min-w-[52px] flex-1 shrink-0 flex-col items-center gap-0.5 rounded-lg p-1.5 transition-all duration-150 active:scale-95 sm:min-w-[60px] sm:p-2 ${
                   isActive
@@ -240,7 +253,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
                     {count > 9 ? "9+" : count}
                   </span>
                 )}
-              </button>
+              </Link>
             );
           })}
         </div>
