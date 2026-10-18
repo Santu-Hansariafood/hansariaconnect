@@ -640,7 +640,7 @@ export default function Contacts({ user, theme }: Props) {
                 ) : null}
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="mt-3 flex items-center justify-end gap-2">
                 {c.registered ? (
                   <>
                     <button
@@ -651,7 +651,7 @@ export default function Contacts({ user, theme }: Props) {
                       aria-label={`Send message to ${c.name}`}
                       title="Send message"
                       style={{ backgroundColor: theme.primary }}
-                      className="relative inline-flex min-h-10 min-w-0 items-center justify-center rounded-xl px-2 py-2 text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
+                      className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-sm transition hover:-translate-y-0.5 hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
                     >
                       <MessageSquare className="h-4 w-4" />
                       {unreadCount > 0 && (
@@ -668,7 +668,7 @@ export default function Contacts({ user, theme }: Props) {
                       onClick={() => setManageContact(c)}
                       aria-label={`Manage ${c.name}`}
                       title="Edit contact"
-                      className="inline-flex min-h-10 min-w-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -696,7 +696,7 @@ export default function Contacts({ user, theme }: Props) {
                       onClick={() => setManageContact(c)}
                       aria-label={`Manage ${c.name}`}
                       title="Edit contact"
-                      className="inline-flex min-h-10 min-w-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
