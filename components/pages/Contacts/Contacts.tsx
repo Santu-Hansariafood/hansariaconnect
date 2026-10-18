@@ -640,7 +640,7 @@ export default function Contacts({ user, theme }: Props) {
                 ) : null}
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-2 gap-2">
                 {c.registered ? (
                   <>
                     <button
@@ -651,9 +651,9 @@ export default function Contacts({ user, theme }: Props) {
                       aria-label={`Send message to ${c.name}`}
                       title="Send message"
                       style={{ backgroundColor: theme.primary }}
-                      className="relative inline-flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
+                      className="relative inline-flex min-h-10 min-w-0 items-center justify-center rounded-xl px-2 py-2 text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
                     >
-                      <MessageSquare className="w-4 h-4" />
+                      <MessageSquare className="h-4 w-4" />
                       {unreadCount > 0 && (
                         <span
                           aria-label={`${unreadCount} unread`}
@@ -668,9 +668,9 @@ export default function Contacts({ user, theme }: Props) {
                       onClick={() => setManageContact(c)}
                       aria-label={`Manage ${c.name}`}
                       title="Edit contact"
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      className="inline-flex min-h-10 min-w-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
-                      <Pencil className="w-4 h-4" />
+                      <Pencil className="h-4 w-4" />
                     </button>
                   </>
                 ) : (
@@ -684,7 +684,7 @@ export default function Contacts({ user, theme }: Props) {
                           "Invitation ready. Share the contact link below.",
                         );
                       }}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/20"
+                      className="inline-flex min-h-10 min-w-0 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-2 py-2 text-xs font-semibold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/20 sm:text-sm"
                       disabled={c.shareLinksLoading}
                     >
                       {c.shareLinksLoading
@@ -696,9 +696,9 @@ export default function Contacts({ user, theme }: Props) {
                       onClick={() => setManageContact(c)}
                       aria-label={`Manage ${c.name}`}
                       title="Edit contact"
-                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      className="inline-flex min-h-10 min-w-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-2 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
-                      <Pencil className="w-4 h-4" />
+                      <Pencil className="h-4 w-4" />
                     </button>
                   </>
                 )}
