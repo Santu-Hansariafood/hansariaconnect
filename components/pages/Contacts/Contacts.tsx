@@ -644,31 +644,39 @@ export default function Contacts({ user, theme }: Props) {
                 {c.registered ? (
                   <>
                     <button
+                      type="button"
                       onClick={() =>
                         router.push(`/chat/${c.registeredUserId}`)
                       }
+                      aria-label={`Send message to ${c.name}`}
+                      title="Send message"
                       style={{ backgroundColor: theme.primary }}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
+                      className="relative inline-flex min-h-11 items-center justify-center rounded-xl px-3 py-2.5 text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Send Message
                       {unreadCount > 0 && (
-                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-white/20 px-1.5 text-[11px] font-bold">
+                        <span
+                          aria-label={`${unreadCount} unread`}
+                          className="absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-bold text-white"
+                        >
                           {unreadCount > 99 ? "99+" : unreadCount}
                         </span>
                       )}
                     </button>
                     <button
+                      type="button"
                       onClick={() => setManageContact(c)}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      aria-label={`Manage ${c.name}`}
+                      title="Edit contact"
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="w-4 h-4" />
-                      Manage
                     </button>
                   </>
                 ) : (
                   <>
                     <button
+                      type="button"
                       onClick={() => {
                         if (!c.shareLinks && !c.shareLinksLoading)
                           loadShareLinks(c.id);
@@ -684,11 +692,13 @@ export default function Contacts({ user, theme }: Props) {
                         : "Invite to Hansaria"}
                     </button>
                     <button
+                      type="button"
                       onClick={() => setManageContact(c)}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      aria-label={`Manage ${c.name}`}
+                      title="Edit contact"
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="w-4 h-4" />
-                      Manage
                     </button>
                   </>
                 )}
