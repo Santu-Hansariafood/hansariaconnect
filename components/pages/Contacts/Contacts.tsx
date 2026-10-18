@@ -6,7 +6,15 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { fadeIn, staggerContainer } from "@/utils/animations/animations";
-import { X, CircleUserRound, Pencil, MessageSquare } from "lucide-react";
+import {
+  X,
+  CircleUserRound,
+  Pencil,
+  MessageSquare,
+  Plus,
+  Trash2,
+  UserRoundPlus,
+} from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
 import { preloadLastSeenForUsers, formatLastSeenText } from "@/hooks/useLastSeen";
 import Loading from "@/components/common/Loading/Loading";
@@ -570,15 +578,15 @@ export default function Contacts({ user, theme }: Props) {
 
     return (
       <motion.div key={c.id} {...fadeIn}>
-        <div className="rounded-3xl p-5 shadow-sm border border-gray-200 bg-white transition hover:shadow-lg">
-          <div className="flex items-center gap-4">
+        <div className="h-full rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-lg sm:p-5">
+          <div className="flex items-start gap-3 sm:items-center sm:gap-4">
             <div className="relative shrink-0">
               <Image
                 src={c.avatar || "/logo/logo.png"}
                 alt={c.name}
                 width={64}
                 height={64}
-                className="w-16 h-16 rounded-full object-cover"
+                className="h-14 w-14 rounded-2xl object-cover ring-1 ring-slate-100 sm:h-16 sm:w-16 sm:rounded-3xl"
               />
               {c.registered && isOnline && (
                 <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full" title="Online" />
@@ -590,18 +598,18 @@ export default function Contacts({ user, theme }: Props) {
               )}
             </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="text-lg font-semibold text-gray-900 truncate">
+                  <p className="truncate text-base font-semibold text-slate-900 sm:text-lg">
                     {c.name}
                   </p>
-                  <p className="text-sm text-gray-500 truncate">
+                  <p className="truncate text-sm text-slate-500">
                     {c.email || c.mobile}
                   </p>
                 </div>
                 {c.registered ? (
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex min-w-0 flex-col items-start gap-1 sm:items-end">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold flex items-center gap-1.5 ${
                         isOnline
@@ -618,7 +626,7 @@ export default function Contacts({ user, theme }: Props) {
                       ) : (
                         <>
                           <span className="w-2 h-2 rounded-full bg-gray-400" />
-                          Offline · Last seen info
+                          Offline
                         </>
                       )}
                     </span>
@@ -632,7 +640,7 @@ export default function Contacts({ user, theme }: Props) {
                 ) : null}
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {c.registered ? (
                   <>
                     <button
@@ -640,7 +648,7 @@ export default function Contacts({ user, theme }: Props) {
                         router.push(`/chat/${c.registeredUserId}`)
                       }
                       style={{ backgroundColor: theme.primary }}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20"
                     >
                       <MessageSquare className="w-4 h-4" />
                       Send Message
@@ -652,7 +660,7 @@ export default function Contacts({ user, theme }: Props) {
                     </button>
                     <button
                       onClick={() => setManageContact(c)}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="w-4 h-4" />
                       Manage
@@ -668,7 +676,7 @@ export default function Contacts({ user, theme }: Props) {
                           "Invitation ready. Share the contact link below.",
                         );
                       }}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-black"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/20"
                       disabled={c.shareLinksLoading}
                     >
                       {c.shareLinksLoading
@@ -677,7 +685,7 @@ export default function Contacts({ user, theme }: Props) {
                     </button>
                     <button
                       onClick={() => setManageContact(c)}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="w-4 h-4" />
                       Manage
@@ -729,58 +737,73 @@ export default function Contacts({ user, theme }: Props) {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className={`min-h-screen ${theme.wallpaper}`}>
+      <div className={`min-h-screen ${theme.wallpaper || "bg-slate-50"}`}>
         <Navbar user={user} />
 
-        <div className="max-w-7xl mx-auto px-4 py-6">
+        <main className="mx-auto w-full max-w-7xl px-3 py-5 pb-10 sm:px-5 sm:py-8 lg:px-8">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <div className="flex items-center justify-between">
-              <h1 className={`text-3xl font-bold ${theme.textSize}`}>
-                Contacts
-              </h1>
+            <section className="mb-6 rounded-3xl border border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/80 p-4 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                      Your people
+                    </p>
+                    <h1 className={`mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl ${theme.textSize || ""}`}>
+                      Contacts
+                    </h1>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {contacts.length} saved contact{contacts.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-500/20 sm:px-4"
+                    style={{ backgroundColor: theme.primary || "#059669" }}
+                  >
+                    <UserRoundPlus className="h-4 w-4" />
+                    <span className="hidden min-[380px]:inline">New contact</span>
+                    <span className="min-[380px]:hidden">Add</span>
+                  </button>
+                </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button
+                  type="button"
                   onClick={importDeviceContacts}
                   disabled={syncing || !deviceContactSupported}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <CircleUserRound className="w-4 h-4" />
                   {deviceContactSupported ? "Use mobile contacts" : "Mobile contacts not supported"}
                 </button>
                 <button
+                  type="button"
                   onClick={() => (window.location.href = googleAuthUrl)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm border border-slate-200 transition hover:bg-slate-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   <FaGoogle className="w-4 h-4" />
-                  Import from Google
+                  {syncing ? "Importing..." : "Import from Google"}
                   {syncing && (
                     <span className="ml-2 text-xs text-slate-500">
                       Syncing...
                     </span>
                   )}
                 </button>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black"
-                >
-                  <CircleUserRound className="w-4 h-4" />
-                  <span>New Contact</span>
-                </button>
+                </div>
               </div>
+            </section>
+            <div className="rounded-2xl border border-slate-200 bg-white px-3 shadow-sm sm:px-4">
+              <SearchBar onSearch={setSearchQuery} placeholder="Search by name or mobile..." />
             </div>
-
-            <SearchBar
-              onSearch={setSearchQuery}
-              placeholder="Search name or mobile..."
-            />
           </motion.div>
 
           <motion.div
             variants={staggerContainer}
             initial="hidden"
             animate="show"
-            className="space-y-6 mt-6"
+            className="mt-6 space-y-8"
           >
             {inviteMessage && (
               <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
@@ -818,7 +841,7 @@ export default function Contacts({ user, theme }: Props) {
                   </span>
                 </div>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {registeredContacts.map(renderContactCard)}
                 </div>
               </div>
@@ -841,7 +864,7 @@ export default function Contacts({ user, theme }: Props) {
                   </span>
                 </div>
 
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {invitationContacts.map(renderContactCard)}
                 </div>
               </div>
@@ -859,48 +882,73 @@ export default function Contacts({ user, theme }: Props) {
               </div>
             )}
           </motion.div>
-          {filteredContacts.length === 0 && (
-            <div className="text-center py-12 text-gray-500 text-lg">
-              No contacts found
-            </div>
-          )}
           {showCreateModal && (
-            <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+            <div
+              className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget && !creating) {
+                  setShowCreateModal(false);
+                }
+              }}
+            >
               <motion.div
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-contact-title"
+                initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:max-w-xl sm:rounded-[2rem]"
+                onMouseDown={(event) => event.stopPropagation()}
               >
-                <div className="flex justify-between items-center mb-5">
-                  <h2 className="text-xl font-bold">Create Contact</h2>
-                  <button onClick={() => setShowCreateModal(false)}>
-                    <X className="w-6 h-6 text-gray-600" />
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur sm:px-7 sm:py-5">
+                  <div>
+                    <h2 id="create-contact-title" className="text-lg font-bold text-slate-900">
+                      New contact
+                    </h2>
+                    <p className="mt-0.5 text-sm text-slate-500">
+                      Save someone to your contacts
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    disabled={creating}
+                    aria-label="Close create contact"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 disabled:opacity-50"
+                  >
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label htmlFor="new-contact-name" className="text-sm font-semibold text-slate-700">
                       Name
                     </label>
                     <input
+                      id="new-contact-name"
                       type="text"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      className="w-full px-4 py-3 mt-1 border rounded-xl"
+                      maxLength={100}
+                      autoComplete="name"
+                      placeholder="Enter their name"
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label className="text-sm font-semibold text-slate-700">
                       Mobile Numbers
                     </label>
 
-                    <div className="space-y-2 mt-1">
+                    <div className="mt-2 space-y-2">
                       {newMobiles.map((m, index) => (
-                        <div key={index} className="flex gap-2">
+                        <div key={index} className="flex items-center gap-2">
                           <input
                             type="tel"
+                            inputMode="tel"
+                            aria-label={`Mobile number ${index + 1}`}
                             value={m}
                             onChange={(e) =>
                               setNewMobiles((prev) =>
@@ -909,19 +957,22 @@ export default function Contacts({ user, theme }: Props) {
                                 ),
                               )
                             }
-                            className="flex-1 px-4 py-3 border rounded-xl"
+                            className="min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                             placeholder="10-digit number"
                           />
                           {newMobiles.length > 1 && (
                             <button
+                              type="button"
                               onClick={() =>
                                 setNewMobiles((prev) =>
                                   prev.filter((_, i) => i !== index),
                                 )
                               }
-                              className="px-3 py-2 bg-red-500 text-white rounded-xl"
+                              aria-label={`Remove mobile number ${index + 1}`}
+                              className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
                             >
-                              Remove
+                              <Trash2 className="h-4 w-4" />
+                              <span className="hidden sm:inline">Remove</span>
                             </button>
                           )}
                         </div>
@@ -929,41 +980,53 @@ export default function Contacts({ user, theme }: Props) {
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => setNewMobiles([...newMobiles, ""])}
-                      className="mt-2 px-3 py-2 bg-gray-100 rounded-xl"
+                      className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
                     >
+                      <Plus className="h-4 w-4" />
                       Add another number
                     </button>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-700">
+                    <label htmlFor="new-contact-email" className="text-sm font-semibold text-slate-700">
                       Email
                     </label>
                     <input
+                      id="new-contact-email"
                       type="email"
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
-                      className="w-full px-4 py-3 mt-1 border rounded-xl"
+                      autoComplete="email"
+                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                       placeholder="example@mail.com"
                     />
                   </div>
 
-                  {error && <p className="text-red-600">{error}</p>}
+                  {error && (
+                    <p role="alert" className="rounded-xl border border-red-100 bg-red-50 px-3.5 py-3 text-sm text-red-700">
+                      {error}
+                    </p>
+                  )}
 
-                  <div className="flex gap-4 pt-3">
+                  <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
                     <button
-                      onClick={submitCreate}
-                      className="flex-1 py-3 text-white rounded-xl"
-                      style={{ backgroundColor: theme.primary }}
-                    >
-                      {creating ? "Saving..." : "Save"}
-                    </button>
-                    <button
+                      type="button"
                       onClick={() => setShowCreateModal(false)}
-                      className="flex-1 py-3 bg-gray-200 rounded-xl"
+                      disabled={creating}
+                      className="min-h-12 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:min-h-11"
                     >
                       Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitCreate}
+                      disabled={creating}
+                      className="min-h-12 rounded-xl px-5 text-sm font-semibold text-white shadow-sm transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-11"
+                      style={{ backgroundColor: theme.primary || "#059669" }}
+                    >
+                      {creating ? "Saving..." : "Save contact"}
                     </button>
                   </div>
                 </div>
@@ -971,84 +1034,100 @@ export default function Contacts({ user, theme }: Props) {
             </div>
           )}
           {showGoogleImportPrompt && (
-            <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
-              <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
-                <h2 className="text-lg font-bold mb-2">
-                  Import Google Contacts?
+            <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="google-import-title"
+                className="w-full rounded-t-[2rem] bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-[2rem] sm:p-7"
+              >
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50">
+                  <FaGoogle className="h-5 w-5 text-[#4285F4]" />
+                </div>
+                <h2 id="google-import-title" className="text-lg font-bold text-slate-900">
+                  Import Google contacts?
                 </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  We found a connected Google account. Do you want to import
-                  contacts from it? This will add contacts to your account.
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  A Google account is connected. Import its contacts into your
+                  HansariaConnect address book?
                 </p>
-                <div className="flex gap-3">
+                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
                   <button
-                    onClick={importGoogleContacts}
-                    className="flex-1 py-2 text-white rounded-xl"
-                    style={{ backgroundColor: theme.primary }}
-                  >
-                    {syncing ? "Importing..." : "Import"}
-                  </button>
-                  <button
+                    type="button"
                     onClick={() => setShowGoogleImportPrompt(false)}
-                    className="flex-1 py-2 bg-gray-200 rounded-xl"
+                    className="min-h-12 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     Cancel
                   </button>
+                  <button
+                    type="button"
+                    onClick={importGoogleContacts}
+                    disabled={syncing}
+                    className="min-h-12 flex-1 rounded-xl px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
+                    style={{ backgroundColor: theme.primary || "#059669" }}
+                  >
+                    {syncing ? "Importing..." : "Import"}
+                  </button>
                 </div>
-              </div>
+              </section>
             </div>
           )}
 
           {manageContact && (
             <ManageContactModal
-              contact={{ id: manageContact.id, name: manageContact.name }}
+              contact={{
+                id: manageContact.id,
+                name: manageContact.name,
+                mobile: manageContact.mobiles?.join(", ") || manageContact.mobile,
+                email: manageContact.email,
+              }}
               onClose={() => setManageContact(null)}
               onSave={async (name) => {
-                try {
-                  const res = await fetch("/api/contacts", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({ id: manageContact.id, name }),
-                  });
-                  const data = await res.json();
-                  if (res.ok && data?.contact) {
-                    setContacts((prev) =>
-                      prev.map((ct) =>
-                        ct.id === manageContact.id ? { ...ct, name } : ct,
-                      ),
-                    );
-                    setFilteredContacts((prev) =>
-                      prev.map((ct) =>
-                        ct.id === manageContact.id ? { ...ct, name } : ct,
-                      ),
-                    );
-                  }
-                } catch {}
+                const res = await fetch("/api/contacts", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ id: manageContact.id, name }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data?.contact) {
+                  throw new Error(data?.error || "We couldn't save this contact.");
+                }
+
+                setContacts((prev) =>
+                  prev.map((ct) =>
+                    ct.id === manageContact.id ? { ...ct, name } : ct,
+                  ),
+                );
+                setFilteredContacts((prev) =>
+                  prev.map((ct) =>
+                    ct.id === manageContact.id ? { ...ct, name } : ct,
+                  ),
+                );
               }}
               onDelete={async () => {
-                try {
-                  const res = await fetch("/api/contacts", {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    credentials: "include",
-                    body: JSON.stringify({ id: manageContact.id }),
-                  });
-                  const data = await res.json();
-                  if (res.ok && data?.deleted) {
-                    setContacts((prev) =>
-                      prev.filter((ct) => ct.id !== manageContact.id),
-                    );
-                    setFilteredContacts((prev) =>
-                      prev.filter((ct) => ct.id !== manageContact.id),
-                    );
-                  }
-                } catch {}
+                const res = await fetch("/api/contacts", {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({ id: manageContact.id }),
+                });
+                const data = await res.json();
+                if (!res.ok || !data?.deleted) {
+                  throw new Error(data?.error || "We couldn't delete this contact.");
+                }
+
+                setContacts((prev) =>
+                  prev.filter((ct) => ct.id !== manageContact.id),
+                );
+                setFilteredContacts((prev) =>
+                  prev.filter((ct) => ct.id !== manageContact.id),
+                );
               }}
               theme={theme}
             />
           )}
-        </div>
+        </main>
       </div>
     </Suspense>
   );
