@@ -20,13 +20,12 @@ type User = {
 
 type NavbarProps = {
   user: User;
-  onLogout?: () => void;
 };
 
-const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
+const Navbar: React.FC<NavbarProps> = ({ user }) => {
   const pathname = usePathname();
 
-  const { theme } = useApp();
+  const { theme, logout } = useApp();
   const { socket } = useSocket({ subscribeOnline: false });
 
   const navUser = useNavbarUser(user);
@@ -196,17 +195,15 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
               </div>
             </Link>
 
-            {onLogout && (
-              <button
-                type="button"
-                onClick={onLogout}
-                aria-label="Logout"
-                title="Logout"
-                className="rounded-lg p-2 text-white/70 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
-              >
-                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={logout}
+              aria-label="Logout"
+              title="Logout"
+              className="rounded-lg p-2 text-white/70 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+            >
+              <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+            </button>
           </div>
         </div>
 

@@ -5,8 +5,8 @@ import { MessageCircle, Users, Image as ImageIcon, Settings, Phone } from "lucid
 export function useNavbarItems(unreadCounts: { chats: number; groups: number }) {
   const [allowed, setAllowed] = useState<{ contacts: boolean; groups: boolean; status: boolean }>({
     contacts: true,
-    groups: false,
-    status: false,
+    groups: true,
+    status: true,
   });
   useEffect(() => {
     let mounted = true;
