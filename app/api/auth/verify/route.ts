@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
-import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
 import {
   signUserSession,
   verifyOtpSession,
   userSessionCookieOptions,
-  addUserSession,
+  replaceUserSessions,
   getDeviceMetadata,
 } from "@/lib/sessionAuth";
+import { disconnectUserSession } from "@/lib/socketEmitter";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -91,21 +91,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const sessionId = await randomBytesHex(16);
     const device = getDeviceMetadata(req);
-    const allowed = await addUserSession(
+    const revokedSessionIds = await replaceUserSessions(
       user._id.toString(),
       sessionId,
       device,
     );
-    if (!allowed) {
-      const response = NextResponse.json(
-        {
-          success: false,
-          error: `Maximum of ${MAX_DEVICE_SESSIONS} devices reached. Log out one linked device from Profile on another signed-in device, then request a new code.`,
-        },
-        { status: 403 },
-      );
-      response.cookies.delete("otp_session");
-      return response;
+    for (const revokedSessionId of revokedSessionIds) {
+      await disconnectUserSession(revokedSessionId);
     }
 
     try {

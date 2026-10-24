@@ -3,6 +3,7 @@ import { parseCookie } from "cookie";
 import type { NextRequest } from "next/server";
 import { connectDB } from "./db/db";
 import User from "@/models/user/User";
+import type { IUserSessionRecord } from "@/models/user/User";
 import { MAX_DEVICE_SESSIONS } from "./auth/deviceLimits";
 
 export interface UserSession {
@@ -251,6 +252,35 @@ export const addUserSession = async (
     { new: true },
   );
   return Boolean(updatedUser);
+};
+
+export const replaceUserSessions = async (
+  userId: string,
+  sessionId: string,
+  userAgentOrMetadata?: string | DeviceMetadata,
+  ip?: string,
+): Promise<string[]> => {
+  await connectDB();
+  const metadata: DeviceMetadata = typeof userAgentOrMetadata === "string"
+    ? { userAgent: userAgentOrMetadata, ip }
+    : userAgentOrMetadata || {};
+  const existingUser = await User.findOneAndUpdate(
+    { _id: userId },
+    {
+      $set: {
+        sessions: [{ sessionId, createdAt: Date.now(), ...metadata }],
+      },
+    },
+    { new: false },
+  )
+    .select("sessions")
+    .lean();
+
+  const existingSessions = (existingUser?.sessions ||
+    []) as IUserSessionRecord[];
+  return existingSessions
+    .map((session) => session.sessionId)
+    .filter((existingSessionId) => existingSessionId !== sessionId);
 };
 
 export const removeUserSession = async (
