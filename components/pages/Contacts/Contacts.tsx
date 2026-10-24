@@ -94,6 +94,7 @@ export default function Contacts({ user, theme }: Props) {
 
   const [inviteLoading, setInviteLoading] = useState<string>("");
   const [inviteMessage, setInviteMessage] = useState<string>("");
+  const [googleImportError, setGoogleImportError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [deviceContactSupported, setDeviceContactSupported] = useState(false);
   const googleAuthUrl = "/api/google/contacts/auth";
@@ -133,24 +134,16 @@ export default function Contacts({ user, theme }: Props) {
   );
 
   useEffect(() => {
-    const registeredIds = contacts
-      .filter((c) => c.registered && c.registeredUserId)
-      .map((c) => c.registeredUserId as string);
+    const registeredIds = Array.from(
+      new Set(
+        contacts
+          .filter((c) => c.registered && c.registeredUserId)
+          .map((c) => c.registeredUserId as string),
+      ),
+    );
 
     if (registeredIds.length === 0) return;
-
-    void (async () => {
-      await preloadLastSeenForUsers(registeredIds);
-      setContacts((prev) =>
-        prev.map((c) => {
-          if (!c.registered || !c.registeredUserId) return c;
-          return {
-            ...c,
-            online: onlineUserIds.includes(c.registeredUserId),
-          };
-        }),
-      );
-    })();
+    void preloadLastSeenForUsers(registeredIds);
   }, [contacts]);
 
   useEffect(() => {
@@ -248,8 +241,25 @@ export default function Contacts({ user, theme }: Props) {
       const params = new URLSearchParams(window.location.search);
       if (params.get("google_connected") === "1") {
         setShowGoogleImportPrompt(true);
+      }
+      const googleError = params.get("google_error");
+      if (googleError) {
+        const messages: Record<string, string> = {
+          cancelled: "Google authorization was cancelled.",
+          missing_code: "Google did not return an authorization code. Please try again.",
+          not_configured: "Google Contacts import is not configured.",
+          connection_failed: "Could not connect to Google. Please try again.",
+          authorization_failed: "Google authorization failed. Please reconnect your account.",
+          state_invalid: "Google authorization expired or could not be verified. Please start again.",
+        };
+        setGoogleImportError(
+          messages[googleError] || "Google Contacts could not be connected.",
+        );
+      }
+      if (params.has("google_connected") || googleError) {
         const url = new URL(window.location.href);
         url.searchParams.delete("google_connected");
+        url.searchParams.delete("google_error");
         window.history.replaceState({}, document.title, url.toString());
       }
     } catch {}
@@ -257,6 +267,7 @@ export default function Contacts({ user, theme }: Props) {
 
   const importGoogleContacts = async () => {
     setSyncing(true);
+    setGoogleImportError("");
     try {
       const res = await fetch("/api/google/contacts/sync", {
         method: "POST",
@@ -265,53 +276,67 @@ export default function Contacts({ user, theme }: Props) {
         body: JSON.stringify({ confirm: true }),
       });
 
-      if (res.ok) {
-        const listRes = await fetch("/api/contacts", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const data = await listRes.json();
-        if (Array.isArray(data?.contacts)) {
-          const mapped = data.contacts.map((c: any) => ({
-            id: c._id,
-            name: c.registeredProfile?.name || c.name,
-            mobile: c.mobiles?.[0] || "",
-            avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
-            pinned: false,
-            blocked: false,
-            lastMessageTime: c.updatedAt || c.createdAt || "",
-            mobiles: c.mobiles || [],
-            email: c.email || "",
-            registered: !!c.registered,
-            registeredUserId: c.registeredUserId || "",
-            registeredProfile: c.registeredProfile || null,
-            unread: 0,
-          }));
-
-          const unreadMap = await loadUnreadCountsForContacts(mapped);
-          mapped.forEach((c: any) => {
-            if (c.registeredUserId && unreadMap[c.registeredUserId]) {
-              c.unread = unreadMap[c.registeredUserId];
-            }
-          });
-
-          setContacts(mapped);
-          const ids = mapped
-            .filter((c: any) => c.registered && c.registeredUserId)
-            .map((c: any) => c.registeredUserId);
-          if (ids.length) {
-            setLoadingLastSeen(true);
-            void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
-          } else {
-            setLoadingLastSeen(false);
-          }
-        }
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result?.error || "Google contacts could not be imported.");
       }
-    } catch {
-      setLoadingLastSeen(false);
+
+      const listRes = await fetch("/api/contacts", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const data = await listRes.json();
+      if (!listRes.ok || !Array.isArray(data?.contacts)) {
+        throw new Error(data?.error || "Imported contacts could not be reloaded.");
+      }
+
+      const mapped: ContactWithLinks[] = data.contacts.map((c: any) => ({
+        id: c._id,
+        name: c.registeredProfile?.name || c.name,
+        mobile: c.mobiles?.[0] || "",
+        avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
+        pinned: false,
+        blocked: false,
+        lastMessageTime: c.updatedAt || c.createdAt || "",
+        mobiles: c.mobiles || [],
+        email: c.email || "",
+        registered: !!c.registered,
+        registeredUserId: c.registeredUserId || "",
+        registeredProfile: c.registeredProfile || null,
+        unread: 0,
+      }));
+
+      const unreadMap = await loadUnreadCountsForContacts(mapped);
+      mapped.forEach((c) => {
+        if (c.registeredUserId && unreadMap[c.registeredUserId]) {
+          c.unread = unreadMap[c.registeredUserId];
+        }
+      });
+
+      setContacts(mapped);
+      const ids = mapped
+        .filter((c) => c.registered && c.registeredUserId)
+        .map((c) => c.registeredUserId as string);
+      if (ids.length) {
+        setLoadingLastSeen(true);
+        void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
+      } else {
+        setLoadingLastSeen(false);
+      }
+
+      setInviteMessage(
+        `Google contacts imported. ${result.importedCount ?? 0} new contact${result.importedCount === 1 ? "" : "s"} added.`,
+      );
+      setShowGoogleImportPrompt(false);
+    } catch (importError) {
+      setGoogleImportError(
+        importError instanceof Error
+          ? importError.message
+          : "Google contacts could not be imported. Please try again.",
+      );
+    } finally {
+      setSyncing(false);
     }
-    setSyncing(false);
-    setShowGoogleImportPrompt(false);
   };
 
   const importDeviceContacts = async () => {
@@ -750,6 +775,58 @@ export default function Contacts({ user, theme }: Props) {
       <div className={`min-h-screen ${theme.wallpaper || "bg-slate-50"}`}>
         <Navbar user={user} />
 
+        {(showGoogleImportPrompt || googleImportError) && (
+          <aside
+            aria-labelledby="google-import-title"
+            className="mx-auto mt-4 flex w-full max-w-7xl flex-col gap-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+                <FaGoogle className="h-5 w-5 text-[#4285F4]" />
+              </div>
+              <div>
+                <h2 id="google-import-title" className="font-bold text-slate-900">
+                    {googleImportError
+                      ? "Google connection failed"
+                      : "Import Google contacts?"}
+                  </h2>
+                  <p
+                    role={googleImportError ? "alert" : undefined}
+                    className={`mt-1 text-sm leading-5 ${
+                      googleImportError ? "text-red-700" : "text-slate-600"
+                    }`}
+                  >
+                    {googleImportError ||
+                      "A Google account is connected. Import its contacts into your HansariaConnect address book?"}
+                  </p>
+                </div>
+            </div>
+            <div className="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGoogleImportError("");
+                    setShowGoogleImportPrompt(false);
+                  }}
+                  className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  {googleImportError ? "Dismiss" : "Not now"}
+                </button>
+                {showGoogleImportPrompt && (
+                  <button
+                    type="button"
+                    onClick={importGoogleContacts}
+                    disabled={syncing}
+                    className="min-h-11 rounded-xl px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
+                    style={{ backgroundColor: theme.primary || "#059669" }}
+                  >
+                    {syncing ? "Importing..." : "Import"}
+                  </button>
+                )}
+            </div>
+          </aside>
+        )}
+
         <main className="mx-auto w-full max-w-7xl px-3 py-5 pb-10 sm:px-5 sm:py-8 lg:px-8">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <section className="mb-6 rounded-3xl border border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/80 p-4 shadow-sm sm:p-6">
@@ -1043,46 +1120,6 @@ export default function Contacts({ user, theme }: Props) {
               </motion.div>
             </div>
           )}
-          {showGoogleImportPrompt && (
-            <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/45 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-              <section
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="google-import-title"
-                className="w-full rounded-t-[2rem] bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:max-w-md sm:rounded-[2rem] sm:p-7"
-              >
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50">
-                  <FaGoogle className="h-5 w-5 text-[#4285F4]" />
-                </div>
-                <h2 id="google-import-title" className="text-lg font-bold text-slate-900">
-                  Import Google contacts?
-                </h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  A Google account is connected. Import its contacts into your
-                  HansariaConnect address book?
-                </p>
-                <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setShowGoogleImportPrompt(false)}
-                    className="min-h-12 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={importGoogleContacts}
-                    disabled={syncing}
-                    className="min-h-12 flex-1 rounded-xl px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
-                    style={{ backgroundColor: theme.primary || "#059669" }}
-                  >
-                    {syncing ? "Importing..." : "Import"}
-                  </button>
-                </div>
-              </section>
-            </div>
-          )}
-
           {manageContact && (
             <ManageContactModal
               contact={{
