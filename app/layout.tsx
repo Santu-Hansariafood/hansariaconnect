@@ -110,9 +110,34 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0A0A0A",
+  themeColor: "#0ca678",
   viewportFit: "cover",
 };
+
+/*
+ * Runs before the first paint so the saved theme is applied instantly and the
+ * app never flashes the default green on top of a custom one. Kept tiny and
+ * dependency-free on purpose.
+ */
+const themeBootstrapScript = `
+(function () {
+  try {
+    var raw = localStorage.getItem("hansariaTheme");
+    if (!raw) return;
+    var theme = JSON.parse(raw) || {};
+    var root = document.documentElement;
+    if (theme.primary) root.style.setProperty("--brand-primary", theme.primary);
+    if (theme.secondary) root.style.setProperty("--brand-secondary", theme.secondary);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "theme-color");
+      document.head.appendChild(meta);
+    }
+    if (theme.primary) meta.setAttribute("content", theme.primary);
+  } catch (error) {}
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -122,6 +147,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+
         <meta
           name="google-site-verification"
           content="KOtoHmfJpZzpPdAhcnsZcPBaO41N8EKdujIWScgtK5E"

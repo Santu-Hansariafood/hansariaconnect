@@ -74,6 +74,30 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       socketInstance = s;
       setSocket(s);
 
+      /*
+       * Mobile browsers freeze a backgrounded tab, which leaves the socket in a
+       * half-dead state until Socket.IO's own heartbeat notices — that can mean
+       * up to ~45s of missed messages, and therefore missed notifications.
+       * Nudge it back the instant the page becomes visible again, regains
+       * focus, or the network comes back.
+       */
+      const resumeRealtime = () => {
+        if (
+          typeof document !== "undefined" &&
+          document.visibilityState !== "visible"
+        ) {
+          return;
+        }
+        if (!socketInstance || socketInstance.connected) return;
+        console.info(
+          "[Socket] App is back in the foreground — resuming realtime connection",
+        );
+        socketInstance.connect();
+      };
+      window.addEventListener("online", resumeRealtime);
+      window.addEventListener("focus", resumeRealtime);
+      document.addEventListener("visibilitychange", resumeRealtime);
+
       let authenticationRetry: ReturnType<typeof setTimeout> | null = null;
       s.on("connect", () => {
         if (authenticationRetry) {

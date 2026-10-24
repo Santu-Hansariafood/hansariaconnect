@@ -7,7 +7,6 @@ import {
   Play,
   FileText,
   File,
-  Link as LinkIcon,
   Check,
   CheckCheck,
   Forward,
@@ -17,14 +16,13 @@ import {
   ExternalLink,
 } from "lucide-react"
 import Image from "next/image"
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import ReactionPicker from "@/components/ui/ReactionPicker/ReactionPicker"
-import {
-  extractLinks,
-  validateUrl,
-  detectHarmfulWords,
-  formatRichText,
-} from "@/utils/text/formatting"
+import LinkPreviewCard from "@/components/ui/LinkPreview/LinkPreviewCard"
+import MediaViewer, { type MediaViewerItem } from "@/components/ui/MediaViewer/MediaViewer"
+import VoicePlayer from "@/components/ui/VoicePlayer/VoicePlayer"
+import { findPreviewableLink } from "@/hooks/useLinkPreview"
+import { detectHarmfulWords, formatRichText } from "@/utils/text/formatting"
 import Link from "next/link"
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 
@@ -74,7 +72,7 @@ interface MessageBubbleProps {
   ) => boolean | Promise<boolean>
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({
+const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   message,
   user,
   contact,
@@ -93,21 +91,26 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [pendingButtonIndexes, setPendingButtonIndexes] = useState<number[]>([])
   const [templateButtonError, setTemplateButtonError] = useState("")
   const [localReactions, setLocalReactions] = useState<Record<string, number>>(message.reactions || {})
+  const [viewerItem, setViewerItem] = useState<MediaViewerItem | null>(null)
 
   useEffect(() => {
     setLocalReactions(message.reactions || {})
   }, [message.reactions])
 
   const textContent = message.text || ""
-
-  const links = textContent ? extractLinks(textContent) : []
-  const topLink = links.find((l) => validateUrl(l))
   const messageUrl = message.url || message.media || textContent
-  const isMapLink = /(?:google\.[^/]+\/maps|maps\.google\.|openstreetmap\.org|geo:)/i.test(messageUrl)
 
-  const harmful = detectHarmfulWords(textContent)
-
-  const rich = formatRichText(textContent)
+  const { previewLink, isMapLink, harmful, rich } = useMemo(() => {
+    return {
+      previewLink: findPreviewableLink(textContent),
+      isMapLink:
+        /(?:google\.[^/]+\/maps|maps\.google\.|openstreetmap\.org|geo:)/i.test(
+          messageUrl,
+        ),
+      harmful: detectHarmfulWords(textContent),
+      rich: formatRichText(textContent),
+    }
+  }, [messageUrl, textContent])
 
   const displaySenderAvatar = !isSent && isGroup && showSenderInfo
   const displaySenderName = !isSent && isGroup && showSenderInfo
@@ -256,26 +259,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             >
               {message.type === "text" && (
                 <div className="break-words whitespace-pre-wrap inline">
-                  {topLink && (
-                    <div
-                      className={`${
-                        isSent ? "bg-white/10" : "bg-gray-200"
-                      } rounded-lg p-2 mb-2 flex items-center gap-2 clear-both`}
-                    >
-                      <LinkIcon className="w-4 h-4" />
-                      <a
-                        href={
-                          topLink.startsWith("http")
-                            ? topLink
-                            : `http://${topLink}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline break-all"
-                      >
-                        {topLink}
-                      </a>
-                    </div>
+                  {previewLink && (
+                    <LinkPreviewCard
+                      url={previewLink}
+                      providedTitle={message.linkTitle}
+                      providedDescription={message.linkDescription}
+                    />
                   )}
 
                   <span>{rich.nodes}</span>
@@ -291,13 +280,29 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.type === "image" && (
                 <div className="space-y-2">
                   {message.media && (
-                    <Image
-                      src={message.media}
-                      alt="Shared Image"
-                      width={400}
-                      height={300}
-                      className="rounded-lg max-w-full h-auto object-cover"
-                    />
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setViewerItem({
+                          kind: "image",
+                          url: message.media as string,
+                          caption: message.text,
+                          senderName,
+                          timestamp: message.timestamp,
+                        })
+                      }}
+                      aria-label="Open image preview"
+                      className="block max-w-full cursor-zoom-in overflow-hidden rounded-lg bg-black/5 transition active:opacity-90"
+                    >
+                      <Image
+                        src={message.media}
+                        alt={message.text || "Shared image"}
+                        width={400}
+                        height={300}
+                        className="h-auto max-h-[360px] w-auto max-w-[260px] rounded-lg object-cover sm:max-w-[320px]"
+                      />
+                    </button>
                   )}
 
                   {message.text && (
@@ -316,9 +321,38 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.type === "video" && (
                 <div className="space-y-2">
                   {message.media && (
-                    <div className="rounded-lg overflow-hidden bg-black">
-                      <video src={message.media} controls className="w-full" />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setViewerItem({
+                          kind: "video",
+                          url: message.media as string,
+                          caption: message.text,
+                          senderName,
+                          timestamp: message.timestamp,
+                          fileName: message.fileName,
+                        })
+                      }}
+                      aria-label="Open video preview"
+                      className="relative block w-[240px] max-w-full cursor-pointer overflow-hidden rounded-lg bg-black sm:w-[300px]"
+                    >
+                      <video
+                        src={message.media}
+                        preload="metadata"
+                        muted
+                        playsInline
+                        className="h-auto w-full"
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
+                          <Play
+                            className="h-5 w-5 translate-x-[1px] text-[#111b21]"
+                            fill="currentColor"
+                          />
+                        </span>
+                      </span>
+                    </button>
                   )}
 
                   {message.text && (
@@ -336,14 +370,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {message.type === "voice" && (
                 <div className="space-y-2">
-                  {message.media ? (
-                    <audio src={message.media} controls preload="metadata" className="h-10 max-w-full" />
-                  ) : (
-                    <div className="flex items-center gap-3 rounded-xl bg-black/5 p-3 text-sm opacity-80">
-                      <Play className="h-4 w-4" />
-                      <span>Voice message unavailable</span>
-                    </div>
-                  )}
+                  <VoicePlayer src={message.media || ""} duration={message.duration} />
 
                   {message.text && (
                     <div className="break-words whitespace-pre-wrap inline">
@@ -452,38 +479,40 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {message.type === "link" && (
                 <div className="space-y-2">
-                  <div className="min-w-[220px] overflow-hidden rounded-xl bg-black/5">
-                    <div className="flex items-center gap-3 border-b border-black/10 px-3 py-2.5">
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isMapLink ? "bg-[#3b82f6]" : "bg-[#64748b]"} text-white`}>
-                        {isMapLink ? <MapPin className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
+                  {isMapLink ? (
+                    <div className="min-w-[220px] overflow-hidden rounded-xl bg-black/5">
+                      <div className="flex items-center gap-3 border-b border-black/10 px-3 py-2.5">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#3b82f6] text-white">
+                          <MapPin className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-semibold">Location</span>
                       </div>
-                      <span className="text-xs font-semibold">{isMapLink ? "Location" : "Shared link"}</span>
+
+                      {messageUrl && (
+                        <Link
+                          href={messageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-[#075e54] transition hover:underline"
+                        >
+                          <span className="min-w-0 flex-1 break-all">
+                            Open location in Maps
+                          </span>
+                          <ExternalLink className="h-4 w-4 shrink-0" />
+                        </Link>
+                      )}
                     </div>
+                  ) : (
+                    <LinkPreviewCard
+                      url={messageUrl}
+                      providedTitle={message.linkTitle}
+                      providedDescription={message.linkDescription}
+                      alwaysShow
+                    />
+                  )}
 
-                    {messageUrl && (
-                      <Link
-                        href={messageUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-[#075e54] transition hover:underline"
-                      >
-                        <span className="min-w-0 flex-1 break-all">{isMapLink ? "Open location in Maps" : message.linkTitle || messageUrl}</span>
-                        <ExternalLink className="h-4 w-4 shrink-0" />
-                      </Link>
-                    )}
-
-                    {message.linkTitle && !isMapLink && (
-                      <p className="text-sm font-medium">{message.linkTitle}</p>
-                    )}
-
-                    {message.linkDescription && !isMapLink && (
-                      <p className="px-3 pb-3 text-xs opacity-70">
-                        {message.linkDescription}
-                      </p>
-                    )}
-                  </div>
-
-                  {message.text && (
+                  {message.text && message.text !== messageUrl && (
                     <p className="break-words whitespace-pre-wrap inline">
                       <span>{message.text}</span>
                     </p>
@@ -576,8 +605,40 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         </div>
       </div>
+
+      <MediaViewer item={viewerItem} onClose={() => setViewerItem(null)} />
     </motion.div>
   )
 }
+
+const buttonsSignature = (buttons?: TemplateActionButton[]) =>
+  (buttons || []).map((button) => button.type).join("|")
+
+const arePropsEqual = (
+  prev: MessageBubbleProps,
+  next: MessageBubbleProps,
+): boolean =>
+  prev.isGroup === next.isGroup &&
+  prev.showSenderInfo === next.showSenderInfo &&
+  prev.theme === next.theme &&
+  prev.user.name === next.user.name &&
+  prev.contact.name === next.contact.name &&
+  prev.contact.avatar === next.contact.avatar &&
+  prev.message.sender === next.message.sender &&
+  prev.message.type === next.message.type &&
+  prev.message.text === next.message.text &&
+  prev.message.media === next.message.media &&
+  prev.message.url === next.message.url &&
+  prev.message.fileName === next.message.fileName &&
+  prev.message.fileSize === next.message.fileSize &&
+  prev.message.linkTitle === next.message.linkTitle &&
+  prev.message.linkDescription === next.message.linkDescription &&
+  prev.message.status === next.message.status &&
+  prev.message.duration === next.message.duration &&
+  prev.message.reactions === next.message.reactions &&
+  String(prev.message.timestamp) === String(next.message.timestamp) &&
+  buttonsSignature(prev.message.buttons) === buttonsSignature(next.message.buttons)
+
+const MessageBubble = React.memo(MessageBubbleComponent, arePropsEqual)
 
 export default MessageBubble

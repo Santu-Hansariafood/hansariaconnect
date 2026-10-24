@@ -8,6 +8,14 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Allows the page to force a waiting worker to activate immediately
+// (used when the app detects a new version while the user is mid-typing).
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   // Keep authenticated chat and API responses network-only.
   if (event.request.method !== "GET" || new URL(event.request.url).origin !== self.location.origin) {

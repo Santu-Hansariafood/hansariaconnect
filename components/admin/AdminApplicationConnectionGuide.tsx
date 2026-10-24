@@ -2,16 +2,19 @@
 
 import ConnectionTroubleshooting from "./application-connection/ConnectionTroubleshooting";
 import SetupSteps from "./application-connection/SetupSteps";
-import type { DashboardTab } from "./application-connection/types";
+import WhatsAppTemplateBuilder from "./application-connection/WhatsAppTemplateBuilder";
+import type { BuilderTemplate, DashboardTab } from "./application-connection/types";
 
 type AdminApplicationConnectionGuideProps = {
   isPlatformAdmin: boolean;
+  templates: BuilderTemplate[];
   onNavigate: (tab: DashboardTab) => void;
   onCreateApiKey: () => void;
 };
 
 export default function AdminApplicationConnectionGuide({
   isPlatformAdmin,
+  templates,
   onNavigate,
   onCreateApiKey,
 }: AdminApplicationConnectionGuideProps) {
@@ -49,6 +52,11 @@ export default function AdminApplicationConnectionGuide({
           isPlatformAdmin={isPlatformAdmin}
           onNavigate={onNavigate}
           onCreateApiKey={onCreateApiKey}
+        />
+        <WhatsAppTemplateBuilder
+          templates={templates}
+          isPlatformAdmin={isPlatformAdmin}
+          onCreateTemplate={() => onNavigate("templates")}
         />
         <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
           Open the template&apos;s API integration example to copy the

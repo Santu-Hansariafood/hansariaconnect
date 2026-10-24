@@ -128,30 +128,92 @@ export async function GET(req: NextRequest) {
 
     const conversationResults: any[] = [];
 
+    const peerIdStrings = Array.from(
+      new Set(
+        conversations.map((conv) =>
+          String(conv.userA) === userIdStr
+            ? normalizeId(conv.userB)
+            : normalizeId(conv.userA),
+        ),
+      ),
+    );
+    const peerObjectIds = peerIdStrings
+      .filter((id) => Types.ObjectId.isValid(id))
+      .map((id) => new Types.ObjectId(id));
+
+    const [peerUsers, peerProfiles, lastMessageRows] = await Promise.all([
+      peerObjectIds.length
+        ? ((User.find({ _id: { $in: peerObjectIds } }).lean()) as Promise<
+            IUser[]
+          >)
+        : Promise.resolve([] as IUser[]),
+      peerObjectIds.length
+        ? ((Profile.find({ userId: { $in: peerObjectIds } })
+            .lean()) as Promise<IProfile[]>)
+        : Promise.resolve([] as IProfile[]),
+      peerObjectIds.length
+        ? (Message.aggregate([
+            {
+              $match: {
+                $or: [
+                  { from: userId, to: { $in: peerObjectIds } },
+                  { from: { $in: peerObjectIds }, to: userId },
+                ],
+              },
+            },
+            {
+              $addFields: {
+                peer: { $cond: [{ $eq: ["$from", userId] }, "$to", "$from"] },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $group: { _id: "$peer", doc: { $first: "$$ROOT" } } },
+          ]) as Promise<Array<{ _id: unknown; doc: IMessage }>>)
+        : Promise.resolve([] as Array<{ _id: unknown; doc: IMessage }>),
+    ]);
+
+    const userById = new Map<string, IUser>();
+    for (const peerUser of peerUsers) userById.set(String(peerUser._id), peerUser);
+
+    const profileByUserId = new Map<string, IProfile>();
+    for (const peerProfile of peerProfiles) {
+      profileByUserId.set(String(peerProfile.userId), peerProfile);
+    }
+
+    const lastMessageByPeer = new Map<string, IMessage>();
+    for (const row of lastMessageRows) {
+      lastMessageByPeer.set(normalizeId(row._id), row.doc);
+    }
+
+    const adminIds = Array.from(
+      new Set(
+        peerUsers
+          .map((u) => (u.createdByAdminId ? normalizeId(u.createdByAdminId) : ""))
+          .filter((id) => Types.ObjectId.isValid(id)),
+      ),
+    );
+    const businessAdmins = adminIds.length
+      ? await Admin.find({
+          _id: { $in: adminIds.map((id) => new Types.ObjectId(id)) },
+        })
+          .select("companyName companyDomain isCompanyVerified")
+          .lean()
+      : [];
+    const adminById = new Map<string, any>();
+    for (const admin of businessAdmins) adminById.set(String(admin._id), admin);
+
     for (const conv of conversations) {
       const peerId =
-        String(conv.userA) === String(userId) ? conv.userB : conv.userA;
+        String(conv.userA) === userIdStr ? conv.userB : conv.userA;
 
-      const [peerUser, peerProfile, lastMessage] = await Promise.all([
-        User.findById(peerId).lean() as Promise<IUser | null>,
-        Profile.findOne({ userId: peerId }).lean() as Promise<IProfile | null>,
-        Message.findOne({
-          $or: [
-            { from: userId, to: peerId },
-            { from: peerId, to: userId },
-          ],
-        })
-          .sort({ createdAt: -1 })
-          .lean() as Promise<IMessage | null>,
-      ]);
-
+      const peerUser = userById.get(normalizeId(peerId));
       if (!peerUser) continue;
 
-      const peerIdStr = String(peerId);
+      const peerIdStr = normalizeId(peerId);
+      const peerProfile = profileByUserId.get(peerIdStr);
+      const lastMessage = lastMessageByPeer.get(peerIdStr) || null;
       const businessAdmin = peerUser.createdByAdminId
-        ? await Admin.findById(peerUser.createdByAdminId)
-            .select("companyName companyDomain isCompanyVerified")
-            .lean()
+        ? adminById.get(normalizeId(peerUser.createdByAdminId)) || null
         : null;
       const isCompanyVerified = Boolean(
         businessAdmin?.isCompanyVerified && businessAdmin.companyName,
@@ -201,13 +263,27 @@ export async function GET(req: NextRequest) {
       .sort({ lastMessageAt: -1 })
       .lean()) as any[];
 
+    const groupObjectIds = groups
+      .map((group) => group._id)
+      .filter((id: unknown) => Types.ObjectId.isValid(String(id)))
+      .map((id: unknown) => new Types.ObjectId(String(id)));
+
+    const groupLastMessageRows = groupObjectIds.length
+      ? ((await GroupMessage.aggregate([
+          { $match: { groupId: { $in: groupObjectIds } } },
+          { $sort: { createdAt: -1 } },
+          { $group: { _id: "$groupId", doc: { $first: "$$ROOT" } } },
+        ])) as Array<{ _id: unknown; doc: IGroupMessage }>)
+      : [];
+
+    const lastGroupMessageById = new Map<string, IGroupMessage>();
+    for (const row of groupLastMessageRows) {
+      lastGroupMessageById.set(normalizeId(row._id), row.doc);
+    }
+
     for (const group of groups) {
       const groupIdStr = String(group._id);
-      const lastGroupMsg = (await GroupMessage.findOne({
-        groupId: group._id,
-      })
-        .sort({ createdAt: -1 })
-        .lean()) as IGroupMessage | null;
+      const lastGroupMsg = lastGroupMessageById.get(groupIdStr) || null;
 
       const members = Array.isArray(group.members) ? group.members : [];
 

@@ -5,11 +5,13 @@ import { Search } from "lucide-react";
 type SearchBarProps = {
   onSearch: (value: string) => void;
   placeholder?: string;
+  accentColor?: string;
 };
 
 const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
   placeholder = "Search...",
+  accentColor = "#00a884",
 }) => {
   return (
     <div className="relative">
@@ -18,7 +20,14 @@ const SearchBar: React.FC<SearchBarProps> = ({
         type="text"
         onChange={(e) => onSearch(e.target.value)}
         placeholder={placeholder}
-        className="w-full pl-11 pr-4 py-2 bg-[#f0f2f5] rounded-lg text-[14px] text-[#111b21] placeholder:text-[#54656f] outline-none transition-all focus:bg-white focus:ring-1 focus:ring-[#00a884] border border-transparent focus:border-[#00a884]/30"
+        style={{ caretColor: accentColor }}
+        className="w-full rounded-lg border border-transparent bg-[#f0f2f5] py-2.5 pl-11 pr-4 text-base text-[#111b21] outline-none transition-all duration-150 placeholder:text-[#54656f] focus:bg-white sm:py-2 sm:text-[14px]"
+        onFocus={(e) => {
+          e.currentTarget.style.boxShadow = `0 0 0 1px ${accentColor}33`;
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.boxShadow = "";
+        }}
       />
     </div>
   );

@@ -1505,6 +1505,7 @@ export default function AdminDashboard() {
                 </div>
                 <AdminApplicationConnectionGuide
                   isPlatformAdmin={isPlatformAdmin}
+                  templates={templates}
                   onNavigate={setActiveTab}
                   onCreateApiKey={openCreateApiKey}
                 />

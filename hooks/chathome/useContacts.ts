@@ -34,7 +34,81 @@ export const useContacts = (userId?: string | number) => {
   const hasLoadedConversations = useRef(false);
   const lastCatchupAtRef = useRef(0);
   const { onlineUserIds, socket, addListener, removeListener } = useSocket();
-  const { bootstrapData } = useApp();
+  const { bootstrapData, bootstrapReady } = useApp();
+
+  const mapConversationToContact = useCallback(
+    (
+      c: any,
+      unreadMap: Record<string, number>,
+      currentUserId: string,
+    ): Contact => {
+      let lastMessageText = "";
+
+      if (c.lastMessage) {
+        if (c.lastMessage.type === "text") lastMessageText = c.lastMessage.text || "";
+        else if (c.lastMessage.type === "image") lastMessageText = "📷 Image";
+        else if (c.lastMessage.type === "video") lastMessageText = "🎥 Video";
+        else if (c.lastMessage.type === "voice") lastMessageText = "🎤 Voice";
+        else if (c.lastMessage.type === "pdf") lastMessageText = "📄 PDF";
+        else if (c.lastMessage.type === "excel") lastMessageText = "📊 Excel";
+        else if (c.lastMessage.type === "link")
+          lastMessageText = c.lastMessage.linkTitle || "🔗 Link";
+        else lastMessageText = c.lastMessage.text || "";
+      }
+
+      const displayName = c.name || c.mobile || "Unknown";
+      const lastMessageFrom = c.lastMessage?.from ? String(c.lastMessage.from) : "";
+      const key = String(c.peerId || c.id || "");
+
+      return {
+        id: c.id || c.peerId,
+        peerId: c.peerId || c.id,
+        name: displayName,
+        mobile: c.mobile || "",
+        avatar: c.avatar || "/logo/logo.png",
+        pinned: c.pinned || false,
+        blocked: c.blocked || false,
+        active: false,
+        unread: unreadMap[key] || c.unread || 0,
+        lastSeen: "",
+        lastMessageTime: c.lastMessageAt || "",
+        lastMessage: lastMessageText,
+        mobiles: [c.mobile].filter(Boolean),
+        email: c.email || "",
+        registered: c.registered || false,
+        registeredUserId: c.peerId || c.id,
+        isGroup: !!c.isGroup,
+        memberCount: c.memberCount || 0,
+        lastMessageFromMe: lastMessageFrom === currentUserId,
+      };
+    },
+    [],
+  );
+
+  const applyConversationList = useCallback(
+    (conversationList: any[], unreadMap: Record<string, number>) => {
+      const currentUserId = String(userId || "");
+      const mapped: Contact[] = conversationList.map((c: any) =>
+        mapConversationToContact(c, unreadMap, currentUserId),
+      );
+
+      setContacts((previous) => {
+        const conversationKeys = new Set(
+          mapped.map(
+            (contact) => contact.registeredUserId || contact.peerId || contact.id,
+          ),
+        );
+        const savedOnly = previous.filter(
+          (contact) =>
+            !conversationKeys.has(
+              contact.registeredUserId || contact.peerId || contact.id,
+            ),
+        );
+        return [...mapped, ...savedOnly];
+      });
+    },
+    [mapConversationToContact, userId],
+  );
 
   const mergeSavedContacts = useCallback((savedContacts: any[]) => {
     const saved = savedContacts.map((contact: any): Contact => {
@@ -149,59 +223,7 @@ export const useContacts = (userId?: string | number) => {
       }
 
       if (Array.isArray(convData?.conversations)) {
-        const currentUserId = String(userId || "");
-        const mapped: Contact[] = convData.conversations.map((c: any) => {
-          let lastMessageText = "";
-
-          if (c.lastMessage) {
-            if (c.lastMessage.type === "text") lastMessageText = c.lastMessage.text || "";
-            else if (c.lastMessage.type === "image") lastMessageText = "📷 Image";
-            else if (c.lastMessage.type === "video") lastMessageText = "🎥 Video";
-            else if (c.lastMessage.type === "voice") lastMessageText = "🎤 Voice";
-            else if (c.lastMessage.type === "pdf") lastMessageText = "📄 PDF";
-            else if (c.lastMessage.type === "excel") lastMessageText = "📊 Excel";
-            else if (c.lastMessage.type === "link") lastMessageText = c.lastMessage.linkTitle || "🔗 Link";
-            else lastMessageText = c.lastMessage.text || "";
-          }
-
-          const displayName = c.name || c.mobile || "Unknown";
-          const lastMessageFrom = c.lastMessage?.from ? String(c.lastMessage.from) : "";
-
-          return {
-            id: c.id || c.peerId,
-            peerId: c.peerId || c.id,
-            name: displayName,
-            mobile: c.mobile || "",
-            avatar: c.avatar || "/logo/logo.png",
-            pinned: c.pinned || false,
-            blocked: c.blocked || false,
-            active: false,
-            unread: unreadMap[c.peerId || c.id] || 0,
-            lastSeen: "",
-            lastMessageTime: c.lastMessageAt || "",
-            lastMessage: lastMessageText,
-            mobiles: [c.mobile].filter(Boolean),
-            email: c.email || "",
-            registered: c.registered || false,
-            registeredUserId: c.peerId || c.id,
-            isGroup: !!c.isGroup,
-            memberCount: c.memberCount || 0,
-            lastMessageFromMe: lastMessageFrom === currentUserId,
-          };
-        });
-
-        setContacts((previous) => {
-          const conversationKeys = new Set(
-            mapped.map((contact) => contact.registeredUserId || contact.peerId || contact.id),
-          );
-          const savedOnly = previous.filter(
-            (contact) =>
-              !conversationKeys.has(
-                contact.registeredUserId || contact.peerId || contact.id,
-              ),
-          );
-          return [...mapped, ...savedOnly];
-        });
+        applyConversationList(convData.conversations, unreadMap);
       }
     } catch (err: any) {
       console.error(
@@ -212,7 +234,7 @@ export const useContacts = (userId?: string | number) => {
       hasLoadedConversations.current = true;
       setLoading(false);
     }
-  }, [userId]);
+  }, [applyConversationList]);
 
   useEffect(() => {
     if (!socket) return;
@@ -260,60 +282,13 @@ export const useContacts = (userId?: string | number) => {
   }, [loadSavedContacts]);
 
   useEffect(() => {
+    if (!bootstrapReady) return;
+
     if (Array.isArray(bootstrapData.conversations) && bootstrapData.conversations.length > 0) {
-      const currentUserId = String(userId || "");
-      const mapped: Contact[] = bootstrapData.conversations.map((c: any) => {
-        let lastMessageText = "";
-
-        if (c.lastMessage) {
-          if (c.lastMessage.type === "text") lastMessageText = c.lastMessage.text || "";
-          else if (c.lastMessage.type === "image") lastMessageText = "📷 Image";
-          else if (c.lastMessage.type === "video") lastMessageText = "🎥 Video";
-          else if (c.lastMessage.type === "voice") lastMessageText = "🎤 Voice";
-          else if (c.lastMessage.type === "pdf") lastMessageText = "📄 PDF";
-          else if (c.lastMessage.type === "excel") lastMessageText = "📊 Excel";
-          else if (c.lastMessage.type === "link") lastMessageText = c.lastMessage.linkTitle || "🔗 Link";
-          else lastMessageText = c.lastMessage.text || "";
-        }
-
-        const displayName = c.name || c.mobile || "Unknown";
-        const lastMessageFrom = c.lastMessage?.from ? String(c.lastMessage.from) : "";
-
-        return {
-          id: c.id || c.peerId,
-          peerId: c.peerId || c.id,
-          name: displayName,
-          mobile: c.mobile || "",
-          avatar: c.avatar || "/logo/logo.png",
-          pinned: c.pinned || false,
-          blocked: c.blocked || false,
-          active: false,
-          unread: c.unread || 0,
-          lastSeen: "",
-          lastMessageTime: c.lastMessageAt || "",
-          lastMessage: lastMessageText,
-          mobiles: [c.mobile].filter(Boolean),
-          email: c.email || "",
-          registered: c.registered || false,
-          registeredUserId: c.peerId || c.id,
-          isGroup: !!c.isGroup,
-          memberCount: c.memberCount || 0,
-          lastMessageFromMe: lastMessageFrom === currentUserId,
-        };
-      });
-
-      setContacts((previous) => {
-        const conversationKeys = new Set(
-          mapped.map((contact) => contact.registeredUserId || contact.peerId || contact.id),
-        );
-        const savedOnly = previous.filter(
-          (contact) =>
-            !conversationKeys.has(
-              contact.registeredUserId || contact.peerId || contact.id,
-            ),
-        );
-        return [...mapped, ...savedOnly];
-      });
+      applyConversationList(
+        bootstrapData.conversations,
+        bootstrapData.unreadCounts || {},
+      );
       hasLoadedConversations.current = true;
       setLoading(false);
       return;
@@ -341,7 +316,13 @@ export const useContacts = (userId?: string | number) => {
       window.removeEventListener("focus", onWindowFocus);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [bootstrapData.conversations, loadConversations]);
+  }, [
+    applyConversationList,
+    bootstrapData.conversations,
+    bootstrapData.unreadCounts,
+    bootstrapReady,
+    loadConversations,
+  ]);
 
   useEffect(() => {
     setContacts(prev => {

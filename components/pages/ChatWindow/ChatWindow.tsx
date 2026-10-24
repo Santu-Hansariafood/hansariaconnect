@@ -33,6 +33,10 @@ const ChatWindowMessageList = dynamic(
 const ChatWindowModals = dynamic(
   () => import("@/components/pages/ChatWindow/ChatWindowModals"),
 );
+const AttachmentPreview = dynamic(
+  () => import("@/components/ui/AttachmentPreview/AttachmentPreview"),
+);
+import type { PendingAttachment } from "@/components/ui/AttachmentPreview/AttachmentPreview";
 import {
   ChatMessage,
   ContactInfo,
@@ -102,6 +106,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [chatError, setChatError] = useState("");
   const [mediaError, setMediaError] = useState("");
+  const [pendingAttachment, setPendingAttachment] =
+    useState<PendingAttachment | null>(null);
+  const [attachmentSending, setAttachmentSending] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -275,14 +282,26 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     containerScrollRef.current.isAtBottom = checkIsAtBottom();
   }, [checkIsAtBottom]);
 
+  /*
+   * Scroll the message pane itself instead of the sentinel node so only the
+   * list moves (scrollIntoView would also scroll the page) and the smooth
+   * animation is driven by the pane's own frame budget on mobile.
+   */
   const scrollToBottom = useCallback((smooth: boolean = false) => {
-    if (!messagesEndRef.current) return;
-    messagesEndRef.current.scrollIntoView({
-      behavior: smooth ? "smooth" : "auto",
-      block: "end",
-    });
+    const el = containerRef?.current ?? null;
+    if (!el) {
+      messagesEndRef.current?.scrollIntoView({ block: "end" });
+      containerScrollRef.current.isAtBottom = true;
+      return;
+    }
+    const top = el.scrollHeight - el.clientHeight;
+    if (smooth) {
+      el.scrollTo({ top, behavior: "smooth" });
+    } else {
+      el.scrollTop = top;
+    }
     containerScrollRef.current.isAtBottom = true;
-  }, []);
+  }, [containerRef]);
 
   useEffect(() => {
     const el = containerRef?.current;
@@ -941,6 +960,105 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
+  const isMediaType = (
+    type: ChatMessage["type"],
+  ): type is "image" | "video" | "pdf" | "excel" =>
+    type === "image" || type === "video" || type === "pdf" || type === "excel";
+
+  const formatAttachmentSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const validateAttachment = (file: File): string | null => {
+    if (file.size <= 0) return "This file is empty and cannot be sent.";
+    if (file.size > 50 * 1024 * 1024) return "Files must be 50 MB or smaller.";
+    if (detectHarmfulFileName(file.name)) {
+      return "This file name contains content that cannot be sent.";
+    }
+    return null;
+  };
+
+  const sendMediaPayload = async (payload: OutboundMessagePayload) => {
+    const tempId = generateTempId();
+    const optimisticMessage: ChatMessage = {
+      _id: tempId,
+      from: String(user.id),
+      to: chatId,
+      ...payload,
+      status: "sending",
+      createdAt: new Date(),
+    };
+
+    setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
+
+    const socketOk = await sendViaSocket(payload, optimisticMessage);
+    if (socketOk) return true;
+    return sendViaRest(payload, optimisticMessage);
+  };
+
+  const uploadAndSend = async (
+    file: File,
+    kind: PendingAttachment["type"] | "voice",
+    caption?: string,
+    duration?: number,
+  ) => {
+    const uploadKind =
+      kind === "voice"
+        ? "audio"
+        : kind === "image"
+          ? "image"
+          : kind === "video"
+            ? "video"
+            : "file";
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("kind", uploadKind);
+
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || "Upload failed");
+      }
+
+      const trimmedCaption = (caption || "").trim();
+      const payload: OutboundMessagePayload = {
+        type: kind === "voice" ? "voice" : kind,
+        mediaUrl: data.url,
+        fileName: file.name,
+        fileSize: formatAttachmentSize(file.size),
+      };
+      if (trimmedCaption) payload.text = trimmedCaption;
+      if (typeof duration === "number" && Number.isFinite(duration)) {
+        payload.duration = duration;
+      }
+
+      const sent = await sendMediaPayload(payload);
+      if (!sent) {
+        setMediaError("Could not send this attachment. Please try again.");
+      }
+      return sent;
+    } catch (error: unknown) {
+      console.error(
+        "[ChatWindow] Attachment upload failed:",
+        error instanceof Error ? error.message : error,
+      );
+      setMediaError(
+        error instanceof Error
+          ? error.message
+          : "Could not upload this file. Please try again.",
+      );
+      return false;
+    }
+  };
+
   const handleMediaSelect = async (
     fileOrData: File | { url: string },
     type: ChatMessage["type"],
@@ -949,79 +1067,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setShowMediaPicker(false);
     setMediaError("");
 
-    const sendMedia = async (payload: OutboundMessagePayload) => {
-      const optimisticMessage: ChatMessage = {
-        _id: generateTempId(),
-        from: String(user.id),
-        to: chatId,
-        type: payload.type,
-        text: payload.text,
-        mediaUrl: payload.mediaUrl,
-        fileName: payload.fileName,
-        fileSize: payload.fileSize,
-        duration: payload.duration,
-        linkTitle: payload.linkTitle,
-        linkDescription: payload.linkDescription,
-        status: "sending",
-        createdAt: new Date(),
-      };
-
-      setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
-      const socketOk = await sendViaSocket(payload, optimisticMessage);
-      if (!socketOk) {
-        console.warn(
-          "[ChatWindow] Media sendViaSocket failed — falling back to REST",
-        );
-        await sendViaRest(payload, optimisticMessage);
-      }
-    };
-
-    const uploadFile = async (file: File, kind: string) => {
-      const harmfulFile = detectHarmfulFileName(file.name);
-      if (harmfulFile.hasWarning) {
-        setMediaError(`File blocked: ${harmfulFile.warnings.join(", ")}`);
-        return;
-      }
-
-      if (file.size <= 0 || file.size > 50 * 1024 * 1024) {
-        setMediaError("File blocked: empty files and files over 50 MB are not allowed.");
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("kind", kind);
-      try {
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-          credentials: "include",
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          setMediaError(data?.error || "File was blocked because it is unsafe or corrupt.");
-          return;
-        }
-        if (data?.url) {
-          await sendMedia({
-            type,
-            mediaUrl: data.url,
-            fileName: file.name,
-            fileSize: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
-            duration,
-          });
-        } else {
-          console.warn("[ChatWindow] Upload returned no URL:", data);
-          setMediaError("Upload failed: server did not return a file URL.");
-        }
-      } catch (err: any) {
-        console.error("[ChatWindow] File upload error:", err?.message || err);
-        setMediaError("File upload failed. The file was not sent.");
-      }
-    };
-
     if (type === "link" && "url" in fileOrData) {
-      await sendMedia({
+      await sendMediaPayload({
         type: "link",
         text: fileOrData.url,
         mediaUrl: fileOrData.url,
@@ -1029,11 +1076,65 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       return;
     }
 
-    if (fileOrData instanceof File) {
-      const uploadKind = type === "image" || type === "video" ? type : "file";
-      await uploadFile(fileOrData, uploadKind);
+    if (!(fileOrData instanceof File)) return;
+
+    const blockedReason = validateAttachment(fileOrData);
+    if (blockedReason) {
+      setMediaError(blockedReason);
+      return;
+    }
+
+    // Voice notes are recorded in place, so they go straight out like WhatsApp.
+    if (type === "voice") {
+      await uploadAndSend(fileOrData, "voice", undefined, duration);
+      return;
+    }
+
+    /*
+     * Everything else stops here for the WhatsApp-style confirmation screen, so
+     * a caption can be written before the file is uploaded.
+     */
+    setPendingAttachment({
+      id: generateTempId(),
+      file: fileOrData,
+      type: isMediaType(type) ? type : "file",
+      previewUrl:
+        type === "image" || type === "video"
+          ? URL.createObjectURL(fileOrData)
+          : undefined,
+    });
+  };
+
+  const releasePendingAttachment = useCallback(() => {
+    setPendingAttachment((current) => {
+      if (current?.previewUrl) URL.revokeObjectURL(current.previewUrl);
+      return null;
+    });
+  }, []);
+
+  const handleAttachmentSend = async (caption: string) => {
+    if (!pendingAttachment) return;
+
+    setAttachmentSending(true);
+    setMediaError("");
+    try {
+      const sent = await uploadAndSend(
+        pendingAttachment.file,
+        pendingAttachment.type,
+        caption,
+        pendingAttachment.duration,
+      );
+      // Keep the preview (and caption) on screen if the upload failed.
+      if (sent) releasePendingAttachment();
+    } finally {
+      setAttachmentSending(false);
     }
   };
+
+  const handleAttachmentCancel = useCallback(() => {
+    releasePendingAttachment();
+    setMediaError("");
+  }, [releasePendingAttachment]);
 
   const handleClearChat = () => {
     setChatMessages([]);
@@ -1190,7 +1291,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-            className={`flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-contain px-2 pb-2 pt-3 [scrollbar-width:thin] sm:px-6 sm:py-4 md:px-8 ${
+          className={`scroll-pane flex-1 min-h-0 min-w-0 overflow-y-auto px-2 pb-2 pt-3 sm:px-6 sm:py-4 md:px-8 ${
             !theme.wallpaperImage ? theme.wallpaper || "bg-[#efeae2]" : ""
           }`}
           style={
@@ -1263,6 +1364,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           setShowClearConfirm={setShowClearConfirm}
           onClearChat={handleClearChat}
           headerName={headerName}
+        />
+
+        <AttachmentPreview
+          key={pendingAttachment?.id ?? "closed"}
+          attachment={pendingAttachment}
+          sending={attachmentSending}
+          error={mediaError}
+          theme={theme}
+          onCancel={handleAttachmentCancel}
+          onSend={handleAttachmentSend}
         />
       </div>
     </Suspense>

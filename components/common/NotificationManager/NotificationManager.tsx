@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -19,6 +20,7 @@ type NotifyPayload = {
   fromAvatar?: string;
   preview?: string;
   messageType: string;
+  mediaUrl?: string;
   timestamp?: string | Date;
 };
 
@@ -76,12 +78,31 @@ export default function NotificationManager({
 
   const addToast = useCallback((payload: NotifyPayload) => {
     const id = ++nextToastId.current;
-    setToasts((current) => [{ ...payload, id }, ...current].slice(0, 3));
+    setToasts((current) => {
+      const isSameChat = (toast: ToastNotification) =>
+        toast.kind === payload.kind && toast.chatId === payload.chatId;
+      // One live toast per conversation, so a busy chat cannot bury the others.
+      return [
+        { ...payload, id },
+        ...current.filter((toast) => !isSameChat(toast)),
+      ].slice(0, 3);
+    });
     toastTimers.current.set(
       id,
       setTimeout(() => dismissToast(id), 6000),
     );
   }, [dismissToast]);
+
+  useEffect(() => {
+    // Release the timers of toasts that were replaced or dropped by the cap.
+    const liveToastIds = new Set(toasts.map((toast) => toast.id));
+    toastTimers.current.forEach((timer, id) => {
+      if (!liveToastIds.has(id)) {
+        clearTimeout(timer);
+        toastTimers.current.delete(id);
+      }
+    });
+  }, [toasts]);
 
   useEffect(() => {
     const chatMatch = pathname?.match(/(?:^|\/)chat\/([^/?#]+)/);
@@ -290,6 +311,12 @@ export default function NotificationManager({
       const isWindowFocused = typeof document.hasFocus === "function" ? document.hasFocus() : isPageVisible;
       const isFocusedConversation = Boolean(isActiveChat && isPageVisible && isWindowFocused);
       const runningAsInstalledApp = isStandaloneApp();
+      /*
+       * The in-app tone only rings while the user is actually in the app.
+       * When the app is hidden the OS notification already plays the device
+       * alert sound, and firing both makes the tone sound doubled and mushy.
+       */
+      const isAppInUse = isPageVisible && isWindowFocused;
 
       console.log(
         "[NotificationManager] Focus state check:",
@@ -303,8 +330,8 @@ export default function NotificationManager({
         runningAsInstalledApp,
       );
 
-      if (!isFocusedConversation) {
-        playRingtone(preferences.ringtone || "chime");
+      if (!isFocusedConversation && isAppInUse) {
+        playRingtone(preferences.ringtone || "whatsapp");
       }
 
       const showBrowserNotification =
@@ -343,8 +370,17 @@ export default function NotificationManager({
         showNotification(
           notificationTitle,
           notificationBody,
-          `${payload.kind}-${payload.chatId}-${Date.now()}`,
+          /*
+           * One tray entry per conversation: a follow-up message replaces the
+           * notification already showing for that chat instead of stacking a
+           * separate one for every message.
+           */
+          `${payload.kind}-${payload.chatId}`,
           buildUrlFromPayload(payload, isAdminSurface),
+          // The in-app tone already rang, so keep the OS notification quiet.
+          isAppInUse,
+          // Photos and videos preview themselves inside the notification.
+          isAdminSurface ? undefined : payload.mediaUrl,
         );
       }
     };
@@ -385,77 +421,84 @@ export default function NotificationManager({
     <div
       aria-live="polite"
       aria-relevant="additions"
-      className="pointer-events-none fixed right-4 top-[calc(env(safe-area-inset-top)+1rem)] z-[10000] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2"
+      className="pointer-events-none fixed left-3 right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[10000] flex flex-col gap-2 sm:left-auto sm:right-4 sm:w-[min(24rem,calc(100vw-2rem))]"
     >
-      {toasts.map((toast) => (
-        <div
-          key={toast.id}
-          className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-3 shadow-xl shadow-black/15"
-        >
-          <button
-            type="button"
-            onClick={() => {
-              dismissToast(toast.id);
-              if (!isAdminSurface) {
-                router.push(buildUrlFromPayload(toast));
-              }
-            }}
-            disabled={isAdminSurface}
-            className="flex min-w-0 flex-1 items-center gap-3 text-left"
-            aria-label={
-              isAdminSurface
-                ? `New message notification from ${toast.fromName}`
-                : `Open chat with ${toast.fromName}`
-            }
+      <AnimatePresence initial={false}>
+        {toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            layout
+            initial={{ opacity: 0, y: -14, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
+            className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-3 shadow-xl shadow-black/15"
           >
-            <Image
-              src={
-                (toast.kind === "group" ? toast.chatAvatar : toast.fromAvatar) ||
-                "/logo/logo.png"
-              }
-              alt=""
-              width={44}
-              height={44}
-              unoptimized
-              onError={(event) => {
-                event.currentTarget.src = "/logo/logo.png";
+            <button
+              type="button"
+              onClick={() => {
+                dismissToast(toast.id);
+                if (!isAdminSurface) {
+                  router.push(buildUrlFromPayload(toast));
+                }
               }}
-              className="h-11 w-11 shrink-0 rounded-full object-cover"
-            />
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-semibold text-gray-900">
-                  {toast.kind === "group"
-                    ? toast.chatName || "Group"
-                    : toast.fromName || "New message"}
+              disabled={isAdminSurface}
+              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              aria-label={
+                isAdminSurface
+                  ? `New message notification from ${toast.fromName}`
+                  : `Open chat with ${toast.fromName}`
+              }
+            >
+              <Image
+                src={
+                  (toast.kind === "group" ? toast.chatAvatar : toast.fromAvatar) ||
+                  "/logo/logo.png"
+                }
+                alt=""
+                width={44}
+                height={44}
+                unoptimized
+                onError={(event) => {
+                  event.currentTarget.src = "/logo/logo.png";
+                }}
+                className="h-11 w-11 shrink-0 rounded-full object-cover"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-semibold text-gray-900">
+                    {toast.kind === "group"
+                      ? toast.chatName || "Group"
+                      : toast.fromName || "New message"}
+                  </span>
+                  <span className="shrink-0 text-xs text-gray-400">now</span>
                 </span>
-                <span className="shrink-0 text-xs text-gray-400">now</span>
-              </span>
-              {toast.kind === "group" && (
-                <span className="block truncate text-xs font-medium text-emerald-700">
-                  {toast.fromName}
+                {toast.kind === "group" && (
+                  <span className="block truncate text-xs font-medium text-emerald-700">
+                    {toast.fromName}
+                  </span>
+                )}
+                <span className="block truncate text-sm text-gray-600">
+                  {toast.kind === "group" &&
+                  toast.preview?.startsWith(`${toast.fromName}: `)
+                    ? toast.preview.slice(toast.fromName.length + 2)
+                    : toast.preview || "You have a new message"}
                 </span>
-              )}
-              <span className="block truncate text-sm text-gray-600">
-                {toast.kind === "group" &&
-                toast.preview?.startsWith(`${toast.fromName}: `)
-                  ? toast.preview.slice(toast.fromName.length + 2)
-                  : toast.preview || "You have a new message"}
               </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => dismissToast(toast.id)}
-            aria-label="Dismiss notification"
-            className="self-start rounded-full p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
-          >
-            <span aria-hidden="true" className="text-lg leading-none">
-              ×
-            </span>
-          </button>
-        </div>
-      ))}
+            </button>
+            <button
+              type="button"
+              onClick={() => dismissToast(toast.id)}
+              aria-label="Dismiss notification"
+              className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+            >
+              <span aria-hidden="true" className="text-lg leading-none">
+                ×
+              </span>
+            </button>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

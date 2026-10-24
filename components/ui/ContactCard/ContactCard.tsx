@@ -1,19 +1,20 @@
 "use client"
 
-import { format } from "date-fns"
 import { Pin, Pencil, Trash2, Forward } from "lucide-react"
 import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
+import { formatChatListTime } from "@/utils/time/chatTime"
 
 interface Contact {
   id: string
   name: string
+  mobile: string
   avatar: string
   active: boolean
   pinned: boolean
   unread: number
   lastMessage: string
-  lastMessageTime: string | Date
+  lastMessageTime: string
   registered?: boolean
 }
 
@@ -22,28 +23,47 @@ interface Theme {
   textSize?: string
 }
 
+export interface RowTone {
+  /** Brand color used for the active indicator and the unread badge. */
+  accent: string
+  /** Primary text (contact name, unread preview). */
+  text: string
+  /** Secondary text (read preview, timestamp). */
+  muted: string
+  /** Row background for the selected chat. */
+  active: string
+  /** Row background on hover. */
+  hover: string
+  /** Hairline divider between rows. */
+  border: string
+  /** Row surface color, used to ring the online dot. */
+  surface: string
+}
+
 interface ContactCardProps {
   contact: Contact
-  onClick: () => void
+  onSelect: (contact: Contact) => void
   onPin: (id: string) => void
   onUnpin: (id: string) => void
   onForward: (contact: Contact) => void
   onEdit: (contact: Contact) => void
   onDelete: (id: string) => void
   theme: Theme
+  tone: RowTone
   showContextMenu?: boolean
   active?: boolean
 }
 
 const ContactCard: React.FC<ContactCardProps> = ({
   contact,
-  onClick,
+  onSelect,
   onPin,
   onUnpin,
   onForward,
   onEdit,
   onDelete,
   theme,
+  tone,
   showContextMenu = true,
   active = false,
 }) => {
@@ -116,29 +136,32 @@ const ContactCard: React.FC<ContactCardProps> = ({
   return (
     <div
       ref={cardRef}
-      onClick={onClick}
+      onClick={() => onSelect(contact)}
       onContextMenu={handleContextMenu}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       className={`relative cursor-pointer px-4 py-3 transition-colors duration-150 active:scale-[0.995] ${
-        active ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"
-      } border-b border-[#e9edef]`}
+        active ? tone.active : tone.hover
+      } border-b ${tone.border}`}
     >
       {active && (
-        <span className="absolute left-0 top-0 h-full w-1 bg-[#00a884]" />
+        <span
+          className="absolute left-0 top-0 h-full w-1"
+          style={{ backgroundColor: tone.accent }}
+        />
       )}
       <div className="flex items-center gap-3">
         <div className="relative flex-shrink-0">
           <Image
             src={contact.avatar}
             alt={contact.name}
-            width={49}
-            height={49}
-            className="w-[49px] h-[49px] rounded-full object-cover"
+            width={48}
+            height={48}
+            className="w-12 h-12 rounded-full object-cover"
           />
           {contact.active && (
             <span
-              className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"
+              className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 bg-green-500 ${tone.surface}`}
               title="Online"
             ></span>
           )}
@@ -146,36 +169,36 @@ const ContactCard: React.FC<ContactCardProps> = ({
         <div className="flex-1 min-w-0 py-1">
           <div className="flex items-center justify-between mb-0.5">
             <div className="flex items-center gap-1.5 min-w-0">
-              {contact.pinned && <Pin className="w-3.5 h-3.5 text-[#667781] flex-shrink-0" fill="currentColor" />}
-              <h3 className={`truncate text-[16px] font-semibold text-[#111b21] ${theme.textSize ?? ""}`}>
+              {contact.pinned && (
+                <Pin
+                  className={`w-3.5 h-3.5 flex-shrink-0 ${tone.muted}`}
+                  fill="currentColor"
+                />
+              )}
+              <h3 className={`truncate text-[16px] font-semibold ${tone.text} ${theme.textSize ?? ""}`}>
                 {contact.name}
               </h3>
             </div>
-            <span className={`ml-2 flex-shrink-0 text-[12px] ${
-              contact.unread > 0 ? "font-medium text-[#0a9488]" : "text-[#667781]"
-            }`}>
-              {(() => {
-                const d = new Date(contact.lastMessageTime)
-                if (isNaN(d.getTime())) return ""
-                const today = new Date()
-                if (d.toDateString() === today.toDateString()) {
-                  return format(d, "h:mm a")
-                }
-                const yesterday = new Date(today)
-                yesterday.setDate(yesterday.getDate() - 1)
-                if (d.toDateString() === yesterday.toDateString()) {
-                  return "Yesterday"
-                }
-                return format(d, "MM/dd/yyyy")
-              })()}
+            <span
+              className={`ml-2 flex-shrink-0 text-[12px] ${
+                contact.unread > 0 ? "font-medium" : tone.muted
+              }`}
+              style={contact.unread > 0 ? { color: tone.accent } : undefined}
+            >
+              {formatChatListTime(contact.lastMessageTime)}
             </span>
           </div>
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[14px] leading-5 text-[#667781]">
+            <p className={`truncate text-[14px] leading-5 ${
+              contact.unread > 0 ? `font-medium ${tone.text}` : tone.muted
+            }`}>
               {contact.lastMessage}
             </p>
             {contact.unread > 0 && (
-              <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
+              <span
+                className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white"
+                style={{ backgroundColor: tone.accent }}
+              >
                 {contact.unread > 99 ? "99+" : contact.unread}
               </span>
             )}

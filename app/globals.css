@@ -12,13 +12,25 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /*
+   * Brand tokens. These are painted before React hydrates so the very first
+   * frame already uses the saved theme instead of the default green.
+   * The inline bootstrap script in app/layout.tsx reads "hansariaTheme" from
+   * localStorage and overwrites these, and AppContext keeps them in sync at
+   * runtime whenever the user picks new colors.
+   */
+  --brand-primary: #0ca678;
+  --brand-secondary: #a2f5bf;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand: var(--brand-primary);
+  --font-sans: var(--font-roboto), var(--font-poppins), ui-sans-serif, system-ui,
+    sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,18 +41,100 @@
 }
 
 html {
-  scroll-behavior: smooth;
   min-height: 100%;
   overscroll-behavior: none;
+  /* Matches the app bar so the status-bar/notch area never flashes white. */
+  background-color: var(--brand-primary);
+  /* App-like touch: no grey tap flash, no font inflation on rotate. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Smooth scrolling for anchor jumps, but never against the user's wishes. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-roboto), var(--font-poppins), system-ui,
+    -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
   min-height: 100%;
   overflow-x: hidden;
   overscroll-behavior: none;
+}
+
+/* Theme changes fade instead of snapping, so switching colors feels smooth. */
+body,
+.theme-transition {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body,
+  .theme-transition {
+    transition: none;
+  }
+}
+
+/*
+ * Mobile scroll panes (chat list, message list, modals).
+ * iOS only gives momentum/inertia scrolling when it is opted into, and a pane
+ * must not hand its gesture to the page (pull-to-refresh) or a parent scroller.
+ * `scroll-behavior: auto` keeps prepended history from animating: "load older
+ * messages" adjusts scrollTop by a pixel delta and must be instant.
+ */
+.scroll-pane {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+}
+
+/* Instantly responsive taps: no 300ms delay, no double-tap zoom on controls. */
+button,
+a,
+[role="button"],
+label,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+/* Indeterminate boot progress bar (see components/common/Loading). */
+.loading-bar {
+  animation: brand-loading 1.4s ease-in-out infinite;
+}
+
+/*
+ * Long chat lists: skip layout/paint work for rows that are off-screen so the
+ * list stays smooth with hundreds of conversations.
+ */
+.chat-list > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 74px;
+}
+
+@keyframes brand-loading {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar {
+    animation: none;
+    width: 100%;
+  }
 }
 
 /* WhatsApp-style thin scrollbar */

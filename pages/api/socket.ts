@@ -60,11 +60,46 @@ const groupMessagePayloadSchema = messagePayloadSchema
 
 const PRESENCE_TTL_MS = 90_000;
 const PRESENCE_HEARTBEAT_MS = 30_000;
+const SESSION_REVALIDATE_INTERVAL_MS = Number(
+  process.env.SOCKET_SESSION_REVALIDATE_MS || 30_000,
+);
+const GROUP_MEMBERS_TTL_MS = 30_000;
+const GROUP_MEMBERS_CACHE_LIMIT = 5_000;
 const socketRedisKey =
   process.env.SOCKET_IO_REDIS_KEY || "hansariaconnect:socket.io";
 const onlineUsersKey = `${socketRedisKey}:online-users`;
 const userSocketsKey = (userId: string) =>
   `${socketRedisKey}:user:${userId}:sockets`;
+
+const groupMembersCache = new Map<
+  string,
+  { memberIds: string[]; expiresAt: number }
+>();
+
+const getGroupMemberIds = async (groupId: string): Promise<string[] | null> => {
+  const cached = groupMembersCache.get(groupId);
+  if (cached && cached.expiresAt > Date.now()) return cached.memberIds;
+
+  const group = await Group.findById(groupId).select("members.userId").lean<{
+    members?: Array<{ userId?: unknown }>;
+  } | null>();
+
+  if (!group) return null;
+
+  const memberIds = (group.members || [])
+    .map((member) => String(member?.userId ?? ""))
+    .filter(Boolean);
+
+  if (groupMembersCache.size >= GROUP_MEMBERS_CACHE_LIMIT) {
+    groupMembersCache.clear();
+  }
+  groupMembersCache.set(groupId, {
+    memberIds,
+    expiresAt: Date.now() + GROUP_MEMBERS_TTL_MS,
+  });
+
+  return memberIds;
+};
 
 const startPresenceSweep = async (io: ServerIO, httpServer: HTTPServer) => {
   const server = httpServer as any;
@@ -202,7 +237,6 @@ export default async function handler(
     });
 
     (httpServer as any).io = io;
-    // expose io and userConnections for other server routes to emit events
     try {
       (globalThis as any).__io = io;
       (globalThis as any).__userConnections = (
@@ -301,8 +335,12 @@ export default async function handler(
 
         socket.join(userId);
         socket.join(`user-session:${sessionId}`);
-        socket.use((packet, next) => {
-          void User.exists({
+
+        let lastSessionCheckAt = Date.now();
+        let sessionCheckInFlight: Promise<boolean> | null = null;
+
+        const isSessionActive = async (): Promise<boolean> => {
+          const activeSession = await User.exists({
             _id: new Types.ObjectId(userId),
             sessions: {
               $elemMatch: {
@@ -314,7 +352,21 @@ export default async function handler(
                 },
               },
             },
-          })
+          });
+          return Boolean(activeSession);
+        };
+
+        socket.use((packet, next) => {
+          if (Date.now() - lastSessionCheckAt < SESSION_REVALIDATE_INTERVAL_MS) {
+            next();
+            return;
+          }
+          lastSessionCheckAt = Date.now();
+          sessionCheckInFlight ??= isSessionActive().finally(() => {
+            sessionCheckInFlight = null;
+          });
+
+          void sessionCheckInFlight
             .then((activeSession) => {
               if (activeSession) {
                 next();
@@ -614,23 +666,16 @@ export default async function handler(
             const groupId = String(payload?.groupId ?? "");
 
             if (groupId && Types.ObjectId.isValid(groupId)) {
-              const group = await Group.findById(groupId).select("members").lean();
-              if (group) {
-                const memberIds = (group.members || [])
-                  .map((m: any) => String(m.userId ?? ""))
-                  .filter((id: string) => id && id !== userId);
-                memberIds.forEach((memberId: string) => {
-                  io.to(memberId).emit("typing:start", {
-                    from: userId,
-                    groupId,
-                  });
-                });
-              }
+              const memberIds = await getGroupMemberIds(groupId);
+              if (!memberIds || memberIds.length === 0) return;
+              io.to(memberIds)
+                .except(userId)
+                .emit("typing:start", { from: userId, groupId });
               return;
             }
 
             if (peerId && Types.ObjectId.isValid(peerId)) {
-              io.to(peerId).emit("typing:start", { from: userId, peerId });
+              socket.to(peerId).emit("typing:start", { from: userId, peerId });
             }
           } catch (error) {
             console.warn("[Socket.IO] typing:start handler error:", error instanceof Error ? error.message : error);
@@ -643,23 +688,16 @@ export default async function handler(
             const groupId = String(payload?.groupId ?? "");
 
             if (groupId && Types.ObjectId.isValid(groupId)) {
-              const group = await Group.findById(groupId).select("members").lean();
-              if (group) {
-                const memberIds = (group.members || [])
-                  .map((m: any) => String(m.userId ?? ""))
-                  .filter((id: string) => id && id !== userId);
-                memberIds.forEach((memberId: string) => {
-                  io.to(memberId).emit("typing:stop", {
-                    from: userId,
-                    groupId,
-                  });
-                });
-              }
+              const memberIds = await getGroupMemberIds(groupId);
+              if (!memberIds || memberIds.length === 0) return;
+              io.to(memberIds)
+                .except(userId)
+                .emit("typing:stop", { from: userId, groupId });
               return;
             }
 
             if (peerId && Types.ObjectId.isValid(peerId)) {
-              io.to(peerId).emit("typing:stop", { from: userId, peerId });
+              socket.to(peerId).emit("typing:stop", { from: userId, peerId });
             }
           } catch (error) {
             console.warn("[Socket.IO] typing:stop handler error:", error instanceof Error ? error.message : error);

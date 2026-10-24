@@ -29,6 +29,7 @@ interface CachedMessages {
 interface BootstrapData {
   conversations?: any[]
   statuses?: Record<string, any[]>
+  unreadCounts?: Record<string, number>
 }
 
 interface AppContextType {
@@ -48,6 +49,24 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
+const DEFAULT_THEME: Theme = {
+  primary: "#0CA678",
+  secondary: "#A2F5BF",
+  wallpaper: "bg-gradient-to-br from-emerald-50 to-teal-50",
+  textSize: "text-base",
+}
+
+const readSavedTheme = (): Theme => {
+  if (typeof window === "undefined") return { ...DEFAULT_THEME }
+  try {
+    const raw = window.localStorage.getItem("hansariaTheme")
+    if (!raw) return { ...DEFAULT_THEME }
+    return { ...DEFAULT_THEME, ...(JSON.parse(raw) as Partial<Theme>) }
+  } catch {
+    return { ...DEFAULT_THEME }
+  }
+}
+
 const validateServerSession = async (): Promise<boolean> => {
   try {
     const res = await fetch("/api/auth/me", {
@@ -62,12 +81,7 @@ const validateServerSession = async (): Promise<boolean> => {
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
-  const [theme, setTheme] = useState<Theme>({
-    primary: "#0CA678",
-    secondary: "#A2F5BF",
-    wallpaper: "bg-gradient-to-br from-emerald-50 to-teal-50",
-    textSize: "text-base",
-  })
+  const [theme, setTheme] = useState<Theme>(readSavedTheme)
   const [sessionChecked, setSessionChecked] = useState(false)
   const messagesCache = useRef(new Map<string, CachedMessages>())
   const [bootstrapData, setBootstrapData] = useState<BootstrapData>({})
@@ -75,19 +89,25 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const prefetchHomeData = async () => {
     try {
-      const [convRes, statusRes] = await Promise.all([
+      const [convRes, statusRes, unreadRes] = await Promise.all([
         fetch("/api/conversations", { credentials: "include", cache: "no-store" }),
         fetch("/api/status", { credentials: "include", cache: "no-store" }),
+        fetch("/api/unread-counts", { credentials: "include", cache: "no-store" }),
       ])
 
-      const [convData, statusData] = await Promise.all([
+      const [convData, statusData, unreadData] = await Promise.all([
         convRes.ok ? convRes.json() : Promise.resolve({}),
         statusRes.ok ? statusRes.json() : Promise.resolve({}),
+        unreadRes.ok ? unreadRes.json() : Promise.resolve({}),
       ])
 
       setBootstrapData({
         conversations: Array.isArray(convData?.conversations) ? convData.conversations : [],
         statuses: statusData?.statuses || {},
+        unreadCounts: {
+          ...(unreadData?.conversations || {}),
+          ...(unreadData?.groups || {}),
+        },
       })
     } catch {}
     finally {
@@ -100,6 +120,46 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     let cancelled = false;
+    let updateInterval: number | undefined;
+    let checkForUpdate: (() => void) | undefined;
+
+    const isUserTyping = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return false;
+      return (
+        el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.isContentEditable === true
+      );
+    };
+
+    let reloadScheduled = false;
+    const reloadForUpdate = () => {
+      if (reloadScheduled) return;
+      reloadScheduled = true;
+
+      const tryReload = () => {
+        if (document.visibilityState === "visible" && isUserTyping()) {
+          return false;
+        }
+        console.log("[AppProvider] Applying app update — reloading");
+        cleanup();
+        window.location.reload();
+        return true;
+      };
+      const cleanup = () => {
+        document.removeEventListener("visibilitychange", tryReload);
+        document.removeEventListener("focusout", tryReload);
+      };
+
+      if (tryReload()) return;
+      console.log(
+        "[AppProvider] App update ready — deferring reload until typing stops",
+      );
+      document.addEventListener("visibilitychange", tryReload);
+      document.addEventListener("focusout", tryReload);
+    };
+
     void (async () => {
       try {
         const registration = await navigator.serviceWorker.register("/sw.js", {
@@ -112,9 +172,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           "| SW state:",
           registration.active?.state || registration.waiting?.state || registration.installing?.state || "installing",
         );
+
+        if (registration.waiting) {
+          console.log("[AppProvider] ServiceWorker update already waiting — activating");
+          registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+
         registration.addEventListener("updatefound", () => {
+          const installing = registration.installing;
           console.log("[AppProvider] ServiceWorker update found - new version installing...");
+          installing?.addEventListener("statechange", () => {
+            if (installing.state === "installed") {
+              console.log("[AppProvider] ServiceWorker new version installed");
+            }
+          });
         });
+
+        checkForUpdate = () => {
+          registration.update().catch((error: unknown) => {
+            console.warn(
+              "[AppProvider] ServiceWorker update check failed:",
+              error instanceof Error ? error.message : String(error),
+            );
+          });
+        };
+        updateInterval = window.setInterval(checkForUpdate, 15 * 60 * 1000);
       } catch (error: any) {
         if (cancelled) return;
         console.error(
@@ -124,62 +206,85 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         );
       }
     })();
+
+    const onFocus = () => checkForUpdate?.();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") checkForUpdate?.();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+
+    let hadController = Boolean(navigator.serviceWorker.controller);
+    const onControllerChange = () => {
+      if (!hadController) {
+        hadController = true;
+        console.log("[AppProvider] ServiceWorker is now controlling this page");
+        return;
+      }
+      reloadForUpdate();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
     return () => {
       cancelled = true;
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+      if (updateInterval !== undefined) window.clearInterval(updateInterval);
     };
   }, [])
 
   useEffect(() => {
-    const init = async () => {
+    void (async () => {
       let savedUser: User | null = null
       try {
         const rawUser = localStorage.getItem("hansariaUser")
-        const rawTheme = localStorage.getItem("hansariaTheme")
         if (rawUser) savedUser = JSON.parse(rawUser) as User
-        if (rawTheme) setTheme(JSON.parse(rawTheme))
       } catch (error) {
         console.error("[AppProvider] Could not restore saved app state:", error)
         localStorage.removeItem("hansariaUser")
-        localStorage.removeItem("hansariaTheme")
       }
 
-      try {
-        const settingsPromise = fetch("/api/settings", {
-          credentials: "include",
-          cache: "no-store",
-        })
-          .then((res) => (res.ok ? res.json() : null))
-          .catch((error) => {
-            console.error("[AppProvider] Could not load settings:", error)
-            return null
-          })
+      if (savedUser) setUser(savedUser)
+      setSessionChecked(true)
 
+      try {
         const [valid, settings] = await Promise.all([
           savedUser ? validateServerSession() : Promise.resolve(false),
-          settingsPromise,
+          fetch("/api/settings", {
+            credentials: "include",
+            cache: "no-store",
+          })
+            .then((res) => (res.ok ? res.json() : null))
+            .catch((error) => {
+              console.error("[AppProvider] Could not load settings:", error)
+              return null
+            }),
         ])
+
         if (settings?.theme) {
           setTheme(settings.theme)
           localStorage.setItem("hansariaTheme", JSON.stringify(settings.theme))
         }
-        if (savedUser && valid) {
-          setUser(savedUser)
-        } else {
-          if (savedUser) localStorage.removeItem("hansariaUser")
+
+        if (savedUser && !valid) {
+          localStorage.removeItem("hansariaUser")
           setUser(null)
-          setBootstrapReady(true)
         }
       } catch (error) {
         console.error("[AppProvider] App session initialization failed:", error)
-        setUser(null)
-        setBootstrapReady(true)
-      } finally {
-        setSessionChecked(true)
       }
-    }
-
-    void init()
+    })()
   }, [])
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty("--brand-primary", theme.primary)
+    if (theme.secondary) root.style.setProperty("--brand-secondary", theme.secondary)
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", theme.primary)
+  }, [theme.primary, theme.secondary])
 
   useEffect(() => {
     if (!user) {

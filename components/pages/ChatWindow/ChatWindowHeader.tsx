@@ -105,11 +105,11 @@ export default function ChatWindowHeader({
         backgroundColor: primaryColor,
         borderBottomColor: borderColor,
       }}
-      className="sticky top-0 z-30 flex items-center gap-3 border-b px-2 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-white shadow-sm sm:px-3 sm:py-2"
+      className="sticky top-0 z-30 flex h-14 items-center gap-1.5 border-b px-1.5 py-1 text-white shadow-sm sm:h-[60px] sm:gap-3 sm:px-3 sm:py-2 theme-transition"
     >
       <button
         onClick={onBack}
-        className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-all duration-200 hover:bg-white/10"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 hover:bg-white/10"
         aria-label="Back to chats"
       >
         <ArrowLeft className="h-5 w-5" />
@@ -202,7 +202,7 @@ export default function ChatWindowHeader({
         onClick={() => router.push("/contacts")}
         aria-label="Open contacts"
         title="Contacts"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
       >
         <Contact className="h-5 w-5" />
       </button>
@@ -212,7 +212,7 @@ export default function ChatWindowHeader({
         onClick={() => router.push("/status")}
         aria-label="Open status"
         title="Status"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
       >
         <CircleUserRound className="h-5 w-5" />
       </button>
@@ -222,7 +222,7 @@ export default function ChatWindowHeader({
           type="button"
           onClick={() => setShowOptionsMenu(!showOptionsMenu)}
           aria-label="Chat options"
-          className="rounded-full p-2 text-white transition-all duration-200 hover:bg-white/10"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white transition-all duration-200 hover:bg-white/10"
         >
           <MoreVertical className="h-5 w-5" />
         </button>

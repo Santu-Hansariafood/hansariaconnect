@@ -3,32 +3,28 @@
 import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from "react";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import { format } from "date-fns";
 import {
   X,
   Phone,
   Clock,
   Ban,
   CheckCircle,
-  MessageSquarePlus,
   Users,
-  MoreVertical,
-  LogOut,
-  CircleUserRound,
-  Contact as ContactIcon,
   Pin,
 } from "lucide-react";
 import React from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useContacts } from "@/hooks/chathome/useContacts";
+import { useContacts, type Contact } from "@/hooks/chathome/useContacts";
+import { useChatListRealtime } from "@/hooks/chathome/useChatListRealtime";
 import { useFilteredContacts, ChatFilter } from "@/hooks/chathome/useFilteredContacts";
 import { useCreateContact } from "@/hooks/chathome/useCreateContact";
 import { useForwardMessage } from "@/hooks/chathome/useForwardMessage";
 import { useContactActions } from "@/hooks/chathome/useContactActions";
-import { useNavbarUser } from "@/hooks/navbar/useNavbarUser";
 import Loading from "@/components/common/Loading/Loading";
 import { useSocket } from "@/hooks/useSocket";
+import { formatChatListTime } from "@/utils/time/chatTime";
+import type { RowTone } from "@/components/ui/ContactCard/ContactCard";
 const ContactCard = dynamic(
   () => import("@/components/ui/ContactCard/ContactCard"),
 );
@@ -38,28 +34,6 @@ const SearchBar = dynamic(
 const ForwardModal = dynamic(
   () => import("@/components/ui/ForwardModal/ForwardModal"),
 );
-
-export interface Contact {
-  id: string;
-  peerId?: string;
-  name: string;
-  mobile: string;
-  avatar: string;
-  pinned: boolean;
-  blocked?: boolean;
-  active: boolean;
-  unread: number;
-  lastSeen?: string;
-  lastMessageTime: string;
-  lastMessage: string;
-  mobiles?: string[];
-  email?: string;
-  registered?: boolean;
-  registeredUserId?: string;
-  isGroup?: boolean;
-  memberCount?: number;
-  lastMessageFromMe?: boolean;
-}
 
 interface Theme {
   wallpaper?: string;
@@ -79,16 +53,6 @@ interface User {
   step?: string;
 }
 
-const getMessagePreview = (message: any): string => {
-  if (message?.type === "image") return "📷 Image";
-  if (message?.type === "video") return "🎥 Video";
-  if (message?.type === "voice") return "🎤 Voice";
-  if (message?.type === "pdf") return "📄 PDF";
-  if (message?.type === "excel") return "📊 Excel";
-  if (message?.type === "link") return message?.linkTitle || "🔗 Link";
-  return message?.text || "New message";
-};
-
 const FILTER_TABS: { key: ChatFilter; label: string }[] = [
   { key: "all", label: "All" },
   { key: "unread", label: "Unread" },
@@ -99,41 +63,36 @@ const FILTER_TABS: { key: ChatFilter; label: string }[] = [
 interface GroupContactItemProps {
   contact: Contact;
   active: boolean;
-  primaryColor: string;
-  textMuted: string;
-  textColor: string;
-  onClick: () => void;
+  tone: RowTone;
+  onSelect: (contact: Contact) => void;
 }
 
 const GroupContactItem = React.memo(
   function GroupContactItem({
     contact,
     active,
-    primaryColor,
-    textMuted,
-    textColor,
-    onClick,
+    tone,
+    onSelect,
   }: GroupContactItemProps) {
     const unread = contact.unread || 0;
     let lastText = contact.lastMessage || "No messages yet";
     if (typeof lastText !== "string") lastText = "No messages yet";
     if (lastText.length > 50) lastText = lastText.slice(0, 49) + "…";
-    let when = "";
-    try {
-      const d = new Date(contact.lastMessageTime || Date.now());
-      if (!isNaN(d.getTime())) when = format(d, "h:mm a").toLowerCase();
-    } catch {}
+    const when = formatChatListTime(contact.lastMessageTime);
     const memberCount = contact.memberCount || 0;
 
     return (
       <button
-        onClick={onClick}
-        className={`relative w-full text-left flex items-center gap-3 px-4 py-3 transition-colors duration-150 border-b border-[#e9edef] ${
-          active ? "bg-[#f0f2f5]" : "hover:bg-[#f5f6f6]"
+        onClick={() => onSelect(contact)}
+        className={`relative w-full text-left flex items-center gap-3 px-4 py-3 transition-colors duration-150 border-b ${tone.border} ${
+          active ? tone.active : tone.hover
         } active:scale-[0.995]`}
       >
         {active && (
-          <span className="absolute left-0 top-0 h-full w-1 bg-[#00a884]" />
+          <span
+            className="absolute left-0 top-0 h-full w-1"
+            style={{ backgroundColor: tone.accent }}
+          />
         )}
         <div className="relative flex-shrink-0">
           <div
@@ -141,7 +100,7 @@ const GroupContactItem = React.memo(
             style={{
               background: contact.avatar
                 ? undefined
-                : "linear-gradient(135deg, #00a884 0%, #008069 100%)",
+                : `linear-gradient(135deg, rgba(0,0,0,0.15), rgba(0,0,0,0.35)), ${tone.accent}`,
             }}
           >
             {contact.avatar ? (
@@ -165,16 +124,18 @@ const GroupContactItem = React.memo(
             <div className="flex items-center gap-1.5">
               {contact.pinned && (
                 <Pin
-                  className="w-3.5 h-3.5 flex-shrink-0 text-[#667781]"
+                  className={`w-3.5 h-3.5 flex-shrink-0 ${tone.muted}`}
                   fill="currentColor"
                 />
               )}
-              <Users className={`w-3.5 h-3.5 flex-shrink-0 ${textMuted}`} />
-              <p className={`font-semibold text-[15.5px] truncate ${textColor}`}>
+              <Users className={`w-3.5 h-3.5 flex-shrink-0 ${tone.muted}`} />
+              <p className={`font-semibold text-[16px] truncate ${tone.text}`}>
                 {contact.name || "Group"}
               </p>
             </div>
-            <p className={`text-[13.5px] truncate mt-0.5 ${textMuted}`}>
+            <p className={`text-[14px] truncate mt-0.5 ${
+              unread > 0 ? `font-medium ${tone.text}` : tone.muted
+            }`}>
               {memberCount
                 ? `${memberCount} member${memberCount > 1 ? "s" : ""} · `
                 : ""}
@@ -184,15 +145,19 @@ const GroupContactItem = React.memo(
           <div className="flex flex-col items-end gap-1 flex-shrink-0">
             {when && (
               <span
-                className={`text-[11px] ${
-                  unread > 0 ? "font-medium text-[#0a9488]" : textMuted
+                className={`text-[12px] ${
+                  unread > 0 ? "font-medium" : tone.muted
                 }`}
+                style={unread > 0 ? { color: tone.accent } : undefined}
               >
                 {when}
               </span>
             )}
             {unread > 0 && (
-              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#25d366] px-1.5 text-[11px] font-semibold text-white">
+              <span
+                className="flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[11px] font-semibold text-white"
+                style={{ backgroundColor: tone.accent }}
+              >
                 {unread > 99 ? "99+" : unread}
               </span>
             )}
@@ -211,13 +176,12 @@ const GroupContactItem = React.memo(
     prev.contact.lastMessageTime === next.contact.lastMessageTime &&
     prev.contact.memberCount === next.contact.memberCount &&
     prev.active === next.active &&
-    prev.primaryColor === next.primaryColor,
+    prev.tone === next.tone,
 );
 
 interface ChatHomeProps {
   user: User;
   theme: Theme;
-  onLogout: () => void;
   selectedChatId?: string;
   onSelectChat?: (chatId: string) => void;
 }
@@ -225,191 +189,26 @@ interface ChatHomeProps {
 export default function ChatHome({
   user,
   theme,
-  onLogout,
   selectedChatId,
   onSelectChat,
 }: ChatHomeProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<ChatFilter>("all");
 
-  const profileUser = useNavbarUser(user);
   const { contacts, loading, setContacts, refreshContacts } = useContacts(user.id);
   const { socket, addListener, removeListener } = useSocket({ subscribeOnline: false });
   const filteredContacts = useFilteredContacts({ contacts, searchQuery, filter: activeFilter });
 
-  // Refs avoid re-subscribing socket listeners whenever selectedChatId or user changes
-  const selectedChatIdRef = useRef<string | undefined>(selectedChatId);
-  const userIdRef = useRef<string>(String(user.id || ""));
-  useEffect(() => {
-    selectedChatIdRef.current = selectedChatId;
-  }, [selectedChatId]);
-  useEffect(() => {
-    userIdRef.current = String(user.id || "");
-  }, [user.id]);
-
-  // Stable socket reference for handlers
-  const socketRef = useRef(socket);
-  useEffect(() => {
-    socketRef.current = socket;
-  }, [socket]);
-
-  useEffect(() => {
-    const handleIncomingMessage = (message: any) => {
-      const fromId = String(message?.from || "");
-      const toId = String(message?.to || "");
-      const myId = userIdRef.current;
-
-      if (!fromId || !toId) return;
-
-      const isFromMe = fromId === myId;
-      const peerId = isFromMe ? toId : fromId;
-
-      if (!peerId || peerId === myId) return;
-
-      const recipientId = toId;
-      const messageId = String(message?._id || message?.id || "");
-      if (
-        !isFromMe &&
-        recipientId === myId &&
-        /^[0-9a-f]{24}$/i.test(messageId)
-      ) {
-        socketRef.current?.emit(
-          "message:status",
-          { id: messageId, status: "delivered" },
-          (ack: { ok?: boolean; error?: string }) => {
-            if (!ack?.ok) {
-              console.warn(
-                "[ChatHome] Could not confirm message delivery:",
-                ack?.error || "Unknown status error",
-              );
-            }
-          },
-        );
-      }
-
-      console.log(
-        "[ChatHome] Direct message arrived via socket — updating peer",
-        peerId,
-        isFromMe ? "(sent by me)" : "(incoming)",
-      );
-
-      let foundPeer = false;
-      setContacts((previous) =>
-        previous.map((contact) => {
-          const contactPeerId = String(
-            contact.registeredUserId || contact.peerId || contact.id || "",
-          );
-          if (contactPeerId !== peerId) return contact;
-          foundPeer = true;
-
-          return {
-            ...contact,
-            lastMessage: getMessagePreview(message),
-            lastMessageTime:
-              message?.createdAt || message?.timestamp || new Date().toISOString(),
-            lastMessageFromMe: isFromMe,
-            unread:
-              isFromMe || selectedChatIdRef.current === peerId
-                ? 0
-                : Number(contact.unread || 0) + 1,
-          };
-        }),
-      );
-
-      if (!foundPeer) {
-        console.log(
-          "[ChatHome] Incoming direct message belongs to a peer outside the local list. Refreshing conversations.",
-          peerId,
-        );
-        void refreshContacts();
-      }
-    };
-
-    const handleIncomingGroupMessage = (message: any) => {
-      const groupId = String(message?.groupId || "");
-      const fromId = String(message?.from || "");
-      const myId = userIdRef.current;
-      if (!groupId) return;
-
-      const isFromMe = fromId === myId;
-
-      console.log(
-        "[ChatHome] Group message arrived via socket — updating group",
-        groupId,
-        "| from:",
-        fromId,
-        isFromMe ? "(sent by me)" : "(incoming)",
-      );
-
-      let foundGroup = false;
-      setContacts((previous) =>
-        previous.map((contact) => {
-          const contactId = String(
-            contact.registeredUserId || contact.peerId || contact.id || "",
-          );
-          if (contactId !== groupId || !contact.isGroup) return contact;
-          foundGroup = true;
-          return {
-            ...contact,
-            lastMessage: getMessagePreview(message),
-            lastMessageTime:
-              message?.createdAt || message?.timestamp || new Date().toISOString(),
-            lastMessageFromMe: isFromMe,
-            unread:
-              isFromMe || selectedChatIdRef.current === groupId
-                ? 0
-                : Number(contact.unread || 0) + 1,
-          };
-        }),
-      );
-
-      if (!foundGroup) {
-        console.log(
-          "[ChatHome] Incoming group message belongs to a group outside the local list. Refreshing conversations.",
-          groupId,
-        );
-        void refreshContacts();
-      }
-    };
-
-    const handleUnreadUpdate = (payload: {
-      conversations?: Record<string, number>;
-      groups?: Record<string, number>;
-    }) => {
-      if (!payload || typeof payload !== "object") return;
-      const mergedUnread: Record<string, number> = {
-        ...(payload.conversations || {}),
-        ...(payload.groups || {}),
-      };
-      setContacts((previous) =>
-        previous.map((contact) => {
-          const peerId = String(
-            contact.registeredUserId || contact.peerId || contact.id || "",
-          );
-          const unread = Number(mergedUnread[peerId] || 0);
-          return contact.unread === unread ? contact : { ...contact, unread };
-        }),
-      );
-    };
-
-    addListener("message:new", handleIncomingMessage);
-    addListener("group:message:new", handleIncomingGroupMessage);
-    addListener("unread:update", handleUnreadUpdate);
-
-    return () => {
-      removeListener("message:new", handleIncomingMessage);
-      removeListener("group:message:new", handleIncomingGroupMessage);
-      removeListener("unread:update", handleUnreadUpdate);
-    };
-  }, [
-    addListener,
-    refreshContacts,
-    removeListener,
-    setContacts,
+  useChatListRealtime({
+    userId: user.id,
+    selectedChatId,
     socket,
-  ]);
+    setContacts,
+    refreshContacts,
+    addListener,
+    removeListener,
+  });
 
   const handleSearch = useCallback(
     (query: string) => setSearchQuery(query),
@@ -455,36 +254,54 @@ export default function ChatHome({
     handleContactClickRef.current = handleContactClick;
   }, [handleContactClick]);
 
+  const clearUnread = useCallback((chatId: string) => {
+    setContacts((previous) =>
+      previous.map((contact) => {
+        const contactId = String(
+          contact.registeredUserId || contact.peerId || contact.id || "",
+        );
+        if (contactId !== chatId || !contact.unread) return contact;
+        return { ...contact, unread: 0 };
+      }),
+    );
+  }, [setContacts]);
+
   const handleContactCardClick = useCallback((contact: Contact) => {
     const chatId = contact.peerId || contact.registeredUserId || contact.id;
     if (onSelectChatRef.current && contact.registeredUserId) {
+      clearUnread(chatId);
       onSelectChatRef.current(chatId);
     } else {
       handleContactClickRef.current(contact);
     }
-  }, []);
+  }, [clearUnread]);
 
   const handleGroupClick = useCallback((contact: Contact) => {
     const chatId = contact.peerId || contact.registeredUserId || contact.id;
+    clearUnread(chatId);
     if (onSelectChatRef.current) onSelectChatRef.current(chatId);
     else router.push(`/chat/${chatId}`);
-  }, [router]);
+  }, [clearUnread, router]);
 
   const noopEdit = useCallback(() => {}, []);
   const noopDelete = useCallback(() => {}, []);
 
   const themeColors = useMemo(
     () => ({
-      textColor: theme.isDark ? "text-gray-100" : "text-gray-800",
+      textColor: theme.isDark ? "text-gray-100" : "text-gray-900",
       textSecondary: theme.isDark ? "text-gray-300" : "text-gray-600",
       textMuted: theme.isDark ? "text-gray-400" : "text-gray-500",
       bgCard: theme.isDark ? "bg-gray-800" : "bg-white",
       bgCardHover: theme.isDark ? "hover:bg-gray-700" : "hover:bg-gray-50",
-      bgOverlay: theme.isDark ? "bg-gray-900/80" : "bg-black/50",
       borderColor: theme.isDark ? "border-gray-700" : "border-gray-200",
       inputBg: theme.isDark
         ? "bg-gray-800 border-gray-600 focus:border-blue-400"
         : "bg-white border-gray-200 focus:border-emerald-500",
+      listSurface: theme.isDark ? "bg-gray-900" : "bg-white",
+      rowHover: theme.isDark ? "hover:bg-gray-800" : "hover:bg-[#f5f6f6]",
+      rowActive: theme.isDark ? "bg-gray-800" : "bg-[#f0f2f5]",
+      rowBorder: theme.isDark ? "border-gray-800" : "border-[#e9edef]",
+      dotRing: theme.isDark ? "border-gray-900" : "border-white",
     }),
     [theme.isDark],
   );
@@ -495,40 +312,67 @@ export default function ChatHome({
     textMuted,
     bgCard,
     bgCardHover,
-    bgOverlay,
     borderColor,
     inputBg,
+    listSurface,
+    rowHover,
+    rowActive,
+    rowBorder,
+    dotRing,
   } = themeColors;
+
+  // Shared visual tokens for both DM and group rows so the list stays uniform.
+  const rowTone = useMemo<RowTone>(
+    () => ({
+      accent: theme.primary,
+      text: textColor,
+      muted: textMuted,
+      active: rowActive,
+      hover: rowHover,
+      border: rowBorder,
+      surface: dotRing,
+    }),
+    [theme.primary, textColor, textMuted, rowActive, rowHover, rowBorder, dotRing],
+  );
 
   const isInitialLoading = loading && contacts.length === 0;
 
   if (isInitialLoading) {
+    const skeletonBlock = theme.isDark ? "bg-white/10" : "bg-black/5";
+
     return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f0f2f5] min-w-0">
-        <div
-          className="h-14 sm:h-[60px] min-h-[56px] px-3 sm:px-4 flex items-center justify-between relative z-20 shadow-sm"
-          style={{ backgroundColor: theme.primary }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full bg-white/20 animate-pulse" />
-            <div className="h-4 w-24 rounded-full bg-white/20 animate-pulse" />
+      <div
+        className={`flex h-full min-h-0 flex-col overflow-hidden min-w-0 ${listSurface}`}
+      >
+        <div className={`shrink-0 border-b px-3 py-2 sm:px-4 ${rowBorder}`}>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <div className={`h-6 w-20 rounded-full animate-pulse ${skeletonBlock}`} />
+            <div className={`h-9 w-9 rounded-full animate-pulse ${skeletonBlock}`} />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-white/20 animate-pulse" />
-            <div className="h-8 w-8 rounded-full bg-white/20 animate-pulse" />
+          <div className={`h-10 rounded-lg animate-pulse ${skeletonBlock}`} />
+          <div className="mt-3 flex items-center gap-2 px-1 pb-1">
+            {[64, 72, 68, 48].map((width, index) => (
+              <div
+                key={index}
+                style={{ width }}
+                className={`h-[30px] rounded-full animate-pulse ${skeletonBlock}`}
+              />
+            ))}
           </div>
         </div>
 
-        <div className="flex-1 space-y-3 p-3">
-          <div className="h-12 rounded-2xl bg-white/60 animate-pulse" />
-          {[...Array(4)].map((_, index) => (
-            <div key={index} className="flex items-center gap-3 rounded-2xl bg-white/60 p-3 animate-pulse">
-              <div className="h-12 w-12 rounded-full bg-gray-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-28 rounded-full bg-gray-200" />
-                <div className="h-3 w-36 rounded-full bg-gray-200" />
+        <div className="flex-1 overflow-hidden">
+          {[...Array(8)].map((_, index) => (
+            <div
+              key={index}
+              className={`flex items-center gap-3 border-b px-4 py-3 ${rowBorder}`}
+            >
+              <div className={`h-12 w-12 shrink-0 rounded-full animate-pulse ${skeletonBlock}`} />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className={`h-3.5 w-1/3 rounded-full animate-pulse ${skeletonBlock}`} />
+                <div className={`h-3 w-2/3 rounded-full animate-pulse ${skeletonBlock}`} />
               </div>
-              <div className="h-3 w-8 rounded-full bg-gray-200" />
+              <div className={`h-3 w-8 shrink-0 rounded-full animate-pulse ${skeletonBlock}`} />
             </div>
           ))}
         </div>
@@ -538,15 +382,19 @@ export default function ChatHome({
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f0f2f5] min-w-0">
-        <div className="flex-1 overflow-y-auto min-h-0 scroll-smooth">
-          <div className="bg-[#f0f2f5] px-3 py-2 border-b border-[#e9edef]">
+      <div
+        className={`flex h-full min-h-0 flex-col overflow-hidden min-w-0 ${listSurface}`}
+      >
+        <div className="scroll-pane flex-1 overflow-y-auto min-h-0">
+          <div
+            className={`sticky top-0 z-20 border-b px-3 py-2 backdrop-blur sm:px-4 ${listSurface} ${rowBorder}`}
+          >
             <div className="mb-2 flex items-center justify-between px-1">
-              <h1 className="text-xl font-semibold text-[#111b21]">Chats</h1>
+              <h1 className={`text-xl font-semibold ${textColor}`}>Chats</h1>
               <button
                 onClick={() => setShowCreateModal(true)}
                 style={{ backgroundColor: theme.primary }}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm hover:opacity-90 transition-opacity duration-150 active:scale-95"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white shadow-sm transition-all duration-150 hover:opacity-90 active:scale-95"
                 title="New Contact"
               >
                 <svg
@@ -568,6 +416,7 @@ export default function ChatHome({
               <SearchBar
                 onSearch={handleSearch}
                 placeholder="Search or start new chat..."
+                accentColor={theme.primary}
               />
             </div>
             <div className="mt-2 flex items-center gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
@@ -578,7 +427,9 @@ export default function ChatHome({
                   className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all duration-150 active:scale-95 ${
                     activeFilter === tab.key
                       ? "text-white shadow-sm"
-                      : "text-[#54656f] hover:bg-black/5"
+                      : `${textMuted} ${
+                          theme.isDark ? "hover:bg-white/10" : "hover:bg-black/5"
+                        }`
                   }`}
                   style={
                     activeFilter === tab.key
@@ -591,7 +442,7 @@ export default function ChatHome({
               ))}
             </div>
           </div>
-          <div className="flex flex-col">
+          <div className="chat-list flex flex-col">
             {filteredContacts.map((contact) => {
               const chatId =
                 contact.peerId || contact.registeredUserId || contact.id;
@@ -603,10 +454,8 @@ export default function ChatHome({
                     key={contact.id}
                     contact={contact}
                     active={isActive}
-                    primaryColor={theme.primary}
-                    textMuted={textMuted}
-                    textColor={textColor}
-                    onClick={() => handleGroupClick(contact)}
+                    tone={rowTone}
+                    onSelect={handleGroupClick}
                   />
                 );
               }
@@ -615,13 +464,14 @@ export default function ChatHome({
                 <div key={contact.id}>
                   <ContactCard
                     contact={contact}
-                    onClick={() => handleContactCardClick(contact)}
+                    onSelect={handleContactCardClick}
                     onPin={handlePinContact}
                     onUnpin={handleUnpinContact}
                     onForward={handleForwardMessage}
                     onEdit={noopEdit}
                     onDelete={noopDelete}
                     theme={theme}
+                    tone={rowTone}
                     active={isActive}
                   />
                 </div>
@@ -730,7 +580,7 @@ export default function ChatHome({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={async () => {
-                      const peer = (selectedContact as any).registeredUserId;
+                      const peer = selectedContact.registeredUserId;
                       if (peer) {
                         closeContactModal();
                         if (onSelectChat) onSelectChat(peer);

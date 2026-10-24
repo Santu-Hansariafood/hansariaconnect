@@ -95,6 +95,8 @@ type IncomingNotificationPayload = {
   fromAvatar?: string;
   preview: string;
   messageType: string;
+  /** Lets the client show the actual photo/video as the notification image. */
+  mediaUrl?: string;
   timestamp: Date | string;
   unreadCounts?: UnreadPayload;
 };
@@ -290,35 +292,67 @@ const getCached = async <T>(
   return value;
 };
 
+const MAX_PREVIEW_LENGTH = 140;
+
+const truncatePreview = (value: string) =>
+  value.length > MAX_PREVIEW_LENGTH
+    ? `${value.slice(0, MAX_PREVIEW_LENGTH)}…`
+    : value;
+
+/**
+ * WhatsApp shows what *kind* of message arrived before the text does, so every
+ * media type gets its own label instead of falling through to "New message".
+ */
 const buildPreview = (
-  message: Pick<DecryptedMessage, "type" | "text" | "fileName" | "linkTitle">,
+  message: Pick<
+    DecryptedMessage,
+    "type" | "text" | "fileName" | "linkTitle"
+  >,
 ): string => {
+  const caption = (message.text || "").trim();
+  const withCaption = (label: string) =>
+    truncatePreview(caption ? `${label} · ${caption}` : label);
+
   switch (message.type) {
     case "image":
-      return "📷 Photo";
+      return withCaption("📷 Photo");
 
     case "video":
-      return "🎥 Video";
+      return withCaption("🎥 Video");
 
-    case "audio":
-      return "🎵 Voice message";
+    case "voice":
+      return withCaption("🎤 Voice message");
+
+    case "pdf":
+      return withCaption(`📄 ${message.fileName || "Document"}`);
+
+    case "excel":
+      return withCaption(`📊 ${message.fileName || "Spreadsheet"}`);
 
     case "file":
-      return `📎 ${message.fileName || "File"}`;
+      return withCaption(`📎 ${message.fileName || "File"}`);
 
     case "link":
-      return `🔗 ${message.linkTitle || message.text || "Link"}`;
+      return truncatePreview(
+        `🔗 ${message.linkTitle || message.text || "Link"}`,
+      );
 
     case "text":
     default: {
-      const text = message.text || "";
+      const text = (message.text || "").trim();
 
-      return text.length > 120
-        ? `${text.slice(0, 120)}…`
-        : text || "New message";
+      return truncatePreview(text || "New message");
     }
   }
 };
+
+/** Only visual media is worth using as a notification thumbnail. */
+const notificationMedia = (
+  message: Pick<DecryptedMessage, "type" | "mediaUrl">,
+): string | undefined =>
+  message.type === "image" || message.type === "video"
+    ? message.mediaUrl || undefined
+    : undefined;
 
 const toAdminNotification = (
   notification: NotificationMeta,
@@ -660,6 +694,7 @@ const buildDirectNotification = async (
       fromAvatar: senderAvatar,
       preview: buildPreview(decryptedMessage),
       messageType: decryptedMessage.type,
+      mediaUrl: notificationMedia(decryptedMessage),
       timestamp: decryptedMessage.createdAt ?? new Date(),
     };
   } catch (error) {
@@ -678,6 +713,7 @@ const buildDirectNotification = async (
       fromAvatar: DEFAULT_AVATAR,
       preview: buildPreview(decryptedMessage),
       messageType: decryptedMessage.type,
+      mediaUrl: notificationMedia(decryptedMessage),
       timestamp: decryptedMessage.createdAt ?? new Date(),
     };
   }
@@ -720,6 +756,7 @@ const buildGroupNotificationMeta = async (
       fromAvatar: senderAvatar,
       preview: `${senderName}: ${buildPreview(decryptedMessage)}`,
       messageType: decryptedMessage.type,
+      mediaUrl: notificationMedia(decryptedMessage),
       timestamp: decryptedMessage.createdAt ?? new Date(),
     };
   } catch (error) {
@@ -738,6 +775,7 @@ const buildGroupNotificationMeta = async (
       fromAvatar: DEFAULT_AVATAR,
       preview: `New message: ${buildPreview(decryptedMessage)}`,
       messageType: decryptedMessage.type,
+      mediaUrl: notificationMedia(decryptedMessage),
       timestamp: decryptedMessage.createdAt ?? new Date(),
     };
   }

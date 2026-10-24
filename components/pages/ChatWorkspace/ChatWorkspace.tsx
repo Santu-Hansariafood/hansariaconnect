@@ -42,10 +42,9 @@ type ThemeShape = {
 };
 
 export default function ChatWorkspace() {
-  const { user, theme, logout } = useApp() as unknown as {
+  const { user, theme } = useApp() as unknown as {
     user?: MinimalUser;
     theme: ThemeShape;
-    logout: () => void;
   };
   const router = useRouter();
   const pathname = usePathname();
@@ -72,7 +71,6 @@ export default function ChatWorkspace() {
           <ChatHome
             user={user!}
             theme={theme}
-            onLogout={logout}
             selectedChatId={selectedChatId || undefined}
             onSelectChat={(id) => router.push(`/chat/${id}`, { scroll: false })}
           />

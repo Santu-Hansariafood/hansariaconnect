@@ -1,38 +1,31 @@
 "use client";
 
-import {
-  useState,
-  ChangeEvent,
-  useEffect,
-  Suspense,
-  useCallback,
-  useRef,
-} from "react";
+import { Suspense } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-const StatusViewer = dynamic(
-  () => import("@/components/common/StatusViewer/StatusViewer"),
-  { ssr: false },
-);
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
+
 import {
   staggerContainer,
   fadeInVariants,
 } from "@/utils/animations/animations";
 import Loading from "@/components/common/Loading/Loading";
-import { useApp } from "@/context/AppContext/AppContext";
+import {
+  useStatusUpdates,
+  type StatusItem,
+  type StatusUser,
+} from "@/hooks/status/useStatusUpdates";
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
+const StatusViewer = dynamic(
+  () => import("@/components/common/StatusViewer/StatusViewer"),
+  { ssr: false },
+);
 const StatusCard = dynamic(
   () => import("@/components/common/StatusCard/StatusCard"),
   { ssr: false },
 );
-
-interface User {
-  name?: string;
-  photo?: string;
-}
 
 interface Theme {
   wallpaper: string;
@@ -40,208 +33,28 @@ interface Theme {
   primary?: string;
 }
 
-interface StatusItem {
-  id: string;
-  userId: string;
-  name: string;
-  avatar: string;
-  media: string;
-  type: "image" | "video";
-  timestamp: string | Date;
-  views: number;
-  hasViewed?: boolean;
-  expiresAt?: string | Date;
-}
-
 export default function StatusPage({
   user,
   theme,
   onLogout,
 }: {
-  user: User;
+  user: StatusUser;
   theme: Theme;
   onLogout?: () => void;
 }) {
-  const [myStatus, setMyStatus] = useState<StatusItem | null>(null);
-  const [contactStatuses, setContactStatuses] = useState<
-    Record<string, StatusItem[]>
-  >({});
-  const [uploading, setUploading] = useState(false);
-  const [statusError, setStatusError] = useState("");
-  const [loadingStatuses, setLoadingStatuses] = useState(true);
-  const { bootstrapData } = useApp();
-  const hasLoadedStatuses = useRef(false);
-  const statusRefresh = useRef({ inFlight: false, lastStartedAt: 0 });
-
-  const loadStatuses = useCallback(async () => {
-    const now = Date.now();
-    if (
-      statusRefresh.current.inFlight ||
-      now - statusRefresh.current.lastStartedAt < 10_000
-    ) {
-      return;
-    }
-    statusRefresh.current.inFlight = true;
-    statusRefresh.current.lastStartedAt = now;
-    setStatusError("");
-    if (!hasLoadedStatuses.current) setLoadingStatuses(true);
-    try {
-      const res = await fetch("/api/status", {
-        credentials: "include",
-      });
-      const data = await res.json();
-      if (res.ok && data?.statuses) {
-        setContactStatuses(data.statuses);
-      } else {
-        setStatusError(data?.error || "Unable to load status updates.");
-      }
-    } catch (err: unknown) {
-      console.error("Failed to load statuses:", err);
-      setStatusError("Unable to load status updates right now.");
-    } finally {
-      hasLoadedStatuses.current = true;
-      statusRefresh.current.inFlight = false;
-      setLoadingStatuses(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (bootstrapData.statuses && Object.keys(bootstrapData.statuses).length > 0) {
-      setContactStatuses(bootstrapData.statuses);
-      hasLoadedStatuses.current = true;
-      setLoadingStatuses(false);
-      return;
-    }
-
-    const refreshIfVisible = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        void loadStatuses();
-      }
-    };
-
-    refreshIfVisible();
-
-    const interval = window.setInterval(refreshIfVisible, 60000);
-    window.addEventListener("focus", refreshIfVisible);
-    document.addEventListener("visibilitychange", refreshIfVisible);
-
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("focus", refreshIfVisible);
-      document.removeEventListener("visibilitychange", refreshIfVisible);
-    };
-  }, [bootstrapData.statuses, loadStatuses]);
-
-  const handleStatusUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("kind", "status");
-
-      const uploadRes = await fetch("/api/upload", {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      if (!uploadRes.ok) {
-        const errorData = await uploadRes.json().catch(() => ({}));
-        console.error("Upload failed:", errorData);
-        setUploading(false);
-        return;
-      }
-
-      const uploadData = await uploadRes.json();
-      if (!uploadData?.url) {
-        console.error("No URL in upload response:", uploadData);
-        setUploading(false);
-        return;
-      }
-
-      const res = await fetch("/api/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          media: uploadData.url,
-          type: file.type.startsWith("video") ? "video" : "image",
-        }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        console.error("Status creation failed:", errorData);
-        setUploading(false);
-        return;
-      }
-
-      const data = await res.json();
-      if (data?.status) {
-        setMyStatus({
-          id: data.status.id,
-          userId: String((user as { id?: string })?.id || ""),
-          name: user.name || "You",
-          avatar: user.photo || "",
-          media: data.status.media,
-          type: data.status.type,
-          timestamp: data.status.createdAt,
-          views: 0,
-        });
-        await loadStatuses();
-      }
-    } catch (error) {
-      console.error("Status upload error:", error);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleStatusView = async (statusId: string) => {
-    try {
-      await fetch(`/api/status/${statusId}/view`, {
-        method: "POST",
-        credentials: "include",
-      });
-      setContactStatuses((prev) => {
-        const next: Record<string, StatusItem[]> = {};
-        for (const [uid, list] of Object.entries(prev)) {
-          next[uid] = list.map((status) =>
-            status.id === statusId
-              ? { ...status, hasViewed: true, views: status.views + 1 }
-              : status,
-          );
-        }
-        return next;
-      });
-    } catch {}
-  };
-
-  const [viewerItems, setViewerItems] = useState<
-    | {
-        id: string;
-        media: string;
-        type: "image" | "video";
-        user?: string;
-      }[]
-    | null
-  >(null);
-
-  const [viewerStart, setViewerStart] = useState(0);
-
-  const openViewer = (userId: string, startIdx: number) => {
-    const list = contactStatuses[userId] || [];
-    const items = list.map((s) => ({
-      id: s.id,
-      media: s.media,
-      type: s.type,
-      user: s.name,
-    }));
-    setViewerItems(items);
-    setViewerStart(startIdx);
-  };
+  const {
+    contactStatuses,
+    myStatus,
+    uploading,
+    statusError,
+    loadingStatuses,
+    viewerItems,
+    viewerStart,
+    handleStatusUpload,
+    handleStatusView,
+    openViewer,
+    closeViewer,
+  } = useStatusUpdates(user);
 
   return (
     <Suspense fallback={<Loading />}>
@@ -325,6 +138,7 @@ export default function StatusPage({
                 </div>
               )}
             </motion.div>
+
             <motion.div
               variants={fadeInVariants}
               className="bg-white rounded-2xl p-6 shadow-lg"
@@ -377,12 +191,13 @@ export default function StatusPage({
             </motion.div>
           </motion.div>
         </div>
+
         {viewerItems && (
-          // @ts-ignore
           <StatusViewer
             items={viewerItems}
             startIndex={viewerStart}
-            onClose={() => setViewerItems(null)}
+            onClose={closeViewer}
+            onView={handleStatusView}
           />
         )}
       </div>
