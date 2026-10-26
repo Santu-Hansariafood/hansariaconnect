@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
-import { randomBytesHex, pbkdf2Hex } from "@/lib/crypto";
+import { randomBytesHex, pbkdf2Hex, digestHex } from "@/lib/crypto";
 
 export interface IApiKey extends Document {
   adminId: string;
@@ -7,6 +7,8 @@ export interface IApiKey extends Document {
   senderUserId?: string;
   isPrimary: boolean;
   key: string;
+  /** Indexable digest of the raw key, so validation never scans every key. */
+  keyLookup?: string;
   name: string;
   permissions: {
     sendMessage: boolean;
@@ -28,6 +30,7 @@ const ApiKeySchema = new Schema<IApiKey>(
     senderUserId: { type: String },
     isPrimary: { type: Boolean, default: false },
     key: { type: String, required: true, unique: true },
+    keyLookup: { type: String },
     name: { type: String, required: true },
     permissions: {
       sendMessage: { type: Boolean, default: true },
@@ -55,6 +58,13 @@ ApiKeySchema.index(
     partialFilterExpression: { isPrimary: true },
   },
 );
+ApiKeySchema.index(
+  { keyLookup: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { keyLookup: { $type: "string" } },
+  },
+);
 
 // Generate a unique API key and store its hash
 ApiKeySchema.methods.generateHash = async function (): Promise<string> {
@@ -64,6 +74,9 @@ ApiKeySchema.methods.generateHash = async function (): Promise<string> {
 
   // Store salt + hash (we need salt to verify later)
   this.key = `${salt}.${hash}`;
+  // A digest of a 256-bit random key cannot be reversed, but it can be indexed,
+  // which turns API-key validation into a single-document lookup.
+  this.keyLookup = digestHex("SHA-256", rawKey);
   return rawKey;
 };
 

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react"
 import NotificationManager from "@/components/common/NotificationManager/NotificationManager"
 import Loading from "@/components/common/Loading/Loading"
+import { disconnectSocket } from "@/hooks/useSocket"
 
 interface User {
   id?: string
@@ -245,34 +246,34 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         localStorage.removeItem("hansariaUser")
       }
 
-      if (savedUser) setUser(savedUser)
-      setSessionChecked(true)
-
       try {
-        const [valid, settings] = await Promise.all([
-          savedUser ? validateServerSession() : Promise.resolve(false),
-          fetch("/api/settings", {
-            credentials: "include",
-            cache: "no-store",
+        const valid = savedUser ? await validateServerSession() : false
+        if (savedUser && valid) {
+          setUser(savedUser)
+        } else if (savedUser) {
+          localStorage.removeItem("hansariaUser")
+        }
+        setSessionChecked(true)
+
+        if (!savedUser || !valid) return
+
+        const settings = await fetch("/api/settings", {
+          credentials: "include",
+          cache: "no-store",
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch((error) => {
+            console.error("[AppProvider] Could not load settings:", error)
+            return null
           })
-            .then((res) => (res.ok ? res.json() : null))
-            .catch((error) => {
-              console.error("[AppProvider] Could not load settings:", error)
-              return null
-            }),
-        ])
 
         if (settings?.theme) {
           setTheme(settings.theme)
           localStorage.setItem("hansariaTheme", JSON.stringify(settings.theme))
         }
-
-        if (savedUser && !valid) {
-          localStorage.removeItem("hansariaUser")
-          setUser(null)
-        }
       } catch (error) {
         console.error("[AppProvider] App session initialization failed:", error)
+        setSessionChecked(true)
       }
     })()
   }, [])
@@ -368,6 +369,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
     } catch {}
+    disconnectSocket()
     setUser(null)
     localStorage.removeItem("hansariaUser")
     clearCachedMessages()

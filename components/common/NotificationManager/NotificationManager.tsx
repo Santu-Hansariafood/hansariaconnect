@@ -51,8 +51,15 @@ export default function NotificationManager({
 }: NotificationManagerProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const isAdminSurface = Boolean(
+    pathname?.startsWith("/admin") ||
+      (typeof window !== "undefined" &&
+        /^(admin|super)\./i.test(window.location.hostname)),
+  );
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const { socket, addListener, removeListener } = useSocket({
     subscribeOnline: false,
+    enabled: Boolean(userId) || Boolean(isAdminSurface && adminUserId),
   });
   const { preferences, playRingtone, showNotification } = useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
@@ -62,12 +69,6 @@ export default function NotificationManager({
   const toastTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const baseDocumentTitleRef = useRef("HansariaConnect");
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
-  const [adminUserId, setAdminUserId] = useState<string | null>(null);
-  const isAdminSurface = Boolean(
-    pathname?.startsWith("/admin") ||
-      (typeof window !== "undefined" &&
-        /^(admin|super)\./i.test(window.location.hostname)),
-  );
 
   const dismissToast = useCallback((id: number) => {
     const timer = toastTimers.current.get(id);

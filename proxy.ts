@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getAdminSession, getUserSession } from "@/lib/edgeSessionAuth";
+import { apiPreflightResponse, applyApiCors } from "@/lib/apiCors";
 
 const PUBLIC_PATHS = new Set([
   "/login",
@@ -90,6 +91,14 @@ export async function proxy(req: NextRequest) {
   const isWebSubdomain = /^web\./i.test(host);
 
   const { pathname } = nextUrl;
+
+  if (pathname.startsWith("/api/v1/")) {
+    if (req.method === "OPTIONS") return apiPreflightResponse();
+
+    const response = NextResponse.next();
+    applyApiCors(response.headers);
+    return response;
+  }
 
   if (
     isSuperSubdomain &&

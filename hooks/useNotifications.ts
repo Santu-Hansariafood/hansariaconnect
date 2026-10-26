@@ -49,6 +49,14 @@ const loadNotificationPreferences = async (
   userId?: string | number,
 ): Promise<NotificationPreferences> => {
   const requestedUserId = userId == null ? null : String(userId);
+  if (requestedUserId === null) {
+    notificationPreferencesUserId = null;
+    notificationPreferencesLoaded = true;
+    notificationPreferencesPromise = null;
+    notificationPreferencesPromiseUserId = null;
+    return publishNotificationPreferences(DEFAULT_NOTIFICATION_PREFERENCES);
+  }
+
   if (
     notificationPreferencesLoaded &&
     notificationPreferencesUserId === requestedUserId

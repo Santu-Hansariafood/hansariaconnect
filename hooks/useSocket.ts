@@ -20,10 +20,11 @@ const publishOnlineUsers = (update: (current: string[]) => string[]) => {
 
 interface UseSocketOptions {
   subscribeOnline?: boolean;
+  enabled?: boolean;
 }
 
 export const useSocket = (options: UseSocketOptions = {}) => {
-  const { subscribeOnline = true } = options;
+  const { subscribeOnline = true, enabled = true } = options;
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([]);
   const isInitializedRef = useRef(false);
@@ -207,6 +208,11 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   }, [addOnlineListener, removeOnlineListener, syncOnlineUsers, subscribeOnline]);
 
   useEffect(() => {
+    if (!enabled) {
+      isInitializedRef.current = false;
+      return;
+    }
+
     const initialize = () => {
       if (isInitializedRef.current) return;
       isInitializedRef.current = true;
@@ -222,7 +228,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     return () => {
       // Don't disconnect on unmount to keep the socket alive across components
     };
-  }, [connect]);
+  }, [connect, enabled]);
 
   return {
     socket,
@@ -232,4 +238,12 @@ export const useSocket = (options: UseSocketOptions = {}) => {
     addOnlineListener,
     removeOnlineListener,
   };
+};
+
+export const disconnectSocket = () => {
+  const currentSocket = socketInstance;
+  socketInstance = null;
+  socketConnectPromise = null;
+  currentSocket?.disconnect();
+  publishOnlineUsers(() => []);
 };

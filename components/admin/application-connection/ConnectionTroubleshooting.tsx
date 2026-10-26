@@ -18,6 +18,34 @@ export default function ConnectionTroubleshooting() {
           <li>Read the response&apos;s <code>error</code> field for details.</li>
         </ul>
       </section>
+      <section className="rounded-xl border border-sky-300 bg-sky-50 p-4">
+        <h3 className="font-semibold text-sky-950">
+          Which step failed? Read <code>failedAt</code>
+        </h3>
+        <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-sky-900">
+          <li>
+            Call <code>GET /api/v1/connection/test</code> and check{" "}
+            <code>failedAt</code>. Every response also returns a{" "}
+            <code>checks</code> object showing{" "}
+            <code>ok</code>, <code>failed</code>, or <code>skipped</code> for{" "}
+            <code>apiKey</code>, <code>request</code>, <code>sender</code>,{" "}
+            <code>adminWorkspace</code>, and <code>template</code>.
+          </li>
+          <li>
+            Browser and front-end JavaScript callers are supported:{" "}
+            <code>/api/v1/*</code> answers CORS preflight requests and sends{" "}
+            <code>Access-Control-Allow-Origin</code> on every response. If you
+            still see a blocked request, confirm the URL is{" "}
+            <code>https://hfconnect.in/api/v1/...</code> and not an internal
+            hostname.
+          </li>
+          <li>
+            Rate-limit headers (<code>X-RateLimit-*</code>) are exposed to the
+            browser, so your other app can read its remaining quota and{" "}
+            <code>Retry-After</code> on a <code>429</code>.
+          </li>
+        </ul>
+      </section>
       <p className="text-sm leading-6 text-slate-600">
         The example sends an in-app message, not SMS. It sends to one recipient
         using <code>POST /api/v1/messages/send</code>. To send to multiple
