@@ -147,6 +147,27 @@ export function decryptDirectMessageContent(
   }
 }
 
+export function encryptBulkMessageJobPayload(
+  jobId: string,
+  plaintext: string,
+): string {
+  return encryptAuthenticated(deriveKey(`bulk-message-job:${jobId}`), plaintext);
+}
+
+export function decryptBulkMessageJobPayload(
+  jobId: string,
+  ciphertext: string,
+): string {
+  const plaintext = decryptAuthenticated(
+    deriveKey(`bulk-message-job:${jobId}`),
+    ciphertext,
+  );
+  if (plaintext === null) {
+    throw new Error("Could not decrypt bulk message job payload");
+  }
+  return plaintext;
+}
+
 export function encryptGroupMessageContent(
   groupId: string,
   plaintext: string,

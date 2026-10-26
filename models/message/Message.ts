@@ -6,6 +6,8 @@ export interface IMessage extends Document {
   to: mongoose.Types.ObjectId | string
   apiKeyId?: string
   apiTemplateName?: string
+  bulkJobId?: mongoose.Types.ObjectId
+  bulkRecipientIndex?: number
   type: "text" | "image" | "video" | "voice" | "pdf" | "excel" | "link"
   text?: string
   mediaUrl?: string
@@ -27,6 +29,8 @@ const MessageSchema = new Schema<IMessage>(
     to: { type: Schema.Types.ObjectId, ref: "User", required: true },
     apiKeyId: { type: String, index: true },
     apiTemplateName: { type: String },
+    bulkJobId: { type: Schema.Types.ObjectId },
+    bulkRecipientIndex: { type: Number },
     type: { type: String, required: true },
     text: { type: String },
     mediaUrl: { type: String },
@@ -59,5 +63,15 @@ const MessageSchema = new Schema<IMessage>(
 MessageSchema.index({ from: 1, to: 1, createdAt: -1 })
 MessageSchema.index({ to: 1, createdAt: -1 })
 MessageSchema.index({ apiKeyId: 1, createdAt: -1 })
+MessageSchema.index(
+  { bulkJobId: 1, bulkRecipientIndex: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      bulkJobId: { $type: "objectId" },
+      bulkRecipientIndex: { $type: "number" },
+    },
+  },
+)
 
 export default mongoose.models.Message || mongoose.model<IMessage>("Message", MessageSchema)

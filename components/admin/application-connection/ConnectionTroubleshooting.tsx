@@ -50,8 +50,18 @@ export default function ConnectionTroubleshooting() {
         The example sends an in-app message, not SMS. It sends to one recipient
         using <code>POST /api/v1/messages/send</code>. To send to multiple
         recipients, use <code>POST /api/v1/messages/bulk</code> with a{" "}
-        <code>recipients</code> array. To use a saved template, create it in My
+        <code>recipients</code> array; each recipient can be a chat account ID
+        or registered Indian mobile number. In the template test builder,
+        choose one or multiple recipients and paste a comma- or newline-separated
+        list. For personalized messages, include a separate <code>variables</code>{" "}
+        object in each recipient entry. To use a saved template, create it in My
         templates and use <code>templateName</code> or <code>templateId</code>.
+      </p>
+      <p className="text-sm leading-6 text-slate-600">
+        Bulk sends return HTTP <code>202</code> with a <code>jobId</code> and{" "}
+        <code>statusUrl</code> as soon as the request is accepted. Poll the
+        status URL with the same API key to track each recipient; the VPS bulk
+        worker processes the messages in the background.
       </p>
     </>
   );

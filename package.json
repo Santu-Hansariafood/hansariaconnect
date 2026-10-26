@@ -6,7 +6,8 @@
     "dev": "next dev -p 4000",
     "build": "next build",
     "start": "next start -p 4000",
-    "lint": "eslint"
+    "lint": "eslint",
+    "worker:bulk": "node --conditions=react-server --import tsx scripts/bulk-message-worker.ts"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
@@ -32,8 +33,10 @@
     "react-icons": "^5.7.0",
     "react-qr-code": "^2.2.0",
     "read-excel-file": "^9.3.10",
+    "server-only": "^0.0.1",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
+    "tsx": "^4.23.15",
     "twilio": "^6.0.2",
     "write-excel-file": "^4.1.1",
     "zod": "^4.6.5"

@@ -28,6 +28,9 @@ export default function WhatsAppTemplateBuilder({
   const [language, setLanguage] = useState("");
   const [sampleValues, setSampleValues] = useState<Record<string, string>>({});
   const [recipient, setRecipient] = useState("");
+  const [recipientMode, setRecipientMode] = useState<"single" | "multiple">(
+    "single",
+  );
   const [apiKey, setApiKey] = useState("");
   const [senderUserId, setSenderUserId] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -100,6 +103,10 @@ export default function WhatsAppTemplateBuilder({
   const renderedHeader = renderMessageTemplate(headerText, values).text;
   const renderedBody = renderMessageTemplate(bodyText, values).text;
   const renderedFooter = renderMessageTemplate(footerText, values).text;
+  const recipients = recipient
+    .split(/[,\n]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
   const payload = template
     ? {
         adminId: template.adminId,
@@ -118,9 +125,37 @@ export default function WhatsAppTemplateBuilder({
   -H "Content-Type: application/json" \\
   -d '${JSON.stringify(payload, null, 2)}'`;
 
+  const activeRequestExample =
+    recipientMode === "single" || payload === null
+      ? requestExample
+      : requestExample
+          .replace("/api/v1/messages/send", "/api/v1/messages/bulk")
+          .replace(
+            JSON.stringify(payload, null, 2),
+            JSON.stringify(
+              {
+                adminId: template.adminId,
+                templateId: template._id,
+                ...(senderUserId.trim()
+                  ? { fromUserId: senderUserId.trim() }
+                  : {}),
+                recipients: (recipients.length
+                  ? recipients
+                  : ["RECIPIENT_MOBILE"]
+                ).map((toUserId) => ({
+                  toUserId,
+                  language: activeLanguage,
+                  variables: values,
+                })),
+              },
+              null,
+              2,
+            ),
+          );
+
   const copyRequest = async () => {
     try {
-      await navigator.clipboard.writeText(requestExample);
+      await navigator.clipboard.writeText(activeRequestExample);
       setCopyStatus("Request copied.");
     } catch {
       setCopyStatus("Copy failed. Select the request and copy it manually.");
@@ -129,10 +164,20 @@ export default function WhatsAppTemplateBuilder({
 
   const sendTestMessage = async () => {
     if (!template || !payload) return;
-    if (!recipient.trim()) {
+    if (!recipients.length) {
       setSendResult({
         ok: false,
-        text: "Enter the recipient's mobile number or chat account ID.",
+        text:
+          recipientMode === "single"
+            ? "Enter the recipient's mobile number or chat account ID."
+            : "Enter at least one recipient mobile number or chat account ID.",
+      });
+      return;
+    }
+    if (recipientMode === "multiple" && recipients.length > 1000) {
+      setSendResult({
+        ok: false,
+        text: "You can send to a maximum of 1,000 recipients at a time.",
       });
       return;
     }
@@ -146,24 +191,47 @@ export default function WhatsAppTemplateBuilder({
     setIsSending(true);
     setSendResult(null);
     try {
-      const response = await fetch("/api/v1/messages/send", {
-        method: "POST",
-        headers: {
+      const requestPayload =
+        recipientMode === "single"
+          ? payload
+          : {
+              adminId: template.adminId,
+              templateId: template._id,
+              ...(senderUserId.trim()
+                ? { fromUserId: senderUserId.trim() }
+                : {}),
+              recipients: recipients.map((toUserId) => ({
+                toUserId,
+                language: activeLanguage,
+                variables: values,
+              })),
+            };
+      const response = await fetch(
+        `/api/v1/messages/${recipientMode === "single" ? "send" : "bulk"}`,
+        {
+          method: "POST",
+          headers: {
           Authorization: `Bearer ${apiKey.trim()}`,
           "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestPayload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
       const result = (await response.json().catch(() => null)) as {
         error?: string;
         message?: unknown;
+        jobId?: string;
+        statusUrl?: string;
       } | null;
       if (!response.ok) {
         throw new Error(result?.error || `Request failed: ${response.status}`);
       }
       setSendResult({
         ok: true,
-        text: "Test message sent. Open the chat account to confirm it arrived.",
+        text:
+          recipientMode === "single"
+            ? "Test message sent. Open the chat account to confirm it arrived."
+            : `Queued ${recipients.length} recipient(s). Job ID: ${result?.jobId || "unknown"}. Check ${result?.statusUrl || "the bulk job status endpoint"} for progress.`,
       });
     } catch (error: unknown) {
       console.error("[admin] Template test send failed:", error);
@@ -335,7 +403,7 @@ export default function WhatsAppTemplateBuilder({
           </button>
         </div>
         <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
-          <code>{requestExample}</code>
+          <code>{activeRequestExample}</code>
         </pre>
         <p className="mt-2 min-h-5 text-slate-300" aria-live="polite">
           {copyStatus}
@@ -344,13 +412,45 @@ export default function WhatsAppTemplateBuilder({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Recipient mobile or chat account ID
-          <input
-            value={recipient}
-            onChange={(event) => setRecipient(event.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
-            placeholder="e.g. 9876543210"
-          />
+          Recipients
+          <select
+            value={recipientMode}
+            onChange={(event) =>
+              setRecipientMode(
+                event.target.value === "multiple" ? "multiple" : "single",
+              )
+            }
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal"
+          >
+            <option value="single">One recipient</option>
+            <option value="multiple">Multiple recipients</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-sm font-medium text-slate-700">
+          {recipientMode === "single"
+            ? "Recipient mobile or chat account ID"
+            : `Recipient mobile numbers or chat account IDs (${recipients.length})`}
+          {recipientMode === "single" ? (
+            <input
+              value={recipient}
+              onChange={(event) => setRecipient(event.target.value)}
+              className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
+              placeholder="e.g. 9876543210"
+            />
+          ) : (
+            <textarea
+              value={recipient}
+              onChange={(event) => setRecipient(event.target.value)}
+              rows={3}
+              className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
+              placeholder={"9876543210, 9876543211\n9876543212"}
+            />
+          )}
+          {recipientMode === "multiple" && (
+            <span className="text-xs font-normal text-slate-500">
+              Separate recipients with commas or new lines (up to 1,000).
+            </span>
+          )}
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700">
           Sender chat account ID (optional)

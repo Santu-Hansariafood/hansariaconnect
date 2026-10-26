@@ -43,3 +43,27 @@ Set `REDIS_URL` (or the `REDIS_HOST` connection settings) on every app instance 
 When the load balancer permits Engine.IO polling, enable sticky sessions so all polling requests in one Socket.IO session reach the same app instance. Forward WebSocket `Upgrade` and `Connection` headers, allow long-lived connections, and configure `NEXT_PUBLIC_APP_URL` to the public app origin. Admin, super-admin, and web subdomains of that origin are accepted by the socket origin check.
 
 For multiple geographic regions, use a low-latency Redis deployment shared by every instance that must exchange socket events, and account for cross-region latency/failure domains. Separate regional Redis clusters do not provide global room delivery by themselves. Regional message databases also require state-aware request routing; the connection helpers alone do not route chat data.
+
+## Asynchronous bulk messages
+
+`POST /api/v1/messages/bulk` validates and encrypts each recipient's rendered
+message, stores a durable job in the control database, and returns HTTP `202`
+with a `jobId` and `statusUrl`. Poll the returned URL with the same API key to
+read queued, processing, completed, partial, or failed status and per-recipient
+results. Put each number's personalized values in that recipient's own
+`variables` object in the `recipients` array; the worker renders and sends
+each message independently.
+Only registered HansariaConnect accounts can receive these in-app messages.
+
+On the VPS, run `npm run worker:bulk` as a separate long-lived service alongside
+the Next.js app. Use the same environment and database in both processes, set
+`BULK_MESSAGE_APP_URL` to the app's local listening URL (default
+`http://127.0.0.1:4000`), and set `BULK_MESSAGE_WORKER_SECRET` to the same
+high-entropy secret in both processes. The worker polls MongoDB, retries temporary recipient failures, and
+resumes leased jobs after a worker restart. Keep the worker running with a
+process manager such as systemd or PM2; cron is not needed. The worker uses an
+idempotency index on messages, so retries do not create duplicate chat
+messages. Keep the same `ENCRYPTION_SECRET` (or the configured fallback) in
+both processes and do not rotate it while jobs are pending, because queued
+message data is encrypted before it is stored. Do not remove the
+`BULK_MESSAGE_WORKER_SECRET` while jobs are pending.

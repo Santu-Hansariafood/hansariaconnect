@@ -1,25 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { z } from "zod";
+import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
 import { validateApiKey } from "@/lib/apiKeyAuth";
 import { connectDB } from "@/lib/db/db";
-import Message from "@/models/message/Message";
-import Conversation from "@/models/conversation/Conversation";
+import { encryptBulkMessageJobPayload } from "@/lib/crypto";
+import BulkMessageJob from "@/models/message/BulkMessageJob";
 import User from "@/models/user/User";
 import Admin from "@/models/admin/Admin";
 import AdminTemplate from "@/models/admin/AdminTemplate";
-import { encryptDirectMessageContent, decryptDirectMessageContent } from "@/lib/crypto";
-import {
-  getTemplateVariableNames,
-  joinTemplateParts,
-  renderMessageTemplate,
-} from "@/lib/messageTemplates";
-import { normalizeTemplateTranslations } from "@/lib/templateTranslations";
-import {
-  invalidateDirectMessages,
-  invalidateUserConversations,
-} from "@/lib/redis/redis";
-import { emitDirectMessageReceived } from "@/lib/socketEmitter";
+import { joinTemplateParts, renderMessageTemplate } from "@/lib/messageTemplates";
 import { getLocalizedTemplateText } from "@/lib/templateTranslations";
 import { readJsonRequestBody } from "@/lib/apiRequestBody";
 import {
@@ -32,6 +22,7 @@ const MAX_RECIPIENTS = 1000;
 const messageTypes = ["image", "video", "voice", "pdf", "excel", "file"] as const;
 
 const requestSchema = z.object({
+  fromUserId: z.string().optional(),
   adminId: z.string().optional(),
   templateId: z.string().optional(),
   templateName: z.string().trim().min(1).max(100).optional(),
@@ -141,11 +132,23 @@ export async function POST(req: NextRequest) {
       return response;
     }
 
-    const senderId = String(authResult.apiKey.senderUserId || "");
+    const senderId = String(
+      authResult.apiKey.senderUserId || parsedBody.data.fromUserId || "",
+    );
     if (!Types.ObjectId.isValid(senderId)) {
       return NextResponse.json(
         { success: false, error: "This API key is not bound to a sender account" },
         { status: 400 },
+      );
+    }
+    if (
+      authResult.apiKey.senderUserId &&
+      parsedBody.data.fromUserId &&
+      String(authResult.apiKey.senderUserId) !== parsedBody.data.fromUserId
+    ) {
+      return NextResponse.json(
+        { success: false, error: "fromUserId must match the sender bound to this API key" },
+        { status: 403 },
       );
     }
 
@@ -263,46 +266,75 @@ export async function POST(req: NextRequest) {
     }
 
     const recipients = parsedBody.data.recipients;
-    const savedTranslations = normalizeTemplateTranslations(
-      savedTemplate?.translations,
-    );
-    const templateVariables = Array.from(
-      new Set(
-        [
-          templateText,
-          ...Object.values(savedTranslations).map((translation) =>
-            joinTemplateParts(
-              savedTemplate?.subject || savedTemplate?.header,
-              translation,
-              savedTemplate?.footer,
-            ),
-          ),
-        ].flatMap(getTemplateVariableNames),
-      ),
-    );
-    const recipientIds = recipients.map((recipient) =>
-      String(recipient.toUserId || recipient.userId || ""),
-    );
-    if (recipientIds.some((id) => !Types.ObjectId.isValid(id))) {
+    const recipientTargets = recipients.map((recipient) => {
+      const input = String(recipient.toUserId || recipient.userId || "").trim();
+      if (Types.ObjectId.isValid(input)) {
+        return { recipient, userId: input, mobile: null };
+      }
+      const mobile = normalizeIndianMobile(input);
+      return mobile ? { recipient, userId: null, mobile } : null;
+    });
+    if (recipientTargets.some((target) => !target)) {
       return NextResponse.json(
-        { success: false, error: "Every recipient needs a valid toUserId" },
+        {
+          success: false,
+          error:
+            "Every recipient needs a valid chat account ID or registered Indian mobile number",
+        },
         { status: 400 },
       );
     }
-    const existingRecipientCount = await User.countDocuments({
-      _id: { $in: recipientIds },
+    const validTargets = recipientTargets.filter(
+      (target): target is NonNullable<typeof target> => target !== null,
+    );
+    const recipientIds = validTargets.flatMap((target) =>
+      target.userId ? [target.userId] : [],
+    );
+    const recipientMobiles = validTargets.flatMap((target) =>
+      target.mobile ? [target.mobile] : [],
+    );
+    const recipientProfiles = await User.find({
+      $or: [
+        ...(recipientIds.length ? [{ _id: { $in: recipientIds } }] : []),
+        ...(recipientMobiles.length
+          ? [{ mobile: { $in: recipientMobiles } }]
+          : []),
+      ],
+    })
+      .select("_id mobile preferredLanguage")
+      .lean();
+    const profilesById = new Map(
+      recipientProfiles.map((profile) => [String(profile._id), profile]),
+    );
+    const profilesByMobile = new Map(
+      recipientProfiles.map((profile) => [profile.mobile, profile]),
+    );
+    const resolvedRecipients = validTargets.map((target) => {
+      const profile = target.userId
+        ? profilesById.get(target.userId)
+        : target.mobile
+          ? profilesByMobile.get(target.mobile)
+          : undefined;
+      return profile
+        ? {
+            ...target.recipient,
+            toUserId: String(profile._id),
+            recipientInput: String(
+              target.recipient.toUserId || target.recipient.userId || "",
+            ),
+          }
+        : null;
     });
-    if (existingRecipientCount !== new Set(recipientIds).size) {
+    if (resolvedRecipients.some((recipient) => !recipient)) {
       return NextResponse.json(
         { success: false, error: "One or more recipients do not exist" },
         { status: 400 },
       );
     }
-    const recipientProfiles = await User.find({
-      _id: { $in: recipientIds },
-    })
-      .select("_id preferredLanguage")
-      .lean();
+    const validRecipients = resolvedRecipients.filter(
+      (recipient): recipient is NonNullable<typeof recipient> =>
+        recipient !== null,
+    );
     const recipientLanguages = new Map(
       recipientProfiles.map((profile) => [
         String(profile._id),
@@ -311,6 +343,7 @@ export async function POST(req: NextRequest) {
     );
 
     const preparedMessages: Array<{
+      recipient: string;
       toUserId: string;
       text: string;
       type: "text" | (typeof messageTypes)[number];
@@ -319,7 +352,7 @@ export async function POST(req: NextRequest) {
       fileSize: string;
     }> = [];
 
-    for (const recipient of recipients) {
+    for (const recipient of validRecipients) {
       const toUserId = String(recipient.toUserId || recipient.userId);
       if (toUserId === senderId) continue;
 
@@ -399,6 +432,7 @@ export async function POST(req: NextRequest) {
       }
 
       preparedMessages.push({
+        recipient: String(recipient.recipientInput || toUserId),
         toUserId,
         text,
         type: attachment?.type || "text",
@@ -408,76 +442,56 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const created: Array<{ id: string; toUserId: string; text: string; type: string }> = [];
-    for (const item of preparedMessages) {
-      const encrypted = {
-        text: encryptDirectMessageContent(senderId, item.toUserId, item.text),
-        mediaUrl: encryptDirectMessageContent(senderId, item.toUserId, item.mediaUrl),
-        fileName: encryptDirectMessageContent(senderId, item.toUserId, item.fileName),
-        fileSize: encryptDirectMessageContent(senderId, item.toUserId, item.fileSize),
-      };
-      const message = await Message.create({
-        from: new Types.ObjectId(senderId),
-        to: new Types.ObjectId(item.toUserId),
-        apiKeyId: String(authResult.apiKey._id),
-        apiTemplateName: savedTemplateName,
-        type: item.type,
-        ...encrypted,
-        buttons: savedTemplate?.buttons || [],
-        status: "sent",
+    if (!preparedMessages.length) {
+      const response = NextResponse.json({
+        success: true,
+        sent: 0,
+        template: savedTemplateName,
       });
-
-      const senderObjectId = new Types.ObjectId(senderId);
-      const recipientObjectId = new Types.ObjectId(item.toUserId);
-      const userA =
-        senderId < item.toUserId ? senderObjectId : recipientObjectId;
-      const userB =
-        senderId < item.toUserId ? recipientObjectId : senderObjectId;
-      await Conversation.findOneAndUpdate(
-        { userA, userB },
-        { userA, userB, lastMessageAt: message.createdAt },
-        { upsert: true },
-      );
-
-      const payload = {
-        id: String(message._id),
-        from: senderId,
-        to: item.toUserId,
-        type: item.type,
-        text: decryptDirectMessageContent(senderId, item.toUserId, encrypted.text),
-        mediaUrl: decryptDirectMessageContent(senderId, item.toUserId, encrypted.mediaUrl),
-        fileName: decryptDirectMessageContent(senderId, item.toUserId, encrypted.fileName),
-        fileSize: decryptDirectMessageContent(senderId, item.toUserId, encrypted.fileSize),
-        buttons: savedTemplate?.buttons || [],
-        timestamp: message.createdAt,
-        status: "sent",
-      };
-
-      void invalidateDirectMessages(senderId, item.toUserId);
-      void invalidateUserConversations(senderId);
-      void invalidateUserConversations(item.toUserId);
-      void emitDirectMessageReceived(senderId, item.toUserId, payload);
-      created.push({
-        id: String(message._id),
-        toUserId: item.toUserId,
-        text: item.text,
-        type: item.type,
-      });
+      applyApiRateLimitHeaders(response.headers, rateLimit);
+      return response;
     }
 
-    const response = NextResponse.json({
-      success: true,
-      sent: created.length,
-      messages: created,
-      template: savedTemplateName
-        ? {
-            name: savedTemplateName,
-            variableCount: templateVariables.length,
-            variables: templateVariables,
-            languages: Object.keys(savedTranslations),
-          }
-        : undefined,
+    const jobId = new Types.ObjectId();
+    const jobPayload = JSON.stringify(
+      preparedMessages.map((item) => ({
+        toUserId: item.toUserId,
+        text: item.text,
+        mediaUrl: item.mediaUrl,
+        fileName: item.fileName,
+        fileSize: item.fileSize,
+        type: item.type,
+        buttons: savedTemplate?.buttons || [],
+      })),
+    );
+    const job = await BulkMessageJob.create({
+      _id: jobId,
+      apiKeyId: String(authResult.apiKey._id),
+      senderId,
+      templateName: savedTemplateName,
+      status: "queued",
+      payload: encryptBulkMessageJobPayload(String(jobId), jobPayload),
+      recipients: preparedMessages.map((item) => ({
+        recipient: item.recipient,
+        toUserId: item.toUserId,
+        status: "pending",
+        attempts: 0,
+      })),
     });
+
+    const response = NextResponse.json(
+      {
+        success: true,
+        queued: preparedMessages.length,
+        jobId: String(job._id),
+        status: "queued",
+        statusUrl: new URL(
+          `/api/v1/messages/bulk/${String(job._id)}`,
+          req.nextUrl.origin,
+        ).toString(),
+      },
+      { status: 202 },
+    );
     applyApiRateLimitHeaders(response.headers, rateLimit);
     return response;
   } catch (error: unknown) {
