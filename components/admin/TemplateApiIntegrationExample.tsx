@@ -48,89 +48,99 @@ export default function TemplateApiIntegrationExample({
     .map(([name, value]) => `    ${phpString(name)} => ${phpString(value)}`)
     .join(",\n");
   const examples: Record<CodeLanguage, string> = {
-    JavaScript: `const response = await fetch("https://hfconnect.in/api/v1/messages/send", {
-  method: "POST",
-  headers: {
-    Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    adminId: process.env.HANSARIA_WORKSPACE_ID,
-    templateId: process.env.HANSARIA_TEMPLATE_ID,
-    language: ${JSON.stringify(template.defaultLanguage || "en")},
-    fromUserId: process.env.HANSARIA_ADMIN_ID,
-    toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
-    variables: ${JSON.stringify(variables, null, 2)}
-  })
-});
+    JavaScript: `async function sendTemplateMessage(recipientMobile, variables = ${JSON.stringify(variables, null, 2)}) {
+  const response = await fetch("https://hfconnect.in/api/v1/messages/send", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + process.env.HANSARIA_API_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      templateId: ${JSON.stringify(template._id)},
+      language: ${JSON.stringify(template.defaultLanguage || "en")},
+      toUserId: recipientMobile,
+      variables
+    })
+  });
 
-const result = await response.json();
-if (!response.ok) {
-  throw new Error(result.error || \`Request failed: \${response.status}\`);
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.error || \`Request failed: \${response.status}\`);
+  }
+  return result;
 }
-console.log("Message sent", result);`,
+
+// Supply a different registered mobile number on each call.
+await sendTemplateMessage("+919876543210", ${JSON.stringify(variables, null, 2)});`,
     Python: `import os
 import requests
 
-response = requests.post(
-    "https://hfconnect.in/api/v1/messages/send",
-    headers={
-        "Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"],
-        "Content-Type": "application/json",
-    },
-    json={
-        "adminId": os.environ["HANSARIA_WORKSPACE_ID"],
-        "templateId": os.environ["HANSARIA_TEMPLATE_ID"],
-        "language": ${JSON.stringify(template.defaultLanguage || "en")},
-        "fromUserId": os.environ["HANSARIA_ADMIN_ID"],
-        "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
-        "variables": ${JSON.stringify(variables, null, 2)},
-    },
-    timeout=30,
-)
+def send_template_message(recipient_mobile, variables=${JSON.stringify(variables, null, 2)}):
+    response = requests.post(
+        "https://hfconnect.in/api/v1/messages/send",
+        headers={
+            "Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"],
+            "Content-Type": "application/json",
+        },
+        json={
+            "templateId": ${JSON.stringify(template._id)},
+            "language": ${JSON.stringify(template.defaultLanguage || "en")},
+            "toUserId": recipient_mobile,
+            "variables": variables,
+        },
+        timeout=30,
+    )
 
-if not response.ok:
-    raise RuntimeError(response.json().get("error", f"HTTP {response.status_code}"))
-print("Message sent", response.json())`,
+    if not response.ok:
+        raise RuntimeError(response.json().get("error", f"HTTP {response.status_code}"))
+    return response.json()
+
+# Supply a different registered mobile number on each call.
+send_template_message("+919876543210", ${JSON.stringify(variables, null, 2)})`,
     PHP: `<?php
-$payload = [
-  "adminId" => getenv("HANSARIA_WORKSPACE_ID"),
-  "templateId" => getenv("HANSARIA_TEMPLATE_ID"),
-  "language" => ${phpString(template.defaultLanguage || "en")},
-  "fromUserId" => getenv("HANSARIA_ADMIN_ID"),
-  "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
-  "variables" => [
+function sendTemplateMessage(string $recipientMobile, array $variables = [
 ${phpVariables}
-  ]
-];
+]): array {
+  $payload = [
+    "templateId" => ${phpString(template._id)},
+    "language" => ${phpString(template.defaultLanguage || "en")},
+    "toUserId" => $recipientMobile,
+    "variables" => $variables
+  ];
 
-$ch = curl_init("https://hfconnect.in/api/v1/messages/send");
-curl_setopt_array($ch, [
-  CURLOPT_POST => true,
-  CURLOPT_HTTPHEADER => [
-    "Authorization: Bearer " . getenv("HANSARIA_API_KEY"),
-    "Content-Type: application/json"
-  ],
-  CURLOPT_POSTFIELDS => json_encode($payload),
-  CURLOPT_RETURNTRANSFER => true
+  $ch = curl_init("https://hfconnect.in/api/v1/messages/send");
+  curl_setopt_array($ch, [
+    CURLOPT_POST => true,
+    CURLOPT_HTTPHEADER => [
+      "Authorization: Bearer " . getenv("HANSARIA_API_KEY"),
+      "Content-Type: application/json"
+    ],
+    CURLOPT_POSTFIELDS => json_encode($payload),
+    CURLOPT_RETURNTRANSFER => true
+  ]);
+  $body = curl_exec($ch);
+  if ($body === false) {
+    throw new RuntimeException(curl_error($ch));
+  }
+  $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+  curl_close($ch);
+  $result = json_decode($body, true);
+  if ($status < 200 || $status >= 300) {
+    throw new RuntimeException($result["error"] ?? "HTTP " . $status);
+  }
+  return $result;
+}
+
+// Supply a different registered mobile number on each call.
+$result = sendTemplateMessage("+919876543210", [
+${phpVariables}
 ]);
-$body = curl_exec($ch);
-if ($body === false) {
-  throw new RuntimeException(curl_error($ch));
-}
-$status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-curl_close($ch);
-$result = json_decode($body, true);
-if ($status < 200 || $status >= 300) {
-  throw new RuntimeException($result["error"] ?? "HTTP " . $status);
-}
 echo "Message sent";`,
   };
   const connectionTestExamples: Record<CodeLanguage, string> = {
     JavaScript: `const url = new URL("https://hfconnect.in/api/v1/connection/test");
-url.searchParams.set("adminId", process.env.HANSARIA_WORKSPACE_ID);
-url.searchParams.set("senderUserId", process.env.HANSARIA_ADMIN_ID);
-url.searchParams.set("templateId", process.env.HANSARIA_TEMPLATE_ID);
+url.searchParams.set("adminId", ${JSON.stringify(template.adminId)});
+url.searchParams.set("templateId", ${JSON.stringify(template._id)});
 
 const response = await fetch(url, {
   headers: {
@@ -149,9 +159,8 @@ response = requests.get(
     "https://hfconnect.in/api/v1/connection/test",
     headers={"Authorization": "Bearer " + os.environ["HANSARIA_API_KEY"]},
     params={
-        "adminId": os.environ["HANSARIA_WORKSPACE_ID"],
-        "senderUserId": os.environ["HANSARIA_ADMIN_ID"],
-        "templateId": os.environ["HANSARIA_TEMPLATE_ID"],
+        "adminId": ${JSON.stringify(template.adminId)},
+        "templateId": ${JSON.stringify(template._id)},
     },
     timeout=30,
 )
@@ -161,9 +170,8 @@ if not response.ok:
 print(result["message"], result["checks"])`,
     PHP: `<?php
 $url = "https://hfconnect.in/api/v1/connection/test?" . http_build_query([
-  "adminId" => getenv("HANSARIA_WORKSPACE_ID"),
-  "senderUserId" => getenv("HANSARIA_ADMIN_ID"),
-  "templateId" => getenv("HANSARIA_TEMPLATE_ID")
+  "adminId" => ${phpString(template.adminId)},
+  "templateId" => ${phpString(template._id)}
 ]);
 $ch = curl_init($url);
 curl_setopt_array($ch, [
@@ -184,10 +192,7 @@ echo $result["message"];`,
   };
   const example = examples[language];
   const connectionTestExample = connectionTestExamples[language];
-  const environmentExample = `HANSARIA_ADMIN_ID=<sender-chat-account-ObjectId>
-HANSARIA_WORKSPACE_ID=${template.adminId}
-HANSARIA_API_KEY=${apiKey || "paste-your-primary-api-key-here"}
-HANSARIA_TEMPLATE_ID=${template._id}`;
+  const environmentExample = `HANSARIA_API_KEY=${apiKey || "paste-your-api-key-here"}`;
 
   const copyCode = async () => {
     try {
@@ -216,16 +221,14 @@ HANSARIA_TEMPLATE_ID=${template._id}`;
           isPlatformAdmin ? "text-indigo-700" : "text-emerald-700"
         }`}
       >
-        API integration example
+        Send with an API key
       </summary>
       <div className="mt-3 rounded-xl bg-slate-950 p-4 text-xs text-slate-100">
         <p className="mb-3 leading-5">
-          Connect with the workspace ID, a primary API key created for that
-          workspace, this template ID, and the sender chat-account ID in
-          HANSARIA_ADMIN_ID. The sender ID must be a 24-character MongoDB user
-          ID; it is not the API key, a phone number, or the recipient ID. The
-          recipient is supplied separately for each message. Run this on your
-          server and keep the API key secret.
+          Create an API key in Admin &gt; API Keys and bind a sender account to
+          it once. Then the sample needs only that key, this saved template, a
+          recipient mobile number, and the template values. Run it on your
+          server; never expose the API key in browser code.
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <label className="flex items-center gap-2">
@@ -264,22 +267,22 @@ HANSARIA_TEMPLATE_ID=${template._id}`;
           {copyStatus}
         </p>
         <p className="mt-2 leading-5 text-slate-300">
-          Replace <code>RECIPIENT_CHAT_ACCOUNT_ID</code> with the recipient for
-          each send and supply{" "}
+          Pass a different registered Indian mobile number to{" "}
+          <code>sendTemplateMessage</code> or <code>send_template_message</code>{" "}
+          for each send, and supply{" "}
           {variableNames.length
             ? variableNames.map((name) => `YOUR_${name.toUpperCase()}`).join(", ")
             : "no template variables"}.
-          The sender account is selected from the API key.
+          This sends an in-app chat message, not carrier SMS.
         </p>
         <div className="mt-5 border-t border-white/15 pt-4">
           <h3 className="font-semibold text-white">Connection credentials</h3>
           <p className="mt-1 leading-5 text-slate-300">
-            The workspace ID and template ID are filled in. Enter an active API
-            key created for this workspace. The sender account must already be
-            bound to that key in Admin &gt; API Keys.
+            The template and workspace are already selected. Enter an active
+            API key for this workspace with a sender account bound to it.
           </p>
           <label className="mt-3 block">
-            <span className="mb-1 block font-medium">Workspace API key</span>
+            <span className="mb-1 block font-medium">API key</span>
             <input
               type="password"
               autoComplete="off"
