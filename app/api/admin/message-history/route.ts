@@ -13,11 +13,16 @@ const querySchema = z.object({
   templateName: z.string().optional(),
 });
 
-const parseUtcDate = (value: string) => {
-  const date = new Date(`${value}T00:00:00.000+05:30`);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value
-    ? null
-    : date;
+const parseIndiaDate = (value: string) => {
+  const calendarDate = new Date(`${value}T00:00:00.000Z`);
+  if (
+    Number.isNaN(calendarDate.getTime()) ||
+    calendarDate.toISOString().slice(0, 10) !== value
+  ) {
+    return null;
+  }
+
+  return new Date(`${value}T00:00:00.000+05:30`);
 };
 
 export async function GET(req: NextRequest) {
@@ -40,8 +45,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const fromDate = parseUtcDate(parsed.data.from);
-    const toDate = parseUtcDate(parsed.data.to);
+    const fromDate = parseIndiaDate(parsed.data.from);
+    const toDate = parseIndiaDate(parsed.data.to);
     if (!fromDate || !toDate || fromDate > toDate) {
       return NextResponse.json(
         { error: "The date range is invalid." },
