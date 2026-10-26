@@ -142,7 +142,11 @@ export async function POST(req: NextRequest) {
     const senderId = String(authResult.apiKey.senderUserId || input.fromUserId || "");
     if (!Types.ObjectId.isValid(senderId)) {
       return NextResponse.json(
-        { success: false, error: "A valid sender user ID is required" },
+        {
+          success: false,
+          error:
+            "A sender chat account ID is required. Bind a senderUserId to this API key or include fromUserId in the request; adminId is only the workspace ID.",
+        },
         { status: 400 },
       );
     }

@@ -34,6 +34,7 @@ const createExamples = (
     body: JSON.stringify({
       template: ${JSON.stringify(template)},
       language: "en",
+      fromUserId: "SENDER_CHAT_ACCOUNT_ID",
       toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
       variables: ${formattedVariables}
     })
@@ -57,6 +58,7 @@ response = requests.post(
     json={
         "template": ${JSON.stringify(template)},
         "language": "en",
+        "fromUserId": "SENDER_CHAT_ACCOUNT_ID",
         "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
         "variables": ${formattedVariables},
     },
@@ -70,6 +72,7 @@ print("Message sent")`,
 $payload = [
   "template" => ${phpString(template)},
   "language" => "en",
+  "fromUserId" => "SENDER_CHAT_ACCOUNT_ID",
   "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
   "variables" => [
 ${phpVariables}

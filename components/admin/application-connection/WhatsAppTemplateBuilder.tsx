@@ -455,13 +455,18 @@ export default function WhatsAppTemplateBuilder({
           )}
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700">
-          Sender chat account ID (optional)
+          Sender chat account ID (required unless already bound to the API key)
           <input
             value={senderUserId}
             onChange={(event) => setSenderUserId(event.target.value)}
             className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
-            placeholder="Only if the key has no sender"
+            placeholder="Existing account's 24-character ID"
           />
+          <span className="text-xs font-normal text-slate-500">
+            Use an existing HansariaConnect user account ID, not the workspace
+            adminId or a phone number. You can also bind the sender to the API
+            key and leave this blank.
+          </span>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">
           Workspace API key

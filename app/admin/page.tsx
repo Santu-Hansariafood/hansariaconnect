@@ -149,6 +149,7 @@ export default function AdminDashboard() {
   const [newlyCreatedApiKey, setNewlyCreatedApiKey] = useState<string | null>(
     null,
   );
+  const [apiKeyCopyStatus, setApiKeyCopyStatus] = useState("");
 
   const [showCreateAdmin, setShowCreateAdmin] = useState(false);
   const [createAdminError, setCreateAdminError] = useState("");
@@ -489,6 +490,7 @@ export default function AdminDashboard() {
         );
       }
       setNewlyCreatedApiKey(data.apiKey.key);
+      setApiKeyCopyStatus("");
       setShowCreateApiKey(false);
       setNewApiKeyName("");
       setNewApiKeyExpiresDays("");
@@ -515,6 +517,24 @@ export default function AdminDashboard() {
       ),
     );
     setShowCreateApiKey(true);
+  };
+
+  const copyNewApiKey = async () => {
+    if (!newlyCreatedApiKey) return;
+    try {
+      await navigator.clipboard.writeText(newlyCreatedApiKey);
+      setApiKeyCopyStatus("API key copied to clipboard.");
+    } catch (error) {
+      console.error("[AdminDashboard] Could not copy the new API key:", error);
+      setApiKeyCopyStatus(
+        "Copy failed. Select the key above and copy it manually.",
+      );
+    }
+  };
+
+  const dismissNewApiKey = () => {
+    setNewlyCreatedApiKey(null);
+    setApiKeyCopyStatus("");
   };
 
   const handleSetPrimaryApiKey = async (id: string) => {
@@ -1547,7 +1567,21 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <button
-                        onClick={() => setNewlyCreatedApiKey(null)}
+                        type="button"
+                        onClick={() => void copyNewApiKey()}
+                        className="mt-3 w-full rounded-xl border border-emerald-200 px-4 py-3 font-semibold text-emerald-800 transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
+                      >
+                        Copy API key
+                      </button>
+                      <p
+                        role="status"
+                        aria-live="polite"
+                        className="mt-2 min-h-5 text-center text-sm text-slate-600"
+                      >
+                        {apiKeyCopyStatus}
+                      </p>
+                      <button
+                        onClick={dismissNewApiKey}
                         className="mt-5 w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2"
                       >
                         I’ve saved my key
