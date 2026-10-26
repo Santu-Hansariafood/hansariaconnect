@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/adminAuth";
 import { connectDB } from "@/lib/db/db";
 import ApiKey from "@/models/apiKey/ApiKey";
 import Message from "@/models/message/Message";
+import BulkMessageJob from "@/models/message/BulkMessageJob";
 
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -12,6 +13,17 @@ const querySchema = z.object({
   apiKeyId: z.string().optional(),
   templateName: z.string().optional(),
 });
+
+type BulkMessageHistoryJob = {
+  _id: Types.ObjectId;
+  apiKeyId: string;
+  templateName?: string;
+  status: "queued" | "processing" | "completed" | "partial" | "failed";
+  recipients: Array<{
+    status: "pending" | "processing" | "sent" | "failed";
+  }>;
+  createdAt: Date;
+};
 
 const parseIndiaDate = (value: string) => {
   const calendarDate = new Date(`${value}T00:00:00.000Z`);
@@ -140,6 +152,23 @@ export async function GET(req: NextRequest) {
     const apiKeyMap = new Map(
       apiKeys.map((apiKey) => [String(apiKey._id), apiKey]),
     );
+    const jobs = visibleKeyIds.length
+      ? await BulkMessageJob.find({
+          apiKeyId: parsed.data.apiKeyId
+            ? parsed.data.apiKeyId
+            : { $in: visibleKeyIds },
+          createdAt: { $gte: fromDate, $lt: exclusiveToDate },
+          ...(parsed.data.templateName
+            ? parsed.data.templateName === "(No template recorded)"
+              ? { templateName: { $exists: false } }
+              : { templateName: parsed.data.templateName }
+            : {}),
+        })
+          .select("apiKeyId templateName status recipients.status createdAt completedAt")
+          .sort({ createdAt: -1 })
+          .limit(100)
+          .lean<BulkMessageHistoryJob[]>()
+      : [];
 
     return NextResponse.json({
       rows: rows.map((row) => ({
@@ -150,6 +179,26 @@ export async function GET(req: NextRequest) {
         count: row.count,
       })),
       truncated: rows.length === 10000,
+      jobs: jobs.map((job) => ({
+        jobId: String(job._id),
+        date: job.createdAt.toISOString(),
+        apiKeyId: job.apiKeyId,
+        apiKeyName: apiKeyMap.get(job.apiKeyId)?.name || "Deleted API key",
+        templateName: job.templateName || "(No template recorded)",
+        status: job.status,
+        total: job.recipients.length,
+        sent: job.recipients.filter((recipient) => recipient.status === "sent")
+          .length,
+        failed: job.recipients.filter(
+          (recipient) => recipient.status === "failed",
+        ).length,
+        pending: job.recipients.filter(
+          (recipient) =>
+            recipient.status === "pending" ||
+            recipient.status === "processing",
+        ).length,
+      })),
+      jobsTruncated: jobs.length === 100,
     });
   } catch (error: unknown) {
     console.error("[api/admin/message-history] Failed to fetch message history:", error);

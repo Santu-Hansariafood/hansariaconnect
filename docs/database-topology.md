@@ -54,6 +54,9 @@ results. Put each number's personalized values in that recipient's own
 `variables` object in the `recipients` array; the worker renders and sends
 each message independently.
 Only registered HansariaConnect accounts can receive these in-app messages.
+Administrators can review bulk job progress and per-recipient outcomes under
+Admin > API message history; pasted mobile numbers are matched to existing
+accounts automatically, so there is no separate recipient registration step.
 
 On the VPS, run `npm run worker:bulk` as a separate long-lived service alongside
 the Next.js app. Use the same environment and database in both processes, set

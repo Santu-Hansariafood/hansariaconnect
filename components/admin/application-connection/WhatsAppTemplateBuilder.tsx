@@ -449,6 +449,8 @@ export default function WhatsAppTemplateBuilder({
           {recipientMode === "multiple" && (
             <span className="text-xs font-normal text-slate-500">
               Separate recipients with commas or new lines (up to 1,000).
+              Numbers are matched to existing HansariaConnect accounts
+              automatically; no manual registration is needed here.
             </span>
           )}
         </label>
