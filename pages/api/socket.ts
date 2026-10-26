@@ -182,11 +182,16 @@ const getAdminNotificationUserId = async (
     : null;
 };
 
-export default async function handler(
+async function handleSocketRequest(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  const httpServer: HTTPServer = (res.socket as any).server;
+  const httpServer = (res.socket as any)?.server as HTTPServer | undefined;
+  if (!httpServer || typeof httpServer.on !== "function") {
+    throw new Error(
+      "Socket.IO requires a persistent Node.js HTTP server for this API request",
+    );
+  }
 
   if (!(httpServer as any).userConnections) {
     (httpServer as any).userConnections = new Map<string, number>();
@@ -890,5 +895,19 @@ export default async function handler(
   } catch (error) {
     console.error("[Socket.IO] Realtime service initialization failed:", error);
     res.status(503).json({ error: "Realtime service is unavailable" });
+  }
+}
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse,
+) {
+  try {
+    await handleSocketRequest(req, res);
+  } catch (error) {
+    console.error("[Socket.IO] Realtime endpoint failed:", error);
+    if (!res.headersSent) {
+      res.status(503).json({ error: "Realtime service is unavailable" });
+    }
   }
 }
