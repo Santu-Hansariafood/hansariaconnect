@@ -420,6 +420,7 @@ export async function POST(req: NextRequest) {
         from: new Types.ObjectId(senderId),
         to: new Types.ObjectId(item.toUserId),
         apiKeyId: String(authResult.apiKey._id),
+        apiTemplateName: savedTemplateName,
         type: item.type,
         ...encrypted,
         buttons: savedTemplate?.buttons || [],

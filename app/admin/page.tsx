@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { readSheet } from "read-excel-file/browser";
 import writeXlsxFile from "write-excel-file/browser";
 import AdminApplicationConnectionGuide from "@/components/admin/AdminApplicationConnectionGuide";
+import AdminMessageHistoryPanel from "@/components/admin/AdminMessageHistoryPanel";
 import BulkAccountsModal, {
   type BulkUserInput,
 } from "@/components/admin/BulkAccountsModal";
@@ -1498,6 +1499,11 @@ export default function AdminDashboard() {
                     </span>
                   </div>
                 </section>
+                <AdminMessageHistoryPanel
+                  apiKeys={apiKeys}
+                  templates={templates}
+                  isPlatformAdmin={isPlatformAdmin}
+                />
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                   Keep API keys secret. Use them only from trusted servers over
                   HTTPS, and disable or delete any key that may have been

@@ -5,6 +5,7 @@ export interface IMessage extends Document {
   from: mongoose.Types.ObjectId | string
   to: mongoose.Types.ObjectId | string
   apiKeyId?: string
+  apiTemplateName?: string
   type: "text" | "image" | "video" | "voice" | "pdf" | "excel" | "link"
   text?: string
   mediaUrl?: string
@@ -25,6 +26,7 @@ const MessageSchema = new Schema<IMessage>(
     from: { type: Schema.Types.ObjectId, ref: "User", required: true },
     to: { type: Schema.Types.ObjectId, ref: "User", required: true },
     apiKeyId: { type: String, index: true },
+    apiTemplateName: { type: String },
     type: { type: String, required: true },
     text: { type: String },
     mediaUrl: { type: String },
@@ -56,5 +58,6 @@ const MessageSchema = new Schema<IMessage>(
 // Add indexes for faster querying
 MessageSchema.index({ from: 1, to: 1, createdAt: -1 })
 MessageSchema.index({ to: 1, createdAt: -1 })
+MessageSchema.index({ apiKeyId: 1, createdAt: -1 })
 
 export default mongoose.models.Message || mongoose.model<IMessage>("Message", MessageSchema)

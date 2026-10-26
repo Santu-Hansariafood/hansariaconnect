@@ -419,6 +419,7 @@ export async function POST(req: NextRequest) {
       from: senderObjectId,
       to: recipientObjectId,
       apiKeyId: String(authResult.apiKey._id),
+      apiTemplateName: savedTemplateName,
       type,
       ...encrypted,
       buttons: actionButtons,
