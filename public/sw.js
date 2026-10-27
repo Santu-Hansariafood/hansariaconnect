@@ -23,6 +23,32 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
+// Web Push: raised while the app is closed, so it must show the notification
+// itself — WhatsApp-style alerts for a browser that is not running.
+self.addEventListener("push", (event) => {
+  let payload = {};
+
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : "" };
+  }
+
+  const title = payload.title || "HansariaConnect";
+  const options = {
+    body: payload.body || "You have a new message",
+    icon: payload.image || payload.icon || "/logo/logo.png",
+    image: payload.image,
+    badge: "/logo/logo.png",
+    tag: payload.tag,
+    renotify: Boolean(payload.tag),
+    vibrate: [0, 200, 100, 200],
+    data: { url: payload.url || "/chat", timestamp: payload.timestamp },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const targetUrl = event.notification.data?.url || "/chat";

@@ -207,7 +207,7 @@ export default function NotificationManager({
         console.warn(
           "[NotificationManager] ⚠️ Notification permission is 'default'.",
           "Automatic permission prompts are BLOCKED by modern browsers.",
-          "User MUST click the 'Allow Notifications' button in Settings → Notifications to grant permission via a user-gesture.",
+          "The 'Turn on notifications' card (or Settings → Notifications) grants it via a user-gesture.",
         );
       } else if (Notification.permission === "denied") {
         console.warn(

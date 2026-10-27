@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ensurePushSubscription } from "@/lib/pushClient";
 
 export interface NotificationPreferences {
   messages: boolean;
@@ -294,6 +295,9 @@ export function useNotifications(userId?: string | number) {
       try {
         const result = await Notification.requestPermission();
         console.log("[Notifications] Notification permission result:", result);
+        // Granting while the app is open is also the moment to register the
+        // device for Web Push, so alerts keep arriving once it is closed.
+        if (result === "granted") void ensurePushSubscription();
       } catch (e: any) {
         console.error("[Notifications] Notification.requestPermission threw an error:", e?.message || e);
       }
@@ -573,7 +577,7 @@ export function useNotifications(userId?: string | number) {
     } else {
       console.warn(
         "[Notifications] Permission state is 'default' (not yet requested). Skipping notification.",
-        "User MUST grant permission via the 'Allow Notifications' button in Settings → Notifications (requires a user click gesture).",
+        "The in-app 'Turn on notifications' prompt asks for it on the user's next click.",
       );
     }
   }, [preferences.enabled, scheduleAutoClose]);
@@ -608,6 +612,28 @@ export function useNotifications(userId?: string | number) {
       window.removeEventListener("touchstart", unlockAudio);
       window.removeEventListener("focus", unlockAudio);
       document.removeEventListener("visibilitychange", unlockAudio);
+    };
+  }, []);
+
+  /*
+   * Keeps the Web Push registration in step with the permission, no matter
+   * which screen granted it (the in-app prompt or Settings). Re-checked
+   * whenever the user comes back to the app, so turning notifications on
+   * anywhere ends with a subscribed device.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+
+    const syncPushSubscription = () => {
+      if (Notification.permission === "granted") void ensurePushSubscription();
+    };
+
+    syncPushSubscription();
+    document.addEventListener("visibilitychange", syncPushSubscription);
+    window.addEventListener("focus", syncPushSubscription);
+    return () => {
+      document.removeEventListener("visibilitychange", syncPushSubscription);
+      window.removeEventListener("focus", syncPushSubscription);
     };
   }, []);
 

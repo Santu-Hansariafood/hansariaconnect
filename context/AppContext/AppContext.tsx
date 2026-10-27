@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react"
 import NotificationManager from "@/components/common/NotificationManager/NotificationManager"
+import NotificationPermissionPrompt from "@/components/common/NotificationPermissionPrompt/NotificationPermissionPrompt"
 import Loading from "@/components/common/Loading/Loading"
 import { disconnectSocket } from "@/hooks/useSocket"
 
@@ -395,6 +396,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       {sessionChecked ? (
         <>
           <NotificationManager userId={user?.id ? String(user.id) : null} />
+          <NotificationPermissionPrompt userId={user?.id ? String(user.id) : null} />
           {children}
         </>
       ) : (

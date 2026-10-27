@@ -18,6 +18,8 @@ import {
   invalidateUserConversations,
 } from "@/lib/redis/redis";
 import { publishSocketRoomEvent } from "@/lib/socketRedisAdapter";
+import { isUserOnline } from "@/lib/presence";
+import { pushIfUserOffline, type PushPayload } from "@/lib/webPush";
 import {
   clearAllUnread,
   clearChatUnread,
@@ -369,6 +371,26 @@ const toAdminNotification = (
 
 const getMessageId = (message: DecryptedMessage): string | undefined =>
   message.id || String(message._id ?? "") || undefined;
+
+/**
+ * Mirrors what the in-app notification shows, so a push raised while the app is
+ * closed reads exactly like the one the user sees while it is open.
+ */
+const toPushPayload = (notification: NotificationMeta): PushPayload => ({
+  title:
+    notification.kind === "group"
+      ? `${notification.fromName} in ${notification.chatName}`
+      : notification.fromName || notification.chatName || "New message",
+  body: notification.preview || "You have a new message",
+  // Same tag the client uses, so a follow-up message replaces the entry in the
+  // notification tray instead of stacking a second one for the same chat.
+  tag: `${notification.kind}-${notification.chatId}`,
+  url:
+    notification.kind === "direct"
+      ? `/chat/${notification.chatId}`
+      : `/chat/${notification.chatId}?group=true`,
+  image: notification.mediaUrl,
+});
 
 const computeDirectUnread = async (
   userId: Types.ObjectId,
@@ -844,6 +866,18 @@ export const emitDirectMessageReceived = async (
         toAdminNotification(notification),
       ),
     ]);
+
+    /*
+     * Nothing above reaches a closed browser. When the recipient has no live
+     * socket, the same alert goes out as a Web Push instead. Not awaited so the
+     * push round trip never delays message delivery.
+     */
+    void pushIfUserOffline(
+      rawToId,
+      "direct",
+      toPushPayload(notification),
+      () => isUserOnline(rawToId),
+    );
   } catch (error: unknown) {
     console.error(
       "[socketEmitter] emitDirectMessageReceived error:",
@@ -908,6 +942,8 @@ export const emitGroupMessageReceived = async (
       `${recipientIds.length} recipients`,
     );
 
+    const pushPayload = meta ? toPushPayload(meta) : null;
+
     await forEachConcurrent(
       recipientIds,
       FAN_OUT_CONCURRENCY,
@@ -964,6 +1000,16 @@ export const emitGroupMessageReceived = async (
               errMsg(result.reason),
             );
           }
+        }
+
+        // Reaches members whose app is closed; see emitDirectMessageReceived.
+        if (pushPayload) {
+          void pushIfUserOffline(
+            memberId,
+            "group",
+            pushPayload,
+            () => isUserOnline(memberId),
+          );
         }
       },
     );

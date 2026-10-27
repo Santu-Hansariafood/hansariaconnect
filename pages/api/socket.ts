@@ -35,6 +35,12 @@ import {
   configureSocketRedisAdapter,
   getSocketRedisClient,
 } from "@/lib/socketRedisAdapter";
+import {
+  PRESENCE_HEARTBEAT_MS,
+  PRESENCE_TTL_MS,
+  onlineUsersKey,
+  userSocketsKey,
+} from "@/lib/presence";
 
 export const config = {
   api: {
@@ -58,18 +64,11 @@ const groupMessagePayloadSchema = messagePayloadSchema
   .omit({ to: true })
   .extend({ groupId: z.string().regex(/^[0-9a-fA-F]{24}$/) });
 
-const PRESENCE_TTL_MS = 90_000;
-const PRESENCE_HEARTBEAT_MS = 30_000;
 const SESSION_REVALIDATE_INTERVAL_MS = Number(
   process.env.SOCKET_SESSION_REVALIDATE_MS || 30_000,
 );
 const GROUP_MEMBERS_TTL_MS = 30_000;
 const GROUP_MEMBERS_CACHE_LIMIT = 5_000;
-const socketRedisKey =
-  process.env.SOCKET_IO_REDIS_KEY || "hansariaconnect:socket.io";
-const onlineUsersKey = `${socketRedisKey}:online-users`;
-const userSocketsKey = (userId: string) =>
-  `${socketRedisKey}:user:${userId}:sockets`;
 
 const groupMembersCache = new Map<
   string,
