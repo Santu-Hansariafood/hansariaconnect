@@ -149,8 +149,28 @@ const configuredOrigins = [process.env.NEXT_PUBLIC_APP_URL, "http://localhost:40
   });
 const allowedOrigins = new Set(configuredOrigins);
 
-const isAllowedOrigin = (origin?: string): boolean =>
-  !origin || allowedOrigins.has(origin.replace(/\/$/, ""));
+/**
+ * Allows every configured origin plus any request whose `Origin` matches the
+ * `Host` it was served from. The client always connects to `window.location.origin`,
+ * so without the same-host allowance a deployment reached through a domain (or
+ * LAN IP / 127.0.0.1) that is not listed in NEXT_PUBLIC_APP_URL would have every
+ * socket handshake rejected — no new-message previews or unread badges would
+ * reach the browser until a manual refresh re-fetched the conversation list.
+ */
+const isAllowedOrigin = (origin?: string, host?: string): boolean => {
+  if (!origin) return true;
+
+  const normalizedOrigin = origin.replace(/\/$/, "");
+  if (allowedOrigins.has(normalizedOrigin)) return true;
+
+  if (!host) return false;
+
+  try {
+    return new URL(normalizedOrigin).host === host.replace(/\/$/, "");
+  } catch {
+    return false;
+  }
+};
 
 const getAdminNotificationUserId = async (
   socket: Socket,
@@ -229,7 +249,10 @@ async function handleSocketRequest(
         credentials: true,
       },
       allowRequest: (request, callback) => {
-        callback(null, isAllowedOrigin(request.headers.origin));
+        callback(
+          null,
+          isAllowedOrigin(request.headers.origin, request.headers.host),
+        );
       },
       maxHttpBufferSize: 1e6,
       pingInterval: 25000,

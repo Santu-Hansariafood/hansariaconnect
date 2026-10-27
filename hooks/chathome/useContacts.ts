@@ -286,10 +286,15 @@ export const useContacts = (userId?: string | number) => {
     if (!bootstrapReady) return;
 
     if (Array.isArray(bootstrapData.conversations)) {
-      applyConversationList(
-        bootstrapData.conversations,
-        bootstrapData.unreadCounts || {},
-      );
+      // Seed from the bootstrap snapshot only once. A later snapshot identity
+      // must not overwrite previews/unread badges that realtime socket events
+      // have already applied to the live list.
+      if (!hasLoadedConversations.current) {
+        applyConversationList(
+          bootstrapData.conversations,
+          bootstrapData.unreadCounts || {},
+        );
+      }
       hasLoadedConversations.current = true;
       setLoading(false);
       if (bootstrapData.conversations.length > 0) return;
