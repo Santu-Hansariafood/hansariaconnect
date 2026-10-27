@@ -61,8 +61,10 @@ export default function NotificationManager({
     subscribeOnline: false,
     enabled: Boolean(userId) || Boolean(isAdminSurface && adminUserId),
   });
-  const { preferences, playRingtone, showNotification } = useNotifications(userId || undefined);
+  const { preferences, preferencesLoaded, playRingtone, playStartupTune, showNotification } =
+    useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
+  const startupTunePlayed = useRef(false);
   const socketAdminUserId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());
   const nextToastId = useRef(0);
@@ -194,6 +196,19 @@ export default function NotificationManager({
       resetDocumentTitle();
     };
   }, []);
+
+  /*
+   * Launch tune. Only the installed app greets the user with it — a normal
+   * browser tab stays silent — and it runs once per launch, after the saved
+   * ringtone choice has loaded so a muted ringtone really is muted.
+   */
+  useEffect(() => {
+    if (!preferencesLoaded || startupTunePlayed.current) return;
+    startupTunePlayed.current = true;
+
+    if (!isStandaloneApp()) return;
+    void playStartupTune(preferences.ringtone || "whatsapp");
+  }, [playStartupTune, preferences.ringtone, preferencesLoaded]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {

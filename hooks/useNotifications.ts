@@ -182,6 +182,12 @@ const RINGTONE_REPEAT_GAP = 0.18;
 /** Gain ramp used to fade a note in; without it every tone starts with a click. */
 const RINGTONE_ATTACK_SECONDS = 0.008;
 
+/**
+ * How long the launch tune waits for the audio context to resume before giving
+ * up. A cold start that is going to be allowed resumes almost instantly.
+ */
+const STARTUP_TUNE_RESUME_MS = 400;
+
 /** Level of the octave harmonic that makes the tone bell-like instead of beepy. */
 const RINGTONE_HARMONIC_LEVEL = 0.22;
 
@@ -201,9 +207,22 @@ const getAudioContext = () => {
   return new AudioCtx();
 };
 
+/** Typed access to the (prefixed) AudioContext constructor. */
+const getAudioContextCtor = (): (new () => AudioContext) | null => {
+  if (typeof window === "undefined") return null;
+  const audioWindow = window as typeof window & {
+    AudioContext?: new () => AudioContext;
+    webkitAudioContext?: new () => AudioContext;
+  };
+  return audioWindow.AudioContext || audioWindow.webkitAudioContext || null;
+};
+
 export function useNotifications(userId?: string | number) {
   const [preferences, setPreferences] = useState<NotificationPreferences>(
     notificationPreferencesSnapshot,
+  );
+  const [preferencesLoaded, setPreferencesLoaded] = useState(
+    notificationPreferencesLoaded,
   );
   const audioContextRef = useRef<AudioContext | null>(null);
   const customAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -239,7 +258,10 @@ export function useNotifications(userId?: string | number) {
 
   useEffect(() => {
     const unsubscribe = subscribeToNotificationPreferences(setPreferences);
-    void loadNotificationPreferences(userId).then(setPreferences);
+    void loadNotificationPreferences(userId).then((loaded) => {
+      setPreferences(loaded);
+      setPreferencesLoaded(true);
+    });
     return unsubscribe;
   }, [userId]);
 
@@ -433,6 +455,44 @@ export function useNotifications(userId?: string | number) {
       console.warn("[Notifications] Ringtone generation failed:", e?.message || e);
     }
   }, [clearCustomRingtone, preferences.enabled]);
+
+  /**
+   * Launch tune, played once when the installed app is opened from the home
+   * screen. Launching a PWA counts as a user action, so the context normally
+   * resumes straight away — this uses the same tone as a message alert so the
+   * app sounds like itself the moment it opens.
+   *
+   * If the context stays suspended (a plain browser tab, or a strict autoplay
+   * policy) the tune is dropped rather than deferred: a startup sound arriving
+   * later, on the user's first tap, would be far stranger than silence.
+   */
+  const playStartupTune = useCallback(
+    async (ringtone: string) => {
+      if (typeof window === "undefined") return;
+      if (!preferences.enabled || ringtone === "none") return;
+
+      const AudioCtx = getAudioContextCtor();
+      if (!AudioCtx) return;
+
+      if (!audioContextRef.current) audioContextRef.current = new AudioCtx();
+      const context = audioContextRef.current;
+      if (!context) return;
+
+      if (context.state === "suspended") {
+        await Promise.race([
+          context.resume().catch(() => {}),
+          new Promise<void>((resolve) => {
+            setTimeout(() => resolve(), STARTUP_TUNE_RESUME_MS);
+          }),
+        ]);
+      }
+
+      if (context.state !== "running") return;
+
+      playRingtone(ringtone);
+    },
+    [playRingtone, preferences.enabled],
+  );
 
   /**
    * `silent` suppresses the platform sound and vibration. The caller sets it
@@ -641,9 +701,11 @@ export function useNotifications(userId?: string | number) {
 
   return {
     preferences,
+    preferencesLoaded,
     showNotification,
     requestPermission,
     playRingtone,
+    playStartupTune,
     updatePreferences,
   };
 }
