@@ -239,11 +239,12 @@ export const useContacts = (userId?: string | number) => {
   useEffect(() => {
     if (!socket) return;
 
+    let hasConnectedOnce = Boolean(socket.connected);
     const handleSocketConnect = () => {
-      console.log("[useContacts] Socket connected — refreshing conversation list");
-      void loadConversations();
-    };
-    const handleSocketReconnect = () => {
+      if (!hasConnectedOnce) {
+        hasConnectedOnce = true;
+        return;
+      }
       console.log("[useContacts] Socket reconnected — refreshing conversation list");
       void loadConversations();
     };
@@ -267,12 +268,10 @@ export const useContacts = (userId?: string | number) => {
     };
 
     socket.on("connect", handleSocketConnect);
-    socket.io?.on("reconnect", handleSocketReconnect);
     addListener("conversation:updated", handleCatchupConversation);
 
     return () => {
       socket.off("connect", handleSocketConnect);
-      socket.io?.off("reconnect", handleSocketReconnect);
       removeListener("conversation:updated", handleCatchupConversation);
     };
   }, [addListener, loadConversations, removeListener, socket]);
@@ -284,14 +283,29 @@ export const useContacts = (userId?: string | number) => {
   useEffect(() => {
     if (!bootstrapReady) return;
 
-    if (Array.isArray(bootstrapData.conversations) && bootstrapData.conversations.length > 0) {
+    if (Array.isArray(bootstrapData.conversations)) {
       applyConversationList(
         bootstrapData.conversations,
         bootstrapData.unreadCounts || {},
       );
       hasLoadedConversations.current = true;
       setLoading(false);
-      return;
+      if (bootstrapData.conversations.length > 0) return;
+
+      lastCatchupAtRef.current = Date.now();
+      const catchupIfStale = () => {
+        if (document.visibilityState !== "visible") return;
+        const now = Date.now();
+        if (now - lastCatchupAtRef.current <= CATCHUP_COOLDOWN_MS) return;
+        lastCatchupAtRef.current = now;
+        void loadConversations();
+      };
+      window.addEventListener("focus", catchupIfStale);
+      document.addEventListener("visibilitychange", catchupIfStale);
+      return () => {
+        window.removeEventListener("focus", catchupIfStale);
+        document.removeEventListener("visibilitychange", catchupIfStale);
+      };
     }
 
     const catchupIfNeeded = () => {

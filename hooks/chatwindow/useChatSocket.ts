@@ -7,6 +7,12 @@ export const useChatSocket = (
   mergeUnique: (prev: any[], incoming: any[]) => any[],
   onIncomingMessage?: (msg: any) => void,
   isGroup: boolean = false,
+  /*
+   * Set when the caller is already fetching the opening page itself. Without it
+   * both the caller and this hook request the same "last 30 messages" payload on
+   * open, which doubles the work for a conversation that is still loading.
+   */
+  skipInitialCatchup: boolean = false,
 ) => {
   const { socket, addListener, removeListener } = useSocket({ subscribeOnline: false });
   const [typingUserIds, setTypingUserIds] = useState<string[]>([]);
@@ -471,7 +477,7 @@ export const useChatSocket = (
     if (typeof document !== "undefined") {
       document.addEventListener("visibilitychange", handleVisibilityChange);
     }
-    void fetchLatest(true);
+    if (!skipInitialCatchup) void fetchLatest(true);
 
     return () => {
       socket?.off("connect", handleConnect);
@@ -480,7 +486,7 @@ export const useChatSocket = (
         document.removeEventListener("visibilitychange", handleVisibilityChange);
       }
     };
-  }, [id, isGroup, mergeUnique, setChatMessages, socket]);
+  }, [id, isGroup, mergeUnique, setChatMessages, socket, skipInitialCatchup]);
 
   return { socket, typingUserIds, sendTyping };
 };

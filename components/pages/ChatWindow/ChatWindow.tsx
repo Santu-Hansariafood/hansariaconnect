@@ -378,6 +378,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           setHasMore(!!cached.hasMore);
         }
 
+        /*
+         * The access check only tells us which endpoint to read (direct vs group).
+         * Contacts and permissions do not depend on it, so they are started here
+         * and awaited together below — that keeps one full round trip off the
+         * critical path and the conversation appears sooner.
+         */
+        const contactsPromise = fetch("/api/contacts", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const accessPromise = fetch("/api/access/me", { cache: "no-store" });
+
         const accessCheckRes = await fetch(
           `/api/chat-access?chatId=${encodeURIComponent(chatId)}`,
           {
@@ -435,11 +447,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
         const shouldFetchMessages = !cached || cached.messages.length === 0;
 
-        const contactsPromise = fetch("/api/contacts", { credentials: "include", cache: "no-store" });
         const messagesPromise = shouldFetchMessages
           ? fetch(messagesEndpoint, { credentials: "include", cache: "no-store" })
           : Promise.resolve(null);
-        const accessPromise = fetch("/api/access/me", { cache: "no-store" });
 
         const [contactsRes, messagesRes, accessRes] = await Promise.all([
           contactsPromise,
@@ -589,22 +599,25 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           setAllowAttachments(true);
         }
 
-        try {
-          const receiptBody = isGroupChat
-            ? { groupId: chatId }
-            : { peerId: chatId };
-          await fetch("/api/read-receipts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(receiptBody),
-          });
-        } catch (err: any) {
+        /*
+         * Receipts are bookkeeping, not something the user waits for. Firing them
+         * without awaiting lets the thread paint as soon as the messages land
+         * instead of after one more round trip.
+         */
+        const receiptBody = isGroupChat
+          ? { groupId: chatId }
+          : { peerId: chatId };
+        void fetch("/api/read-receipts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(receiptBody),
+        }).catch((err: unknown) =>
           console.warn(
             "[ChatWindow] Marking read-receipts on open failed:",
-            err?.message || err,
-          );
-        }
+            err instanceof Error ? err.message : err,
+          ),
+        );
       } finally {
         setInitialLoading(false);
       }
@@ -1212,8 +1225,59 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     !isGroup ? chatId : undefined,
   );
 
+  /*
+   * Opening a conversation used to swap the entire viewport for the brand splash
+   * (`fixed inset-0`), which blanked the chat list too and read as a flash. This
+   * keeps the transition inside the conversation pane and mirrors the shape of
+   * the thread that is about to replace it.
+   */
   if (initialLoading) {
-    return <Loading />;
+    return (
+      <div
+        className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[#efeae2]"
+        role="status"
+        aria-live="polite"
+      >
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-black/5 bg-[#00a884] px-2 py-1 sm:h-[60px] sm:px-3">
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-white/20" />
+          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-white/25" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <div className="h-3 w-32 animate-pulse rounded-full bg-white/30" />
+            <div className="h-2.5 w-20 animate-pulse rounded-full bg-white/20" />
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-hidden px-3 py-4 sm:px-6">
+          <div className="mx-auto w-full max-w-3xl space-y-3">
+            <div className="flex justify-start">
+              <div className="h-10 w-48 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white shadow-sm sm:w-56" />
+            </div>
+            <div className="flex justify-end">
+              <div className="h-10 w-40 max-w-[75%] animate-pulse rounded-2xl rounded-br-sm bg-[#d9fdd3] shadow-sm sm:w-44" />
+            </div>
+            <div className="flex justify-start">
+              <div className="h-16 w-56 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white shadow-sm sm:w-64" />
+            </div>
+            <div className="flex justify-end">
+              <div className="h-10 w-32 max-w-[75%] animate-pulse rounded-2xl rounded-br-sm bg-[#d9fdd3] shadow-sm" />
+            </div>
+            <div className="flex justify-start">
+              <div className="h-10 w-52 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white shadow-sm sm:w-60" />
+            </div>
+            <div className="flex justify-end">
+              <div className="h-16 w-44 max-w-[75%] animate-pulse rounded-2xl rounded-br-sm bg-[#d9fdd3] shadow-sm sm:w-48" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex h-14 shrink-0 items-center gap-2 border-t border-[#e9edef] bg-[#f0f2f5] px-2 pb-[env(safe-area-inset-bottom)] sm:px-4">
+          <div className="h-10 flex-1 animate-pulse rounded-full bg-white" />
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-white" />
+        </div>
+
+        <span className="sr-only">Loading conversation…</span>
+      </div>
+    );
   }
 
   if (chatError) {

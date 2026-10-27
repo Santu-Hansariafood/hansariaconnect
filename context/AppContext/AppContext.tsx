@@ -101,34 +101,69 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const messagesCache = useRef(new Map<string, CachedMessages>())
   const [bootstrapData, setBootstrapData] = useState<BootstrapData>({})
   const [bootstrapReady, setBootstrapReady] = useState(false)
+  const homeDataRequest = useRef<{ userId: string; promise: Promise<void> } | null>(null)
 
-  const prefetchHomeData = async () => {
-    try {
-      const [convRes, statusRes, unreadRes] = await Promise.all([
-        fetch("/api/conversations", { credentials: "include", cache: "no-store" }),
-        fetch("/api/status", { credentials: "include", cache: "no-store" }),
-        fetch("/api/unread-counts", { credentials: "include", cache: "no-store" }),
-      ])
+  const prefetchHomeData = useCallback(() => {
+    if (!user) return Promise.resolve()
+    const userId = String(user.id ?? user.mobile ?? user.name ?? "authenticated")
 
-      const [convData, statusData, unreadData] = await Promise.all([
-        convRes.ok ? convRes.json() : Promise.resolve({}),
-        statusRes.ok ? statusRes.json() : Promise.resolve({}),
-        unreadRes.ok ? unreadRes.json() : Promise.resolve({}),
-      ])
+    const existingRequest = homeDataRequest.current
+    if (existingRequest?.userId === userId) return existingRequest.promise
 
-      setBootstrapData({
-        conversations: Array.isArray(convData?.conversations) ? convData.conversations : [],
-        statuses: statusData?.statuses || {},
-        unreadCounts: {
-          ...(unreadData?.conversations || {}),
-          ...(unreadData?.groups || {}),
-        },
-      })
-    } catch {}
-    finally {
-      setBootstrapReady(true)
-    }
-  }
+    setBootstrapReady(false)
+    const request = { userId, promise: Promise.resolve() }
+    request.promise = (async () => {
+      try {
+        const responses = await Promise.all([
+          fetch("/api/conversations", { credentials: "include", cache: "no-store" }),
+          fetch("/api/status", { credentials: "include", cache: "no-store" }),
+          fetch("/api/unread-counts", { credentials: "include", cache: "no-store" }),
+        ])
+        const [convRes, statusRes, unreadRes] = responses
+        const [convData, statusData, unreadData] = await Promise.all(
+          responses.map((response) =>
+            response.ok ? response.json() : Promise.resolve(null),
+          ),
+        )
+
+        responses.forEach((response, index) => {
+          if (!response.ok) {
+            console.error(
+              `[AppProvider] Home bootstrap request ${index + 1} failed with HTTP ${response.status}`,
+            )
+          }
+        })
+
+        if (homeDataRequest.current !== request) return
+        setBootstrapData({
+          conversations:
+            convRes.ok && Array.isArray(convData?.conversations)
+              ? convData.conversations
+              : undefined,
+          statuses:
+            statusRes.ok && statusData?.statuses &&
+            typeof statusData.statuses === "object"
+              ? statusData.statuses
+              : undefined,
+          unreadCounts: unreadRes.ok
+            ? {
+                ...(unreadData?.conversations || {}),
+                ...(unreadData?.groups || {}),
+              }
+            : undefined,
+        })
+      } catch (error) {
+        if (homeDataRequest.current === request) {
+          console.error("[AppProvider] Home bootstrap failed:", error)
+          setBootstrapData({})
+        }
+      } finally {
+        if (homeDataRequest.current === request) setBootstrapReady(true)
+      }
+    })()
+    homeDataRequest.current = request
+    return request.promise
+  }, [user])
 
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) {
@@ -309,7 +344,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
 
     void prefetchHomeData()
-  }, [user, sessionChecked])
+  }, [prefetchHomeData, sessionChecked, user])
 
   const updateTheme = (newTheme: Theme) => {
     setTheme(newTheme)
@@ -388,6 +423,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const { disconnectSocket } = await import("@/hooks/useSocket")
     disconnectSocket()
     setUser(null)
+    homeDataRequest.current = null
+    setBootstrapData({})
+    setBootstrapReady(false)
     localStorage.removeItem("hansariaUser")
     clearCachedMessages()
   }

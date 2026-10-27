@@ -40,7 +40,7 @@ const REFRESH_INTERVAL_MS = 60_000;
  * state.
  */
 export const useStatusUpdates = (user: StatusUser) => {
-  const { bootstrapData } = useApp();
+  const { bootstrapData, bootstrapReady } = useApp();
 
   const [contactStatuses, setContactStatuses] = useState<
     Record<string, StatusItem[]>
@@ -94,8 +94,9 @@ export const useStatusUpdates = (user: StatusUser) => {
   const bootstrapStatuses = bootstrapData.statuses;
   if (
     !adoptedBootstrap &&
+    bootstrapReady &&
     bootstrapStatuses &&
-    Object.keys(bootstrapStatuses).length > 0
+    typeof bootstrapStatuses === "object"
   ) {
     setAdoptedBootstrap(true);
     setContactStatuses(bootstrapStatuses);
@@ -103,7 +104,9 @@ export const useStatusUpdates = (user: StatusUser) => {
   }
 
   useEffect(() => {
-    if (adoptedBootstrap) {
+    if (!bootstrapReady) return;
+
+    if (adoptedBootstrap || bootstrapStatuses !== undefined) {
       // The feed is already on screen, so later refreshes stay silent.
       hasLoadedStatuses.current = true;
       return;
@@ -126,7 +129,7 @@ export const useStatusUpdates = (user: StatusUser) => {
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };
-  }, [adoptedBootstrap, loadStatuses]);
+  }, [adoptedBootstrap, bootstrapReady, bootstrapStatuses, loadStatuses]);
 
   const handleStatusUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
