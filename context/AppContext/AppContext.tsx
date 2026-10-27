@@ -1,10 +1,23 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react"
-import NotificationManager from "@/components/common/NotificationManager/NotificationManager"
-import NotificationPermissionPrompt from "@/components/common/NotificationPermissionPrompt/NotificationPermissionPrompt"
+import dynamic from "next/dynamic"
 import Loading from "@/components/common/Loading/Loading"
-import { disconnectSocket } from "@/hooks/useSocket"
+
+/*
+ * The notification stack (socket.io-client, push client, toast animation)
+ * used to sit in every route's first-load bundle because this provider wrapped
+ * the whole app. Nothing here needs to paint before hydration, so it is loaded
+ * just after the page boots instead of blocking it.
+ */
+const NotificationManager = dynamic(
+  () => import("@/components/common/NotificationManager/NotificationManager"),
+  { ssr: false },
+)
+const NotificationPermissionPrompt = dynamic(
+  () => import("@/components/common/NotificationPermissionPrompt/NotificationPermissionPrompt"),
+  { ssr: false },
+)
 
 interface User {
   id?: string
@@ -370,6 +383,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
     } catch {}
+    // Imported on demand so socket.io-client stays out of the first-load bundle
+    // for anyone who has not entered the chat workspace yet.
+    const { disconnectSocket } = await import("@/hooks/useSocket")
     disconnectSocket()
     setUser(null)
     localStorage.removeItem("hansariaUser")

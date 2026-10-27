@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { NextRequest, NextResponse, after } from "next/server";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
 import { connectDB } from "@/lib/db/db";
+import { mailFrom, sendMail } from "@/lib/mailer";
 import Admin from "@/models/admin/Admin";
 import { signAdminOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 
@@ -50,23 +50,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const otp = generateOtp();
 
-    const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || "smtp.gmail.com",
-      port: Number(process.env.EMAIL_PORT || 465),
-      secure: String(process.env.EMAIL_SECURE || "true") === "true",
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your Admin OTP",
-      html: mailTemplate(otp),
-    });
-
     const salt = await randomBytesHex(16);
     const hash = await digestHex("SHA-256", otp + salt);
 
@@ -83,10 +66,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await signAdminOtpSession(payload),
       authOtpCookieOptions,
     );
+
+    // Reply first: the admin is waiting on this request, not on the mail server.
+    after(async () => {
+      try {
+        await sendMail({
+          from: mailFrom(),
+          to: email,
+          subject: "Your Admin OTP",
+          html: mailTemplate(otp),
+        });
+      } catch (error) {
+        console.error(
+          "[admin/request-otp] OTP email could not be sent:",
+          error instanceof Error ? error.message : error,
+        );
+      }
+    });
+
     return response;
-  } catch (e: any) {
+  } catch (e: unknown) {
     return NextResponse.json(
-      { success: false, error: e?.message || "Server error" },
+      {
+        success: false,
+        error: e instanceof Error ? e.message : "Server error",
+      },
       { status: 500 },
     );
   }

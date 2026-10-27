@@ -17,9 +17,13 @@ import {
 } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 import Image from "next/image";
-import QRCode from "react-qr-code";
+import dynamic from "next/dynamic";
 import Loading from "@/components/common/Loading/Loading";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
+
+// Only needed once the QR sign-in panel is opened, so it is kept out of the
+// login page's initial download.
+const QRCode = dynamic(() => import("react-qr-code"), { ssr: false });
 
 type LoginProps = {
   prefillMobile?: string;

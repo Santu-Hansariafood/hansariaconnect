@@ -72,6 +72,24 @@ function VerifyOtpInner() {
     [mobile, returnTo, setUser, router]
   );
 
+  const handleResend = useCallback(async (): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mobile }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        return data?.error || "Could not send a new code. Please try again.";
+      }
+      return null;
+    } catch {
+      return "Could not reach the server. Please check your connection.";
+    }
+  }, [mobile]);
+
   if (!mobile) return null;
 
   return (
@@ -79,6 +97,7 @@ function VerifyOtpInner() {
       mobile={mobile}
       email={email || undefined}
       onVerify={handleVerify}
+      onResend={handleResend}
       serverError={serverError}
     />
   );

@@ -28,7 +28,22 @@ export default function OtpPage() {
     router.push("/chat")
   }
 
-  const handleResend = () => {
+  const handleResend = async (): Promise<string | null> => {
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ mobile: user.mobile }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.success) {
+        return data?.error || "Could not send a new code. Please try again."
+      }
+      return null
+    } catch {
+      return "Could not reach the server. Please check your connection."
+    }
   }
 
   return (

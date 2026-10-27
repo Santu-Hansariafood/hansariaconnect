@@ -1,26 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
 import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
-import nodemailer from "nodemailer";
 import { connectDB } from "@/lib/db/db";
+import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587"),
-  secure: (process.env.SMTP_SECURE || process.env.EMAIL_SECURE) === "true",
-  auth: {
-    user: process.env.SMTP_USER || process.env.EMAIL_USER,
-    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
-  },
-});
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -60,32 +50,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const email = user.email;
     const otp = generateOtp();
 
     const template = buildOtpEmailTemplate(user.name || "User", otp);
-
-    try {
-      await transporter.sendMail({
-        from:
-          process.env.SMTP_FROM ||
-          process.env.EMAIL_FROM ||
-          process.env.EMAIL_USER ||
-          "no-reply@hansariaconnect.com",
-        to: user.email,
-        subject: template.subject,
-        text: template.text,
-        html: template.html,
-      });
-    } catch (emailError) {
-      console.error("Email send error:", emailError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to send OTP email. Please try again.",
-        },
-        { status: 500 },
-      );
-    }
 
     const salt = await randomBytesHex(16);
     const hash = await digestHex("SHA-256", otp + salt);
@@ -100,7 +68,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const response = NextResponse.json({
       success: true,
       message: "OTP sent successfully to your email",
-      email: user.email,
+      email,
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
 
@@ -109,6 +77,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await signOtpSession(payload),
       authOtpCookieOptions,
     );
+
+    // The code is already signed into the cookie, so the reply no longer has to
+    // sit through the SMTP handshake. The mail is handed off right after.
+    after(async () => {
+      try {
+        await sendMail({
+          from: mailFrom(),
+          to: email,
+          subject: template.subject,
+          text: template.text,
+          html: template.html,
+        });
+      } catch (emailError) {
+        console.error(
+          "[auth/login] OTP email could not be sent:",
+          emailError instanceof Error ? emailError.message : emailError,
+        );
+      }
+    });
 
     return response;
   } catch (error: unknown) {

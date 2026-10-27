@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, FormEvent, KeyboardEvent, Suspense } from "react";
+import { useRef, useState, useEffect, FormEvent, KeyboardEvent, Suspense } from "react";
 import { motion } from "framer-motion";
 import { fadeIn } from "@/utils/animations/animations";
 import Image from "next/image";
@@ -9,11 +9,17 @@ import { ClipboardPaste, LoaderCircle, ShieldCheck } from "lucide-react";
 
 type OtpProps = {
   onVerify: (code: string) => void | Promise<void>;
-  onResend?: () => void;
+  /**
+   * Requests a fresh code. Resolves with an error message to display, or null
+   * when a new code was sent.
+   */
+  onResend?: () => Promise<string | null>;
   mobile: string;
   email?: string;
   serverError?: string;
 };
+
+const RESEND_COOLDOWN_SECONDS = 30;
 
 const Otp: React.FC<OtpProps> = ({
   onVerify,
@@ -25,8 +31,37 @@ const Otp: React.FC<OtpProps> = ({
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [error, setError] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [resendNotice, setResendNotice] = useState("");
+  const [cooldown, setCooldown] = useState(0);
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const code = digits.join("");
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((value) => value - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
+
+  const handleResend = async () => {
+    if (!onResend || isResending || cooldown > 0) return;
+
+    setIsResending(true);
+    setError("");
+    setResendNotice("");
+
+    try {
+      const failure = await onResend();
+      if (failure) {
+        setError(failure);
+        return;
+      }
+      setResendNotice(`A new code was sent to ${email || mobile}.`);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   const fillCode = (value: string, focusIndex = 5) => {
     const nextDigits = value.replace(/\D/g, "").slice(0, 6).split("");
@@ -230,6 +265,33 @@ const Otp: React.FC<OtpProps> = ({
               )}
             </motion.button>
           </form>
+
+          {onResend && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={isResending || cooldown > 0}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:text-gray-400 disabled:hover:bg-transparent"
+              >
+                {isResending ? (
+                  <>
+                    <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    Sending a new code...
+                  </>
+                ) : cooldown > 0 ? (
+                  `Resend code in ${cooldown}s`
+                ) : (
+                  "Didn't get the code? Resend"
+                )}
+              </button>
+              {resendNotice && (
+                <p role="status" className="mt-1 text-xs font-medium text-emerald-700">
+                  {resendNotice}
+                </p>
+              )}
+            </div>
+          )}
 
           <p className="mt-6 text-center text-xs leading-5 text-gray-400">
             Your code expires after 5 minutes. Never share it with anyone.

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { digestHex, randomBytesHex } from "@/lib/crypto";
 import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
-import nodemailer from "nodemailer";
 import { connectDB } from "@/lib/db/db";
+import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 
@@ -14,16 +14,6 @@ const ALLOWED_EMAIL_REGEX =
 
 const generateOtp = (): string =>
   Math.floor(100000 + Math.random() * 900000).toString();
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || "587"),
-  secure: (process.env.SMTP_SECURE || process.env.EMAIL_SECURE) === "true",
-  auth: {
-    user: process.env.SMTP_USER || process.env.EMAIL_USER,
-    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS,
-  },
-});
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -79,28 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const template = buildOtpEmailTemplate(name, otp);
 
-    try {
-      await transporter.sendMail({
-        from:
-          process.env.SMTP_FROM || process.env.EMAIL_FROM ||
-          process.env.EMAIL_USER || "no-reply@hansariaconnect.com",
-        to: email,
-        subject: template.subject,
-        text: template.text,
-        html: template.html,
-      });
-    } catch (emailError) {
-      console.error("Email send error:", emailError);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to send OTP email. Please check your email address and SMTP configuration.",
-        },
-        { status: 500 },
-      );
-    }
-
-    await User.create({
+    const created = await User.create({
       name: rawName,
       email,
       mobile,
@@ -130,6 +99,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await signOtpSession(payload),
       authOtpCookieOptions,
     );
+
+    // Reply first, then mail the code. If the mail server rejects it the account
+    // is rolled back so the user can register again instead of being left with
+    // an account they can never verify.
+    after(async () => {
+      try {
+        await sendMail({
+          from: mailFrom(),
+          to: email,
+          subject: template.subject,
+          text: template.text,
+          html: template.html,
+        });
+      } catch (emailError) {
+        console.error(
+          "[auth/register] OTP email could not be sent, rolling back the account:",
+          emailError instanceof Error ? emailError.message : emailError,
+        );
+        try {
+          await User.deleteOne({ _id: created._id });
+        } catch (rollbackError) {
+          console.error(
+            "[auth/register] Rollback failed:",
+            rollbackError instanceof Error ? rollbackError.message : rollbackError,
+          );
+        }
+      }
+    });
 
     return response;
   } catch (error: unknown) {
