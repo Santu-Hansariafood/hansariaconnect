@@ -33,12 +33,15 @@ export interface Contact {
 }
 
 const CATCHUP_COOLDOWN_MS = 120_000;
+/** Coalesces bursts of `conversation:updated` into a single list re-fetch. */
+const CONVERSATION_REFRESH_DEBOUNCE_MS = 350;
 
 export const useContacts = (userId?: string | number) => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const hasLoadedConversations = useRef(false);
   const lastCatchupAtRef = useRef(0);
+  const refreshTimerRef = useRef<number | null>(null);
   const { onlineUserIds, socket, addListener, removeListener } = useSocket();
   const { bootstrapData, bootstrapReady } = useApp();
 
@@ -253,28 +256,37 @@ export const useContacts = (userId?: string | number) => {
       void loadConversations();
     };
 
-    const handleCatchupConversation = (payload: any) => {
+    const handleConversationUpdated = (payload: any) => {
       const peerId = String(payload?.peerId || payload?.from || payload?.to || "");
       if (!peerId) return;
-      setContacts((previous) =>
-        previous.map((contact) => {
-          const cp = resolveChatId(contact);
-          if (cp !== peerId) return contact;
-          return {
-            ...contact,
-            lastMessageTime:
-              payload?.createdAt || payload?.timestamp || new Date().toISOString(),
-          };
-        }),
-      );
+
+      // The backend already refreshed its own caches, so drop our client caches
+      // to make sure the re-fetch below cannot serve a stale copy.
+      invalidateApiCache("/api/conversations");
+      invalidateApiCache("/api/unread-counts");
+
+      // A message burst (group fan-out, rapid replies) must cost one request,
+      // not one per event.
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+      }
+      refreshTimerRef.current = window.setTimeout(() => {
+        refreshTimerRef.current = null;
+        lastCatchupAtRef.current = Date.now();
+        void loadConversations();
+      }, CONVERSATION_REFRESH_DEBOUNCE_MS);
     };
 
     socket.on("connect", handleSocketConnect);
-    addListener("conversation:updated", handleCatchupConversation);
+    addListener("conversation:updated", handleConversationUpdated);
 
     return () => {
       socket.off("connect", handleSocketConnect);
-      removeListener("conversation:updated", handleCatchupConversation);
+      removeListener("conversation:updated", handleConversationUpdated);
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
     };
   }, [addListener, loadConversations, removeListener, socket]);
 

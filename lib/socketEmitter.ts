@@ -838,6 +838,32 @@ export const emitDirectMessageReceived = async (
       deliver,
     ]);
 
+    /*
+     * Server-authoritative refresh signal. Beyond the optimistic `message:new`
+     * bump on the client, each participant is told exactly which conversation
+     * changed so the chat list re-syncs straight from the backend — the sidebar
+     * updates on its own without the user refreshing the page.
+     */
+    const changedAt =
+      decryptedMessage.createdAt ?? decryptedMessage.timestamp ?? new Date();
+
+    await Promise.all([
+      emitRoomEvent(io, rawToId, "conversation:updated", {
+        peerId: rawFromId,
+        from: rawFromId,
+        to: rawToId,
+        isGroup: false,
+        createdAt: changedAt,
+      }),
+      emitRoomEvent(io, rawFromId, "conversation:updated", {
+        peerId: rawToId,
+        from: rawFromId,
+        to: rawToId,
+        isGroup: false,
+        createdAt: changedAt,
+      }),
+    ]);
+
     if (recipientCounts) {
       await emitRoomEvent(io, rawToId, "unread:update", recipientCounts);
     }
@@ -924,7 +950,22 @@ export const emitGroupMessageReceived = async (
 
     const recipientIds = memberIds.filter((memberId) => memberId !== rawFromId);
 
-    await emitRoomEvent(io, rawFromId, "group:message:new", decryptedMessage);
+    const changedAt =
+      decryptedMessage.createdAt ?? decryptedMessage.timestamp ?? new Date();
+
+    /*
+     * Server-authoritative refresh signal for every member (including the
+     * sender) so each chat list re-syncs this conversation from the backend.
+     */
+    await Promise.all([
+      emitRoomEvent(io, rawFromId, "group:message:new", decryptedMessage),
+      emitRoomEvent(io, rawFromId, "conversation:updated", {
+        peerId: rawGroupId,
+        groupId: rawGroupId,
+        isGroup: true,
+        createdAt: changedAt,
+      }),
+    ]);
 
     if (recipientIds.length === 0) {
       return;
@@ -950,6 +991,12 @@ export const emitGroupMessageReceived = async (
       async (memberId) => {
         const initialTasks = await Promise.allSettled([
           emitRoomEvent(io, memberId, "group:message:new", decryptedMessage),
+          emitRoomEvent(io, memberId, "conversation:updated", {
+            peerId: rawGroupId,
+            groupId: rawGroupId,
+            isGroup: true,
+            createdAt: changedAt,
+          }),
           invalidateUserConversations(memberId),
           incrGroupUnread(memberId, rawGroupId).catch((error) =>
             console.error(
