@@ -1,4 +1,18 @@
-import "server-only";
+/*
+ * Server-only guard.
+ *
+ * This used to be `import "server-only"`, but that package resolves to a module
+ * that throws unless the bundler applies the `react-server` export condition.
+ * That condition is applied to the App Router layer but NOT to the Pages Router
+ * layer, so `pages/api/socket.ts` (which needs these helpers) failed to load
+ * with "This module cannot be imported from a Client Component module" and
+ * returned HTTP 500 — which silently killed the whole realtime channel.
+ * An explicit runtime check keeps the same protection without depending on the
+ * bundler's export conditions.
+ */
+if (typeof window !== "undefined") {
+  throw new Error("lib/crypto must only be imported on the server");
+}
 
 import {
   createHash,

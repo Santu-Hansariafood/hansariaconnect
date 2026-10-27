@@ -615,6 +615,57 @@ export const getUnreadCountsForUser = async (
   }
 };
 
+/**
+ * Backend refresh trigger for a single user id.
+ *
+ * Anything that "hits" an id — a direct message, a group fan-out, a read
+ * receipt — must leave that id's server state consistent and tell its live
+ * sockets to re-sync. This is the single funnel for that: drop the id's cached
+ * conversation list, push a server-authoritative `conversation:updated` so the
+ * sidebar re-fetches from the backend, then push the authoritative unread
+ * counters. Clients never need a manual page refresh to see the change.
+ */
+const refreshUserId = async (
+  io: ServerIO | null,
+  rawUserId: string,
+  chat: { chatId: string; isGroup: boolean; changedAt: Date },
+  knownCounts?: UnreadPayload | null,
+): Promise<UnreadPayload | null> => {
+  if (!toObjectId(rawUserId)) {
+    return knownCounts ?? null;
+  }
+
+  const signals = await Promise.allSettled([
+    invalidateUserConversations(rawUserId),
+    emitRoomEvent(io, rawUserId, "conversation:updated", {
+      peerId: chat.chatId,
+      ...(chat.isGroup ? { groupId: chat.chatId } : {}),
+      isGroup: chat.isGroup,
+      createdAt: chat.changedAt,
+    }),
+  ]);
+
+  for (const signal of signals) {
+    if (signal.status === "rejected") {
+      console.error(
+        "[socketEmitter] user refresh signal failed:",
+        errMsg(signal.reason),
+      );
+    }
+  }
+
+  const counts =
+    knownCounts === undefined
+      ? await getUnreadCountsForUser(rawUserId)
+      : knownCounts;
+
+  if (counts) {
+    await emitRoomEvent(io, rawUserId, "unread:update", counts);
+  }
+
+  return counts ?? null;
+};
+
 const findSavedContactName = (
   contacts: ContactLean[],
   senderMobile?: string,
@@ -817,8 +868,6 @@ export const emitDirectMessageReceived = async (
 
     await Promise.all([
       invalidateDirectMessages(rawFromId, rawToId),
-      invalidateUserConversations(rawFromId),
-      invalidateUserConversations(rawToId),
       incrDirectUnread(rawToId, rawFromId).catch((error) =>
         console.error(
           "[socketEmitter] incrDirectUnread failed:",
@@ -839,34 +888,27 @@ export const emitDirectMessageReceived = async (
     ]);
 
     /*
-     * Server-authoritative refresh signal. Beyond the optimistic `message:new`
-     * bump on the client, each participant is told exactly which conversation
-     * changed so the chat list re-syncs straight from the backend — the sidebar
-     * updates on its own without the user refreshing the page.
+     * Backend trigger. Both ids were just hit by this message, so each one is
+     * refreshed server-side (conversation-list cache dropped, re-sync signal
+     * pushed, unread counters re-published). The sidebar updates itself — the
+     * user never has to refresh the page to discover the new message.
      */
     const changedAt =
       decryptedMessage.createdAt ?? decryptedMessage.timestamp ?? new Date();
 
     await Promise.all([
-      emitRoomEvent(io, rawToId, "conversation:updated", {
-        peerId: rawFromId,
-        from: rawFromId,
-        to: rawToId,
+      refreshUserId(
+        io,
+        rawToId,
+        { chatId: rawFromId, isGroup: false, changedAt },
+        recipientCounts,
+      ),
+      refreshUserId(io, rawFromId, {
+        chatId: rawToId,
         isGroup: false,
-        createdAt: changedAt,
-      }),
-      emitRoomEvent(io, rawFromId, "conversation:updated", {
-        peerId: rawToId,
-        from: rawFromId,
-        to: rawToId,
-        isGroup: false,
-        createdAt: changedAt,
+        changedAt,
       }),
     ]);
-
-    if (recipientCounts) {
-      await emitRoomEvent(io, rawToId, "unread:update", recipientCounts);
-    }
 
     if (!notification) {
       console.warn(
@@ -954,16 +996,16 @@ export const emitGroupMessageReceived = async (
       decryptedMessage.createdAt ?? decryptedMessage.timestamp ?? new Date();
 
     /*
-     * Server-authoritative refresh signal for every member (including the
-     * sender) so each chat list re-syncs this conversation from the backend.
+     * Backend trigger for the sender. The sender's own id was hit by this
+     * message too, so its conversation list is refreshed exactly like every
+     * other member's.
      */
     await Promise.all([
       emitRoomEvent(io, rawFromId, "group:message:new", decryptedMessage),
-      emitRoomEvent(io, rawFromId, "conversation:updated", {
-        peerId: rawGroupId,
-        groupId: rawGroupId,
+      refreshUserId(io, rawFromId, {
+        chatId: rawGroupId,
         isGroup: true,
-        createdAt: changedAt,
+        changedAt,
       }),
     ]);
 
@@ -991,13 +1033,6 @@ export const emitGroupMessageReceived = async (
       async (memberId) => {
         const initialTasks = await Promise.allSettled([
           emitRoomEvent(io, memberId, "group:message:new", decryptedMessage),
-          emitRoomEvent(io, memberId, "conversation:updated", {
-            peerId: rawGroupId,
-            groupId: rawGroupId,
-            isGroup: true,
-            createdAt: changedAt,
-          }),
-          invalidateUserConversations(memberId),
           incrGroupUnread(memberId, rawGroupId).catch((error) =>
             console.error(
               "[socketEmitter] incrGroupUnread failed:",
@@ -1015,14 +1050,18 @@ export const emitGroupMessageReceived = async (
           }
         }
 
-        const unread = await getUnreadCountsForUser(memberId);
+        /*
+         * Per-member backend trigger. This id was hit, so its conversation list
+         * cache is dropped and re-synced. Runs after the increment above so the
+         * refreshed counters already include this message.
+         */
+        const unread = await refreshUserId(io, memberId, {
+          chatId: rawGroupId,
+          isGroup: true,
+          changedAt,
+        });
 
         const notificationTasks: Promise<void>[] = [];
-        if (unread) {
-          notificationTasks.push(
-            emitRoomEvent(io, memberId, "unread:update", unread),
-          );
-        }
 
         if (meta) {
           notificationTasks.push(
