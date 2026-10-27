@@ -115,6 +115,92 @@ export const viewport: Viewport = {
 };
 
 /*
+ * Every deploy replaces the hashed files under /_next/static. A page that is
+ * still holding the previous build — or one that was loading exactly while the
+ * files were being swapped — asks for a chunk that no longer exists, gets a 404
+ * back, and never boots: the "ChunkLoadError ... Failed to load chunk" console
+ * error. Reloading fetches the current HTML, and with it the chunks that match
+ * it, so the failure heals itself instead of leaving a dead page.
+ *
+ * Guarded so it can never become a reload loop, and deliberately tiny.
+ */
+const chunkRecoveryScript = `
+(function () {
+  var AT_KEY = "hansaria.chunkRecoveryAt";
+  var COUNT_KEY = "hansaria.chunkRecoveryCount";
+  var COOLDOWN_MS = 10000;
+  var WINDOW_MS = 300000;
+  var MAX_ATTEMPTS = 2;
+  var reloading = false;
+
+  var storage = (function () {
+    try {
+      var probe = "__hansaria_probe__";
+      sessionStorage.setItem(probe, "1");
+      sessionStorage.removeItem(probe);
+      return sessionStorage;
+    } catch (error) {
+      // Without working storage there is no way to break a reload loop, so
+      // recovery is left to the user rather than risking an endless refresh.
+      return null;
+    }
+  })();
+
+  if (!storage) return;
+
+  var readNumber = function (key) {
+    var value = parseInt(storage.getItem(key) || "", 10);
+    return isNaN(value) ? 0 : value;
+  };
+
+  var recover = function (reason) {
+    if (reloading) return;
+
+    var now = Date.now();
+    var lastAt = readNumber(AT_KEY);
+    var attempts = now - lastAt > WINDOW_MS ? 0 : readNumber(COUNT_KEY);
+    var tooSoon = now - lastAt < COOLDOWN_MS;
+    if (tooSoon || attempts >= MAX_ATTEMPTS) return;
+
+    reloading = true;
+    storage.setItem(AT_KEY, String(now));
+    storage.setItem(COUNT_KEY, String(attempts + 1));
+    console.warn("[bootstrap] " + reason + " - reloading to load the current build.");
+    window.location.reload();
+  };
+
+  var isBuildAsset = function (url) {
+    return typeof url === "string" && url.indexOf("/_next/static/") !== -1;
+  };
+
+  // Resource errors do not bubble, so they are caught in the capture phase.
+  // Only fatal assets are considered: a failed preload is retried by the real
+  // tag, whereas a failed script or stylesheet leaves the app broken.
+  window.addEventListener("error", function (event) {
+    var target = event.target;
+    if (!target || !target.tagName) return;
+    if (target.tagName === "SCRIPT" && isBuildAsset(target.src)) {
+      recover("A script from a previous build is gone (404)");
+    } else if (target.tagName === "LINK" && target.rel === "stylesheet" && isBuildAsset(target.href)) {
+      recover("A stylesheet from a previous build is gone (404)");
+    }
+  }, true);
+
+  // The same failure surfaces in the app as a rejected dynamic import.
+  window.addEventListener("unhandledrejection", function (event) {
+    var reason = event.reason || {};
+    var message = String(reason.message || reason);
+    if (
+      reason.name === "ChunkLoadError" ||
+      /Loading chunk [^ ]+ failed|Failed to load chunk|error loading dynamically imported module/i.test(message)
+    ) {
+      recover("A JavaScript chunk failed to load");
+    }
+  });
+})();
+`;
+
+/*
  * Runs before the first paint so the saved theme is applied instantly and the
  * app never flashes the default green on top of a custom one. Kept tiny and
  * dependency-free on purpose.
@@ -147,6 +233,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <script dangerouslySetInnerHTML={{ __html: chunkRecoveryScript }} />
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
 
         <meta
