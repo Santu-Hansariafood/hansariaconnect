@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ApiCacheTTL, cachedFetch } from "@/lib/api/clientCache";
 
 export const useSettings = () => {
   const [initialTheme, setInitialTheme] = useState<any>(null);
@@ -8,8 +9,10 @@ export const useSettings = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const res = await fetch("/api/settings",{
+        // Shared with AppContext / notifications, so settings load once.
+        const res = await cachedFetch("/api/settings", {
           credentials: "include",
+          ttlMs: ApiCacheTTL.long,
         });
         const data = await res.json();
 

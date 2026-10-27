@@ -21,6 +21,11 @@ import {
 import { useSettings } from "@/hooks/settings/useSettings";
 import { useThemeSettings } from "@/hooks/settings/useThemeSettings";
 import { useNotifications } from "@/hooks/useNotifications";
+import {
+  ApiCacheTTL,
+  cachedFetch,
+  invalidateApiCache,
+} from "@/lib/api/clientCache";
 import type { TemplateActionType } from "@/lib/templateActionButtons";
 import dynamic from "next/dynamic";
 import Loading from "../Loading/Loading";
@@ -107,7 +112,10 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
 
   useEffect(() => {
     let mounted = true;
-    void fetch("/api/settings", { cache: "no-store" })
+    void cachedFetch("/api/settings", {
+      cache: "no-store",
+      ttlMs: ApiCacheTTL.long,
+    })
       .then(async (response) => {
         if (!response.ok) throw new Error("Failed to load language preference");
         return response.json();
@@ -142,6 +150,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       if (!response.ok) {
         throw new Error(data?.error || "Could not save action preferences");
       }
+      invalidateApiCache("/api/settings");
       setActionPreferencesSaved(true);
     } catch (error) {
       console.error("[Settings] Failed to save message action preferences:", error);
@@ -165,6 +174,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Failed to save language");
+      invalidateApiCache("/api/settings");
       setPreferredLanguage(language);
     } catch (error) {
       console.error("[Settings] Failed to save language preference:", error);

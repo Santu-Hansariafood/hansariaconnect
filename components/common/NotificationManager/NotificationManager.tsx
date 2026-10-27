@@ -67,6 +67,12 @@ export default function NotificationManager({
   const startupTunePlayed = useRef(false);
   const socketAdminUserId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());
+  /*
+   * The notify handler closes over the current preferences and user id. Keeping
+   * it in a ref means the socket listener can be registered once per identity
+   * instead of being torn down and re-added whenever a preference changes.
+   */
+  const handleNotifyRef = useRef<(payload: NotifyPayload) => void>(() => {});
   const nextToastId = useRef(0);
   const toastTimers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const baseDocumentTitleRef = useRef("HansariaConnect");
@@ -242,22 +248,9 @@ export default function NotificationManager({
   }, [preferences.enabled]);
 
   useEffect(() => {
-    if (
-      !preferences.enabled ||
-      (isAdminSurface ? !adminUserId : !userId)
-    ) {
-      return;
-    }
-
     const currentUserId = isAdminSurface ? getId(adminUserId) : getId(userId);
-    console.log(
-      "[NotificationManager] Setting up socket listeners for user:",
-      currentUserId,
-      "| activeChatId:",
-      activeChatId.current,
-    );
 
-    const handleNotify = (payload: NotifyPayload) => {
+    handleNotifyRef.current = (payload: NotifyPayload) => {
       if (!payload || typeof payload !== "object") {
         console.warn(
           "[NotificationManager] ⚠️ message:notify received invalid payload:",
@@ -400,28 +393,53 @@ export default function NotificationManager({
         );
       }
     };
+  }, [
+    addToast,
+    adminUserId,
+    isAdminSurface,
+    playRingtone,
+    preferences.groups,
+    preferences.messages,
+    preferences.ringtone,
+    showNotification,
+    userId,
+  ]);
+
+  /*
+   * Registration is keyed only on the notification channel and identity, so the
+   * listener survives preference tweaks; the ref above always carries the latest
+   * handler with up-to-date preferences.
+   */
+  useEffect(() => {
+    if (
+      !preferences.enabled ||
+      (isAdminSurface ? !adminUserId : !userId)
+    ) {
+      return;
+    }
 
     const notificationEvent = isAdminSurface
       ? "admin:message:notify"
       : "message:notify";
-    addListener(notificationEvent, handleNotify);
+    const listener = (payload: NotifyPayload) =>
+      handleNotifyRef.current(payload);
+
+    console.log(
+      "[NotificationManager] Setting up socket listeners for user:",
+      isAdminSurface ? getId(adminUserId) : getId(userId),
+    );
+    addListener(notificationEvent, listener);
 
     return () => {
       console.log("[NotificationManager] Removing socket listeners");
-      removeListener(notificationEvent, handleNotify);
+      removeListener(notificationEvent, listener);
     };
   }, [
     addListener,
-    preferences.enabled,
-    preferences.groups,
-    preferences.messages,
-    preferences.ringtone,
-    playRingtone,
-    removeListener,
-    showNotification,
-    addToast,
-    isAdminSurface,
     adminUserId,
+    isAdminSurface,
+    preferences.enabled,
+    removeListener,
     userId,
   ]);
 

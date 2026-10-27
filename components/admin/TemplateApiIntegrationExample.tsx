@@ -58,7 +58,13 @@ export default function TemplateApiIntegrationExample({
 HANSARIA_API_KEY=${apiKey || "YOUR_API_KEY"}
 HANSARIA_TEMPLATE_ID=${template._id}`;
 
-  const testCommand = `curl -H "Authorization: Bearer $HANSARIA_API_KEY" "${TEST_ENDPOINT}?adminId=${template.adminId}&templateId=${template._id}"`;
+  /*
+   * The key alone is enough to prove the connection, so the default check is a
+   * single line. `templateId` / `adminId` are appended only as an optional
+   * deeper check.
+   */
+  const testCommand = `curl -H "Authorization: Bearer $HANSARIA_API_KEY" "${TEST_ENDPOINT}"`;
+  const testCommandWithTemplate = `curl -H "Authorization: Bearer $HANSARIA_API_KEY" "${TEST_ENDPOINT}?templateId=${template._id}&adminId=${template.adminId}"`;
 
   const snippets: Record<CodeLanguage, string> = {
     curl: `curl -X POST "${ENDPOINT}" \\
@@ -216,13 +222,34 @@ echo curl_exec($ch);`,
           <h4 className="font-semibold text-white">
             Test the connection (sends nothing)
           </h4>
+          <p className="mt-1 leading-5 text-slate-300">
+            The API key is the only credential. Run this single line to confirm
+            the connection — no workspace ID or template ID required.
+          </p>
           <pre className="mt-2 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
             <code>{testCommand}</code>
           </pre>
+          <button
+            type="button"
+            onClick={() => copy(testCommand, "Test command")}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-1.5 font-semibold text-slate-900 hover:bg-slate-200"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            Copy test command
+          </button>
+          <p className="mt-3 leading-5 text-slate-300">
+            Optional — append this template and workspace to also verify they
+            belong to your key:
+          </p>
+          <pre className="mt-2 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3">
+            <code>{testCommandWithTemplate}</code>
+          </pre>
           <p className="mt-1 leading-5 text-slate-300">
-            On failure the response names the failing step in{" "}
-            <code>failedAt</code>, so you can see whether the API key,
-            workspace, sender, or template needs attention.
+            Every response returns a <code>checks</code> object marking{" "}
+            <code>ok</code>, <code>failed</code>, or <code>skipped</code> for{" "}
+            <code>apiKey</code>, <code>request</code>, <code>sender</code>,{" "}
+            <code>adminWorkspace</code>, and <code>template</code>; on failure{" "}
+            <code>failedAt</code> names the step to fix.
           </p>
         </div>
 

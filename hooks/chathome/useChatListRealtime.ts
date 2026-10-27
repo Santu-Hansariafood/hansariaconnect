@@ -3,6 +3,8 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { Socket } from "socket.io-client";
 
+import { invalidateApiCache } from "@/lib/api/clientCache";
+import { resolveChatId } from "@/lib/chatIdentity";
 import type { Contact } from "./useContacts";
 
 type RealtimeMessage = {
@@ -45,8 +47,7 @@ export const getMessagePreview = (message?: RealtimeMessage): string => {
   }
 };
 
-const peerKey = (contact: Contact) =>
-  String(contact.registeredUserId || contact.peerId || contact.id || "");
+const peerKey = (contact: Contact) => resolveChatId(contact);
 
 interface UseChatListRealtimeOptions {
   userId?: string | number;
@@ -139,7 +140,12 @@ export const useChatListRealtime = ({
         }),
       );
 
-      if (!foundPeer) void refreshContacts();
+      // A peer outside the local list means the cached conversation list is
+      // behind — refresh with fresh data instead of a possibly stale copy.
+      if (!foundPeer) {
+        invalidateApiCache("/api/conversations");
+        void refreshContacts();
+      }
     };
 
     const handleIncomingGroupMessage = (message: RealtimeMessage) => {
@@ -167,11 +173,16 @@ export const useChatListRealtime = ({
         }),
       );
 
-      if (!foundGroup) void refreshContacts();
+      if (!foundGroup) {
+        invalidateApiCache("/api/conversations");
+        void refreshContacts();
+      }
     };
 
     const handleUnreadUpdate = (payload: UnreadPayload) => {
       if (!payload || typeof payload !== "object") return;
+
+      invalidateApiCache("/api/unread-counts");
 
       const mergedUnread: Record<string, number> = {
         ...(payload.conversations || {}),

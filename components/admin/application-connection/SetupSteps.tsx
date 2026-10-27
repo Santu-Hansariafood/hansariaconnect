@@ -47,10 +47,13 @@ export default function SetupSteps({
         </button>
       </li>
       <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="font-semibold text-slate-900">3. Get the workspace ID</p>
+        <p className="font-semibold text-slate-900">
+          3. Optional: workspace ID
+        </p>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          The workspace ID is not a secret. Find it in your Admin Profile; use
-          the ID belonging to the template owner.
+          Not needed to send messages or to test the connection. Provide it only
+          when a super-admin key must target another workspace; it is not a
+          secret and is shown on the Admin Profile.
         </p>
         <button
           type="button"

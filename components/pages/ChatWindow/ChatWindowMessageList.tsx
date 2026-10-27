@@ -51,7 +51,89 @@ function toMsgKey(msg: ChatMessage): string {
   );
 }
 
-export default function ChatWindowMessageList({
+interface MessageRowProps {
+  msg: ChatMessage;
+  isIncoming: boolean;
+  bubbleContact: { id: string; name: string; avatar: string };
+  isGroup: boolean;
+  user: User;
+  theme: Theme;
+  allowedTemplateActions: TemplateActionType[];
+  onForwardMessage: (msg: ChatMessage) => void;
+  onReaction: (msg: ChatMessage, emoji: string) => Promise<boolean>;
+  onTemplateButton: (
+    message: ChatMessage,
+    button: TemplateActionButton,
+  ) => boolean | Promise<boolean>;
+}
+
+/*
+ * One memoised message. The bubble props (message object + handlers) are built
+ * here rather than inline in the list, so re-rendering the parent — for example
+ * on every keystroke in the composer — does not rebuild every bubble.
+ */
+const MessageRow = React.memo(function MessageRow({
+  msg,
+  isIncoming,
+  bubbleContact,
+  isGroup,
+  user,
+  theme,
+  allowedTemplateActions,
+  onForwardMessage,
+  onReaction,
+  onTemplateButton,
+}: MessageRowProps) {
+  const message = useMemo<React.ComponentProps<typeof MessageBubble>["message"]>(
+    () => ({
+      sender: isIncoming ? "contact" : "me",
+      type: msg.type || "text",
+      text: msg.text,
+      media: msg.mediaUrl,
+      url: msg.mediaUrl || undefined,
+      timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
+      status: msg.status || "sent",
+      duration: msg.duration,
+      fileName: msg.fileName,
+      fileSize: msg.fileSize,
+      linkTitle: msg.linkTitle,
+      linkDescription: msg.linkDescription,
+      reactions: msg.reactions,
+      buttons: msg.buttons?.filter((button) =>
+        allowedTemplateActions.includes(button.type),
+      ),
+    }),
+    [msg, isIncoming, allowedTemplateActions],
+  );
+
+  const handleForward = useCallback(
+    () => onForwardMessage(msg),
+    [onForwardMessage, msg],
+  );
+  const handleReaction = useCallback(
+    (emoji: string) => onReaction(msg, emoji),
+    [onReaction, msg],
+  );
+  const handleTemplateButton = useCallback(
+    (button: TemplateActionButton) => onTemplateButton(msg, button),
+    [onTemplateButton, msg],
+  );
+
+  return (
+    <MessageBubble
+      message={message}
+      user={user}
+      contact={bubbleContact}
+      theme={theme}
+      isGroup={isGroup}
+      onForward={handleForward}
+      onReaction={handleReaction}
+      onTemplateButton={handleTemplateButton}
+    />
+  );
+});
+
+function ChatWindowMessageList({
   messages,
   allowedTemplateActions,
   templateActionPreferencesError,
@@ -182,33 +264,17 @@ export default function ChatWindowMessageList({
               </div>
             )}
 
-            <MessageBubble
-              message={{
-                sender: isIncoming ? "contact" : "me",
-                type: msg.type || "text",
-                text: msg.text,
-                media: msg.mediaUrl,
-                url: msg.mediaUrl || undefined,
-                timestamp:
-                  msg.timestamp || msg.createdAt || new Date().toISOString(),
-                status: msg.status || "sent",
-                duration: msg.duration,
-                fileName: msg.fileName,
-                fileSize: msg.fileSize,
-                linkTitle: msg.linkTitle,
-                linkDescription: msg.linkDescription,
-                reactions: msg.reactions,
-                buttons: msg.buttons?.filter((button) =>
-                  allowedTemplateActions.includes(button.type),
-                ),
-              }}
-              user={user}
-              contact={bubbleContact}
-              theme={theme}
+            <MessageRow
+              msg={msg}
+              isIncoming={isIncoming}
+              bubbleContact={bubbleContact}
               isGroup={isGroup}
-              onForward={() => onForwardMessage(msg)}
-              onReaction={(emoji) => onReaction(msg, emoji)}
-              onTemplateButton={(button) => onTemplateButton(msg, button)}
+              user={user}
+              theme={theme}
+              allowedTemplateActions={allowedTemplateActions}
+              onForwardMessage={onForwardMessage}
+              onReaction={onReaction}
+              onTemplateButton={onTemplateButton}
             />
           </React.Fragment>
         );
@@ -222,3 +288,10 @@ export default function ChatWindowMessageList({
     </div>
   );
 }
+
+/*
+ * Memoised so composer keystrokes — that state lives in ChatWindow — no longer
+ * walk the whole thread. Every prop passed here is referentially stable while
+ * typing, so the list (and each MessageRow inside it) bails out early.
+ */
+export default React.memo(ChatWindowMessageList);

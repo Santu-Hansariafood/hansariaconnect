@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Theme } from "@/components/pages/ChatWindow/ChatWindowTypes";
+import { invalidateApiCache } from "@/lib/api/clientCache";
 
 export const useThemeSettings = (
   initialTheme: Theme | null,
@@ -20,6 +21,8 @@ export const useThemeSettings = (
         body: JSON.stringify({ theme: updatedTheme }),
       });
       if (!response.ok) throw new Error("Unable to save theme");
+      // Settings changed on the server — drop the cached copy so it reloads.
+      invalidateApiCache("/api/settings");
     } catch {
       console.log("Theme save failed");
     }

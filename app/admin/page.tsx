@@ -2,28 +2,51 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { readSheet } from "read-excel-file/browser";
-import writeXlsxFile from "write-excel-file/browser";
-import AdminApplicationConnectionGuide from "@/components/admin/AdminApplicationConnectionGuide";
-import AdminMessageHistoryPanel from "@/components/admin/AdminMessageHistoryPanel";
-import BulkAccountsModal, {
-  type BulkUserInput,
-} from "@/components/admin/BulkAccountsModal";
-import AdminAccessPanel, {
-  type AdminAccount,
-} from "@/components/admin/AdminAccessPanel";
-import AdminUsersPanel, {
-  type AdminDirectoryUser,
-  type AdminUserPagination,
-  type AdminUserPermissions,
+import dynamic from "next/dynamic";
+import type { BulkUserInput } from "@/components/admin/BulkAccountsModal";
+import type { AdminAccount } from "@/components/admin/AdminAccessPanel";
+import type {
+  AdminDirectoryUser,
+  AdminUserPagination,
+  AdminUserPermissions,
 } from "@/components/admin/AdminUsersPanel";
-import {
-  AccountRegistrationPanel,
-  AdminProfilePanel,
-  AdminTemplatesPanel,
-} from "@/components/admin/AdminWorkspacePanels";
 import { ACCOUNT_TEMPLATE_HEADERS } from "@/components/admin/adminConstants";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
+
+/*
+ * Each dashboard tab is its own chunk now. Only the tab the admin opens is
+ * downloaded, so the initial dashboard payload no longer carries every panel.
+ */
+const AdminApplicationConnectionGuide = dynamic(
+  () => import("@/components/admin/AdminApplicationConnectionGuide"),
+);
+const AdminMessageHistoryPanel = dynamic(
+  () => import("@/components/admin/AdminMessageHistoryPanel"),
+);
+const BulkAccountsModal = dynamic(
+  () => import("@/components/admin/BulkAccountsModal"),
+);
+const AdminAccessPanel = dynamic(
+  () => import("@/components/admin/AdminAccessPanel"),
+);
+const AdminUsersPanel = dynamic(
+  () => import("@/components/admin/AdminUsersPanel"),
+);
+const AccountRegistrationPanel = dynamic(() =>
+  import("@/components/admin/AdminWorkspacePanels").then(
+    (module) => module.AccountRegistrationPanel,
+  ),
+);
+const AdminTemplatesPanel = dynamic(() =>
+  import("@/components/admin/AdminWorkspacePanels").then(
+    (module) => module.AdminTemplatesPanel,
+  ),
+);
+const AdminProfilePanel = dynamic(() =>
+  import("@/components/admin/AdminWorkspacePanels").then(
+    (module) => module.AdminProfilePanel,
+  ),
+);
 
 type Permission = AdminUserPermissions;
 type UserRow = AdminDirectoryUser;
@@ -585,6 +608,11 @@ export default function AdminDashboard() {
 
   const handleDownloadAccountTemplate = async () => {
     try {
+      // Loaded on demand: the Excel writer is only needed when an admin
+      // actually downloads the template, so it stays out of the dashboard bundle.
+      const { default: writeXlsxFile } = await import(
+        "write-excel-file/browser"
+      );
       const blob = await writeXlsxFile([[...ACCOUNT_TEMPLATE_HEADERS]], {
         sheet: "Accounts",
         columns: [{ width: 28 }, { width: 36 }, { width: 18 }],
@@ -614,6 +642,8 @@ export default function AdminDashboard() {
     if (!file) return;
 
     try {
+      // Loaded on demand: the Excel reader is only needed once a file is picked.
+      const { readSheet } = await import("read-excel-file/browser");
       const rows = await readSheet(file, "Accounts");
       const header = rows[0]
         ?.slice(0, ACCOUNT_TEMPLATE_HEADERS.length)

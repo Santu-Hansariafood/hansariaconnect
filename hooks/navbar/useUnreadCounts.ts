@@ -2,6 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSocket } from "@/hooks/useSocket";
+import {
+  ApiCacheTTL,
+  cachedFetch,
+  invalidateApiCache,
+} from "@/lib/api/clientCache";
+
+/** Socket push is the primary source; this is only a keep-alive safety net. */
+const SAFETY_POLL_MS = 180_000;
+const UNREAD_ENDPOINT = "/api/unread-counts";
 
 type UnreadResponse = {
   total?: number;
@@ -49,9 +58,10 @@ export function useUnreadCounts() {
   useEffect(() => {
     const loadUnread = async () => {
       try {
-        const res = await fetch("/api/unread-counts", {
+        const res = await cachedFetch(UNREAD_ENDPOINT, {
           cache: "no-store",
           credentials: "include",
+          ttlMs: ApiCacheTTL.realtime,
         });
 
         const data: UnreadResponse = await res.json();
@@ -65,15 +75,24 @@ export function useUnreadCounts() {
     };
 
     loadUnread();
-    const interval = setInterval(loadUnread, 60000);
+    const interval = setInterval(loadUnread, SAFETY_POLL_MS);
 
     const onUnreadUpdate = (payload: UnreadResponse) => {
       if (!payload || typeof payload !== "object") return;
+      // The socket holds the authoritative counts; drop the cached copy so a
+      // later poll cannot revert the badge to a pre-event value.
+      invalidateApiCache(UNREAD_ENDPOINT);
       parseResponse(payload);
     };
 
-    const onConversationRead = () => loadUnread();
-    const onGroupRead = () => loadUnread();
+    const onConversationRead = () => {
+      invalidateApiCache(UNREAD_ENDPOINT);
+      void loadUnread();
+    };
+    const onGroupRead = () => {
+      invalidateApiCache(UNREAD_ENDPOINT);
+      void loadUnread();
+    };
 
     addListener("unread:update", onUnreadUpdate);
     addListener("conversation:read", onConversationRead);

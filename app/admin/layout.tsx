@@ -1,18 +1,11 @@
 import type { Metadata } from "next"
 import "../globals.css"
-import { Roboto, Poppins } from "next/font/google"
+import { Roboto } from "next/font/google"
 
 const roboto = Roboto({
   subsets: ["latin"],
   weight: ["300", "400", "500", "700", "900"],
   variable: "--font-roboto",
-  display: "swap",
-})
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
   display: "swap",
 })
 
@@ -34,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`${roboto.variable} ${poppins.variable} font-sans`}>
+    <div className={`${roboto.variable} font-sans`}>
       {children}
     </div>
   )

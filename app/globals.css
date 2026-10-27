@@ -28,8 +28,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-brand: var(--brand-primary);
-  --font-sans: var(--font-roboto), var(--font-poppins), ui-sans-serif, system-ui,
-    sans-serif;
+  --font-sans: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -61,7 +60,7 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-roboto), var(--font-poppins), system-ui,
+  font-family: var(--font-roboto), system-ui,
     -apple-system, "Segoe UI", Arial, Helvetica, sans-serif;
   min-height: 100%;
   overflow-x: hidden;

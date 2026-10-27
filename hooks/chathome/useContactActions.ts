@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Contact } from "./useContacts";
+import { resolveChatId } from "@/lib/chatIdentity";
 
 interface UseContactActionsProps {
   contacts: Contact[];
@@ -17,7 +18,7 @@ export const useContactActions = ({
   const [showContactModal, setShowContactModal] = useState(false);
 
   const handleContactClick = useCallback(async (contact: Contact) => {
-    const peerId = contact.peerId || contact.registeredUserId || contact.id;
+    const peerId = resolveChatId(contact);
     if (peerId) {
       router.push(`/chat/${peerId}`);
       return;

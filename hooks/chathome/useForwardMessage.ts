@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { Contact } from "./useContacts";
+import { resolveChatId } from "@/lib/chatIdentity";
 
 type ForwardableContact = {
   id: string;
@@ -41,13 +42,13 @@ export const useForwardMessage = ({ contacts }: UseForwardMessageProps) => {
 
       const byId: Record<string, Contact> = {};
       for (const c of contacts) {
-        byId[c.peerId || c.registeredUserId || c.id || ""] = c;
+        byId[resolveChatId(c)] = c;
       }
 
       const sendAll = async () => {
         for (const cid of selectedContactIds) {
           const c = contacts.find((x) => x.id === cid) || byId[cid];
-          const peer = c?.peerId || c?.registeredUserId || c?.id;
+          const peer = resolveChatId(c);
           if (!peer) continue;
 
           try {

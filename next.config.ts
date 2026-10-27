@@ -67,11 +67,26 @@ const nextConfig = {
       },
     ],
     formats: ["image/avif", "image/webp"],
-    minimumCacheTTL: 60,
+    // Hold optimized images at the edge for an hour instead of re-fetching every
+    // minute, so a busy deploy serves avatars/media without hammering the origin.
+    minimumCacheTTL: 3600,
     unoptimized: false,
   },
+  // Strip debug logging from production bundles; keep errors/warnings so real
+  // failures are still visible in the field.
+  compiler: {
+    removeConsole: { exclude: ["error", "warn"] },
+  },
   experimental: {
-    optimizePackageImports: ["framer-motion", "lucide-react"],
+    // Rewrites barrel imports to per-module paths so only the icons/helpers that
+    // are used ship in the bundle.
+    optimizePackageImports: [
+      "framer-motion",
+      "lucide-react",
+      "react-icons",
+      "date-fns",
+      "emoji-picker-react",
+    ],
   },
 }
 

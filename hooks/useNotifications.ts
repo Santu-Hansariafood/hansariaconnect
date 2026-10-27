@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ensurePushSubscription } from "@/lib/pushClient";
+import {
+  ApiCacheTTL,
+  cachedFetch,
+  invalidateApiCache,
+} from "@/lib/api/clientCache";
 
 export interface NotificationPreferences {
   messages: boolean;
@@ -84,9 +89,10 @@ const loadNotificationPreferences = async (
   } = {};
   const request = (async () => {
     try {
-      const res = await fetch("/api/settings", {
+      const res = await cachedFetch("/api/settings", {
         credentials: "include",
         cache: "no-store",
+        ttlMs: ApiCacheTTL.long,
       });
       const data = await res.json();
       if (
@@ -297,6 +303,10 @@ export function useNotifications(userId?: string | number) {
             "[Notifications] Failed to persist settings:",
             response.status,
           );
+        } else {
+          // Server copy changed — drop the shared cached GET so every consumer
+          // (AppContext bootstrap, Settings, ChatWindow) reads the fresh values.
+          invalidateApiCache("/api/settings");
         }
       } catch (error) {
         console.error("[Notifications] Failed to persist settings:", error);

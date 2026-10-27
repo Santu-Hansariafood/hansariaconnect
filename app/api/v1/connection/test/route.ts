@@ -51,95 +51,123 @@ export async function GET(req: NextRequest) {
   }
   checks.apiKey = "ok";
 
+  /*
+   * Everything past the API key is optional, so the simplest possible
+   * connection check is a single request that carries only the key:
+   *
+   *   curl -H "Authorization: Bearer $HANSARIA_API_KEY" <test url>
+   *
+   * Add `templateId` (and `adminId` for a super admin) or `senderUserId` to
+   * validate those as well; anything not supplied is reported as `skipped`
+   * instead of failing, so a valid key alone returns `success: true`.
+   */
   const templateId = req.nextUrl.searchParams.get("templateId")?.trim() || "";
   const adminId = req.nextUrl.searchParams.get("adminId")?.trim() || "";
   const requestedSenderUserId =
     req.nextUrl.searchParams.get("senderUserId")?.trim() || "";
   if (
-    !Types.ObjectId.isValid(templateId) ||
-    !Types.ObjectId.isValid(adminId)
+    (templateId && !Types.ObjectId.isValid(templateId)) ||
+    (adminId && !Types.ObjectId.isValid(adminId))
   ) {
     return failure(
       "request",
       400,
-      "Provide a valid adminId and templateId",
+      "adminId and templateId must be valid IDs when provided",
     );
   }
   checks.request = "ok";
 
+  await connectDB();
+
   const senderId = String(
     authResult.apiKey.senderUserId || requestedSenderUserId,
   );
-  if (!Types.ObjectId.isValid(senderId)) {
-    return failure(
-      "sender",
-      400,
-      "Provide a valid sender chat-account ID or bind one to this API key in Admin > API Keys.",
-    );
-  }
-  if (
-    authResult.apiKey.senderUserId &&
-    requestedSenderUserId &&
-    String(authResult.apiKey.senderUserId) !== requestedSenderUserId
-  ) {
-    return failure(
-      "sender",
-      403,
-      "senderUserId must match the sender bound to this API key",
-    );
+  if (senderId) {
+    if (!Types.ObjectId.isValid(senderId)) {
+      return failure(
+        "sender",
+        400,
+        "senderUserId must be a chat-account ID, or bind a sender to this API key in Admin > API Keys.",
+      );
+    }
+    if (
+      authResult.apiKey.senderUserId &&
+      requestedSenderUserId &&
+      String(authResult.apiKey.senderUserId) !== requestedSenderUserId
+    ) {
+      return failure(
+        "sender",
+        403,
+        "senderUserId must match the sender bound to this API key",
+      );
+    }
+
+    const sender = await User.exists({ _id: senderId });
+    if (!sender) {
+      return failure(
+        "sender",
+        404,
+        "The sender account bound to this API key no longer exists. Update the sender in Admin > API Keys.",
+      );
+    }
+    checks.sender = "ok";
   }
 
-  await connectDB();
-  const sender = await User.exists({ _id: senderId });
-  if (!sender) {
-    return failure(
-      "sender",
-      404,
-      "The sender account bound to this API key no longer exists. Update the sender in Admin > API Keys.",
-    );
-  }
-  checks.sender = "ok";
+  if (adminId || templateId) {
+    const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
+      .select("isSuperAdmin")
+      .lean();
 
-  const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
-    .select("isSuperAdmin")
-    .lean();
-  if (
-    !keyOwner?.isSuperAdmin &&
-    adminId !== String(authResult.apiKey.adminId)
-  ) {
-    return failure(
-      "adminWorkspace",
-      403,
-      "This API key cannot access that admin workspace",
-    );
-  }
-  if (
-    keyOwner?.isSuperAdmin &&
-    !(await Admin.exists({ _id: adminId }))
-  ) {
-    return failure("adminWorkspace", 404, "Admin workspace not found");
-  }
-  checks.adminWorkspace = "ok";
+    if (adminId) {
+      if (
+        !keyOwner?.isSuperAdmin &&
+        adminId !== String(authResult.apiKey.adminId)
+      ) {
+        return failure(
+          "adminWorkspace",
+          403,
+          "This API key cannot access that admin workspace",
+        );
+      }
+      if (keyOwner?.isSuperAdmin && !(await Admin.exists({ _id: adminId }))) {
+        return failure("adminWorkspace", 404, "Admin workspace not found");
+      }
+      checks.adminWorkspace = "ok";
+    }
 
-  const template = await AdminTemplate.findOne({
-    _id: templateId,
-    adminId,
-  })
-    .select("_id")
-    .lean();
-  if (!template) {
-    return failure(
-      "template",
-      404,
-      "Template not found for this API key. Use a template from the key owner’s workspace.",
-    );
+    if (templateId) {
+      // Without an explicit adminId the key's own workspace is the scope, which
+      // is what every non-super-admin key already uses.
+      const template = await AdminTemplate.findOne({
+        _id: templateId,
+        adminId: adminId || String(authResult.apiKey.adminId),
+      })
+        .select("_id")
+        .lean();
+      if (!template) {
+        return failure(
+          "template",
+          404,
+          "Template not found for this API key. Use a template from the key owner’s workspace.",
+        );
+      }
+      checks.template = "ok";
+    }
   }
-  checks.template = "ok";
+
+  const verified = Object.entries(checks)
+    .filter(([, state]) => state === "ok")
+    .map(([name]) => name);
+  const skipped = Object.entries(checks)
+    .filter(([, state]) => state === "skipped")
+    .map(([name]) => name);
 
   return NextResponse.json({
     success: true,
     message:
-      "Connection successful. The API key, admin workspace, sender, and template are ready.",
+      skipped.length === 0
+        ? "Connection successful. The API key, admin workspace, sender, and template are ready."
+        : `Connection successful. Verified: ${verified.join(", ")}. Skipped (not supplied): ${skipped.join(", ")}.`,
     checks,
     diagnostics,
   });

@@ -46,6 +46,7 @@ import {
   User,
 } from "@/components/pages/ChatWindow/ChatWindowTypes";
 import { detectHarmfulFileName } from "@/utils/text/formatting";
+import { ApiCacheTTL, cachedFetch } from "@/lib/api/clientCache";
 import { autoCorrectSpelling } from "@/utils/text/autoCorrect";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 import type { TemplateActionType } from "@/lib/templateActionButtons";
@@ -67,6 +68,18 @@ type OutboundMessagePayload = {
   linkTitle?: string;
   linkDescription?: string;
 };
+
+/*
+ * Pure id helpers. Kept at module scope so the message handlers below can stay
+ * referentially stable (they are memo dependencies of every message bubble).
+ */
+const extractId = (value?: string | { toString?: () => string }) => {
+  if (!value) return "";
+  return typeof value === "string" ? value : value.toString?.() || "";
+};
+
+const getMessageId = (msg?: ChatMessage) =>
+  extractId(msg?._id) || extractId(msg?.id);
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
   user,
@@ -134,7 +147,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     let mounted = true;
     const loadActionPreferences = async () => {
       try {
-        const response = await fetch("/api/settings", { cache: "no-store" });
+        const response = await cachedFetch("/api/settings", {
+          ttlMs: ApiCacheTTL.long,
+        });
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data?.error || "Could not load message button preferences");
@@ -217,14 +232,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     },
     [],
   );
-
-  const extractId = (value?: string | { toString?: () => string }) => {
-    if (!value) return "";
-    return typeof value === "string" ? value : value.toString?.() || "";
-  };
-
-  const getMessageId = (msg?: ChatMessage) =>
-    extractId(msg?._id) || extractId(msg?.id);
 
   const { socket, typingUserIds, sendTyping } = useChatSocket(
     chatId,
@@ -645,12 +652,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return `${window.location.origin}/chat/${String(chatId).slice(-4)}`;
   }, [chatId]);
 
-  const handleOpenSaveModal = () => {
+  const handleOpenSaveModal = useCallback(() => {
     setSaveError("");
     setSaveName(headerName);
     setShowSaveModal(true);
     setShowOptionsMenu(false);
-  };
+  }, [headerName]);
 
   const handleSaveContact = async () => {
     const trimmedName = saveName.trim();
@@ -691,12 +698,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
-  const handleOpenEditModal = () => {
+  const handleOpenEditModal = useCallback(() => {
     setEditError("");
     setEditName(headerName);
     setShowEditModal(true);
     setShowOptionsMenu(false);
-  };
+  }, [headerName]);
 
   const handleEditContact = async () => {
     if (!isSavedContact) return;
@@ -914,64 +921,80 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     return sendViaRest(payload, optimisticMessage);
   };
 
-  const handleTemplateButton = async (
-    sourceMessage: ChatMessage,
-    button: TemplateActionButton,
-  ): Promise<boolean> => {
-    if (
-      isGroup ||
-      !chatId ||
-      String(sourceMessage.from || "") === String(user.id) ||
-      String(sourceMessage.to || "") !== String(user.id)
-    ) {
-      return false;
-    }
+  const handleSendRef = useRef<(messageOverride?: string) => Promise<boolean>>(
+    async () => false,
+  );
+  useEffect(() => {
+    handleSendRef.current = handleSend;
+  }, [handleSend]);
 
-    if (button.type === "reply") {
-      setMessage(button.replyText || "");
-      setFocusInputRequest((current) => current + 1);
-      return true;
-    }
-
-    if (button.type === "confirm") {
-      return handleSend(button.replyText);
-    }
-    return false;
-  };
-
-  const handleReaction = async (msg: ChatMessage, emoji: string) => {
-    const messageId = getMessageId(msg);
-    if (!messageId) return false;
-
-    try {
-      const endpoint = isGroup
-        ? `/api/groups/${chatId}/messages`
-        : `/api/messages/${chatId}`;
-      const res = await fetch(endpoint, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ messageId, emoji }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data?.reactions) {
-        console.warn("[ChatWindow] Reaction save failed:", data?.error || `HTTP ${res.status}`);
+  const handleTemplateButton = useCallback(
+    async (
+      sourceMessage: ChatMessage,
+      button: TemplateActionButton,
+    ): Promise<boolean> => {
+      if (
+        isGroup ||
+        !chatId ||
+        String(sourceMessage.from || "") === String(user.id) ||
+        String(sourceMessage.to || "") !== String(user.id)
+      ) {
         return false;
       }
 
-      setChatMessages((prev) =>
-        prev.map((item) =>
-          getMessageId(item) === messageId
-            ? { ...item, reactions: data.reactions }
-            : item,
-        ),
-      );
-      return true;
-    } catch (err: any) {
-      console.error("[ChatWindow] Reaction update error:", err?.message || err);
+      if (button.type === "reply") {
+        setMessage(button.replyText || "");
+        setFocusInputRequest((current) => current + 1);
+        return true;
+      }
+
+      if (button.type === "confirm") {
+        return handleSendRef.current(button.replyText);
+      }
       return false;
-    }
-  };
+    },
+    [chatId, isGroup, user.id],
+  );
+
+  const handleReaction = useCallback(
+    async (msg: ChatMessage, emoji: string) => {
+      const messageId = getMessageId(msg);
+      if (!messageId) return false;
+
+      try {
+        const endpoint = isGroup
+          ? `/api/groups/${chatId}/messages`
+          : `/api/messages/${chatId}`;
+        const res = await fetch(endpoint, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ messageId, emoji }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data?.reactions) {
+          console.warn(
+            "[ChatWindow] Reaction save failed:",
+            data?.error || `HTTP ${res.status}`,
+          );
+          return false;
+        }
+
+        setChatMessages((prev) =>
+          prev.map((item) =>
+            getMessageId(item) === messageId
+              ? { ...item, reactions: data.reactions }
+              : item,
+          ),
+        );
+        return true;
+      } catch (err: any) {
+        console.error("[ChatWindow] Reaction update error:", err?.message || err);
+        return false;
+      }
+    },
+    [chatId, isGroup],
+  );
 
   const isMediaType = (
     type: ChatMessage["type"],
@@ -1156,7 +1179,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setShowOptionsMenu(false);
   };
 
-  const handleSearch = (query: string) => {
+  const handleSearch = useCallback((query: string) => {
     setSearchQuery(query);
     if (!query.trim()) {
       setSearchResults([]);
@@ -1169,16 +1192,37 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         msg.text?.toLowerCase().includes(normalized),
       ),
     );
-  };
+  }, [chatMessages]);
 
-  const handleBlockToggle = () => {
+  const handleBlockToggle = useCallback(() => {
     setShowOptionsMenu(false);
-  };
+  }, []);
 
-  const handleForwardMessage = (msg: ChatMessage) => {
+  /*
+   * Stable wrappers for the header props. `ChatWindowHeader` is memoised, so
+   * these must not be re-created while the user types in the composer.
+   */
+  const handleHeaderBack = useCallback(() => {
+    if (onBack) onBack();
+    else router.push("/");
+  }, [onBack, router]);
+
+  const handleOpenGroupSettings = useCallback(() => {
+    router.push(`/group-settings/${chatId}`);
+  }, [router, chatId]);
+
+  const handleHeaderClearClick = useCallback(() => {
+    setShowClearConfirm(true);
+  }, []);
+
+  const handleHeaderSearchClick = useCallback(() => {
+    setShowSearch(true);
+  }, []);
+
+  const handleForwardMessage = useCallback((msg: ChatMessage) => {
     setMessageToForward(msg);
     setShowForwardModal(true);
-  };
+  }, []);
 
   const handleForwardSubmit = async (selectedIds: string[], text: string) => {
     if (!messageToForward) {
@@ -1316,7 +1360,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         )}
         <ChatWindowHeader
           theme={theme}
-          onBack={onBack || (() => router.push("/"))}
+          onBack={handleHeaderBack}
           headerName={headerName}
           isCompanyVerified={Boolean(
             contact?.registeredProfile?.isCompanyVerified,
@@ -1326,7 +1370,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           isContactOnline={isContactOnline}
           isGroup={isGroup}
           typingUsers={typingUsers}
-          onOpenGroup={() => router.push(`/group-settings/${chatId}`)}
+          onOpenGroup={handleOpenGroupSettings}
           showUnreadBanner={showUnreadBanner}
           unreadOnOpen={unreadOnOpen}
           showOptionsMenu={showOptionsMenu}
@@ -1334,8 +1378,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           isSavedContact={isSavedContact}
           onSaveContact={handleOpenSaveModal}
           onEditContact={handleOpenEditModal}
-          onClearClick={() => setShowClearConfirm(true)}
-          onSearch={() => setShowSearch(true)}
+          onClearClick={handleHeaderClearClick}
+          onSearch={handleHeaderSearchClick}
           onBlockToggle={handleBlockToggle}
           maskedUrl={maskedUrl}
           lastSeenStatus={lastSeenStatus}

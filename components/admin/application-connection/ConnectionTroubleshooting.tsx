@@ -24,12 +24,16 @@ export default function ConnectionTroubleshooting() {
         </h3>
         <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-sky-900">
           <li>
-            Call <code>GET /api/v1/connection/test</code> and check{" "}
-            <code>failedAt</code>. Every response also returns a{" "}
-            <code>checks</code> object showing{" "}
+            Call <code>GET /api/v1/connection/test</code> with only your{" "}
+            <code>Authorization: Bearer</code> header — nothing else is
+            required. Check <code>failedAt</code> on failure. Every response
+            also returns a <code>checks</code> object showing{" "}
             <code>ok</code>, <code>failed</code>, or <code>skipped</code> for{" "}
             <code>apiKey</code>, <code>request</code>, <code>sender</code>,{" "}
-            <code>adminWorkspace</code>, and <code>template</code>.
+            <code>adminWorkspace</code>, and <code>template</code>. Parameters
+            you do not send are reported as <code>skipped</code>, not failed,
+            so a valid key alone returns <code>success: true</code>. Add{" "}
+            <code>?templateId=...&amp;adminId=...</code> to validate those too.
           </li>
           <li>
             Browser and front-end JavaScript callers are supported:{" "}

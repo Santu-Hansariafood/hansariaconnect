@@ -1,8 +1,12 @@
 "use client"
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, ReactNode } from "react"
 import dynamic from "next/dynamic"
-import Loading from "@/components/common/Loading/Loading"
+import {
+  ApiCacheTTL,
+  cachedFetch,
+  invalidateApiCache,
+} from "@/lib/api/clientCache"
 
 /*
  * The notification stack (socket.io-client, push client, toast animation)
@@ -82,6 +86,23 @@ const readSavedTheme = (): Theme => {
   }
 }
 
+const readSavedUser = (): User | null => {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem("hansariaUser")
+    return raw ? (JSON.parse(raw) as User) : null
+  } catch {
+    return null
+  }
+}
+
+/*
+ * `useLayoutEffect` runs before the browser paints; on the server it is a no-op
+ * and would warn, so it degrades to `useEffect` there.
+ */
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect
+
 const validateServerSession = async (): Promise<boolean> => {
   try {
     const res = await fetch("/api/auth/me", {
@@ -114,10 +135,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const request = { userId, promise: Promise.resolve() }
     request.promise = (async () => {
       try {
+        // Shares the client request cache with the chat list / navbar / status
+        // hooks, so the boot burst becomes one request per endpoint.
         const responses = await Promise.all([
-          fetch("/api/conversations", { credentials: "include", cache: "no-store" }),
-          fetch("/api/status", { credentials: "include", cache: "no-store" }),
-          fetch("/api/unread-counts", { credentials: "include", cache: "no-store" }),
+          cachedFetch("/api/conversations", {
+            credentials: "include",
+            cache: "no-store",
+            ttlMs: ApiCacheTTL.short,
+          }),
+          cachedFetch("/api/status", {
+            credentials: "include",
+            cache: "no-store",
+            ttlMs: ApiCacheTTL.medium,
+          }),
+          cachedFetch("/api/unread-counts", {
+            credentials: "include",
+            cache: "no-store",
+            ttlMs: ApiCacheTTL.realtime,
+          }),
         ])
         const [convRes, statusRes, unreadRes] = responses
         const [convData, statusData, unreadData] = await Promise.all(
@@ -284,12 +319,23 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [])
 
+  /*
+   * Paint the cached session on the very first frame instead of holding the app
+   * behind the /api/auth/me round-trip. Runs before paint, so a returning user
+   * drops straight into the app while the check below confirms the session.
+   */
+  useIsomorphicLayoutEffect(() => {
+    const cached = readSavedUser()
+    if (!cached) return
+    setUser(cached)
+    setSessionChecked(true)
+  }, [])
+
   useEffect(() => {
     void (async () => {
       let savedUser: User | null = null
       try {
-        const rawUser = localStorage.getItem("hansariaUser")
-        if (rawUser) savedUser = JSON.parse(rawUser) as User
+        savedUser = readSavedUser()
       } catch (error) {
         console.error("[AppProvider] Could not restore saved app state:", error)
         localStorage.removeItem("hansariaUser")
@@ -300,15 +346,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         if (savedUser && valid) {
           setUser(savedUser)
         } else if (savedUser) {
+          // Session expired — drop the optimistic user so guarded screens redirect.
           localStorage.removeItem("hansariaUser")
+          setUser(null)
         }
         setSessionChecked(true)
 
         if (!savedUser || !valid) return
 
-        const settings = await fetch("/api/settings", {
+        const settings = await cachedFetch("/api/settings", {
           credentials: "include",
           cache: "no-store",
+          ttlMs: ApiCacheTTL.long,
         })
           .then((res) => (res.ok ? res.json() : null))
           .catch((error) => {
@@ -346,10 +395,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     void prefetchHomeData()
   }, [prefetchHomeData, sessionChecked, user])
 
-  const updateTheme = (newTheme: Theme) => {
+  const updateTheme = useCallback((newTheme: Theme) => {
     setTheme(newTheme)
     localStorage.setItem("hansariaTheme", JSON.stringify(newTheme))
-  }
+  }, [])
 
   const mergeMessagesById = useCallback((prev: any[], incoming: any[]): any[] => {
     const map = new Map<string, any>()
@@ -414,7 +463,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     messagesCache.current = next
   }, [])
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "include" })
     } catch {}
@@ -428,34 +477,54 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setBootstrapReady(false)
     localStorage.removeItem("hansariaUser")
     clearCachedMessages()
-  }
+    // Drop every cached GET response so the next account never reads stale data.
+    invalidateApiCache()
+  }, [clearCachedMessages])
+
+  /*
+   * A stable context value keeps every consumer (Navbar, chat list, chat window)
+   * from re-rendering whenever the provider re-renders for an unrelated reason.
+   */
+  const contextValue = useMemo<AppContextType>(
+    () => ({
+      user,
+      setUser,
+      theme,
+      updateTheme,
+      logout,
+      getCachedMessages,
+      setCachedMessages,
+      mergeCachedMessages,
+      clearCachedMessages,
+      bootstrapData,
+      bootstrapReady,
+      prefetchHomeData,
+    }),
+    [
+      user,
+      theme,
+      updateTheme,
+      logout,
+      getCachedMessages,
+      setCachedMessages,
+      mergeCachedMessages,
+      clearCachedMessages,
+      bootstrapData,
+      bootstrapReady,
+      prefetchHomeData,
+    ],
+  )
 
   return (
-    <AppContext.Provider
-      value={{
-        user,
-        setUser,
-        theme,
-        updateTheme,
-        logout,
-        getCachedMessages,
-        setCachedMessages,
-        mergeCachedMessages,
-        clearCachedMessages,
-        bootstrapData,
-        bootstrapReady,
-        prefetchHomeData,
-      }}
-    >
-      {sessionChecked ? (
-        <>
-          <NotificationManager userId={user?.id ? String(user.id) : null} />
-          <NotificationPermissionPrompt userId={user?.id ? String(user.id) : null} />
-          {children}
-        </>
-      ) : (
-        <Loading />
-      )}
+    <AppContext.Provider value={contextValue}>
+      {/*
+       * Children render unconditionally so public pages keep their server-rendered
+       * content and the first paint is the real page, not a splash. Screens that
+       * need a session (e.g. the chat workspace) guard themselves and redirect.
+       */}
+      <NotificationManager userId={user?.id ? String(user.id) : null} />
+      <NotificationPermissionPrompt userId={user?.id ? String(user.id) : null} />
+      {children}
     </AppContext.Provider>
   )
 }

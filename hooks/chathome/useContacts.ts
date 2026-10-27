@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useApp } from "@/context/AppContext/AppContext";
 import { useSocket } from "../useSocket";
+import {
+  ApiCacheTTL,
+  cachedFetch,
+  invalidateApiCache,
+} from "@/lib/api/clientCache";
+import { resolveChatId } from "@/lib/chatIdentity";
 
 export interface Contact {
   id: string;
@@ -93,16 +99,9 @@ export const useContacts = (userId?: string | number) => {
       );
 
       setContacts((previous) => {
-        const conversationKeys = new Set(
-          mapped.map(
-            (contact) => contact.registeredUserId || contact.peerId || contact.id,
-          ),
-        );
+        const conversationKeys = new Set(mapped.map((contact) => resolveChatId(contact)));
         const savedOnly = previous.filter(
-          (contact) =>
-            !conversationKeys.has(
-              contact.registeredUserId || contact.peerId || contact.id,
-            ),
+          (contact) => !conversationKeys.has(resolveChatId(contact)),
         );
         return [...mapped, ...savedOnly];
       });
@@ -146,10 +145,10 @@ export const useContacts = (userId?: string | number) => {
     setContacts((previous) => {
       const byKey = new Map<string, Contact>();
       previous.forEach((contact) => {
-        byKey.set(contact.registeredUserId || contact.peerId || contact.id, contact);
+        byKey.set(resolveChatId(contact), contact);
       });
       saved.forEach((contact) => {
-        const key = contact.registeredUserId || contact.id;
+        const key = resolveChatId(contact);
         const existing = byKey.get(key);
         byKey.set(key, existing ? { ...contact, ...existing } : contact);
       });
@@ -187,14 +186,16 @@ export const useContacts = (userId?: string | number) => {
     try {
       if (!hasLoadedConversations.current) setLoading(true);
       const [convRes, unreadRes] = await Promise.all([
-        fetch("/api/conversations", {
+        cachedFetch("/api/conversations", {
           method: "GET",
           credentials: "include",
           cache: "no-store",
+          ttlMs: ApiCacheTTL.short,
         }),
-        fetch("/api/unread-counts", {
+        cachedFetch("/api/unread-counts", {
           cache: "no-store",
           credentials: "include",
+          ttlMs: ApiCacheTTL.realtime,
         }),
       ]);
 
@@ -246,6 +247,9 @@ export const useContacts = (userId?: string | number) => {
         return;
       }
       console.log("[useContacts] Socket reconnected — refreshing conversation list");
+      // After a reconnect the socket may have missed messages while frozen, so
+      // drop the cached list before re-fetching instead of serving a stale copy.
+      invalidateApiCache("/api/conversations");
       void loadConversations();
     };
 
@@ -254,9 +258,7 @@ export const useContacts = (userId?: string | number) => {
       if (!peerId) return;
       setContacts((previous) =>
         previous.map((contact) => {
-          const cp = String(
-            contact.registeredUserId || contact.peerId || contact.id || "",
-          );
+          const cp = resolveChatId(contact);
           if (cp !== peerId) return contact;
           return {
             ...contact,
@@ -341,7 +343,7 @@ export const useContacts = (userId?: string | number) => {
   useEffect(() => {
     setContacts(prev => {
       const needsUpdate = prev.some(contact => {
-        const peerId = contact.registeredUserId || contact.peerId || contact.id;
+        const peerId = resolveChatId(contact);
         const newActive = onlineUserIds.includes(peerId);
         return newActive !== contact.active;
       });
@@ -349,7 +351,7 @@ export const useContacts = (userId?: string | number) => {
       if (!needsUpdate) return prev;
 
       return prev.map(contact => {
-        const peerId = contact.registeredUserId || contact.peerId || contact.id;
+        const peerId = resolveChatId(contact);
         const newActive = onlineUserIds.includes(peerId);
         if (newActive === contact.active) return contact;
         return { ...contact, active: newActive };

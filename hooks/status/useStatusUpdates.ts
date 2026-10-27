@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { useApp } from "@/context/AppContext/AppContext";
+import {
+  ApiCacheTTL,
+  cachedFetch,
+  invalidateApiCache,
+} from "@/lib/api/clientCache";
 
 export interface StatusUser {
   id?: string | number;
@@ -72,7 +77,10 @@ export const useStatusUpdates = (user: StatusUser) => {
     if (!hasLoadedStatuses.current) setLoadingStatuses(true);
 
     try {
-      const res = await fetch("/api/status", { credentials: "include" });
+      const res = await cachedFetch("/api/status", {
+        credentials: "include",
+        ttlMs: ApiCacheTTL.medium,
+      });
       const data = await res.json();
       if (res.ok && data?.statuses) {
         setContactStatuses(data.statuses);
@@ -177,7 +185,9 @@ export const useStatusUpdates = (user: StatusUser) => {
         views: 0,
       });
 
-      // Let the next refresh through immediately instead of waiting out the cooldown.
+      // Let the next refresh through immediately instead of waiting out the cooldown,
+      // and drop the cached feed so the new status is not filtered out.
+      invalidateApiCache("/api/status");
       statusRefresh.current.lastStartedAt = 0;
       await loadStatuses();
     } catch (error) {

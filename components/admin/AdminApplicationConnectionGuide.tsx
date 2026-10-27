@@ -31,8 +31,8 @@ export default function AdminApplicationConnectionGuide({
           <span>
             Connect your application with a saved template
             <span className="mt-1 block text-sm font-normal text-slate-500">
-              Use only the workspace ID, API key, and template ID as connection
-              credentials
+              One API key is all your other app needs — copy it once and send
+              with a single POST
             </span>
           </span>
           <span
@@ -59,10 +59,11 @@ export default function AdminApplicationConnectionGuide({
           onCreateTemplate={() => onNavigate("templates")}
         />
         <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-          Open the template&apos;s API integration example to copy the
-          workspace ID, API key, and saved template ID. The recipient
-          account is provided when each message is sent; admin login
-          credentials are not used by the integration.
+          Your other application only needs the API key and the send endpoint.
+          The template ID is optional per message, and the recipient account is
+          provided when each message is sent. Admin login credentials are never
+          used by the integration. Open a template&apos;s API integration
+          example to copy a ready-to-paste config block and test command.
         </p>
         <ConnectionTroubleshooting />
       </div>

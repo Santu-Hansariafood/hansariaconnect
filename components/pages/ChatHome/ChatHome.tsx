@@ -24,6 +24,7 @@ import { useContactActions } from "@/hooks/chathome/useContactActions";
 import Loading from "@/components/common/Loading/Loading";
 import { useSocket } from "@/hooks/useSocket";
 import { formatChatListTime } from "@/utils/time/chatTime";
+import { resolveChatId } from "@/lib/chatIdentity";
 import type { RowTone } from "@/components/ui/ContactCard/ContactCard";
 const ContactCard = dynamic(
   () => import("@/components/ui/ContactCard/ContactCard"),
@@ -257,9 +258,7 @@ export default function ChatHome({
   const clearUnread = useCallback((chatId: string) => {
     setContacts((previous) =>
       previous.map((contact) => {
-        const contactId = String(
-          contact.registeredUserId || contact.peerId || contact.id || "",
-        );
+        const contactId = resolveChatId(contact);
         if (contactId !== chatId || !contact.unread) return contact;
         return { ...contact, unread: 0 };
       }),
@@ -267,7 +266,7 @@ export default function ChatHome({
   }, [setContacts]);
 
   const handleContactCardClick = useCallback((contact: Contact) => {
-    const chatId = contact.peerId || contact.registeredUserId || contact.id;
+    const chatId = resolveChatId(contact);
     if (onSelectChatRef.current && contact.registeredUserId) {
       clearUnread(chatId);
       onSelectChatRef.current(chatId);
@@ -277,7 +276,7 @@ export default function ChatHome({
   }, [clearUnread]);
 
   const handleGroupClick = useCallback((contact: Contact) => {
-    const chatId = contact.peerId || contact.registeredUserId || contact.id;
+    const chatId = resolveChatId(contact);
     clearUnread(chatId);
     if (onSelectChatRef.current) onSelectChatRef.current(chatId);
     else router.push(`/chat/${chatId}`);
@@ -444,8 +443,7 @@ export default function ChatHome({
           </div>
           <div className="chat-list flex flex-col">
             {filteredContacts.map((contact) => {
-              const chatId =
-                contact.peerId || contact.registeredUserId || contact.id;
+              const chatId = resolveChatId(contact);
               const isActive = selectedChatId === chatId;
 
               if (contact.isGroup) {

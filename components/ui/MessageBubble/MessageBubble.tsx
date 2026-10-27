@@ -17,14 +17,29 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import React, { useEffect, useMemo, useState } from "react"
-import ReactionPicker from "@/components/ui/ReactionPicker/ReactionPicker"
+import dynamic from "next/dynamic"
 import LinkPreviewCard from "@/components/ui/LinkPreview/LinkPreviewCard"
-import MediaViewer, { type MediaViewerItem } from "@/components/ui/MediaViewer/MediaViewer"
-import VoicePlayer from "@/components/ui/VoicePlayer/VoicePlayer"
+import type { MediaViewerItem } from "@/components/ui/MediaViewer/MediaViewer"
 import { findPreviewableLink } from "@/hooks/useLinkPreview"
 import { detectHarmfulWords, formatRichText } from "@/utils/text/formatting"
 import Link from "next/link"
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
+
+/*
+ * Per-bubble interactions are split out of the chat chunk. A bubble only pays
+ * for the reaction picker, the voice player or the full-screen viewer when the
+ * user actually reaches for it, which keeps the first paint of a long thread
+ * light.
+ */
+const ReactionPicker = dynamic(
+  () => import("@/components/ui/ReactionPicker/ReactionPicker"),
+)
+const VoicePlayer = dynamic(
+  () => import("@/components/ui/VoicePlayer/VoicePlayer"),
+)
+const MediaViewer = dynamic(
+  () => import("@/components/ui/MediaViewer/MediaViewer"),
+)
 
 interface Message {
   id?: string
@@ -606,7 +621,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         </div>
       </div>
 
-      <MediaViewer item={viewerItem} onClose={() => setViewerItem(null)} />
+      {viewerItem && (
+        <MediaViewer item={viewerItem} onClose={() => setViewerItem(null)} />
+      )}
     </motion.div>
   )
 }

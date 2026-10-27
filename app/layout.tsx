@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Roboto, Poppins } from "next/font/google";
+import { Roboto } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext/AppContext";
 
@@ -7,13 +7,6 @@ const roboto = Roboto({
   subsets: ["latin"],
   weight: ["300", "400", "500", "700", "900"],
   variable: "--font-roboto",
-  display: "swap",
-});
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
   display: "swap",
 });
 
@@ -299,7 +292,7 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${roboto.variable} ${poppins.variable} bg-neutral-50 text-gray-900 antialiased`}
+        className={`${roboto.variable} bg-neutral-50 text-gray-900 antialiased`}
       >
         <AppProvider>{children}</AppProvider>
       </body>
