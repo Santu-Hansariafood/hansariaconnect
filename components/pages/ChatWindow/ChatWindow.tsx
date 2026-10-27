@@ -47,7 +47,6 @@ import {
 } from "@/components/pages/ChatWindow/ChatWindowTypes";
 import { detectHarmfulFileName } from "@/utils/text/formatting";
 import { ApiCacheTTL, cachedFetch } from "@/lib/api/clientCache";
-import { autoCorrectSpelling } from "@/utils/text/autoCorrect";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 import type { TemplateActionType } from "@/lib/templateActionButtons";
 
@@ -892,9 +891,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   const handleSend = async (messageOverride?: string): Promise<boolean> => {
-    const trimmed = (
-      await autoCorrectSpelling((messageOverride ?? message).trim())
-    ).trim();
+    const trimmed = (messageOverride ?? message).trim();
     if (!trimmed) return false;
 
     const tempId = generateTempId();

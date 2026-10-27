@@ -128,8 +128,8 @@ export default function ChatWindowFooter({
                 <textarea
                   ref={messageInputRef}
                   rows={1}
-                  spellCheck={true}
-                  autoCorrect="on"
+                  spellCheck={false}
+                  autoCorrect="off"
                   autoCapitalize="sentences"
                   aria-label="Message"
                   value={message}
