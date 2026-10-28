@@ -54,6 +54,18 @@ export async function createOtpChallenge(
   return { challengeId, otp };
 }
 
+export async function invalidateOtpChallenge(challengeId: string): Promise<void> {
+  if (!/^[a-f0-9]{32}$/i.test(challengeId)) {
+    throw new Error("Invalid OTP challenge ID");
+  }
+
+  await connectDB();
+  await OtpChallenge.updateOne(
+    { challengeId, consumedAt: { $exists: false } },
+    { $set: { consumedAt: new Date() } },
+  );
+}
+
 export async function consumeOtpChallenge(
   challengeId: string,
   target: string,

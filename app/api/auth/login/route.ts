@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
@@ -7,7 +7,10 @@ import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
-import { createOtpChallenge } from "@/lib/auth/otpChallenge";
+import {
+  createOtpChallenge,
+  invalidateOtpChallenge,
+} from "@/lib/auth/otpChallenge";
 import {
   consumeAuthRateLimits,
   getAuthRateLimitScopes,
@@ -68,6 +71,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const template = buildOtpEmailTemplate(user.name || "User", otp);
 
+    try {
+      await sendMail({
+        from: mailFrom(),
+        to: email,
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
+      });
+    } catch (emailError) {
+      console.error(
+        "[auth/login] OTP email could not be sent:",
+        emailError instanceof Error ? emailError.message : emailError,
+      );
+      try {
+        await invalidateOtpChallenge(challengeId);
+      } catch (cleanupError) {
+        console.error(
+          "[auth/login] Failed to invalidate undelivered OTP:",
+          cleanupError instanceof Error ? cleanupError.message : cleanupError,
+        );
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          error: "We couldn't send your login code right now. Please try again.",
+        },
+        { status: 503 },
+      );
+    }
+
     const response = NextResponse.json({
       success: true,
       message: "OTP sent successfully to your email",
@@ -83,25 +116,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }),
       authOtpCookieOptions,
     );
-
-    // The code is already signed into the cookie, so the reply no longer has to
-    // sit through the SMTP handshake. The mail is handed off right after.
-    after(async () => {
-      try {
-        await sendMail({
-          from: mailFrom(),
-          to: email,
-          subject: template.subject,
-          text: template.text,
-          html: template.html,
-        });
-      } catch (emailError) {
-        console.error(
-          "[auth/login] OTP email could not be sent:",
-          emailError instanceof Error ? emailError.message : emailError,
-        );
-      }
-    });
 
     return response;
   } catch (error: unknown) {
