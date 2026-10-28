@@ -1,17 +1,43 @@
 import type { Metadata } from "next";
 import CompanyPage from "@/components/common/CompanyPage/CompanyPage";
+import TeamPortfolio from "@/components/common/CompanyPage/TeamPortfolio";
 
 export const metadata: Metadata = {
-  title: "About HansariaConnect | Indian Chat Application",
+  title: "About HansariaConnect | Our Team and Mission",
   description:
-    "Learn how Hansaria Food Private Limited's IT team is building HansariaConnect, an Indian AI-powered chat application for private and local communication.",
+    "Meet HansariaConnect's mission and team portfolio: product design, messaging technology, platform reliability, and privacy-led support, built in India.",
+  alternates: { canonical: "https://hfconnect.in/about" },
 };
 
 export default function AboutPage() {
-  return <CompanyPage title="An Indian chat application built by the Hansaria Food IT team" description="HansariaConnect is an AI-powered, privacy-first messaging platform created in India by Hansaria Food Private Limited's IT team for direct conversations, groups, status updates, and secure media sharing." sections={[
-    { title: "Our purpose", body: "We are building dependable communication tools for Indian users, businesses, families, and local communities." },
-    { title: "What we build", body: "HansariaConnect brings messaging, contacts, groups, status, and account controls into one focused experience across web and Android." },
-    { title: "Our technology direction", body: "We are developing a practical AI-powered chat experience with privacy, responsible product design, and useful everyday workflows at its centre." },
-    { title: "Company contact", body: "HansariaConnect is created by Hansaria Food Private Limited. For business, partnership, or support enquiries, visit our Contact page or email support@hfconnect.in." },
-  ]} />;
+  return (
+    <CompanyPage
+      title="A communication platform built around people and communities"
+      description="HansariaConnect is an Indian messaging service created by Hansaria Food Private Limited. We bring direct conversations, groups, contacts, status updates, and media sharing together in one practical experience."
+      sections={[
+        {
+          title: "Our purpose",
+          body: "We are building useful, dependable communication tools for people, families, businesses, and local communities. Our product direction is guided by accessibility, clear product choices, and respect for the people who use the service.",
+        },
+        {
+          title: "What we build",
+          body: "HansariaConnect brings messaging, contacts, groups, status, and account controls into a focused experience across web and Android. We develop features iteratively and describe capabilities as they become available.",
+        },
+        {
+          title: "Responsible technology",
+          body: "We aim to use technology, including AI where applicable, to improve practical communication workflows. We do not describe the service as end-to-end encrypted; please review our Privacy Policy for how account information and communications are handled.",
+        },
+        {
+          title: "Company and contact",
+          body: "HansariaConnect is created by Hansaria Food Private Limited. For user support, business, or partnership enquiries, visit our Contact page.",
+          links: [
+            { label: "Contact our team", href: "/contact" },
+            { label: "Read our privacy policy", href: "/privacy" },
+          ],
+        },
+      ]}
+    >
+      <TeamPortfolio />
+    </CompanyPage>
+  );
 }

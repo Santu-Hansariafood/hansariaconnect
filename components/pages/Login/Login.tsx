@@ -19,6 +19,10 @@ import { fadeIn } from "@/utils/animations/animations";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import Loading from "@/components/common/Loading/Loading";
+import {
+  getAgeOnDateOfBirth,
+  MINIMUM_REGISTRATION_AGE,
+} from "@/lib/auth/ageEligibility";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
 import {
   isValidPersonName,
@@ -55,6 +59,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
   );
   const [sex, setSex] = useState<"male" | "female" | "other" | "">("");
   const [dob, setDob] = useState("");
+  const registrationAge = dob ? getAgeOnDateOfBirth(dob) : null;
   const [terms, setTerms] = useState(false);
   const [infoBanner, setInfoBanner] = useState(
     reason === "not-registered"
@@ -207,6 +212,18 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
     if (!normalizedName || !normalizedEmail || !registerMobile || !sex || !dob || !terms) {
       setError(
         "Please fill all required fields and accept terms and conditions",
+      );
+      return;
+    }
+
+    const age = getAgeOnDateOfBirth(dob);
+    if (age === null) {
+      setError("Enter a valid date of birth that is not in the future.");
+      return;
+    }
+    if (age < MINIMUM_REGISTRATION_AGE) {
+      setError(
+        `You must be at least ${MINIMUM_REGISTRATION_AGE} years old to create an account.`,
       );
       return;
     }
@@ -602,6 +619,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                       <input
                         type="date"
                         value={dob}
+                        required
                         onChange={(e) => {
                           setDob(e.target.value);
                           setError("");
@@ -609,6 +627,19 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      You must be at least {MINIMUM_REGISTRATION_AGE} years old
+                      to register.
+                    </p>
+                    {dob &&
+                      (registrationAge === null ||
+                        registrationAge < MINIMUM_REGISTRATION_AGE) && (
+                        <p role="alert" className="mt-2 text-sm text-red-600">
+                          {registrationAge === null
+                            ? "Enter a valid date of birth that is not in the future."
+                            : `You must be at least ${MINIMUM_REGISTRATION_AGE} years old to create an account.`}
+                        </p>
+                      )}
                   </div>
 
                   <div>
@@ -623,7 +654,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         className="w-5 h-5 text-emerald-600"
                       />
                       <span className="text-gray-700">
-                        I accept the{" "}
+                        I confirm I am at least {MINIMUM_REGISTRATION_AGE}{" "}
+                        years old and accept the{" "}
                         <button
                           type="button"
                           onClick={() => router.push("/terms")}
@@ -641,7 +673,14 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
-                    disabled={loading}
+                    disabled={
+                      loading ||
+                      Boolean(
+                        dob &&
+                          (registrationAge === null ||
+                            registrationAge < MINIMUM_REGISTRATION_AGE),
+                      )
+                    }
                     className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"
                   >
                     {loading ? "Registering..." : "Create Account"}

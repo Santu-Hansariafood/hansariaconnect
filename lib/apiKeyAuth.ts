@@ -1,8 +1,13 @@
 import { connectDB } from "./db/db";
 import ApiKey, { IApiKey } from "@/models/apiKey/ApiKey";
-import { digestHex, pbkdf2Hex } from "./crypto";
+import { pbkdf2 as pbkdf2Callback, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
+import { digestHex } from "./crypto";
 import { NextRequest } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+
+const pbkdf2 = promisify(pbkdf2Callback);
+const LAST_USED_WRITE_INTERVAL_MS = 60_000;
+const lastUsedWriteAt = new Map<string, number>();
 
 const matchesStoredHash = async (
   storedKey: string,
@@ -11,7 +16,9 @@ const matchesStoredHash = async (
   const [salt, storedHash] = storedKey.split(".");
   if (!salt || !storedHash) return false;
 
-  const hash = await pbkdf2Hex(rawKey, salt, 100000, 64, "SHA-512");
+  const hash = (
+    await pbkdf2(rawKey, salt, 100000, 64, "sha512")
+  ).toString("hex");
 
   return (
     hash.length === storedHash.length &&
@@ -21,6 +28,37 @@ const matchesStoredHash = async (
     )
   );
 };
+
+function recordApiKeyUse(apiKey: IApiKey): void {
+  const keyId = String(apiKey._id);
+  const now = Date.now();
+  const previousWrite = lastUsedWriteAt.get(keyId);
+  if (previousWrite && now - previousWrite < LAST_USED_WRITE_INTERVAL_MS) {
+    return;
+  }
+
+  lastUsedWriteAt.set(keyId, now);
+  if (lastUsedWriteAt.size > 1000) {
+    for (const [id, writtenAt] of lastUsedWriteAt) {
+      if (now - writtenAt >= LAST_USED_WRITE_INTERVAL_MS) {
+        lastUsedWriteAt.delete(id);
+      }
+    }
+  }
+
+  void ApiKey.updateOne(
+    { _id: apiKey._id },
+    { $set: { lastUsed: new Date(now) } },
+  ).catch((error: unknown) => {
+    if (lastUsedWriteAt.get(keyId) === now) {
+      lastUsedWriteAt.delete(keyId);
+    }
+    console.warn(
+      "[apiKeyAuth] Could not update API key last-used time:",
+      error instanceof Error ? error.message : String(error),
+    );
+  });
+}
 
 type ApiKeyAuthResult =
   | { error: string; status: number }
@@ -77,7 +115,7 @@ export async function validateApiKey(
     return { error: "API key does not have permission", status: 403 };
   }
 
-  void matchedKey.updateOne({ $set: { lastUsed: new Date() } });
+  recordApiKeyUse(matchedKey);
 
   return { apiKey: matchedKey };
 }

@@ -323,9 +323,10 @@ const copy = async (value: string, label: string) => {
             </p>
           )}
           <p className="mt-1 leading-5 text-slate-300">
-            This sends an in-app chat message, not carrier SMS. Browsers are
-            supported, but a key used in browser code is visible to your users,
-            so use a dedicated key for that app.
+            This sends an in-app chat message, not carrier SMS. Keep API keys
+            in server-side environment variables and call the API from your
+            backend. Browser requests expose the key to users; CORS only
+            controls which browser origins may read responses.
           </p>
         </div>
 

@@ -79,7 +79,7 @@ export default function HomePage() {
 
       <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-24" aria-labelledby="features-title">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#11745d]">One app for everyday connection</p>
-        <h2 id="features-title" className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">A secure chat experience shaped for how people communicate today.</h2>
+        <h2 id="features-title" className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">A thoughtful chat experience shaped for how people communicate today.</h2>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
           {features.map(({ icon: Icon, title, text }) => (
             <article key={title} className="border-t-2 border-[#11745d] bg-white p-6 shadow-sm">
@@ -103,6 +103,7 @@ export default function HomePage() {
         <span>© {new Date().getFullYear()} HansariaConnect</span>
         <Link href="/privacy" className="hover:text-[#073b32]">Privacy</Link>
         <Link href="/terms" className="hover:text-[#073b32]">Terms</Link>
+        <Link href="/account-deletion" className="hover:text-[#073b32]">Account deletion</Link>
         <Link href="/contact" className="hover:text-[#073b32]">Contact</Link>
       </footer>
     </main>

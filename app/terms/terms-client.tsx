@@ -53,7 +53,7 @@ export default function TermsClient() {
           <section>
             <h2 className="text-xl font-bold text-gray-800 mb-3">2. Eligibility</h2>
             <p>
-              You must be at least 13 years old to use this Service. By using the Service, you represent and warrant that
+              You must be at least 16 years old to use this Service, or meet any higher minimum age that applies where you live. By using the Service, you represent and warrant that
               you meet this age requirement.
             </p>
           </section>

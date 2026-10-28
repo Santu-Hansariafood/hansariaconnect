@@ -8,6 +8,10 @@ import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 import {
+  getAgeOnDateOfBirth,
+  MINIMUM_REGISTRATION_AGE,
+} from "@/lib/auth/ageEligibility";
+import {
   isValidPersonName,
   normalizeEmailInput,
   normalizeNameInput,
@@ -29,10 +33,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const mobile = String(body?.mobile || "").trim();
     const { sex, dateOfBirth, termsAccepted } = body;
 
-    if (!rawName || !email || !mobile || !sex || !dateOfBirth || !termsAccepted) {
+    if (
+      !rawName ||
+      !email ||
+      !mobile ||
+      !sex ||
+      typeof dateOfBirth !== "string" ||
+      termsAccepted !== true
+    ) {
       return NextResponse.json(
         { success: false, error: "All fields are required" },
         { status: 400 },
+      );
+    }
+
+    const age = getAgeOnDateOfBirth(dateOfBirth);
+    if (age === null) {
+      return NextResponse.json(
+        { success: false, error: "Please provide a valid date of birth" },
+        { status: 400 },
+      );
+    }
+    if (age < MINIMUM_REGISTRATION_AGE) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `You must be at least ${MINIMUM_REGISTRATION_AGE} years old to register`,
+        },
+        { status: 403 },
       );
     }
 
@@ -89,8 +117,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       email,
       mobile,
       sex,
-      dateOfBirth: new Date(dateOfBirth),
-      termsAccepted,
+      dateOfBirth: new Date(`${dateOfBirth}T00:00:00.000Z`),
+      termsAccepted: true,
     });
 
     const salt = await randomBytesHex(16);

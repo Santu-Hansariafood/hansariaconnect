@@ -114,24 +114,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    rateLimit = await consumeApiRateLimit(
-      String(authResult.apiKey._id),
-      parsedBody.data.recipients.length,
-      false,
-    );
-    if (!rateLimit.allowed) {
-      const response = NextResponse.json(
-        {
-          success: false,
-          error: "API rate limit exceeded",
-          retryAfter: rateLimit.retryAfter,
-        },
-        { status: 429 },
-      );
-      applyApiRateLimitHeaders(response.headers, rateLimit);
-      return response;
-    }
-
     const senderId = String(
       authResult.apiKey.senderUserId || parsedBody.data.fromUserId || "",
     );
@@ -340,6 +322,15 @@ export async function POST(req: NextRequest) {
       (recipient): recipient is NonNullable<typeof recipient> =>
         recipient !== null,
     );
+    const uniqueRecipientIds = new Set(
+      validRecipients.map((recipient) => String(recipient.toUserId)),
+    );
+    if (uniqueRecipientIds.size !== validRecipients.length) {
+      return NextResponse.json(
+        { success: false, error: "Each recipient may only appear once per batch" },
+        { status: 400 },
+      );
+    }
     const recipientLanguages = new Map(
       recipientProfiles.map((profile) => [
         String(profile._id),
@@ -453,6 +444,24 @@ export async function POST(req: NextRequest) {
         sent: 0,
         template: savedTemplateName,
       });
+      applyApiRateLimitHeaders(response.headers, rateLimit);
+      return response;
+    }
+
+    rateLimit = await consumeApiRateLimit(
+      String(authResult.apiKey._id),
+      preparedMessages.length,
+      false,
+    );
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: "API rate limit exceeded",
+          retryAfter: rateLimit.retryAfter,
+        },
+        { status: 429 },
+      );
       applyApiRateLimitHeaders(response.headers, rateLimit);
       return response;
     }

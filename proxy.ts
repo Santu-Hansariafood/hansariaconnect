@@ -93,10 +93,11 @@ export async function proxy(req: NextRequest) {
   const { pathname } = nextUrl;
 
   if (pathname.startsWith("/api/v1/")) {
-    if (req.method === "OPTIONS") return apiPreflightResponse();
+    const requestOrigin = req.headers.get("origin");
+    if (req.method === "OPTIONS") return apiPreflightResponse(requestOrigin);
 
     const response = NextResponse.next();
-    applyApiCors(response.headers);
+    applyApiCors(response.headers, requestOrigin);
     return response;
   }
 

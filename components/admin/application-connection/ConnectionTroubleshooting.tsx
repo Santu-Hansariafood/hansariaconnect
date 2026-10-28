@@ -45,16 +45,18 @@ export default function ConnectionTroubleshooting() {
             when you want to check those too.
           </li>
           <li>
-            Browser and front-end JavaScript callers are supported:{" "}
-            <code>/api/v1/*</code> answers CORS preflight requests and sends{" "}
-            <code>Access-Control-Allow-Origin</code> on every response. If you
-            still see a blocked request, confirm the URL is{" "}
-            <code>https://hfconnect.in/api/v1/...</code> and not an internal
-            hostname.
+            Keep the API key on your server. A key placed in browser JavaScript
+            can be copied and reused by anyone who visits your app; CORS does
+            not protect or authenticate the key. If a trusted browser app must
+            call the API directly, configure its exact origin in{" "}
+            <code>API_CORS_ALLOWED_ORIGINS</code> on the API server (comma
+            separated for multiple origins). Browser access is denied until at
+            least one origin is configured. Server-to-server calls are not
+            restricted by CORS.
           </li>
           <li>
             Rate-limit headers (<code>X-RateLimit-*</code>) are exposed to the
-            browser, so your other app can read its remaining quota and{" "}
+            browser, so an allowed browser origin can read its remaining quota and{" "}
             <code>Retry-After</code> on a <code>429</code>.
           </li>
         </ul>
@@ -74,7 +76,9 @@ export default function ConnectionTroubleshooting() {
         Bulk sends return HTTP <code>202</code> with a <code>jobId</code> and{" "}
         <code>statusUrl</code> as soon as the request is accepted. Poll the
         status URL with the same API key to track each recipient; the VPS bulk
-        worker processes the messages in the background.
+        worker processes up to 10 recipients concurrently and retries temporary
+        failures. A batch can include up to 1,000 unique recipients. These
+        endpoints deliver in-app chat messages, not carrier SMS.
       </p>
     </>
   );

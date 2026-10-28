@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Types } from "mongoose";
 import { validateApiKey } from "@/lib/apiKeyAuth";
-import { API_CORS_ORIGIN } from "@/lib/apiCors";
+import { getApiCorsOrigin } from "@/lib/apiCors";
 import { connectDB } from "@/lib/db/db";
 import Admin from "@/models/admin/Admin";
 import AdminTemplate from "@/models/admin/AdminTemplate";
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   const checks = createCheckReport();
   const diagnostics = {
     requestOrigin: req.headers.get("origin"),
-    allowedOrigin: API_CORS_ORIGIN,
+    allowedOrigin: getApiCorsOrigin(req.headers.get("origin")),
     checkedAt: new Date().toISOString(),
   };
   const failure = (

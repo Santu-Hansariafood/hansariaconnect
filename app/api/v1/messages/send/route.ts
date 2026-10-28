@@ -98,9 +98,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rateLimit = await consumeApiRateLimit(
+    let rateLimit = await consumeApiRateLimit(
       String(authResult.apiKey._id),
-      1,
+      0,
     );
     if (!rateLimit.allowed) {
       const response = NextResponse.json(
@@ -407,6 +407,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    rateLimit = await consumeApiRateLimit(
+      String(authResult.apiKey._id),
+      1,
+      false,
+    );
+    if (!rateLimit.allowed) {
+      const response = NextResponse.json(
+        {
+          success: false,
+          error: "API rate limit exceeded",
+          retryAfter: rateLimit.retryAfter,
+        },
+        { status: 429 },
+      );
+      applyApiRateLimitHeaders(response.headers, rateLimit);
+      return response;
+    }
+
     const renderedMediaUrl = attachment
       ? renderMessageTemplate(mediaUrl, input.variables).text
       : mediaUrl;
@@ -435,11 +453,27 @@ export async function POST(req: NextRequest) {
 
     const userA = senderId < recipientId ? senderObjectId : recipientObjectId;
     const userB = senderId < recipientId ? recipientObjectId : senderObjectId;
-    await Conversation.findOneAndUpdate(
-      { userA, userB },
-      { userA, userB, lastMessageAt: message.createdAt },
-      { upsert: true },
-    );
+    try {
+      await Conversation.findOneAndUpdate(
+        { userA, userB },
+        { userA, userB, lastMessageAt: message.createdAt },
+        { upsert: true },
+      );
+    } catch (error) {
+      if (
+        typeof error !== "object" ||
+        error === null ||
+        !("code" in error) ||
+        error.code !== 11000
+      ) {
+        throw error;
+      }
+
+      await Conversation.findOneAndUpdate(
+        { userA, userB },
+        { $max: { lastMessageAt: message.createdAt } },
+      );
+    }
 
     const payload = {
       id: String(message._id),

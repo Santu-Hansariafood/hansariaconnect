@@ -13,7 +13,8 @@ import {
 import { templateActionButtonsSchema } from "@/lib/templateActionButtons";
 
 const MAX_ATTEMPTS = 5;
-const JOB_LEASE_MS = 60_000;
+const JOB_LEASE_MS = 5 * 60_000;
+const RECIPIENTS_PER_BATCH = 10;
 const bulkPayloadSchema = z.array(
   z.object({
     toUserId: z.string(),
@@ -21,7 +22,7 @@ const bulkPayloadSchema = z.array(
     mediaUrl: z.string(),
     fileName: z.string(),
     fileSize: z.string(),
-    type: z.enum(["text", "image", "video", "voice", "pdf", "excel"]),
+    type: z.enum(["text", "image", "video", "voice", "pdf", "excel", "file"]),
     buttons: templateActionButtonsSchema,
   }),
 );
@@ -164,13 +165,16 @@ export async function processNextBulkMessageRecipient(): Promise<boolean> {
       recipient.nextAttemptAt = now;
     }
   }
-  const recipientIndex = job.recipients.findIndex(
-    (recipient) =>
+  const recipientIndices = job.recipients
+    .flatMap((recipient, index) =>
       recipient.status === "pending" &&
-      (!recipient.nextAttemptAt || recipient.nextAttemptAt <= now),
-  );
+      (!recipient.nextAttemptAt || recipient.nextAttemptAt <= now)
+        ? [index]
+        : [],
+    )
+    .slice(0, RECIPIENTS_PER_BATCH);
 
-  if (recipientIndex < 0) {
+  if (!recipientIndices.length) {
     const pending = job.recipients.filter(
       (recipient) => recipient.status === "pending",
     );
@@ -206,147 +210,173 @@ export async function processNextBulkMessageRecipient(): Promise<boolean> {
     return true;
   }
 
-  const recipient = job.recipients[recipientIndex];
-  const messageData = payload[recipientIndex];
   const senderId = job.senderId;
-  const toUserId = recipient.toUserId;
-  const recipientPath = `recipients.${recipientIndex}`;
-  await BulkMessageJob.updateOne(
-    { _id: job._id },
-    {
-      $set: {
-        [`${recipientPath}.status`]: "processing",
-        leaseUntil: new Date(Date.now() + JOB_LEASE_MS),
-      },
-      $inc: { [`${recipientPath}.attempts`]: 1 },
-    },
-  );
+  const claimUpdate: {
+    $set: Record<string, unknown>;
+    $inc: Record<string, number>;
+  } = {
+    $set: { leaseUntil: new Date(Date.now() + JOB_LEASE_MS) },
+    $inc: {},
+  };
+  for (const recipientIndex of recipientIndices) {
+    const recipientPath = `recipients.${recipientIndex}`;
+    claimUpdate.$set[`${recipientPath}.status`] = "processing";
+    claimUpdate.$set[`${recipientPath}.nextAttemptAt`] = null;
+    claimUpdate.$inc[`${recipientPath}.attempts`] = 1;
+    job.recipients[recipientIndex].status = "processing";
+    job.recipients[recipientIndex].attempts += 1;
+  }
+  await BulkMessageJob.updateOne({ _id: job._id }, claimUpdate);
 
-  try {
-    const encrypted = {
-      text: encryptDirectMessageContent(senderId, toUserId, messageData.text),
-      mediaUrl: encryptDirectMessageContent(
-        senderId,
-        toUserId,
-        messageData.mediaUrl,
-      ),
-      fileName: encryptDirectMessageContent(
-        senderId,
-        toUserId,
-        messageData.fileName,
-      ),
-      fileSize: encryptDirectMessageContent(
-        senderId,
-        toUserId,
-        messageData.fileSize,
-      ),
-    };
-    const message = await Message.findOneAndUpdate(
-      {
-        bulkJobId: job._id,
-        bulkRecipientIndex: recipientIndex,
-      },
-      {
-        $setOnInsert: {
-          from: new Types.ObjectId(senderId),
-          to: new Types.ObjectId(toUserId),
-          apiKeyId: job.apiKeyId,
-          apiTemplateName: job.templateName,
-          bulkJobId: job._id,
-          bulkRecipientIndex: recipientIndex,
-          type: messageData.type,
-          ...encrypted,
-          buttons: messageData.buttons,
-          status: "sent",
-        },
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-    if (!message) throw new Error("Could not persist the queued message");
-
-    const senderObjectId = new Types.ObjectId(senderId);
-    const recipientObjectId = new Types.ObjectId(toUserId);
-    const userA =
-      senderId < toUserId ? senderObjectId : recipientObjectId;
-    const userB =
-      senderId < toUserId ? recipientObjectId : senderObjectId;
-    await Conversation.findOneAndUpdate(
-      { userA, userB },
-      {
-        $setOnInsert: { userA, userB },
-        $max: { lastMessageAt: message.createdAt },
-      },
-      { upsert: true },
-    );
+  const processRecipient = async (recipientIndex: number) => {
+    const recipient = job.recipients[recipientIndex];
+    const messageData = payload[recipientIndex];
+    const toUserId = recipient.toUserId;
+    const recipientPath = `recipients.${recipientIndex}`;
 
     try {
-      await emitMessageFromWorker(senderId, toUserId, {
-        id: String(message._id),
-        from: senderId,
-        to: toUserId,
-        type: messageData.type,
-        text: decryptDirectMessageContent(senderId, toUserId, encrypted.text),
-        mediaUrl: decryptDirectMessageContent(
+      const encrypted = {
+        text: encryptDirectMessageContent(senderId, toUserId, messageData.text),
+        mediaUrl: encryptDirectMessageContent(
           senderId,
           toUserId,
-          encrypted.mediaUrl,
+          messageData.mediaUrl,
         ),
-        fileName: decryptDirectMessageContent(
+        fileName: encryptDirectMessageContent(
           senderId,
           toUserId,
-          encrypted.fileName,
+          messageData.fileName,
         ),
-        fileSize: decryptDirectMessageContent(
+        fileSize: encryptDirectMessageContent(
           senderId,
           toUserId,
-          encrypted.fileSize,
+          messageData.fileSize,
         ),
-        buttons: messageData.buttons,
-        timestamp: message.createdAt,
-        status: "sent",
-      });
+      };
+      const message = await Message.findOneAndUpdate(
+        {
+          bulkJobId: job._id,
+          bulkRecipientIndex: recipientIndex,
+        },
+        {
+          $setOnInsert: {
+            from: new Types.ObjectId(senderId),
+            to: new Types.ObjectId(toUserId),
+            apiKeyId: job.apiKeyId,
+            apiTemplateName: job.templateName,
+            bulkJobId: job._id,
+            bulkRecipientIndex: recipientIndex,
+            type: messageData.type,
+            ...encrypted,
+            buttons: messageData.buttons,
+            status: "sent",
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+      if (!message) throw new Error("Could not persist the queued message");
+
+      const senderObjectId = new Types.ObjectId(senderId);
+      const recipientObjectId = new Types.ObjectId(toUserId);
+      const userA =
+        senderId < toUserId ? senderObjectId : recipientObjectId;
+      const userB =
+        senderId < toUserId ? recipientObjectId : senderObjectId;
+      try {
+        await Conversation.findOneAndUpdate(
+          { userA, userB },
+          {
+            $setOnInsert: { userA, userB },
+            $max: { lastMessageAt: message.createdAt },
+          },
+          { upsert: true },
+        );
+      } catch (error) {
+        if (
+          typeof error !== "object" ||
+          error === null ||
+          !("code" in error) ||
+          error.code !== 11000
+        ) {
+          throw error;
+        }
+        await Conversation.findOneAndUpdate(
+          { userA, userB },
+          { $max: { lastMessageAt: message.createdAt } },
+        );
+      }
+
+      try {
+        await emitMessageFromWorker(senderId, toUserId, {
+          id: String(message._id),
+          from: senderId,
+          to: toUserId,
+          type: messageData.type,
+          text: decryptDirectMessageContent(senderId, toUserId, encrypted.text),
+          mediaUrl: decryptDirectMessageContent(
+            senderId,
+            toUserId,
+            encrypted.mediaUrl,
+          ),
+          fileName: decryptDirectMessageContent(
+            senderId,
+            toUserId,
+            encrypted.fileName,
+          ),
+          fileSize: decryptDirectMessageContent(
+            senderId,
+            toUserId,
+            encrypted.fileSize,
+          ),
+          buttons: messageData.buttons,
+          timestamp: message.createdAt,
+          status: "sent",
+        });
+      } catch (error: unknown) {
+        console.error(
+          `[bulk-message-worker] Realtime notification failed for message ${String(message._id)}:`,
+          errMsg(error),
+        );
+      }
+
+      await BulkMessageJob.updateOne(
+        { _id: job._id },
+        {
+          $set: {
+            [`${recipientPath}.status`]: "sent",
+            [`${recipientPath}.messageId`]: String(message._id),
+            [`${recipientPath}.error`]: "",
+            [`${recipientPath}.nextAttemptAt`]: null,
+          },
+        },
+      );
     } catch (error: unknown) {
+      const attempts = recipient.attempts;
       console.error(
-        `[bulk-message-worker] Realtime notification failed for message ${String(message._id)}:`,
+        `[bulk-message-worker] Failed job ${String(job._id)} recipient ${recipientIndex}:`,
         errMsg(error),
       );
+      const exhausted = attempts >= MAX_ATTEMPTS;
+      const retryAt = new Date(
+        Date.now() + Math.min(60_000, 1_000 * 2 ** (attempts - 1)),
+      );
+      await BulkMessageJob.updateOne(
+        { _id: job._id },
+        {
+          $set: {
+            [`${recipientPath}.status`]: exhausted ? "failed" : "pending",
+            [`${recipientPath}.error`]: exhausted
+              ? "Message could not be sent after several attempts."
+              : "Temporary processing error; retry scheduled.",
+            [`${recipientPath}.nextAttemptAt`]: exhausted ? null : retryAt,
+            leaseUntil: exhausted ? new Date() : retryAt,
+          },
+        },
+      );
     }
+  };
 
-    await BulkMessageJob.updateOne(
-      { _id: job._id },
-      {
-        $set: {
-          [`${recipientPath}.status`]: "sent",
-          [`${recipientPath}.messageId`]: String(message._id),
-          [`${recipientPath}.error`]: "",
-          [`${recipientPath}.nextAttemptAt`]: null,
-        },
-      },
-    );
-  } catch (error: unknown) {
-    const attempts = recipient.attempts + 1;
-    console.error(
-      `[bulk-message-worker] Failed job ${String(job._id)} recipient ${recipientIndex}:`,
-      errMsg(error),
-    );
-    const exhausted = attempts >= MAX_ATTEMPTS;
-    const retryAt = new Date(
-      Date.now() + Math.min(60_000, 1_000 * 2 ** (attempts - 1)),
-    );
-    await BulkMessageJob.updateOne(
-      { _id: job._id },
-      {
-        $set: {
-          [`${recipientPath}.status`]: exhausted ? "failed" : "pending",
-          [`${recipientPath}.error`]: exhausted
-            ? "Message could not be sent after several attempts."
-            : "Temporary processing error; retry scheduled.",
-          [`${recipientPath}.nextAttemptAt`]: exhausted ? null : retryAt,
-          leaseUntil: exhausted ? new Date() : retryAt,
-        },
-      },
-    );
-  }
+  await Promise.all(recipientIndices.map(processRecipient));
 
   const updatedJob: IBulkMessageJob | null = await BulkMessageJob.findById(job._id).select(
     "recipients",
