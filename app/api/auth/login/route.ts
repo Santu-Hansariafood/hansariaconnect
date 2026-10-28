@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { digestHex, randomBytesHex } from "@/lib/crypto";
 import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
@@ -8,9 +7,11 @@ import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
-
-const generateOtp = (): string =>
-  Math.floor(100000 + Math.random() * 900000).toString();
+import { createOtpChallenge } from "@/lib/auth/otpChallenge";
+import {
+  consumeAuthRateLimits,
+  getAuthRateLimitScopes,
+} from "@/lib/auth/authRateLimit";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -21,6 +22,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         { success: false, error: "Please enter a valid Indian mobile number" },
         { status: 400 },
+      );
+    }
+
+    const scopes = getAuthRateLimitScopes(req, mobile);
+    const rateLimit = await consumeAuthRateLimits("login-otp", [
+      { scope: scopes.target, limit: 3, windowSeconds: 15 * 60 },
+      { scope: scopes.ip, limit: 20, windowSeconds: 15 * 60 },
+    ]);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many login code requests. Try again later." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfter) } },
       );
     }
 
@@ -51,19 +64,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const email = user.email;
-    const otp = generateOtp();
+    const { challengeId, otp } = await createOtpChallenge(mobile, "login");
 
     const template = buildOtpEmailTemplate(user.name || "User", otp);
-
-    const salt = await randomBytesHex(16);
-    const hash = await digestHex("SHA-256", otp + salt);
-
-    const payload = {
-      mobile,
-      hash,
-      salt,
-      exp: Date.now() + 5 * 60 * 1000,
-    };
 
     const response = NextResponse.json({
       success: true,
@@ -74,7 +77,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     response.cookies.set(
       "otp_session",
-      await signOtpSession(payload),
+      await signOtpSession({
+        challengeId,
+        exp: Date.now() + 5 * 60 * 1000,
+      }),
       authOtpCookieOptions,
     );
 
@@ -104,7 +110,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       {
         success: false,
         error: "Failed to process login",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );

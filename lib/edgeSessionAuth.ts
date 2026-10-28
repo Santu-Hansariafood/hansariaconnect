@@ -148,7 +148,11 @@ export async function getAdminSession(
     return null;
   }
 
-  if (typeof session.exp !== "number" || Date.now() > session.exp) {
+  if (
+    typeof session.exp !== "number" ||
+    !Number.isFinite(session.exp) ||
+    Date.now() >= session.exp
+  ) {
     return null;
   }
 
@@ -174,15 +178,19 @@ export async function getUserSession(
     return null;
   }
 
-  if (typeof session.exp !== "number" || Date.now() > session.exp) {
+  if (
+    typeof session.exp !== "number" ||
+    !Number.isFinite(session.exp) ||
+    Date.now() >= session.exp
+  ) {
     return null;
   }
 
   if (
     typeof session.id === "string" &&
-    session.id.trim() &&
+    /^[a-f0-9]{24}$/i.test(session.id) &&
     typeof session.sessionId === "string" &&
-    session.sessionId.trim()
+    /^[a-f0-9]{32}$/i.test(session.sessionId)
   ) {
     return session;
   }

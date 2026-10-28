@@ -7,6 +7,7 @@ import {
   cachedFetch,
   invalidateApiCache,
 } from "@/lib/api/clientCache"
+import { isMobileApp, MOBILE_APP_SESSION_HEADER } from "@/lib/mobileApp"
 
 /*
  * The notification stack (socket.io-client, push client, toast animation)
@@ -110,6 +111,9 @@ const loadServerSession = async (): Promise<User | null> => {
     method: "GET",
     credentials: "include",
     cache: "no-store",
+    headers: isMobileApp()
+      ? { [MOBILE_APP_SESSION_HEADER]: "true" }
+      : undefined,
   })
   if (res.status === 401) return null
   if (!res.ok) {

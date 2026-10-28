@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
-import { digestHex, randomBytesHex } from "@/lib/crypto";
+import { randomBytesHex } from "@/lib/crypto";
 import {
   addUserSession,
   signUserSession,
@@ -10,6 +10,11 @@ import {
   getDeviceMetadata,
 } from "@/lib/sessionAuth";
 import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
+import { consumeOtpChallenge } from "@/lib/auth/otpChallenge";
+import {
+  consumeAuthRateLimits,
+  getAuthRateLimitScopes,
+} from "@/lib/auth/authRateLimit";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -31,6 +36,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const scopes = getAuthRateLimitScopes(req, mobile);
+    const rateLimit = await consumeAuthRateLimits("verify-otp", [
+      { scope: scopes.target, limit: 10, windowSeconds: 15 * 60 },
+      { scope: scopes.ip, limit: 30, windowSeconds: 15 * 60 },
+    ]);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many verification attempts. Try again later." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfter) } },
+      );
+    }
+
     const sessionCookie = req.cookies.get("otp_session")?.value;
     const payload = await verifyOtpSession(sessionCookie);
     if (!payload) {
@@ -42,22 +59,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return response;
     }
 
-    if (payload.mobile !== mobile) {
+    const validCode = await consumeOtpChallenge(
+      payload.challengeId,
+      mobile,
+      ["login", "registration"],
+      code,
+    );
+    if (!validCode) {
       return NextResponse.json(
-        { success: false, error: "Mobile number mismatch" },
-        { status: 403 },
-      );
-    }
-
-    const generatedHash = await digestHex("SHA-256", code + payload.salt);
-
-    if (generatedHash !== payload.hash) {
-      const response = NextResponse.json(
         { success: false, error: "Incorrect OTP" },
         { status: 401 },
       );
-      response.cookies.delete("otp_session");
-      return response;
     }
 
     await connectDB();
@@ -138,8 +150,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (error) {
     console.error("OTP Verify Error:", error);
     return NextResponse.json(
-      { success: false, error: "Invalid request" },
-      { status: 400 },
+      { success: false, error: "Authentication is temporarily unavailable" },
+      { status: 500 },
     );
   }
 }

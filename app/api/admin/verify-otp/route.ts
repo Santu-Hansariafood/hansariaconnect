@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { digestHex } from "@/lib/crypto";
 
 export const runtime = "nodejs";
 import { connectDB } from "@/lib/db/db";
@@ -9,6 +8,11 @@ import {
   signAdminSession,
   adminSessionCookieOptions,
 } from "@/lib/sessionAuth";
+import { consumeOtpChallenge } from "@/lib/auth/otpChallenge";
+import {
+  consumeAuthRateLimits,
+  getAuthRateLimitScopes,
+} from "@/lib/auth/authRateLimit";
 
 const ADMINS = new Set(["santude1997@gmail.com", "test@gmail.com"]);
 
@@ -31,6 +35,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         { status: 400 },
       );
     }
+    const scopes = getAuthRateLimitScopes(req, email);
+    const rateLimit = await consumeAuthRateLimits("admin-verify-otp", [
+      { scope: scopes.target, limit: 10, windowSeconds: 15 * 60 },
+      { scope: scopes.ip, limit: 30, windowSeconds: 15 * 60 },
+    ]);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many verification attempts. Try again later." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfter) } },
+      );
+    }
+
     const sessionCookie = req.cookies.get("admin_otp_session")?.value;
     const payload = await verifyAdminOtpSession(sessionCookie);
     if (!payload) {
@@ -41,20 +57,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       res.cookies.delete("admin_otp_session");
       return res;
     }
-    if (payload.email !== email) {
+    const validCode = await consumeOtpChallenge(
+      payload.challengeId,
+      email,
+      ["admin"],
+      code,
+    );
+    if (!validCode) {
       return NextResponse.json(
-        { success: false, error: "Email mismatch" },
-        { status: 403 },
-      );
-    }
-    const hash = await digestHex("SHA-256", code + payload.salt);
-    if (hash !== payload.hash) {
-      const res = NextResponse.json(
         { success: false, error: "Incorrect code" },
         { status: 401 },
       );
-      res.cookies.delete("admin_otp_session");
-      return res;
     }
 
     await connectDB();
@@ -79,9 +92,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       adminSessionCookieOptions,
     );
     return response;
-  } catch (e: any) {
+  } catch (error: unknown) {
+    console.error("[admin/verify-otp] Verification failed:", error);
     return NextResponse.json(
-      { success: false, error: e?.message || "Server error" },
+      { success: false, error: "Server error" },
       { status: 500 },
     );
   }

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { digestHex, randomBytesHex } from "@/lib/crypto";
 import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
@@ -16,13 +15,15 @@ import {
   normalizeEmailInput,
   normalizeNameInput,
 } from "@/utils/validation/formInputs";
+import { createOtpChallenge } from "@/lib/auth/otpChallenge";
+import {
+  consumeAuthRateLimits,
+  getAuthRateLimitScopes,
+} from "@/lib/auth/authRateLimit";
 
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 const ALLOWED_EMAIL_REGEX =
   /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)$/i;
-
-const generateOtp = (): string =>
-  Math.floor(100000 + Math.random() * 900000).toString();
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -92,6 +93,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const scopes = getAuthRateLimitScopes(req, mobile);
+    const rateLimit = await consumeAuthRateLimits("registration-otp", [
+      { scope: scopes.target, limit: 3, windowSeconds: 60 * 60 },
+      { scope: scopes.ip, limit: 20, windowSeconds: 60 * 60 },
+    ]);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Too many registration code requests. Try again later." },
+        { status: 429, headers: { "Retry-After": String(rateLimit.retryAfter) } },
+      );
+    }
+
     await connectDB();
 
     const existingUser = await User.findOne({
@@ -108,7 +121,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const otp = generateOtp();
+    const { challengeId, otp } = await createOtpChallenge(
+      mobile,
+      "registration",
+    );
 
     const template = buildOtpEmailTemplate(name, otp);
 
@@ -121,16 +137,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       termsAccepted: true,
     });
 
-    const salt = await randomBytesHex(16);
-    const hash = await digestHex("SHA-256", otp + salt);
-
-    const payload = {
-      mobile,
-      hash,
-      salt,
-      exp: Date.now() + 5 * 60 * 1000,
-    };
-
     const response = NextResponse.json({
       success: true,
       message: "Registration successful, OTP sent to email",
@@ -139,7 +145,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     response.cookies.set(
       "otp_session",
-      await signOtpSession(payload),
+      await signOtpSession({
+        challengeId,
+        exp: Date.now() + 5 * 60 * 1000,
+      }),
       authOtpCookieOptions,
     );
 
@@ -178,7 +187,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       {
         success: false,
         error: "Failed to register",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     );

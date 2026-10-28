@@ -4,6 +4,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   Suspense,
   type ChangeEvent,
 } from "react";
@@ -14,6 +15,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Loading from "@/components/common/Loading/Loading";
 import LinkedDevices from "./LinkedDevices";
+import { isMobileApp, subscribeToMobileApp } from "@/lib/mobileApp";
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
 const MobileQrLoginScanner = dynamic(() => import("./MobileQrLoginScanner"), {
@@ -60,6 +62,11 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [showQrScanner, setShowQrScanner] = useState(false);
+  const mobileApp = useSyncExternalStore(
+    subscribeToMobileApp,
+    isMobileApp,
+    () => false,
+  );
 
   useEffect(() => {
     const baseProfile = buildProfileState(user);
@@ -438,7 +445,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                   </button>
                 </section>
 
-                <LinkedDevices />
+                {mobileApp && <LinkedDevices />}
               </div>
             </motion.div>
           </motion.div>

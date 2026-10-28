@@ -4,6 +4,7 @@ import type { TemplateActionType } from "@/lib/templateActionButtons";
 export interface IUserSessionRecord {
   sessionId: string;
   createdAt: number;
+  lastActivityAt?: number;
   userAgent?: string;
   browserName?: string;
   deviceName?: string;
@@ -61,6 +62,7 @@ const UserSchema = new Schema<IUser>(
       {
         sessionId: { type: String, required: true },
         createdAt: { type: Number, required: true },
+        lastActivityAt: { type: Number },
         userAgent: { type: String },
         browserName: { type: String },
         deviceName: { type: String },

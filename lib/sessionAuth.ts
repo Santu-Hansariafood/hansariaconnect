@@ -1,6 +1,5 @@
-import { hmacSha256Hex, digestHex, randomBytesHex } from "./crypto";
+import { hmacSha256Hex } from "./crypto";
 import { parseCookie } from "cookie";
-import type { NextRequest } from "next/server";
 import { connectDB } from "./db/db";
 import User from "@/models/user/User";
 import type { IUserSessionRecord } from "@/models/user/User";
@@ -15,6 +14,7 @@ export interface UserSession {
 export interface UserSessionRecord {
   sessionId: string;
   createdAt: number;
+  lastActivityAt?: number;
   userAgent?: string;
   browserName?: string;
   deviceName?: string;
@@ -111,20 +111,32 @@ const decodeSession = async <T>(raw?: string): Promise<T | null> => {
   }
 };
 
-const getCookieValue = (req: any, name: string): string | undefined => {
-  if (req?.cookies) {
-    if (typeof req.cookies.get === "function") {
-      return req.cookies.get(name)?.value;
+type SessionRequestLike = {
+  cookies?: { get?: (name: string) => { value?: string } | undefined } | Record<string, unknown>;
+  headers?: {
+    get?: (name: string) => string | null;
+    cookie?: unknown;
+  };
+};
+
+const getCookieValue = (req: unknown, name: string): string | undefined => {
+  if (!req || typeof req !== "object") return undefined;
+  const request = req as SessionRequestLike;
+  const cookies = request.cookies;
+  if (cookies) {
+    if ("get" in cookies && typeof cookies.get === "function") {
+      return cookies.get(name)?.value;
     }
-    if (typeof req.cookies[name] === "string") {
-      return req.cookies[name];
+    const value = (cookies as Record<string, unknown>)[name];
+    if (typeof value === "string") {
+      return value;
     }
   }
 
   const cookieHeader =
-    typeof req?.headers?.get === "function"
-      ? req.headers.get("cookie")
-      : req?.headers?.cookie;
+    typeof request.headers?.get === "function"
+      ? request.headers.get("cookie")
+      : request.headers?.cookie;
 
   if (typeof cookieHeader === "string") {
     return parseCookie(cookieHeader)[name];
@@ -134,9 +146,7 @@ const getCookieValue = (req: any, name: string): string | undefined => {
 };
 
 export interface OtpSessionPayload {
-  mobile: string;
-  hash: string;
-  salt: string;
+  challengeId: string;
   exp: number;
 }
 
@@ -164,8 +174,8 @@ export const authOtpCookieOptions = {
   maxAge: 5 * 60,
 };
 
-const isSessionExpired = (exp?: unknown): exp is number =>
-  typeof exp === "number" && Date.now() > exp;
+const isSessionExpired = (exp?: unknown): boolean =>
+  typeof exp !== "number" || !Number.isFinite(exp) || Date.now() >= exp;
 
 export const signUserSession = async (session: UserSession): Promise<string> =>
   encodeSession({
@@ -180,7 +190,9 @@ export const verifyUserSession = async (
   if (
     !session ||
     typeof session.id !== "string" ||
+    !/^[a-f0-9]{24}$/i.test(session.id) ||
     typeof session.sessionId !== "string" ||
+    !/^[a-f0-9]{32}$/i.test(session.sessionId) ||
     isSessionExpired(session.exp)
   ) {
     return null;
@@ -192,7 +204,7 @@ export const verifyUserSession = async (
   };
 };
 
-export const getUserSession = async (req: any): Promise<UserSession | null> => {
+export const getUserSession = async (req: unknown): Promise<UserSession | null> => {
   const raw = getCookieValue(req, "user_session");
   const session = await verifyUserSession(raw);
   if (!session) return null;
@@ -203,7 +215,19 @@ export const getUserSession = async (req: any): Promise<UserSession | null> => {
     sessions: {
       $elemMatch: {
         sessionId: session.sessionId,
-        createdAt: { $gt: Date.now() - userSessionCookieOptions.maxAge * 1000 },
+        $or: [
+          {
+            lastActivityAt: {
+              $gt: Date.now() - userSessionCookieOptions.maxAge * 1000,
+            },
+          },
+          {
+            lastActivityAt: { $exists: false },
+            createdAt: {
+              $gt: Date.now() - userSessionCookieOptions.maxAge * 1000,
+            },
+          },
+        ],
       },
     },
   });
@@ -224,7 +248,19 @@ export const addUserSession = async (
   const cutoff = now - userSessionCookieOptions.maxAge * 1000;
   await User.updateOne(
     { _id: userId },
-    { $pull: { sessions: { createdAt: { $lte: cutoff } } } },
+    {
+      $pull: {
+        sessions: {
+          $or: [
+            { lastActivityAt: { $lte: cutoff } },
+            {
+              lastActivityAt: { $exists: false },
+              createdAt: { $lte: cutoff },
+            },
+          ],
+        },
+      },
+    },
   );
   const updatedUser = await User.findOneAndUpdate(
     {
@@ -236,7 +272,17 @@ export const addUserSession = async (
               $filter: {
                 input: { $ifNull: ["$sessions", []] },
                 as: "session",
-                cond: { $gt: ["$$session.createdAt", cutoff] },
+                cond: {
+                  $gt: [
+                    {
+                      $ifNull: [
+                        "$$session.lastActivityAt",
+                        "$$session.createdAt",
+                      ],
+                    },
+                    cutoff,
+                  ],
+                },
               },
             },
           },
@@ -246,7 +292,12 @@ export const addUserSession = async (
     },
     {
       $push: {
-        sessions: { sessionId, createdAt: now, ...metadata },
+        sessions: {
+          sessionId,
+          createdAt: now,
+          lastActivityAt: now,
+          ...metadata,
+        },
       },
     },
     { new: true },
@@ -264,11 +315,12 @@ export const replaceUserSessions = async (
   const metadata: DeviceMetadata = typeof userAgentOrMetadata === "string"
     ? { userAgent: userAgentOrMetadata, ip }
     : userAgentOrMetadata || {};
+  const now = Date.now();
   const existingUser = await User.findOneAndUpdate(
     { _id: userId },
     {
       $set: {
-        sessions: [{ sessionId, createdAt: Date.now(), ...metadata }],
+        sessions: [{ sessionId, createdAt: now, lastActivityAt: now, ...metadata }],
       },
     },
     { new: false },
@@ -316,16 +368,14 @@ export const verifyAdminSession = async (
 };
 
 export const getAdminSession = async (
-  req: any,
+  req: unknown,
 ): Promise<AdminSession | null> => {
   const raw = getCookieValue(req, "admin_session");
   return verifyAdminSession(raw);
 };
 
 export interface AdminOtpSessionPayload {
-  email: string;
-  hash: string;
-  salt: string;
+  challengeId: string;
   exp: number;
 }
 
@@ -339,9 +389,8 @@ export const verifyOtpSession = async (
   const session = await decodeSession<OtpSessionPayload>(raw);
   if (
     !session ||
-    typeof session.mobile !== "string" ||
-    typeof session.hash !== "string" ||
-    typeof session.salt !== "string" ||
+    typeof session.challengeId !== "string" ||
+    !/^[a-f0-9]{32}$/i.test(session.challengeId) ||
     isSessionExpired(session.exp)
   ) {
     return null;
@@ -359,9 +408,8 @@ export const verifyAdminOtpSession = async (
   const session = await decodeSession<AdminOtpSessionPayload>(raw);
   if (
     !session ||
-    typeof session.email !== "string" ||
-    typeof session.hash !== "string" ||
-    typeof session.salt !== "string" ||
+    typeof session.challengeId !== "string" ||
+    !/^[a-f0-9]{32}$/i.test(session.challengeId) ||
     isSessionExpired(session.exp)
   ) {
     return null;
