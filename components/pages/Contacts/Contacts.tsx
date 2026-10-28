@@ -91,6 +91,11 @@ interface ContactWithLinks extends Contact {
   unread?: number;
 }
 
+const getContactMobiles = (contact: ContactWithLinks) => {
+  const mobiles = contact.mobiles?.length ? contact.mobiles : [contact.mobile];
+  return Array.from(new Set(mobiles.filter(Boolean)));
+};
+
 type Props = { user: User; theme: Theme };
 
 export default function Contacts({ user, theme }: Props) {
@@ -451,7 +456,7 @@ export default function Contacts({ user, theme }: Props) {
       filtered = filtered.filter(
         (c) =>
           c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.mobile.includes(searchQuery),
+          getContactMobiles(c).some((mobile) => mobile.includes(searchQuery)),
       );
     }
 
@@ -571,9 +576,16 @@ export default function Contacts({ user, theme }: Props) {
                   <p className="truncate text-base font-semibold text-slate-900 sm:text-lg">
                     {c.name}
                   </p>
-                  <p className="truncate text-sm text-slate-500">
-                    {c.email || c.mobile}
-                  </p>
+                  {c.email && (
+                    <p className="truncate text-sm text-slate-500">
+                      {c.email}
+                    </p>
+                  )}
+                  {getContactMobiles(c).map((mobile) => (
+                    <p key={mobile} className="text-sm text-slate-500">
+                      {mobile}
+                    </p>
+                  ))}
                 </div>
                 {c.registered ? (
                   <div className="flex min-w-0 flex-col items-start gap-1 sm:items-end">
