@@ -51,7 +51,9 @@ const getIndiaDate = (date: Date) => {
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const values = Object.fromEntries(
+    parts.map((part) => [part.type, part.value]),
+  );
   return `${values.year}-${values.month}-${values.day}`;
 };
 const today = getIndiaDate(new Date());
@@ -233,9 +235,7 @@ export default function AdminMessageHistoryPanel({
                 {template.name}
               </option>
             ))}
-            <option value="(No template recorded)">
-              No template recorded
-            </option>
+            <option value="(No template recorded)">No template recorded</option>
           </select>
         </label>
         <button
@@ -278,7 +278,9 @@ export default function AdminMessageHistoryPanel({
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {rows.map((row, index) => (
-                  <tr key={`${row.date}-${row.apiKeyId}-${row.templateName}-${index}`}>
+                  <tr
+                    key={`${row.date}-${row.apiKeyId}-${row.templateName}-${index}`}
+                  >
                     <td className="whitespace-nowrap px-4 py-3 text-slate-700">
                       {row.date}
                     </td>

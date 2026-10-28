@@ -81,12 +81,17 @@ export default function WhatsAppTemplateBuilder({
 
   const headerText = template?.subject || template?.header || "";
   const bodyText = template
-    ? getLocalizedTemplateText(template.body, template.translations, activeLanguage)
+    ? getLocalizedTemplateText(
+        template.body,
+        template.translations,
+        activeLanguage,
+      )
     : "";
   const footerText = template?.footer || "";
 
   const variableNames = useMemo(
-    () => getTemplateVariableNames([headerText, bodyText, footerText].join("\n")),
+    () =>
+      getTemplateVariableNames([headerText, bodyText, footerText].join("\n")),
     [headerText, bodyText, footerText],
   );
 
@@ -211,8 +216,8 @@ export default function WhatsAppTemplateBuilder({
         {
           method: "POST",
           headers: {
-          Authorization: `Bearer ${apiKey.trim()}`,
-          "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey.trim()}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(requestPayload),
         },
@@ -254,8 +259,8 @@ export default function WhatsAppTemplateBuilder({
           Template message builder
         </h3>
         <p className="mt-1 text-sm leading-6 text-slate-600">
-          Create a template first. A template holds the header, body, footer, and
-          buttons your other app sends.
+          Create a template first. A template holds the header, body, footer,
+          and buttons your other app sends.
         </p>
         <button
           type="button"
@@ -499,8 +504,7 @@ export default function WhatsAppTemplateBuilder({
         </span>
       </div>
       <p className="mt-2 text-xs leading-5 text-slate-500">
-        The key is used in this page only and is never saved by
-        HansariaConnect.
+        The key is used in this page only and is never saved by HansariaConnect.
       </p>
     </section>
   );

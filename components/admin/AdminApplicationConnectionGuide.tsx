@@ -3,7 +3,10 @@
 import ConnectionTroubleshooting from "./application-connection/ConnectionTroubleshooting";
 import SetupSteps from "./application-connection/SetupSteps";
 import WhatsAppTemplateBuilder from "./application-connection/WhatsAppTemplateBuilder";
-import type { BuilderTemplate, DashboardTab } from "./application-connection/types";
+import type {
+  BuilderTemplate,
+  DashboardTab,
+} from "./application-connection/types";
 
 type AdminApplicationConnectionGuideProps = {
   isPlatformAdmin: boolean;
@@ -18,10 +21,14 @@ export default function AdminApplicationConnectionGuide({
   onNavigate,
   onCreateApiKey,
 }: AdminApplicationConnectionGuideProps) {
-  const borderColor = isPlatformAdmin ? "border-indigo-200" : "border-emerald-200";
+  const borderColor = isPlatformAdmin
+    ? "border-indigo-200"
+    : "border-emerald-200";
 
   return (
-    <details className={`group rounded-2xl border bg-white shadow-sm ${borderColor}`}>
+    <details
+      className={`group rounded-2xl border bg-white shadow-sm ${borderColor}`}
+    >
       <summary
         className={`cursor-pointer list-none px-5 py-4 font-semibold sm:px-6 ${
           isPlatformAdmin ? "text-indigo-950" : "text-emerald-950"

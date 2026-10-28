@@ -373,7 +373,11 @@ export function AdminTemplatesPanel({
         </label>
         {visibleTemplates.map((template) => {
           const variableNames = getTemplateVariableNames(
-            [template.subject || template.header, template.body, template.footer]
+            [
+              template.subject || template.header,
+              template.body,
+              template.footer,
+            ]
               .filter(Boolean)
               .join("\n"),
           );
@@ -386,7 +390,9 @@ export function AdminTemplatesPanel({
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold text-gray-800">{template.name}</h3>
+                  <h3 className="font-semibold text-gray-800">
+                    {template.name}
+                  </h3>
                   <p className="mt-1 text-xs text-slate-500">
                     Folder: {template.folder || "General"}
                   </p>
@@ -719,7 +725,12 @@ export function AdminProfilePanel({
         Only approved businesses show a verified badge to chat recipients.
       </p>
       <p className="mt-1 text-xs font-semibold text-slate-600">
-        Verification: {isCompanyVerified ? "Approved" : companyVerificationRequested ? "Pending review" : "Not verified"}
+        Verification:{" "}
+        {isCompanyVerified
+          ? "Approved"
+          : companyVerificationRequested
+            ? "Pending review"
+            : "Not verified"}
       </p>
       <label
         htmlFor="admin-profile-password"

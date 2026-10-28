@@ -142,7 +142,9 @@ export default function AdminAccessPanel({
             key={label}
             className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
           >
-            <span className={`grid size-11 place-items-center rounded-xl ${tint}`}>
+            <span
+              className={`grid size-11 place-items-center rounded-xl ${tint}`}
+            >
               <Icon aria-hidden="true" className="size-5" />
             </span>
             <span>
@@ -238,7 +240,9 @@ export default function AdminAccessPanel({
                   type="checkbox"
                   id="edit-super"
                   checked={editIsSuperAdmin}
-                  onChange={(event) => setEditIsSuperAdmin(event.target.checked)}
+                  onChange={(event) =>
+                    setEditIsSuperAdmin(event.target.checked)
+                  }
                 />
                 <label htmlFor="edit-super" className="text-sm text-gray-700">
                   Is Super Admin
@@ -305,10 +309,7 @@ export default function AdminAccessPanel({
         </div>
       )}
 
-      <section
-        aria-label="Admin account directory"
-        className="space-y-3"
-      >
+      <section aria-label="Admin account directory" className="space-y-3">
         {admins.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
             <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-700">
@@ -318,7 +319,8 @@ export default function AdminAccessPanel({
               No admin workspaces yet
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Create the first workspace to give an admin access to their own tools.
+              Create the first workspace to give an admin access to their own
+              tools.
             </p>
           </div>
         ) : (

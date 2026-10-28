@@ -142,7 +142,10 @@ export default function CreateAdminModal({
               aria-describedby="create-admin-password-hint"
               required
             />
-            <p id="create-admin-password-hint" className="mt-1.5 text-xs text-slate-500">
+            <p
+              id="create-admin-password-hint"
+              className="mt-1.5 text-xs text-slate-500"
+            >
               Use 8–72 characters. The new admin can change it after signing in.
             </p>
           </div>

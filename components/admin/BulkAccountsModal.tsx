@@ -225,7 +225,9 @@ export default function BulkAccountsModal({
                 <Upload className="h-5 w-5" aria-hidden="true" />
               </span>
               <span className="mt-3 text-sm font-semibold text-slate-800">
-                {fileName ? "Choose a different workbook" : "Choose your completed workbook"}
+                {fileName
+                  ? "Choose a different workbook"
+                  : "Choose your completed workbook"}
               </span>
               <span className="mt-1 text-xs text-slate-500">
                 Select an .xlsx file using the Accounts sheet
@@ -252,7 +254,9 @@ export default function BulkAccountsModal({
                     <p className="truncate text-sm font-semibold text-emerald-950">
                       {fileName}
                     </p>
-                    <p className="text-xs text-emerald-800">Ready to register</p>
+                    <p className="text-xs text-emerald-800">
+                      Ready to register
+                    </p>
                   </div>
                 </div>
                 <span className="shrink-0 self-start rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200 sm:self-auto">

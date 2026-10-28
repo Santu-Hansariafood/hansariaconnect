@@ -31,8 +31,6 @@ import {
   normalizeNameInput,
 } from "@/utils/validation/formInputs";
 
-// Only needed once the QR sign-in panel is opened, so it is kept out of the
-// login page's initial download.
 const QRCode = dynamic(() => import("react-qr-code"), { ssr: false });
 
 type LoginProps = {
@@ -115,7 +113,9 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
 
         if (res.status === 404 || res.status === 403) {
           finished = true;
-          setError(data.error || "This QR code expired. Refresh it to try again.");
+          setError(
+            data.error || "This QR code expired. Refresh it to try again.",
+          );
           return;
         }
 
@@ -142,7 +142,9 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
             window.location.assign("/chat");
           } else {
             finished = true;
-            setError(verifyData.error || "Could not complete the linked login.");
+            setError(
+              verifyData.error || "Could not complete the linked login.",
+            );
           }
         }
       } catch (err) {
@@ -209,7 +211,14 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
 
     const normalizedName = normalizeNameInput(name).trim();
     const normalizedEmail = normalizeEmailInput(email);
-    if (!normalizedName || !normalizedEmail || !registerMobile || !sex || !dob || !terms) {
+    if (
+      !normalizedName ||
+      !normalizedEmail ||
+      !registerMobile ||
+      !sex ||
+      !dob ||
+      !terms
+    ) {
       setError(
         "Please fill all required fields and accept terms and conditions",
       );
@@ -439,7 +448,9 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                           required
                           value={mobile}
                           onChange={(e) => {
-                            setMobile(normalizeIndianMobileInput(e.target.value));
+                            setMobile(
+                              normalizeIndianMobileInput(e.target.value),
+                            );
                             setError("");
                             setInfoBanner("");
                           }}
@@ -570,7 +581,9 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         autoComplete="tel-national"
                         value={registerMobile}
                         onChange={(e) => {
-                          const digits = normalizeIndianMobileInput(e.target.value);
+                          const digits = normalizeIndianMobileInput(
+                            e.target.value,
+                          );
                           setRegisterMobile(digits);
                           setError("");
                         }}
@@ -579,7 +592,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                       />
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      Use a valid 10-digit Indian mobile number starting with 6 to 9
+                      Use a valid 10-digit Indian mobile number starting with 6
+                      to 9
                     </p>
                   </div>
 
@@ -654,8 +668,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         className="w-5 h-5 text-emerald-600"
                       />
                       <span className="text-gray-700">
-                        I confirm I am at least {MINIMUM_REGISTRATION_AGE}{" "}
-                        years old and accept the{" "}
+                        I confirm I am at least {MINIMUM_REGISTRATION_AGE} years
+                        old and accept the{" "}
                         <button
                           type="button"
                           onClick={() => router.push("/terms")}
@@ -677,8 +691,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                       loading ||
                       Boolean(
                         dob &&
-                          (registrationAge === null ||
-                            registrationAge < MINIMUM_REGISTRATION_AGE),
+                        (registrationAge === null ||
+                          registrationAge < MINIMUM_REGISTRATION_AGE),
                       )
                     }
                     className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-shadow"

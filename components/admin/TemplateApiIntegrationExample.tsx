@@ -11,7 +11,6 @@ const LANGUAGES: CodeLanguage[] = ["curl", "JavaScript", "Python", "PHP"];
 const ENDPOINT = "https://hfconnect.in/api/v1/messages/send";
 const BULK_ENDPOINT = "https://hfconnect.in/api/v1/messages/bulk";
 const TEST_ENDPOINT = "https://hfconnect.in/api/v1/connection/test";
-/** Example list only — replace with the recipients you actually send to. */
 const RECIPIENT_NUMBERS = ["919876543210", "919812345678"];
 
 const phpString = (value: string) =>
@@ -60,12 +59,6 @@ export default function TemplateApiIntegrationExample({
     .map(([name, value]) => `${phpString(name)} => ${phpString(value)}`)
     .join(", ");
 
-  /*
-   * Everything an integration needs is right here: the endpoint, the API key,
-   * and this template's name. The name is what the admin UI shows, so nobody
-   * has to copy an internal ID — the API resolves the workspace from the key
-   * and the template from the name.
-   */
   const jsonName = JSON.stringify(template.name);
   const shellJsonName = jsonName.replace(/'/g, "'\\''");
   const encodedName = encodeURIComponent(template.name);

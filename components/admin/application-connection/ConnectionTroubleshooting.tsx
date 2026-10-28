@@ -11,11 +11,13 @@ export default function ConnectionTroubleshooting() {
             Confirm it is active, not expired, and copied correctly.
           </li>
           <li>
-            Use an active API key created in the account that owns the
-            template. The API key alone authenticates the request; no admin
-            login ID or password is needed.
+            Use an active API key created in the account that owns the template.
+            The API key alone authenticates the request; no admin login ID or
+            password is needed.
           </li>
-          <li>Read the response&apos;s <code>error</code> field for details.</li>
+          <li>
+            Read the response&apos;s <code>error</code> field for details.
+          </li>
         </ul>
       </section>
       <section className="rounded-xl border border-sky-300 bg-sky-50 p-4">
@@ -27,12 +29,12 @@ export default function ConnectionTroubleshooting() {
             Call <code>GET /api/v1/connection/test</code> with only your{" "}
             <code>Authorization: Bearer</code> header — nothing else is
             required. Check <code>failedAt</code> on failure. Every response
-            also returns a <code>checks</code> object showing{" "}
-            <code>ok</code>, <code>failed</code>, or <code>skipped</code> for{" "}
-            <code>apiKey</code>, <code>request</code>, <code>sender</code>,{" "}
+            also returns a <code>checks</code> object showing <code>ok</code>,{" "}
+            <code>failed</code>, or <code>skipped</code> for <code>apiKey</code>
+            , <code>request</code>, <code>sender</code>,{" "}
             <code>adminWorkspace</code>, and <code>template</code>. Parameters
-            you do not send are reported as <code>skipped</code>, not failed,
-            so a valid key alone returns <code>success: true</code>.
+            you do not send are reported as <code>skipped</code>, not failed, so
+            a valid key alone returns <code>success: true</code>.
           </li>
           <li>
             To confirm the connection <em>and</em> the template in one call, add
@@ -56,8 +58,8 @@ export default function ConnectionTroubleshooting() {
           </li>
           <li>
             Rate-limit headers (<code>X-RateLimit-*</code>) are exposed to the
-            browser, so an allowed browser origin can read its remaining quota and{" "}
-            <code>Retry-After</code> on a <code>429</code>.
+            browser, so an allowed browser origin can read its remaining quota
+            and <code>Retry-After</code> on a <code>429</code>.
           </li>
         </ul>
       </section>
@@ -66,9 +68,9 @@ export default function ConnectionTroubleshooting() {
         using <code>POST /api/v1/messages/send</code>. To send to multiple
         recipients, use <code>POST /api/v1/messages/bulk</code> with a{" "}
         <code>recipients</code> array; each recipient can be a chat account ID
-        or registered Indian mobile number. In the template test builder,
-        choose one or multiple recipients and paste a comma- or newline-separated
-        list. For personalized messages, include a separate <code>variables</code>{" "}
+        or registered Indian mobile number. In the template test builder, choose
+        one or multiple recipients and paste a comma- or newline-separated list.
+        For personalized messages, include a separate <code>variables</code>{" "}
         object in each recipient entry. To use a saved template, create it in My
         templates and use <code>templateName</code> or <code>templateId</code>.
       </p>

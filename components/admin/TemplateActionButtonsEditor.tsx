@@ -36,7 +36,9 @@ export default function TemplateActionButtonsEditor({
   ) => {
     onChange(
       value.map((button, buttonIndex) =>
-        buttonIndex === index ? { ...button, ...updates } as TemplateActionButton : button,
+        buttonIndex === index
+          ? ({ ...button, ...updates } as TemplateActionButton)
+          : button,
       ),
     );
   };
@@ -52,17 +54,16 @@ export default function TemplateActionButtonsEditor({
         Button labels and actions are shared by all template translations.
       </p>
       {value.map((button, index) => (
-        <div
-          key={button.type}
-          className="space-y-2 rounded-lg bg-slate-50 p-3"
-        >
+        <div key={button.type} className="space-y-2 rounded-lg bg-slate-50 p-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold capitalize text-slate-800">
               {button.type} button
             </p>
             <button
               type="button"
-              onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
+              onClick={() =>
+                onChange(value.filter((_, itemIndex) => itemIndex !== index))
+              }
               className="text-sm text-rose-700 hover:underline"
             >
               Remove
@@ -72,7 +73,9 @@ export default function TemplateActionButtonsEditor({
             Button label
             <input
               value={button.label}
-              onChange={(event) => updateButton(index, { label: event.target.value })}
+              onChange={(event) =>
+                updateButton(index, { label: event.target.value })
+              }
               maxLength={30}
               className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900"
               required
@@ -136,7 +139,11 @@ export default function TemplateActionButtonsEditor({
               .filter((type) => !value.some((button) => button.type === type))
               .map((type) => (
                 <option key={type} value={type}>
-                  {type === "call" ? "Call" : type === "reply" ? "Reply" : "Confirm"}
+                  {type === "call"
+                    ? "Call"
+                    : type === "reply"
+                      ? "Reply"
+                      : "Confirm"}
                 </option>
               ))}
           </select>
@@ -145,8 +152,12 @@ export default function TemplateActionButtonsEditor({
             disabled={!canAdd}
             onClick={() => {
               onChange([...value, defaultButton(nextType)]);
-              const nextAvailable = (["call", "reply", "confirm"] as const).find(
-                (type) => type !== nextType && !value.some((button) => button.type === type),
+              const nextAvailable = (
+                ["call", "reply", "confirm"] as const
+              ).find(
+                (type) =>
+                  type !== nextType &&
+                  !value.some((button) => button.type === type),
               );
               if (nextAvailable) setNextType(nextAvailable);
             }}
