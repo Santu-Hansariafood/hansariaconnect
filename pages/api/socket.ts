@@ -38,6 +38,7 @@ import {
 import {
   PRESENCE_HEARTBEAT_MS,
   PRESENCE_TTL_MS,
+  activeSocketsKey,
   onlineUsersKey,
   userSocketsKey,
 } from "@/lib/presence";
@@ -216,6 +217,15 @@ async function handleSocketRequest(
     (httpServer as any).userConnections = new Map<string, number>();
   }
 
+  /*
+   * Sockets belonging to a page the user can actually see. Kept next to
+   * `userConnections` so the alert pipeline can tell "app is on screen" from
+   * "app is connected but minimised" even without Redis.
+   */
+  if (!(httpServer as any).visibleConnections) {
+    (httpServer as any).visibleConnections = new Map<string, number>();
+  }
+
   const ensureSocketAdapterReady = (): Promise<void> => {
     const server = httpServer as any;
     if (server.socketAdapterReady) {
@@ -269,6 +279,9 @@ async function handleSocketRequest(
       (globalThis as any).__userConnections = (
         httpServer as any
       ).userConnections;
+      (globalThis as any).__visibleConnections = (
+        httpServer as any
+      ).visibleConnections;
     } catch {}
 
     const getOnlineUserIds = async () => {
@@ -420,8 +433,24 @@ async function handleSocketRequest(
           string,
           number
         >;
+        const visibleConnections = (httpServer as any)
+          .visibleConnections as Map<string, number>;
         const prevCount = userConnections.get(userId) ?? 0;
         userConnections.set(userId, prevCount + 1);
+
+        /*
+         * A new socket belongs to a page that is on screen until it says
+         * otherwise: the client reports its real visibility as soon as it
+         * connects, and again on every show/hide.
+         */
+        let isHidden = false;
+        const setVisible = (visible: boolean) => {
+          const current = visibleConnections.get(userId) ?? 0;
+          const next = Math.max(0, current + (visible ? 1 : -1));
+          if (next === 0) visibleConnections.delete(userId);
+          else visibleConnections.set(userId, next);
+        };
+        setVisible(true);
 
         if (Types.ObjectId.isValid(userId)) {
           void User.findByIdAndUpdate(new Types.ObjectId(userId), {
@@ -450,6 +479,45 @@ async function handleSocketRequest(
         socket.emit("users:online", await getOnlineUserIds());
         if (!wasOnline) io.except(socket.id).emit("user:online", { userId });
 
+        /*
+         * "Connected" is not the same as "being looked at". A minimised app
+         * keeps its socket open, so without this signal the backend would treat
+         * the user as present and never raise the Web Push that carries alerts
+         * while the app is in the background or closed.
+         */
+        const syncActivePresence = async () => {
+          if (!presenceRedis) return;
+          try {
+            if (isHidden) {
+              await presenceRedis.zrem(activeSocketsKey(userId), socket.id);
+              return;
+            }
+            await presenceRedis.zadd(
+              activeSocketsKey(userId),
+              Date.now() + PRESENCE_TTL_MS,
+              socket.id,
+            );
+          } catch (error) {
+            console.error(
+              "[Socket.IO] Could not update visibility presence:",
+              error,
+            );
+          }
+        };
+
+        socket.on(
+          "presence:visibility",
+          (payload: { hidden?: boolean } = {}) => {
+            const nextHidden = payload?.hidden === true;
+            if (nextHidden === isHidden) return;
+            isHidden = nextHidden;
+            setVisible(!nextHidden);
+            void syncActivePresence();
+          },
+        );
+
+        await syncActivePresence();
+
         const presenceHeartbeat = presenceRedis
           ? setInterval(() => {
               const expiresAt = Date.now() + PRESENCE_TTL_MS;
@@ -460,6 +528,15 @@ async function handleSocketRequest(
                   socket.id,
                 ),
                 presenceRedis.zadd(onlineUsersKey, expiresAt, userId),
+                ...(isHidden
+                  ? []
+                  : [
+                      presenceRedis.zadd(
+                        activeSocketsKey(userId),
+                        expiresAt,
+                        socket.id,
+                      ),
+                    ]),
               ]).catch((error) =>
                 console.error("[Socket.IO] Presence heartbeat failed:", error),
               );
@@ -851,13 +928,24 @@ async function handleSocketRequest(
             userConnections.set(userId, count - 1);
           }
 
+          const visibleConnections = (httpServer as any)
+            .visibleConnections as Map<string, number>;
+          if (!isHidden) {
+            const visible = visibleConnections.get(userId) ?? 0;
+            if (visible <= 1) visibleConnections.delete(userId);
+            else visibleConnections.set(userId, visible - 1);
+          }
+
           let hasConnections = (userConnections.get(userId) ?? 0) > 0;
           try {
             const presenceRedis = await getSocketRedisClient();
             if (presenceRedis) {
               if (presenceHeartbeat) clearInterval(presenceHeartbeat);
               const socketKey = userSocketsKey(userId);
-              await presenceRedis.zrem(socketKey, socket.id);
+              await Promise.all([
+                presenceRedis.zrem(socketKey, socket.id),
+                presenceRedis.zrem(activeSocketsKey(userId), socket.id),
+              ]);
               await presenceRedis.zremrangebyscore(socketKey, "-inf", Date.now());
               const remaining = await presenceRedis.zrange(
                 socketKey,

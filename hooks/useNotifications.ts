@@ -230,6 +230,14 @@ export function useNotifications(userId?: string | number) {
   const [preferencesLoaded, setPreferencesLoaded] = useState(
     notificationPreferencesLoaded,
   );
+  /**
+   * True once this device has a stored Web Push subscription. The notification
+   * surface uses it to decide whether a hidden app can stand down: when push is
+   * live the backend will reach the device over the internet anyway, so raising
+   * a second, socket-driven notification would alert the user twice. Without a
+   * subscription there is nothing to fall back on, so the in-app alert stays.
+   */
+  const [pushReady, setPushReady] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const customAudioRef = useRef<HTMLAudioElement | null>(null);
   const customAudioStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -329,7 +337,9 @@ export function useNotifications(userId?: string | number) {
         console.log("[Notifications] Notification permission result:", result);
         // Granting while the app is open is also the moment to register the
         // device for Web Push, so alerts keep arriving once it is closed.
-        if (result === "granted") void ensurePushSubscription();
+        if (result === "granted") {
+          void ensurePushSubscription().then(setPushReady);
+        }
       } catch (e: any) {
         console.error("[Notifications] Notification.requestPermission threw an error:", e?.message || e);
       }
@@ -695,7 +705,11 @@ export function useNotifications(userId?: string | number) {
     if (typeof window === "undefined" || !("Notification" in window)) return;
 
     const syncPushSubscription = () => {
-      if (Notification.permission === "granted") void ensurePushSubscription();
+      if (Notification.permission !== "granted") {
+        setPushReady(false);
+        return;
+      }
+      void ensurePushSubscription().then(setPushReady);
     };
 
     syncPushSubscription();
@@ -712,6 +726,7 @@ export function useNotifications(userId?: string | number) {
   return {
     preferences,
     preferencesLoaded,
+    pushReady,
     showNotification,
     requestPermission,
     playRingtone,

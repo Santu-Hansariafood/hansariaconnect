@@ -231,7 +231,12 @@ export async function POST(req: NextRequest) {
       !savedTemplate
     ) {
       return NextResponse.json(
-        { success: false, error: "Template not found for this API key" },
+        {
+          success: false,
+          error: parsedBody.data.templateName
+            ? `No template named "${parsedBody.data.templateName}" in this workspace. Check the name in My templates, or pass templateId instead.`
+            : "Template not found for this API key",
+        },
         { status: 404 },
       );
     }

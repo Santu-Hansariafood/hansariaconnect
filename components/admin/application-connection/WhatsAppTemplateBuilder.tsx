@@ -110,7 +110,7 @@ export default function WhatsAppTemplateBuilder({
   const payload = template
     ? {
         adminId: template.adminId,
-        templateId: template._id,
+        templateName: template.name,
         language: activeLanguage,
         toUserId: recipient.trim() || "RECIPIENT_CHAT_ACCOUNT_ID",
         ...(senderUserId.trim() ? { fromUserId: senderUserId.trim() } : {}),
@@ -135,7 +135,7 @@ export default function WhatsAppTemplateBuilder({
             JSON.stringify(
               {
                 adminId: template.adminId,
-                templateId: template._id,
+                templateName: template.name,
                 ...(senderUserId.trim()
                   ? { fromUserId: senderUserId.trim() }
                   : {}),
@@ -196,7 +196,7 @@ export default function WhatsAppTemplateBuilder({
           ? payload
           : {
               adminId: template.adminId,
-              templateId: template._id,
+              templateName: template.name,
               ...(senderUserId.trim()
                 ? { fromUserId: senderUserId.trim() }
                 : {}),

@@ -6,10 +6,11 @@ import Profile from "@/models/profile/Profile";
 import PushSubscription from "@/models/pushSubscription/PushSubscription";
 
 /**
- * Web Push delivery. Used by the server-side emitters to alert a recipient who
- * has no open socket — i.e. the browser (or the installed app) is closed. When
- * a socket IS connected the service worker notification already covers it, so
- * pushing as well would double-alert the user.
+ * Web Push delivery. Used by the server-side emitters to alert a recipient whose
+ * app is not on screen — minimised, backgrounded (where mobile browsers freeze
+ * the tab), or closed. The push service wakes the service worker over the
+ * internet and the notification it raises plays the device alert sound, so
+ * messages still arrive when the app is not running.
  */
 
 export type PushPayload = {
@@ -190,14 +191,16 @@ export const sendPushToUser = async (
 };
 
 /**
- * Fire-and-forget helper: only offloaded when the user has no live socket and
- * their preferences allow this kind of chat.
+ * Fire-and-forget helper: offloaded only when the app is not on screen — i.e.
+ * the user cannot be alerted through the socket — and their preferences allow
+ * this kind of chat. `isViewing` is the visibility-aware presence check, so a
+ * minimised app is pushed to just like a closed one.
  */
-export const pushIfUserOffline = async (
+export const pushIfNotViewing = async (
   rawUserId: string,
   kind: "direct" | "group",
   payload: PushPayload,
-  isOnline: () => Promise<boolean>,
+  isViewing: () => Promise<boolean>,
 ): Promise<void> => {
   if (!isWebPushEnabled()) return;
 
@@ -205,7 +208,7 @@ export const pushIfUserOffline = async (
     const preferences = await getNotificationPreferences(rawUserId);
     if (!preferences.enabled) return;
     if (kind === "group" ? !preferences.groups : !preferences.messages) return;
-    if (await isOnline()) return;
+    if (await isViewing()) return;
 
     await sendPushToUser(rawUserId, payload);
   } catch (error) {

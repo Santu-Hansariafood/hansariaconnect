@@ -258,7 +258,10 @@ export async function POST(req: NextRequest) {
       const savedTemplate = matchingTemplates[0];
       if (!savedTemplate) {
         return NextResponse.json(
-          { success: false, error: "Template not found for this API key" },
+          {
+            success: false,
+            error: `No template named "${input.templateName}" in this workspace. Check the name in My templates, or pass templateId instead.`,
+          },
           { status: 404 },
         );
       }

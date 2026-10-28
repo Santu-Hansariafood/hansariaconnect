@@ -8,7 +8,7 @@ import {
   type ChangeEvent,
 } from "react";
 import { motion } from "framer-motion";
-import { Camera, Check, Edit2, LoaderCircle, Save, X } from "lucide-react";
+import { Camera, Check, Edit2, LoaderCircle, QrCode, Save, X } from "lucide-react";
 import { fadeIn } from "@/utils/animations/animations";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -16,6 +16,9 @@ import Loading from "@/components/common/Loading/Loading";
 import LinkedDevices from "./LinkedDevices";
 
 const Navbar = dynamic(() => import("@/components/common/Navbar/Navbar"));
+const MobileQrLoginScanner = dynamic(() => import("./MobileQrLoginScanner"), {
+  ssr: false,
+});
 
 type User = {
   id: string;
@@ -56,6 +59,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [showQrScanner, setShowQrScanner] = useState(false);
 
   useEffect(() => {
     const baseProfile = buildProfileState(user);
@@ -413,11 +417,35 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                   </p>
                 </section>
 
+                <section className="flex flex-col gap-3 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef] sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#111b21]">
+                      Link HansariaConnect Web
+                    </p>
+                    <p className="mt-1 text-sm text-[#54656f]">
+                      Scan the login QR code on your computer and approve it
+                      with this account.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowQrScanner(true)}
+                    className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90"
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    <QrCode className="h-4 w-4" aria-hidden="true" />
+                    Scan to login
+                  </button>
+                </section>
+
                 <LinkedDevices />
               </div>
             </motion.div>
           </motion.div>
         </div>
+        {showQrScanner && (
+          <MobileQrLoginScanner onClose={() => setShowQrScanner(false)} />
+        )}
       </div>
     </Suspense>
   );

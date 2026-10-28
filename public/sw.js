@@ -23,8 +23,15 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Web Push: raised while the app is closed, so it must show the notification
-// itself — WhatsApp-style alerts for a browser that is not running.
+/*
+ * Web Push: raised while the app is minimised or closed — the push service
+ * wakes this worker over the internet, so the alert arrives even though no page
+ * or socket is alive. The notification itself carries the sound: `silent` must
+ * stay false for the device to play its alert tone, and `vibrate` gives the
+ * same double buzz the in-app alert uses. The tone and its volume are owned by
+ * the OS/device notification settings — the web Notification API cannot pick a
+ * sound file or a per-notification volume.
+ */
 self.addEventListener("push", (event) => {
   let payload = {};
 
@@ -42,7 +49,9 @@ self.addEventListener("push", (event) => {
     badge: "/logo/logo.png",
     tag: payload.tag,
     renotify: Boolean(payload.tag),
+    silent: false,
     vibrate: [0, 200, 100, 200],
+    timestamp: payload.timestamp || Date.now(),
     data: { url: payload.url || "/chat", timestamp: payload.timestamp },
   };
 

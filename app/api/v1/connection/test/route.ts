@@ -57,14 +57,25 @@ export async function GET(req: NextRequest) {
    *
    *   curl -H "Authorization: Bearer $HANSARIA_API_KEY" <test url>
    *
-   * Add `templateId` (and `adminId` for a super admin) or `senderUserId` to
-   * validate those as well; anything not supplied is reported as `skipped`
-   * instead of failing, so a valid key alone returns `success: true`.
+   * Add `templateName` to confirm the template resolves as well — the name is
+   * what the admin UI shows, so an integration never has to copy an internal
+   * ID. `templateId`, `adminId`, and `senderUserId` are still accepted for
+   * deeper checks; anything not supplied is reported as `skipped` instead of
+   * failing, so a valid key alone returns `success: true`.
    */
   const templateId = req.nextUrl.searchParams.get("templateId")?.trim() || "";
+  const templateName =
+    req.nextUrl.searchParams.get("templateName")?.trim() || "";
   const adminId = req.nextUrl.searchParams.get("adminId")?.trim() || "";
   const requestedSenderUserId =
     req.nextUrl.searchParams.get("senderUserId")?.trim() || "";
+  if (templateId && templateName) {
+    return failure(
+      "request",
+      400,
+      "Provide templateName or templateId, not both",
+    );
+  }
   if (
     (templateId && !Types.ObjectId.isValid(templateId)) ||
     (adminId && !Types.ObjectId.isValid(adminId))
@@ -73,6 +84,13 @@ export async function GET(req: NextRequest) {
       "request",
       400,
       "adminId and templateId must be valid IDs when provided",
+    );
+  }
+  if (templateName.length > 100) {
+    return failure(
+      "request",
+      400,
+      "templateName must be 100 characters or fewer",
     );
   }
   checks.request = "ok";
@@ -113,7 +131,7 @@ export async function GET(req: NextRequest) {
     checks.sender = "ok";
   }
 
-  if (adminId || templateId) {
+  if (adminId || templateId || templateName) {
     const keyOwner = await Admin.findById(String(authResult.apiKey.adminId))
       .select("isSuperAdmin")
       .lean();
@@ -135,20 +153,41 @@ export async function GET(req: NextRequest) {
       checks.adminWorkspace = "ok";
     }
 
-    if (templateId) {
-      // Without an explicit adminId the key's own workspace is the scope, which
-      // is what every non-super-admin key already uses.
-      const template = await AdminTemplate.findOne({
-        _id: templateId,
-        adminId: adminId || String(authResult.apiKey.adminId),
-      })
-        .select("_id")
+    /*
+     * Resolve by name first: the name is what the admin UI displays, so it is
+     * the one credential an integrator can copy without opening the database.
+     * Either way the lookup is scoped to the key's own workspace unless an
+     * explicit adminId was supplied, which is what every non-super-admin key
+     * already uses.
+     */
+    if (templateId || templateName) {
+      const templateScope = adminId || String(authResult.apiKey.adminId);
+      const matches = await AdminTemplate.find(
+        templateName
+          ? { name: templateName, adminId: templateScope }
+          : { _id: templateId, adminId: templateScope },
+      )
+        .select("_id name")
+        .limit(templateName ? 2 : 1)
         .lean();
-      if (!template) {
+      /*
+       * A name that matches more than one template cannot be sent with, so the
+       * check must not report it as ready either.
+       */
+      if (matches.length > 1) {
+        return failure(
+          "template",
+          409,
+          `The name "${templateName}" matches more than one template. Pass templateId instead.`,
+        );
+      }
+      if (!matches.length) {
         return failure(
           "template",
           404,
-          "Template not found for this API key. Use a template from the key owner’s workspace.",
+          templateName
+            ? `No template named "${templateName}" in this workspace. Check the name in My templates, or pass templateId instead.`
+            : "Template not found for this API key. Use a template from the key owner’s workspace.",
         );
       }
       checks.template = "ok";

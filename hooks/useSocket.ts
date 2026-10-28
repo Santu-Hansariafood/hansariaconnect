@@ -99,6 +99,23 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       window.addEventListener("focus", resumeRealtime);
       document.addEventListener("visibilitychange", resumeRealtime);
 
+      /*
+       * The server has to know whether the app is actually on screen, not merely
+       * connected: a minimised tab keeps its socket open. Without this signal the
+       * backend would believe the user is present and hold back the Web Push, so
+       * a message arriving while the app is in the background would stay silent.
+       */
+      const reportVisibility = () => {
+        if (!socketInstance?.connected) return;
+        socketInstance.emit("presence:visibility", {
+          hidden: document.visibilityState !== "visible",
+        });
+      };
+      s.on("connect", reportVisibility);
+      document.addEventListener("visibilitychange", reportVisibility);
+      window.addEventListener("focus", reportVisibility);
+      window.addEventListener("blur", reportVisibility);
+
       let authenticationRetry: ReturnType<typeof setTimeout> | null = null;
       s.on("connect", () => {
         if (authenticationRetry) {

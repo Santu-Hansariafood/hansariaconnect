@@ -32,8 +32,17 @@ export default function ConnectionTroubleshooting() {
             <code>apiKey</code>, <code>request</code>, <code>sender</code>,{" "}
             <code>adminWorkspace</code>, and <code>template</code>. Parameters
             you do not send are reported as <code>skipped</code>, not failed,
-            so a valid key alone returns <code>success: true</code>. Add{" "}
-            <code>?templateId=...&amp;adminId=...</code> to validate those too.
+            so a valid key alone returns <code>success: true</code>.
+          </li>
+          <li>
+            To confirm the connection <em>and</em> the template in one call, add
+            the template name you see in My templates:{" "}
+            <code>?templateName=Order+Update</code>. The name is resolved inside
+            the workspace that owns the key, so no workspace ID or internal
+            template ID is needed; the response reports{" "}
+            <code>template: ok</code> when it matches. <code>templateId</code>,{" "}
+            <code>adminId</code>, and <code>senderUserId</code> remain available
+            when you want to check those too.
           </li>
           <li>
             Browser and front-end JavaScript callers are supported:{" "}

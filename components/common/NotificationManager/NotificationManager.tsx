@@ -61,7 +61,7 @@ export default function NotificationManager({
     subscribeOnline: false,
     enabled: Boolean(userId) || Boolean(isAdminSurface && adminUserId),
   });
-  const { preferences, preferencesLoaded, playRingtone, playStartupTune, showNotification } =
+  const { preferences, preferencesLoaded, pushReady, playRingtone, playStartupTune, showNotification } =
     useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
   const startupTunePlayed = useRef(false);
@@ -339,13 +339,23 @@ export default function NotificationManager({
         runningAsInstalledApp,
       );
 
+      /*
+       * While the app is hidden the backend raises a Web Push — it knows no
+       * socket of this user is on screen — and that notification plays the
+       * device alert sound by itself. Raising our own on top would alert twice,
+       * so the in-app alert stands down. Only where a push subscription really
+       * exists though: without one, this notification is the only alert left.
+       */
+      const delegatesToPush = !isPageVisible && pushReady;
+
       if (!isFocusedConversation && isAppInUse) {
         playRingtone(preferences.ringtone || "whatsapp");
       }
 
       const showBrowserNotification =
         !isFocusedConversation &&
-        (!isPageVisible || !isWindowFocused || runningAsInstalledApp);
+        (!isPageVisible || !isWindowFocused || runningAsInstalledApp) &&
+        !delegatesToPush;
       const showInAppToast = isPageVisible && isWindowFocused;
       const titleSource =
         payload.kind === "group"
@@ -401,6 +411,7 @@ export default function NotificationManager({
     preferences.groups,
     preferences.messages,
     preferences.ringtone,
+    pushReady,
     showNotification,
     userId,
   ]);

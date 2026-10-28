@@ -18,8 +18,8 @@ import {
   invalidateUserConversations,
 } from "@/lib/redis/redis";
 import { publishSocketRoomEvent } from "@/lib/socketRedisAdapter";
-import { isUserOnline } from "@/lib/presence";
-import { pushIfUserOffline, type PushPayload } from "@/lib/webPush";
+import { isUserActivelyViewing } from "@/lib/presence";
+import { pushIfNotViewing, type PushPayload } from "@/lib/webPush";
 import {
   clearAllUnread,
   clearChatUnread,
@@ -936,15 +936,15 @@ export const emitDirectMessageReceived = async (
     ]);
 
     /*
-     * Nothing above reaches a closed browser. When the recipient has no live
-     * socket, the same alert goes out as a Web Push instead. Not awaited so the
-     * push round trip never delays message delivery.
+     * Anything the socket could not alert — the app is minimised, backgrounded,
+     * frozen by the OS, or closed — is reached over the internet as a Web Push
+     * instead. Not awaited so the push round trip never delays delivery.
      */
-    void pushIfUserOffline(
+    void pushIfNotViewing(
       rawToId,
       "direct",
       toPushPayload(notification),
-      () => isUserOnline(rawToId),
+      () => isUserActivelyViewing(rawToId),
     );
   } catch (error: unknown) {
     console.error(
@@ -1088,13 +1088,14 @@ export const emitGroupMessageReceived = async (
           }
         }
 
-        // Reaches members whose app is closed; see emitDirectMessageReceived.
+        // Reaches members whose app is minimised, backgrounded or closed; see
+        // emitDirectMessageReceived.
         if (pushPayload) {
-          void pushIfUserOffline(
+          void pushIfNotViewing(
             memberId,
             "group",
             pushPayload,
-            () => isUserOnline(memberId),
+            () => isUserActivelyViewing(memberId),
           );
         }
       },
