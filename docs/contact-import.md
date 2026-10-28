@@ -36,6 +36,30 @@ the Contact Picker API. Adding `READ_CONTACTS` to its manifest alone will not
 make `navigator.contacts.select` available; that wrapper would need a separate,
 explicitly permissioned native bridge.
 
+After Google Contacts has been connected and the user has granted the
+read-only OAuth scope, the Contacts page automatically syncs Google contacts
+when it opens. The browser does not allow a website or TWA to silently read the
+full on-device address book: device contacts still require the user to open the
+system picker and select entries.
+
+## Google OAuth configuration
+
+Google import requires all three server-side environment variables:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`, set to the absolute callback URL
+  `https://<your-app-host>/api/google/contacts/callback`
+
+In Google Cloud Console, enable the **People API**, configure the OAuth consent
+screen, and add the callback URL above as an authorized redirect URI for the
+OAuth web client. Add test Google accounts to the consent screen's test-user
+list while the application is in testing mode. Store the client secret only in
+the server environment; never put it in a `NEXT_PUBLIC_*` variable. Restart or
+redeploy the server after setting these values. Then, sign in, open Contacts,
+and choose **Import from Google** once to grant access. Future visits
+automatically sync the connected account.
+
 ## API behavior
 
 `POST /api/contacts/import` accepts an authenticated JSON body containing up

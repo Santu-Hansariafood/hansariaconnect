@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
   let accessToken = user.googleAccessToken;
   if (
     !accessToken ||
-    (user.googleTokenExpiry && Date.now() > user.googleTokenExpiry - 300000)
+    !user.googleTokenExpiry ||
+    Date.now() > user.googleTokenExpiry - 300000
   ) {
     if (!user.googleRefreshToken) {
       return NextResponse.json(
@@ -75,7 +76,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tokenData = await tokenRes.json();
+    const tokenData = (await tokenRes.json()) as {
+      access_token?: string;
+      expires_in?: number;
+    };
     if (!tokenRes.ok || !tokenData.access_token) {
       return NextResponse.json(
         { error: "Google authorization expired. Reconnect your Google account." },
@@ -114,7 +118,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const contactsData = await contactsRes.json();
+    const contactsData = (await contactsRes.json()) as {
+      connections?: GooglePerson[];
+      nextPageToken?: string;
+      error?: { message?: string };
+    };
     if (!contactsRes.ok) {
       console.error(
         "[Google Contacts] People API request failed:",
@@ -138,7 +146,32 @@ export async function POST(req: NextRequest) {
     nextPageToken = contactsData.nextPageToken;
   } while (nextPageToken);
 
-  let importedCount = 0;
+  const existingContacts = await Contact.find(
+    {
+      userId: user._id,
+      mobiles: {
+        $in: googleContacts.flatMap((person) =>
+          (person.phoneNumbers || [])
+            .map((phone) => normalizeIndianMobile(phone.value))
+            .filter((mobile): mobile is string => mobile !== null),
+        ),
+      },
+    },
+    { mobiles: 1 },
+  ).lean();
+  const existingMobiles = new Set(
+    existingContacts.flatMap((contact) => contact.mobiles),
+  );
+  const seenMobiles = new Set<string>();
+  const imports: Array<{
+    userId: typeof user._id;
+    name: string;
+    mobiles: string[];
+    email: string;
+  }> = [];
+  let skippedExistingCount = 0;
+  let skippedInvalidCount = 0;
+
   for (const person of googleContacts) {
     const mobiles = Array.from(
       new Set(
@@ -147,22 +180,37 @@ export async function POST(req: NextRequest) {
           .filter((mobile): mobile is string => mobile !== null),
       ),
     );
-    if (!mobiles.length) continue;
+    if (!mobiles.length) {
+      skippedInvalidCount += 1;
+      continue;
+    }
 
-    const existing = await Contact.findOne({
-      userId: user._id,
-      mobiles: { $in: mobiles },
-    });
-    if (existing) continue;
+    if (
+      mobiles.some(
+        (mobile) => existingMobiles.has(mobile) || seenMobiles.has(mobile),
+      )
+    ) {
+      skippedExistingCount += 1;
+      continue;
+    }
 
-    await Contact.create({
+    mobiles.forEach((mobile) => seenMobiles.add(mobile));
+    imports.push({
       userId: user._id,
       name: person.names?.[0]?.displayName || "Unknown",
       mobiles,
       email: person.emailAddresses?.[0]?.value || "",
     });
-    importedCount += 1;
   }
 
-  return NextResponse.json({ success: true, importedCount });
+  const inserted = imports.length
+    ? await Contact.insertMany(imports, { ordered: true })
+    : [];
+
+  return NextResponse.json({
+    success: true,
+    importedCount: inserted.length,
+    skippedExistingCount,
+    skippedInvalidCount,
+  });
 }

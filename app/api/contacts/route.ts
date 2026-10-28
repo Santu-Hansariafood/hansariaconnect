@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { connectDB } from "@/lib/db/db";
 import { getUserSession } from "@/lib/sessionAuth";
+import { apiError, parseJson } from "@/lib/api/request";
+import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
 import Contact from "@/models/contact/Contact";
 import Profile from "@/models/profile/Profile";
 import Admin from "@/models/admin/Admin";
 import User from "@/models/user/User";
 import {
   EMAIL_REGEX,
-  isValidIndianMobile,
   isValidPersonName,
   normalizeEmailInput,
   normalizeNameInput,
@@ -18,6 +20,12 @@ interface ContactPayload {
   mobiles: string[];
   email?: string;
 }
+
+const createContactSchema = z.object({
+  name: z.string().max(100),
+  mobiles: z.array(z.string().max(100)).min(1).max(10),
+  email: z.string().max(254).optional(),
+});
 
 const getSession = async (req: NextRequest) => {
   const session = await getUserSession(req);
@@ -163,12 +171,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = (await req.json()) as ContactPayload;
+    const parsedBody = await parseJson(req, createContactSchema);
+    if (!parsedBody.success) return parsedBody.response;
+    const body: ContactPayload = parsedBody.data;
 
     const name = normalizeNameInput(String(body?.name || "")).trim();
-    const mobiles = Array.isArray(body?.mobiles)
-      ? body.mobiles.map((mobile) => String(mobile).trim()).filter(Boolean)
+    const rawMobiles = Array.isArray(body?.mobiles)
+      ? body.mobiles.map((mobile) => mobile.trim()).filter(Boolean)
       : [];
+    const normalizedMobiles = rawMobiles.map(normalizeIndianMobile);
+    if (normalizedMobiles.some((mobile) => mobile === null)) {
+      return NextResponse.json(
+        {
+          error:
+            "Each mobile number must be a valid 10-digit Indian number, with or without the +91 country code.",
+        },
+        { status: 400 },
+      );
+    }
+    const mobiles = Array.from(new Set(normalizedMobiles));
     const email = normalizeEmailInput(String(body?.email || ""));
 
     if (!name) {
@@ -186,20 +207,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (!mobiles.length) {
       return NextResponse.json(
-        { error: "At least one mobile number is required" },
+        { error: "Enter at least one valid Indian mobile number." },
         { status: 400 },
       );
     }
 
-    if (mobiles.some((mobile) => !isValidIndianMobile(mobile))) {
-      return NextResponse.json(
-        {
-          error:
-            "Each mobile number must be 10 digits and start with 6, 7, 8, or 9",
-        },
-        { status: 400 },
-      );
-    }
     if (email && !EMAIL_REGEX.test(email)) {
       return NextResponse.json(
         { error: "Enter a valid email address" },
@@ -209,20 +221,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     await connectDB();
 
+    const existingContact = await Contact.findOne({
+      userId: session.id,
+      mobiles: { $in: mobiles },
+    }).select("name mobiles");
+    if (existingContact) {
+      return NextResponse.json(
+        {
+          error: `This number is already saved with ${existingContact.name}.`,
+        },
+        { status: 409 },
+      );
+    }
+
     const newContact = await Contact.create({
       userId: session.id,
       name,
-      mobiles: Array.from(new Set(mobiles)),
+      mobiles,
       email,
     });
 
     return NextResponse.json({ contact: newContact }, { status: 201 });
-  } catch (error: any) {
-    console.error("POST /contacts error →", error);
-    return NextResponse.json(
-      { error: error.message || "Server error" },
-      { status: 500 },
-    );
+  } catch (error: unknown) {
+    return apiError(error, "POST /contacts");
   }
 }
 

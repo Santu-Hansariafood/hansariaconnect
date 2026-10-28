@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useMemo, useCallback } from "react";
+import { useState, useEffect, Suspense, useMemo, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,10 @@ import {
 import { useSocket } from "@/hooks/useSocket";
 import { preloadLastSeenForUsers, formatLastSeenText } from "@/hooks/useLastSeen";
 import Loading from "@/components/common/Loading/Loading";
+import {
+  isValidIndianMobile,
+  normalizeIndianMobileInput,
+} from "@/utils/validation/formInputs";
 
 declare global {
   interface Navigator {
@@ -117,6 +121,7 @@ export default function Contacts({ user, theme }: Props) {
 
   const [inviteMessage, setInviteMessage] = useState<string>("");
   const [googleImportError, setGoogleImportError] = useState("");
+  const [googleOAuthConfigured, setGoogleOAuthConfigured] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [deviceContactSupported, setDeviceContactSupported] = useState(false);
   const [deviceImportMessage, setDeviceImportMessage] = useState("");
@@ -305,39 +310,7 @@ export default function Contacts({ user, theme }: Props) {
     );
   };
 
-  const [showGoogleImportPrompt, setShowGoogleImportPrompt] = useState(false);
-
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return;
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("google_connected") === "1") {
-        setShowGoogleImportPrompt(true);
-      }
-      const googleError = params.get("google_error");
-      if (googleError) {
-        const messages: Record<string, string> = {
-          cancelled: "Google authorization was cancelled.",
-          missing_code: "Google did not return an authorization code. Please try again.",
-          not_configured: "Google Contacts import is not configured.",
-          connection_failed: "Could not connect to Google. Please try again.",
-          authorization_failed: "Google authorization failed. Please reconnect your account.",
-          state_invalid: "Google authorization expired or could not be verified. Please start again.",
-        };
-        setGoogleImportError(
-          messages[googleError] || "Google Contacts could not be connected.",
-        );
-      }
-      if (params.has("google_connected") || googleError) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("google_connected");
-        url.searchParams.delete("google_error");
-        window.history.replaceState({}, document.title, url.toString());
-      }
-    } catch {}
-  }, []);
-
-  const importGoogleContacts = async () => {
+  const importGoogleContacts = useCallback(async () => {
     setSyncing(true);
     setGoogleImportError("");
     try {
@@ -356,9 +329,8 @@ export default function Contacts({ user, theme }: Props) {
       await reloadContacts();
 
       setInviteMessage(
-        `Google contacts imported. ${result.importedCount ?? 0} new contact${result.importedCount === 1 ? "" : "s"} added.`,
+        `Google contacts imported. ${result.importedCount ?? 0} added, ${result.skippedExistingCount ?? 0} already saved, and ${result.skippedInvalidCount ?? 0} without a valid Indian mobile number.`,
       );
-      setShowGoogleImportPrompt(false);
     } catch (importError) {
       setGoogleImportError(
         importError instanceof Error
@@ -368,7 +340,67 @@ export default function Contacts({ user, theme }: Props) {
     } finally {
       setSyncing(false);
     }
-  };
+  }, [reloadContacts]);
+
+  const googleAutoSyncStarted = useRef(false);
+  useEffect(() => {
+    if (googleAutoSyncStarted.current) return;
+    googleAutoSyncStarted.current = true;
+
+    const autoSyncGoogleContacts = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const googleError = params.get("google_error");
+      if (googleError) {
+        const messages: Record<string, string> = {
+          cancelled: "Google authorization was cancelled.",
+          missing_code: "Google did not return an authorization code. Please try again.",
+          not_configured: "Google Contacts import is not configured.",
+          connection_failed: "Could not connect to Google. Please try again.",
+          authorization_failed: "Google authorization failed. Please reconnect your account.",
+          state_invalid: "Google authorization expired or could not be verified. Please start again.",
+        };
+        setGoogleImportError(
+          messages[googleError] || "Google Contacts could not be connected.",
+        );
+      }
+
+      if (params.has("google_connected") || googleError) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("google_connected");
+        url.searchParams.delete("google_error");
+        window.history.replaceState({}, document.title, url.toString());
+      }
+
+      if (googleError) return;
+
+      try {
+        const response = await fetch("/api/google/contacts/status", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`Google connection status returned HTTP ${response.status}`);
+        }
+
+        const status = await response.json();
+        setGoogleOAuthConfigured(status.configured === true);
+        if (!status.configured) {
+          setGoogleImportError(
+            "Google Contacts import is not configured on this server. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI, then restart the app.",
+          );
+          return;
+        }
+        if (status.connected) await importGoogleContacts();
+      } catch (syncError) {
+        console.error("[Contacts] Could not check Google contact sync:", syncError);
+        setGoogleImportError(
+          "Google contacts could not be checked. Please try again.",
+        );
+      }
+    };
+
+    void autoSyncGoogleContacts();
+  }, [importGoogleContacts]);
 
   const importDeviceContacts = async () => {
     if (typeof navigator === "undefined" || !navigator.contacts?.select) {
@@ -481,13 +513,22 @@ export default function Contacts({ user, theme }: Props) {
 
   const submitCreate = async () => {
     setError("");
-    const cleanMobiles = newMobiles
-      .map((m) => m.replace(/\D/g, ""))
-      .filter(Boolean);
+    const enteredMobiles = newMobiles.map((mobile) => mobile.trim()).filter(Boolean);
+    const normalizedMobiles = enteredMobiles.map(normalizeIndianMobileInput);
+    if (normalizedMobiles.some((mobile) => !isValidIndianMobile(mobile))) {
+      setError("Each mobile number must be a valid 10-digit Indian number.");
+      return;
+    }
+    const cleanMobiles = Array.from(new Set(normalizedMobiles));
 
-    if (!newName.trim()) return setError("Name is required");
-    if (!cleanMobiles.length)
-      return setError("At least one mobile number required");
+    if (!newName.trim()) {
+      setError("Name is required.");
+      return;
+    }
+    if (!cleanMobiles.length) {
+      setError("Enter at least one valid Indian mobile number.");
+      return;
+    }
 
     setCreating(true);
 
@@ -505,32 +546,25 @@ export default function Contacts({ user, theme }: Props) {
 
       const data = await res.json();
       if (res.ok && data.contact) {
-        setContacts((prev) => [
-          {
-            id: data.contact._id,
-            name: data.contact.name,
-            mobile: data.contact.mobiles?.[0] || "",
-            avatar: "/logo/logo.png",
-            registered: false,
-            mobiles: data.contact.mobiles,
-            email: data.contact.email,
-            unread: 0,
-          },
-          ...prev,
-        ]);
+        await reloadContacts();
 
         setShowCreateModal(false);
         setNewName("");
         setNewMobiles([""]);
         setNewEmail("");
       } else {
-        setError(data?.error || "Failed to create contact");
+        setError(data?.error || "Contact could not be saved.");
       }
-    } catch {
-      setError("Failed to create contact");
+    } catch (createError) {
+      console.error("[Contacts] Failed to create contact:", createError);
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : "Contact could not be saved. Please try again.",
+      );
+    } finally {
+      setCreating(false);
     }
-
-    setCreating(false);
   };
 
   const registeredContacts = useMemo(
@@ -729,7 +763,7 @@ export default function Contacts({ user, theme }: Props) {
       <div className={`min-h-screen ${theme.wallpaper || "bg-slate-50"}`}>
         <Navbar user={user} />
 
-        {(showGoogleImportPrompt || googleImportError) && (
+        {googleImportError && (
           <aside
             aria-labelledby="google-import-title"
             className="mx-auto mt-4 flex w-full max-w-7xl flex-col gap-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5"
@@ -740,41 +774,33 @@ export default function Contacts({ user, theme }: Props) {
               </div>
               <div>
                 <h2 id="google-import-title" className="font-bold text-slate-900">
-                    {googleImportError
-                      ? "Google connection failed"
-                      : "Import Google contacts?"}
+                    Google contact sync failed
                   </h2>
                   <p
-                    role={googleImportError ? "alert" : undefined}
-                    className={`mt-1 text-sm leading-5 ${
-                      googleImportError ? "text-red-700" : "text-slate-600"
-                    }`}
+                    role="alert"
+                    className="mt-1 text-sm leading-5 text-red-700"
                   >
-                    {googleImportError ||
-                      "A Google account is connected. Import its contacts into your HansariaConnect address book?"}
+                    {googleImportError}
                   </p>
                 </div>
             </div>
             <div className="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => {
-                    setGoogleImportError("");
-                    setShowGoogleImportPrompt(false);
-                  }}
+                  onClick={() => setGoogleImportError("")}
                   className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  {googleImportError ? "Dismiss" : "Not now"}
+                  Dismiss
                 </button>
-                {showGoogleImportPrompt && (
+                {googleOAuthConfigured && (
                   <button
                     type="button"
-                    onClick={importGoogleContacts}
-                    disabled={syncing}
-                    className="min-h-11 rounded-xl px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:opacity-60"
-                    style={{ backgroundColor: theme.primary || "#059669" }}
+                    onClick={() => {
+                      window.location.href = googleAuthUrl;
+                    }}
+                    className="min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
                   >
-                    {syncing ? "Importing..." : "Import"}
+                    Reconnect Google
                   </button>
                 )}
             </div>
