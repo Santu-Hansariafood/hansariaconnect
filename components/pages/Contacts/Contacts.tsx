@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useEffect, Suspense, useMemo, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  Suspense,
+  useMemo,
+  useCallback,
+  useRef,
+  type ChangeEvent,
+} from "react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -13,6 +21,7 @@ import {
   MessageSquare,
   Plus,
   Trash2,
+  Upload,
   UserRoundPlus,
 } from "lucide-react";
 import { useSocket } from "@/hooks/useSocket";
@@ -100,6 +109,119 @@ const getContactMobiles = (contact: ContactWithLinks) => {
   return Array.from(new Set(mobiles.filter(Boolean)));
 };
 
+type ParsedContact = { name: string; mobiles: string[] };
+
+/** Column headers that must never be mistaken for a contact name. */
+const HEADER_LABELS = /^(name|full name|display name|phone|mobile|number|tel|phone number|mobile number)$/i;
+
+/** A phone-shaped cell that is not a usable Indian mobile (e.g. a landline). */
+const NUMBER_LIKE_CELL = /^[+\d][\d\s()\-.]*$/;
+
+const toIndianMobile = (value: string): string | null => {
+  const normalized = normalizeIndianMobileInput(value);
+  return isValidIndianMobile(normalized) ? normalized : null;
+};
+
+/** Parses a CSV/TSV export where each row is a name followed by one or more numbers. */
+const parseCsvContacts = (text: string): ParsedContact[] => {
+  const contacts: ParsedContact[] = [];
+
+  for (const line of text.split(/\r?\n/)) {
+    const cells = line
+      .split(/[,;\t]/)
+      .map((cell) => cell.trim().replace(/^"|"$/g, "").trim())
+      .filter(Boolean);
+    if (!cells.length) continue;
+
+    const mobiles: string[] = [];
+    const nameParts: string[] = [];
+
+    for (const cell of cells) {
+      const mobile = toIndianMobile(cell);
+      if (mobile) {
+        mobiles.push(mobile);
+        continue;
+      }
+      if (HEADER_LABELS.test(cell)) continue;
+      // Numbers that are not usable Indian mobiles must not become name parts.
+      if (NUMBER_LIKE_CELL.test(cell)) continue;
+      nameParts.push(cell);
+    }
+
+    if (!mobiles.length) continue;
+    // Exports repeat the name across columns (e.g. "John Doe", "John", "Doe"),
+    // so dedupe the tokens instead of joining the repeats.
+    const nameTokens = nameParts
+      .flatMap((part) => part.split(/\s+/))
+      .filter(Boolean);
+    const name =
+      Array.from(new Set(nameTokens)).join(" ").trim() || mobiles[0];
+    contacts.push({ name, mobiles: Array.from(new Set(mobiles)).slice(0, 10) });
+  }
+
+  return contacts;
+};
+
+/** Parses a vCard (.vcf) export using FN/N for the name and adr TEL lines. */
+const parseVCardContacts = (text: string): ParsedContact[] => {
+  const contacts: ParsedContact[] = [];
+
+  for (const card of text.split(/BEGIN:VCARD/i).slice(1)) {
+    const body = card.split(/END:VCARD/i)[0] || "";
+    const mobiles: string[] = [];
+    let name = "";
+    let fallbackName = "";
+
+    for (const line of body.split(/\r?\n/)) {
+      const separator = line.indexOf(":");
+      if (separator === -1) continue;
+
+      const key = line.slice(0, separator).split(";")[0].trim().toUpperCase();
+      const value = line.slice(separator + 1).trim();
+      if (!value) continue;
+
+      if (key === "TEL") {
+        const mobile = toIndianMobile(value);
+        if (mobile) mobiles.push(mobile);
+      } else if (key === "FN" && !name) {
+        name = value;
+      } else if (key === "N" && !fallbackName) {
+        fallbackName = value
+          .split(";")
+          .filter(Boolean)
+          .reverse()
+          .join(" ")
+          .trim();
+      }
+    }
+
+    if (!mobiles.length) continue;
+    const resolved = Array.from(new Set(mobiles)).slice(0, 10);
+    contacts.push({
+      name: (name || fallbackName || resolved[0]).trim(),
+      mobiles: resolved,
+    });
+  }
+
+  return contacts;
+};
+
+const parseContactsFile = (fileName: string, text: string): ParsedContact[] => {
+  const isVCard = /\.vcf$/i.test(fileName) || /BEGIN:VCARD/i.test(text);
+  const parsed = isVCard ? parseVCardContacts(text) : parseCsvContacts(text);
+
+  // A number can appear in more than one row/entry; keep the first owner so the
+  // server's per-number duplicate check does not reject the whole batch.
+  const byMobile = new Map<string, ParsedContact>();
+  for (const contact of parsed) {
+    if (!contact.mobiles.length) continue;
+    if (contact.mobiles.some((mobile) => byMobile.has(mobile))) continue;
+    contact.mobiles.forEach((mobile) => byMobile.set(mobile, contact));
+  }
+
+  return Array.from(new Set(byMobile.values()));
+};
+
 type Props = { user: User; theme: Theme };
 
 export default function Contacts({ user, theme }: Props) {
@@ -128,6 +250,7 @@ export default function Contacts({ user, theme }: Props) {
   const [deviceImportError, setDeviceImportError] = useState("");
   const googleAuthUrl = "/api/google/contacts/auth";
   const [loadingLastSeen, setLoadingLastSeen] = useState(true);
+  const contactsFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (typeof navigator !== "undefined") {
@@ -469,6 +592,55 @@ export default function Contacts({ user, theme }: Props) {
     }
   };
 
+  const importContactsFile = async (file: File) => {
+    setSyncing(true);
+    setDeviceImportError("");
+    setDeviceImportMessage("");
+
+    try {
+      const parsed = parseContactsFile(file.name, await file.text());
+      if (!parsed.length) {
+        throw new Error(
+          "No contact with a valid 10-digit Indian mobile number was found in that file.",
+        );
+      }
+
+      const response = await fetch("/api/contacts/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ contacts: parsed.slice(0, 500) }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          result?.error || "Contacts from that file could not be saved.",
+        );
+      }
+
+      await reloadContacts();
+      setDeviceImportMessage(
+        `Import complete: ${result.importedCount} added, ${result.skippedExistingCount} already saved, ${result.skippedInvalidCount} without a valid Indian mobile number.`,
+      );
+    } catch (importError) {
+      console.error("[Contacts] File import failed:", importError);
+      setDeviceImportError(
+        importError instanceof Error
+          ? importError.message
+          : "Contacts could not be imported from that file.",
+      );
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleContactsFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Reset so picking the same file again still fires a change event.
+    event.target.value = "";
+    if (file) void importContactsFile(file);
+  };
+
   useEffect(() => {
     const loadContacts = async () => {
       try {
@@ -545,15 +717,49 @@ export default function Contacts({ user, theme }: Props) {
       });
 
       const data = await res.json();
-      if (res.ok && data.contact) {
-        await reloadContacts();
-
-        setShowCreateModal(false);
-        setNewName("");
-        setNewMobiles([""]);
-        setNewEmail("");
-      } else {
+      if (!res.ok || !data.contact) {
         setError(data?.error || "Contact could not be saved.");
+        return;
+      }
+
+      const created = data.contact;
+      // Show the new contact immediately rather than waiting on a round trip, so
+      // it is visible even if the refresh below is slow or fails.
+      setContacts((prev) =>
+        prev.some((c) => c.id === created._id)
+          ? prev
+          : [
+              {
+                id: created._id,
+                name: created.name,
+                mobile: created.mobiles?.[0] || "",
+                avatar: created.avatar || "/logo/logo.png",
+                pinned: false,
+                blocked: false,
+                lastMessageTime: created.updatedAt || created.createdAt || "",
+                mobiles: created.mobiles || [],
+                email: created.email || "",
+                registered: false,
+                registeredUserId: "",
+                registeredProfile: null,
+                unread: 0,
+              },
+              ...prev,
+            ],
+      );
+
+      setShowCreateModal(false);
+      setNewName("");
+      setNewMobiles([""]);
+      setNewEmail("");
+
+      try {
+        await reloadContacts();
+      } catch (reloadError) {
+        console.error(
+          "[Contacts] Contact saved but the list could not be refreshed:",
+          reloadError,
+        );
       }
     } catch (createError) {
       console.error("[Contacts] Failed to create contact:", createError);
@@ -835,7 +1041,7 @@ export default function Contacts({ user, theme }: Props) {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={importDeviceContacts}
@@ -851,7 +1057,15 @@ export default function Contacts({ user, theme }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => (window.location.href = googleAuthUrl)}
+                  onClick={() => {
+                    if (!googleOAuthConfigured) {
+                      setGoogleImportError(
+                        "Google Contacts import is not configured on this server. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI, then restart the app.",
+                      );
+                      return;
+                    }
+                    window.location.href = googleAuthUrl;
+                  }}
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   <FaGoogle className="w-4 h-4" />
@@ -862,11 +1076,27 @@ export default function Contacts({ user, theme }: Props) {
                     </span>
                   )}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => contactsFileInputRef.current?.click()}
+                  disabled={syncing}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Upload className="w-4 h-4" />
+                  Import from file
+                </button>
+                <input
+                  ref={contactsFileInputRef}
+                  type="file"
+                  accept=".csv,.vcf,text/csv,text/vcard,text/x-vcard"
+                  onChange={handleContactsFileChange}
+                  className="hidden"
+                />
                 </div>
                 <p className="text-xs leading-5 text-slate-500">
                   {deviceContactSupported
-                    ? "Choose contacts in the device picker. Only the names and phone numbers you select are saved to your account."
-                    : "Device contact picker requires a supported Android browser and a secure HTTPS app origin. Google import is available as an alternative."}
+                    ? "Choose contacts in the device picker, or upload a CSV / vCard (.vcf) export. Only names and phone numbers you import are saved to your account."
+                    : "The device contact picker needs a supported Android browser and a secure HTTPS origin. Import from a CSV / vCard (.vcf) export instead."}
                 </p>
                 {deviceImportError && (
                   <p role="alert" className="text-sm text-red-700">
@@ -962,8 +1192,8 @@ export default function Contacts({ user, theme }: Props) {
                   No contacts found yet
                 </p>
                 <p className="mt-2 text-sm">
-                  Add your first contact or import from Google to start
-                  chatting.
+                  Add your first contact, or import a CSV / vCard (.vcf) file to
+                  start chatting.
                 </p>
               </div>
             )}

@@ -28,12 +28,6 @@ const NotificationPermissionPrompt = dynamic(
     import("@/components/common/NotificationPermissionPrompt/NotificationPermissionPrompt"),
   { ssr: false },
 );
-const RealtimeConnectionNotice = dynamic(
-  () =>
-    import("@/components/common/RealtimeConnectionNotice/RealtimeConnectionNotice"),
-  { ssr: false },
-);
-
 interface User {
   id?: string;
   name?: string;
@@ -581,7 +575,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       <NotificationPermissionPrompt
         userId={user?.id ? String(user.id) : null}
       />
-      <RealtimeConnectionNotice userId={user?.id ? String(user.id) : null} />
       {children}
     </AppContext.Provider>
   );
