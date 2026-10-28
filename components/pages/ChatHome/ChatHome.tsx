@@ -24,6 +24,11 @@ import { useContactActions } from "@/hooks/chathome/useContactActions";
 import Loading from "@/components/common/Loading/Loading";
 import { useSocket } from "@/hooks/useSocket";
 import { formatChatListTime } from "@/utils/time/chatTime";
+import {
+  EMAIL_REGEX,
+  normalizeEmailInput,
+  normalizeIndianMobileInput,
+} from "@/utils/validation/formInputs";
 import { resolveChatId } from "@/lib/chatIdentity";
 import type { RowTone } from "@/components/ui/ContactCard/ContactCard";
 const ContactCard = dynamic(
@@ -678,6 +683,9 @@ export default function ChatHome({
                       type="text"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
+                      maxLength={80}
+                      autoComplete="name"
+                      required
                       className={`w-full px-4 py-3 border-2 rounded-xl transition-colors ${inputBg} ${textColor}`}
                       placeholder="Enter contact name"
                     />
@@ -696,13 +704,19 @@ export default function ChatHome({
                             type="tel"
                             value={m}
                             onChange={(e) =>
-                              updateMobileField(idx, e.target.value)
+                              updateMobileField(
+                                idx,
+                                normalizeIndianMobileInput(e.target.value),
+                              )
                             }
+                            inputMode="numeric"
+                            autoComplete="tel-national"
                             className={`flex-1 px-4 py-3 border-2 rounded-xl transition-colors ${inputBg} ${textColor}`}
                             placeholder="10-digit number"
                             maxLength={10}
-                            pattern="[0-9]{10}"
-                            title="Enter a valid 10-digit number"
+                            pattern="[6-9][0-9]{9}"
+                            title="Enter a 10-digit Indian mobile number starting with 6, 7, 8, or 9"
+                            required={idx === 0}
                           />
                           {newMobiles.length > 1 && (
                             <button
@@ -732,7 +746,14 @@ export default function ChatHome({
                     <input
                       type="email"
                       value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
+                      onChange={(e) =>
+                        setNewEmail(normalizeEmailInput(e.target.value))
+                      }
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      autoComplete="email"
+                      pattern={EMAIL_REGEX.source}
                       className={`w-full px-4 py-3 border-2 rounded-xl transition-colors ${inputBg} ${textColor}`}
                       placeholder="example@domain.com"
                     />

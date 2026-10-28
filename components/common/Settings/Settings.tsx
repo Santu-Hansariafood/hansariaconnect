@@ -45,6 +45,8 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
     preferences: notifications,
     updatePreferences,
     playRingtone,
+    pushReady,
+    requestPermission,
   } = useNotifications(user?.id);
 
   const {
@@ -214,11 +216,8 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     setPermRequesting(true);
     try {
-      const result = await Notification.requestPermission();
-      setBrowserPerm(result);
-      console.log("[Settings] Notification permission result:", result);
-    } catch (e: any) {
-      console.error("[Settings] Error requesting notification permission:", e);
+      await requestPermission();
+      setBrowserPerm(Notification.permission);
     } finally {
       setPermRequesting(false);
     }
@@ -633,8 +632,16 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                   </>
                 ) : browserPerm === "granted" ? (
                   <>
-                    <p className="font-semibold text-emerald-700">Browser notifications enabled ✅</p>
-                    <p className="text-sm text-emerald-600 mt-0.5">You'll receive notifications when new messages arrive.</p>
+                    <p className="font-semibold text-emerald-700">
+                      {pushReady
+                        ? "Background notifications enabled ✅"
+                        : "Browser notifications allowed"}
+                    </p>
+                    <p className="text-sm text-emerald-600 mt-0.5">
+                      {pushReady
+                        ? "System alerts can arrive when the app is in the background or closed."
+                        : "Background delivery is not ready. Check browser push support, HTTPS, and the server VAPID configuration."}
+                    </p>
                   </>
                 ) : browserPerm === "denied" ? (
                   <>

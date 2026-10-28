@@ -331,20 +331,26 @@ export function useNotifications(userId?: string | number) {
       return;
     }
     console.log("[Notifications] Requesting Notification permission (triggered by user gesture)... Current state:", Notification.permission);
-    if (Notification.permission === "default") {
-      try {
-        const result = await Notification.requestPermission();
-        console.log("[Notifications] Notification permission result:", result);
-        // Granting while the app is open is also the moment to register the
-        // device for Web Push, so alerts keep arriving once it is closed.
-        if (result === "granted") {
-          void ensurePushSubscription().then(setPushReady);
+    try {
+      const result =
+        Notification.permission === "default"
+          ? await Notification.requestPermission()
+          : Notification.permission;
+      console.log("[Notifications] Notification permission result:", result);
+      if (result === "granted") {
+        const ready = await ensurePushSubscription();
+        setPushReady(ready);
+        if (!ready) {
+          console.warn(
+            "[Notifications] Browser permission is granted, but background push is not configured for this device.",
+          );
         }
-      } catch (e: any) {
-        console.error("[Notifications] Notification.requestPermission threw an error:", e?.message || e);
       }
-    } else {
-      console.log("[Notifications] Permission already set to:", Notification.permission, "- no prompt needed");
+    } catch (error) {
+      console.error(
+        "[Notifications] Notification permission or push subscription failed:",
+        error instanceof Error ? error.message : error,
+      );
     }
   }, []);
 

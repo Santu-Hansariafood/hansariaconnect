@@ -7,6 +7,11 @@ import { connectDB } from "@/lib/db/db";
 import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
+import {
+  isValidPersonName,
+  normalizeEmailInput,
+  normalizeNameInput,
+} from "@/utils/validation/formInputs";
 
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
 const ALLOWED_EMAIL_REGEX =
@@ -18,9 +23,9 @@ const generateOtp = (): string =>
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const rawName = String(body?.name || "").trim();
+    const rawName = normalizeNameInput(String(body?.name || "")).trim();
     const name = rawName;
-    const email = String(body?.email || "").trim().toLowerCase();
+    const email = normalizeEmailInput(String(body?.email || ""));
     const mobile = String(body?.mobile || "").trim();
     const { sex, dateOfBirth, termsAccepted } = body;
 
@@ -34,6 +39,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!INDIAN_MOBILE_REGEX.test(mobile)) {
       return NextResponse.json(
         { success: false, error: "Please enter a valid Indian mobile number" },
+        { status: 400 },
+      );
+    }
+
+    if (!isValidPersonName(name)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Name must start with a capital letter and contain only letters, spaces, apostrophes, or hyphens",
+        },
         { status: 400 },
       );
     }
@@ -70,7 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const template = buildOtpEmailTemplate(name, otp);
 
     const created = await User.create({
-      name: rawName,
+      name,
       email,
       mobile,
       sex,

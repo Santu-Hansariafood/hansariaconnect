@@ -20,6 +20,12 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import Loading from "@/components/common/Loading/Loading";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
+import {
+  isValidPersonName,
+  normalizeEmailInput,
+  normalizeIndianMobileInput,
+  normalizeNameInput,
+} from "@/utils/validation/formInputs";
 
 // Only needed once the QR sign-in panel is opened, so it is kept out of the
 // login page's initial download.
@@ -36,14 +42,17 @@ const ALLOWED_EMAIL_REGEX =
 
 const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
   const router = useRouter();
-  const [isWebSubdomain, setIsWebSubdomain] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [mobile, setMobile] = useState(prefillMobile || "");
+  const [mobile, setMobile] = useState(() =>
+    normalizeIndianMobileInput(prefillMobile || ""),
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [registerMobile, setRegisterMobile] = useState(prefillMobile || "");
+  const [registerMobile, setRegisterMobile] = useState(() =>
+    normalizeIndianMobileInput(prefillMobile || ""),
+  );
   const [sex, setSex] = useState<"male" | "female" | "other" | "">("");
   const [dob, setDob] = useState("");
   const [terms, setTerms] = useState(false);
@@ -55,15 +64,13 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
 
   const [scanToken, setScanToken] = useState<string | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
-
-  useEffect(() => {
-    setIsWebSubdomain(/^web\./i.test(window.location.hostname));
-  }, []);
+  const [showQrLogin, setShowQrLogin] = useState(false);
 
   useEffect(() => {
     if (prefillMobile) {
-      setMobile(prefillMobile);
-      setRegisterMobile(prefillMobile);
+      const normalizedMobile = normalizeIndianMobileInput(prefillMobile);
+      setMobile(normalizedMobile);
+      setRegisterMobile(normalizedMobile);
     }
     if (reason === "not-registered") {
       setMode("register");
@@ -91,13 +98,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
   };
 
   useEffect(() => {
-    if (isWebSubdomain) {
-      generateScanToken();
-    }
-  }, [isWebSubdomain]);
-
-  useEffect(() => {
-    if (!scanToken || !isWebSubdomain) return;
+    if (!scanToken || !showQrLogin) return;
 
     let finished = false;
     let verifying = false;
@@ -145,7 +146,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
     }, 2000);
 
     return () => clearInterval(pollInterval);
-  }, [scanToken, isWebSubdomain, router]);
+  }, [scanToken, showQrLogin, router]);
 
   const handleLoginSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -185,7 +186,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
           setInfoBanner(
             "You don't have an account yet. Please create one below.",
           );
-          setRegisterMobile(mobile);
+          setRegisterMobile(normalizeIndianMobileInput(mobile));
           setMode("register");
         } else {
           setError(data.error || "Something went wrong");
@@ -201,20 +202,27 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
   const handleRegisterSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!name || !email || !registerMobile || !sex || !dob || !terms) {
+    const normalizedName = normalizeNameInput(name).trim();
+    const normalizedEmail = normalizeEmailInput(email);
+    if (!normalizedName || !normalizedEmail || !registerMobile || !sex || !dob || !terms) {
       setError(
         "Please fill all required fields and accept terms and conditions",
       );
       return;
     }
 
-    const normalizedMobile = normalizeIndianMobile(registerMobile);
+    if (!isValidPersonName(normalizedName)) {
+      setError("Enter a name using letters, spaces, apostrophes, or hyphens.");
+      return;
+    }
+
+    const normalizedMobile = normalizeIndianMobileInput(registerMobile);
     if (!normalizedMobile) {
       setError("Please enter a valid Indian mobile number");
       return;
     }
 
-    if (!ALLOWED_EMAIL_REGEX.test(email.trim().toLowerCase())) {
+    if (!ALLOWED_EMAIL_REGEX.test(normalizedEmail)) {
       setError(
         "Only Gmail, Outlook, and Hansaria Food email addresses are allowed",
       );
@@ -231,8 +239,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name,
-          email,
+          name: normalizedName,
+          email: normalizedEmail,
           mobile: normalizedMobile,
           sex,
           dateOfBirth: dob,
@@ -246,7 +254,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
           ? `&returnTo=${encodeURIComponent(returnTo)}`
           : "";
         router.push(
-          `/verify-otp?mobile=${normalizedMobile}&email=${encodeURIComponent(email)}${queryReturnTo}`,
+          `/verify-otp?mobile=${normalizedMobile}&email=${encodeURIComponent(normalizedEmail)}${queryReturnTo}`,
         );
       } else {
         setError(data.error || "Something went wrong");
@@ -257,91 +265,6 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
       setLoading(false);
     }
   };
-
-  if (isWebSubdomain) {
-    return (
-      <Suspense fallback={<Loading />}>
-        <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
-          <motion.div
-            {...fadeIn}
-            className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg"
-          >
-            <div className="text-center mb-8">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="inline-flex items-center justify-center w-28 h-28 rounded-full mb-4"
-              >
-                <Image
-                  src="/logo/logo.png"
-                  alt="HansariaConnect Logo"
-                  width={70}
-                  height={70}
-                  className="rounded-full"
-                />
-              </motion.div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                HansariaConnect Web
-              </h1>
-              <p className="text-gray-600">
-                Scan to login with your mobile app
-              </p>
-            </div>
-            <div className="space-y-6 text-center">
-              <div className="p-6 bg-gray-50 rounded-2xl">
-                {scanLoading || !scanToken ? (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <RefreshCw className="w-12 h-12 text-gray-400 animate-spin" />
-                    <p className="mt-4 text-gray-500">Generating QR code...</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    {(() => {
-                      const scanUrl = new URL(window.location.href);
-                      if (scanUrl.hostname.startsWith("web.")) {
-                        scanUrl.hostname = scanUrl.hostname.slice(4);
-                      }
-                      scanUrl.pathname = "/scan";
-                      scanUrl.search = new URLSearchParams({
-                        token: scanToken,
-                      }).toString();
-                      return (
-                        <QRCode
-                          value={scanUrl.toString()}
-                          size={256}
-                          level="H"
-                        />
-                      );
-                    })()}
-                    <p className="mt-4 text-gray-600">
-                      Scan with your phone camera, then approve the login on
-                      your signed-in HansariaConnect account
-                    </p>
-                  </div>
-                )}
-              </div>
-              {error && (
-                <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {error}
-                </p>
-              )}
-              <button
-                onClick={() => {
-                  generateScanToken();
-                }}
-                disabled={scanLoading}
-                className="flex items-center justify-center gap-2 w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Refresh QR Code
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      </Suspense>
-    );
-  }
 
   return (
     <Suspense fallback={<Loading />}>
@@ -418,6 +341,69 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                 </p>
               </div>
 
+              <div className="mb-5 text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const shouldShowQrLogin = !showQrLogin;
+                    setShowQrLogin(shouldShowQrLogin);
+                    setError("");
+                    if (shouldShowQrLogin) {
+                      void generateScanToken();
+                    }
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                  aria-expanded={showQrLogin}
+                >
+                  <QrCode className="h-4 w-4" aria-hidden="true" />
+                  {showQrLogin ? "Hide QR login" : "Scan to login with mobile"}
+                </button>
+                {showQrLogin && (
+                  <div className="mt-4 rounded-2xl bg-gray-50 p-4">
+                    {scanLoading || !scanToken ? (
+                      <div className="flex flex-col items-center justify-center py-6">
+                        <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+                        <p className="mt-3 text-sm text-gray-500">
+                          Generating QR code…
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <QRCode
+                          value={(() => {
+                            const scanUrl = new URL(window.location.href);
+                            scanUrl.pathname = "/scan";
+                            scanUrl.search = new URLSearchParams({
+                              token: scanToken,
+                            }).toString();
+                            return scanUrl.toString();
+                          })()}
+                          size={220}
+                          level="H"
+                        />
+                        <p className="mt-3 text-sm text-gray-600">
+                          Scan with your signed-in HansariaConnect mobile app.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => void generateScanToken()}
+                          disabled={scanLoading}
+                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-100 disabled:opacity-50"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Refresh QR code
+                        </button>
+                      </div>
+                    )}
+                    {error && (
+                      <p role="alert" className="mt-3 text-sm text-red-600">
+                        {error}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {mode === "login" ? (
                 <div className="space-y-6">
                   <form onSubmit={handleLoginSubmit} className="space-y-6">
@@ -429,11 +415,14 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                         <input
                           type="tel"
-                          maxLength={20}
-                          inputMode="tel"
+                          maxLength={10}
+                          inputMode="numeric"
+                          pattern="[6-9][0-9]{9}"
+                          autoComplete="tel-national"
+                          required
                           value={mobile}
                           onChange={(e) => {
-                            setMobile(e.target.value);
+                            setMobile(normalizeIndianMobileInput(e.target.value));
                             setError("");
                             setInfoBanner("");
                           }}
@@ -510,9 +499,12 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         type="text"
                         value={name}
                         onChange={(e) => {
-                          setName(e.target.value);
+                          setName(normalizeNameInput(e.target.value));
                           setError("");
                         }}
+                        maxLength={80}
+                        autoComplete="name"
+                        required
                         placeholder="Enter your name"
                         className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
@@ -529,9 +521,15 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         type="email"
                         value={email}
                         onChange={(e) => {
-                          setEmail(e.target.value);
+                          setEmail(normalizeEmailInput(e.target.value));
                           setError("");
                         }}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        autoComplete="email"
+                        pattern="[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)"
+                        required
                         placeholder="Enter your email (OTP will be sent here)"
                         className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
@@ -550,9 +548,12 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                       <input
                         type="tel"
                         maxLength={10}
+                        inputMode="numeric"
+                        pattern="[6-9][0-9]{9}"
+                        autoComplete="tel-national"
                         value={registerMobile}
                         onChange={(e) => {
-                          const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          const digits = normalizeIndianMobileInput(e.target.value);
                           setRegisterMobile(digits);
                           setError("");
                         }}

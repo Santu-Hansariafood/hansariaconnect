@@ -5,6 +5,13 @@ import Contact from "@/models/contact/Contact";
 import Profile from "@/models/profile/Profile";
 import Admin from "@/models/admin/Admin";
 import User from "@/models/user/User";
+import {
+  EMAIL_REGEX,
+  isValidIndianMobile,
+  isValidPersonName,
+  normalizeEmailInput,
+  normalizeNameInput,
+} from "@/utils/validation/formInputs";
 
 interface ContactPayload {
   name: string;
@@ -158,14 +165,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const body = (await req.json()) as ContactPayload;
 
-    const name = body?.name?.trim();
+    const name = normalizeNameInput(String(body?.name || "")).trim();
     const mobiles = Array.isArray(body?.mobiles)
-      ? body.mobiles.map(String)
+      ? body.mobiles.map((mobile) => String(mobile).trim()).filter(Boolean)
       : [];
-    const email = body?.email?.trim();
+    const email = normalizeEmailInput(String(body?.email || ""));
 
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+    if (!isValidPersonName(name)) {
+      return NextResponse.json(
+        {
+          error:
+            "Name must start with a capital letter and contain only letters, spaces, apostrophes, or hyphens",
+        },
+        { status: 400 },
+      );
     }
 
     if (!mobiles.length) {
@@ -175,13 +191,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const cleanedMobiles = mobiles
-      .map((m) => m.replace(/\D/g, ""))
-      .filter((m) => /^\d{10}$/.test(m));
-
-    if (!cleanedMobiles.length) {
+    if (mobiles.some((mobile) => !isValidIndianMobile(mobile))) {
       return NextResponse.json(
-        { error: "Provide valid 10-digit mobile numbers" },
+        {
+          error:
+            "Each mobile number must be 10 digits and start with 6, 7, 8, or 9",
+        },
+        { status: 400 },
+      );
+    }
+    if (email && !EMAIL_REGEX.test(email)) {
+      return NextResponse.json(
+        { error: "Enter a valid email address" },
         { status: 400 },
       );
     }
@@ -191,7 +212,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const newContact = await Contact.create({
       userId: session.id,
       name,
-      mobiles: cleanedMobiles,
+      mobiles: Array.from(new Set(mobiles)),
       email,
     });
 
@@ -214,7 +235,10 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
     const body = await req.json();
     const id = String(body?.id || "");
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const name =
+      typeof body?.name === "string"
+        ? normalizeNameInput(body.name).trim()
+        : "";
 
     if (!id) {
       return NextResponse.json(
@@ -224,6 +248,15 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     }
     if (!name) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+    if (!isValidPersonName(name)) {
+      return NextResponse.json(
+        {
+          error:
+            "Name must start with a capital letter and contain only letters, spaces, apostrophes, or hyphens",
+        },
+        { status: 400 },
+      );
     }
 
     await connectDB();
