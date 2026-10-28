@@ -25,19 +25,22 @@ const Groups = dynamic(() => import("@/components/pages/Groups/Groups"), {
 });
 
 export default function GroupsPage() {
-  const { user, theme } = useApp() as {
+  const { user, theme, sessionChecked } = useApp() as {
     user: UserType | null;
+    sessionChecked: boolean;
     theme: ThemeType | null;
   };
 
   const router = useRouter();
 
   useEffect(() => {
+    if (!sessionChecked) return;
     if (!user || user.step !== "complete") {
       router.replace("/");
     }
-  }, [user, router]);
+  }, [user, router, sessionChecked]);
 
+  if (!sessionChecked) return <Loading />;
   if (!user) return null;
 
   const safeTheme: ThemeType = theme ?? {

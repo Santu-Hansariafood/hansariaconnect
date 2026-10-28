@@ -13,17 +13,20 @@ const GroupSettings = dynamic(
 
 export default function GroupSettingsPage() {
   const router = useRouter();
-  const { user, theme } = useApp() as {
+  const { user, theme, sessionChecked } = useApp() as {
     user: { step?: string } | null;
+    sessionChecked: boolean;
     theme: { primary: string; wallpaper: string; textSize: string } | null;
   };
 
   useEffect(() => {
+    if (!sessionChecked) return;
     if (!user || user.step !== "complete") {
       router.replace("/");
     }
-  }, [user, router]);
+  }, [user, router, sessionChecked]);
 
+  if (!sessionChecked) return <Loading />;
   if (!user) return null;
 
   const safeTheme =
@@ -35,5 +38,4 @@ export default function GroupSettingsPage() {
 
   return <GroupSettings user={user as any} theme={safeTheme} />;
 }
-
 

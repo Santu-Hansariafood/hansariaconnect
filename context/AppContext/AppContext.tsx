@@ -27,6 +27,7 @@ interface User {
   id?: string
   name?: string
   photo?: string
+  email?: string
   mobile?: string
   step?: "otp" | "name" | "complete"
 }
@@ -53,6 +54,7 @@ interface BootstrapData {
 
 interface AppContextType {
   user: User | null
+  sessionChecked: boolean
   theme: Theme
   setUser: (u: User | null) => void
   updateTheme: (t: Theme) => void
@@ -103,15 +105,29 @@ const readSavedUser = (): User | null => {
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect
 
-const validateServerSession = async (): Promise<boolean> => {
-  try {
-    const res = await fetch("/api/auth/me", {
-      method: "GET",
-      credentials: "include",
-    })
-    return res.ok
-  } catch {
-    return false
+const loadServerSession = async (): Promise<User | null> => {
+  const res = await fetch("/api/auth/me", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  })
+  if (res.status === 401) return null
+  if (!res.ok) {
+    throw new Error(`Session check returned HTTP ${res.status}`)
+  }
+
+  const data = await res.json()
+  if (!data?.success || typeof data.user?.id !== "string") {
+    throw new Error("Session check returned an invalid user")
+  }
+
+  return {
+    id: data.user.id,
+    name: data.user.name || undefined,
+    photo: data.user.photo || undefined,
+    email: data.user.email || undefined,
+    mobile: data.user.mobile || undefined,
+    step: "complete",
   }
 }
 
@@ -333,26 +349,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     void (async () => {
-      let savedUser: User | null = null
-      try {
-        savedUser = readSavedUser()
-      } catch (error) {
-        console.error("[AppProvider] Could not restore saved app state:", error)
-        localStorage.removeItem("hansariaUser")
-      }
+      const savedUser = readSavedUser()
 
       try {
-        const valid = savedUser ? await validateServerSession() : false
-        if (savedUser && valid) {
-          setUser(savedUser)
-        } else if (savedUser) {
-          // Session expired — drop the optimistic user so guarded screens redirect.
+        const serverUser = await loadServerSession()
+        if (serverUser) {
+          setUser(serverUser)
+          localStorage.setItem("hansariaUser", JSON.stringify(serverUser))
+        } else {
+          // A 401 means the server session expired or was explicitly revoked.
           localStorage.removeItem("hansariaUser")
           setUser(null)
         }
         setSessionChecked(true)
 
-        if (!savedUser || !valid) return
+        if (!serverUser) return
 
         const settings = await cachedFetch("/api/settings", {
           credentials: "include",
@@ -370,7 +381,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem("hansariaTheme", JSON.stringify(settings.theme))
         }
       } catch (error) {
-        console.error("[AppProvider] App session initialization failed:", error)
+        console.error("[AppProvider] Could not verify the server session:", error)
+        if (savedUser) setUser(savedUser)
         setSessionChecked(true)
       }
     })()
@@ -488,6 +500,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const contextValue = useMemo<AppContextType>(
     () => ({
       user,
+      sessionChecked,
       setUser,
       theme,
       updateTheme,
@@ -502,6 +515,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }),
     [
       user,
+      sessionChecked,
       theme,
       updateTheme,
       logout,

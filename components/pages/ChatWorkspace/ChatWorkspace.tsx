@@ -42,8 +42,9 @@ type ThemeShape = {
 };
 
 export default function ChatWorkspace() {
-  const { user, theme } = useApp() as unknown as {
+  const { user, theme, sessionChecked } = useApp() as unknown as {
     user?: MinimalUser;
+    sessionChecked: boolean;
     theme: ThemeShape;
   };
   const router = useRouter();
@@ -52,13 +53,15 @@ export default function ChatWorkspace() {
   const isReady = Boolean(user && user.step === "complete");
 
   useEffect(() => {
+    if (!sessionChecked) return;
     if (!user) {
       router.replace("/login");
     } else if (user.step !== "complete") {
       router.replace("/login");
     }
-  }, [router, user]);
+  }, [router, sessionChecked, user]);
 
+  if (!sessionChecked) return <Loading />;
   if (!isReady) return <Loading />;
 
   return (

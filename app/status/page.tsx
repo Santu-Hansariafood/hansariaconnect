@@ -10,7 +10,7 @@ const StatusPage = dynamic(() => import("@/components/pages/Status/Status"), {
 });
 
 export default function StatusRoute() {
-  const { user, theme, logout } = useApp();
+  const { user, theme, logout, sessionChecked } = useApp();
   const router = useRouter();
 
   const [hydrated, setHydrated] = useState(false);
@@ -25,14 +25,14 @@ export default function StatusRoute() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !sessionChecked) return;
 
     if (!user || user.step !== "complete") {
       router.replace("/");
     }
-  }, [hydrated, user, router]);
+  }, [hydrated, sessionChecked, user, router]);
 
-  if (!hydrated) return null;
+  if (!hydrated || !sessionChecked) return null;
 
   if (!user) return null;
 

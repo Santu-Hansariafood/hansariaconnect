@@ -12,17 +12,20 @@ const CreateGroup = dynamic(() => import("@/components/pages/CreateGroup/CreateG
 
 export default function CreateGroupPage() {
   const router = useRouter();
-  const { user, theme } = useApp() as {
+  const { user, theme, sessionChecked } = useApp() as {
     user: { step?: string } | null;
+    sessionChecked: boolean;
     theme: { primary: string; textSize: string; wallpaper: string } | null;
   };
 
   useEffect(() => {
+    if (!sessionChecked) return;
     if (!user || user.step !== "complete") {
       router.replace("/");
     }
-  }, [user, router]);
+  }, [user, router, sessionChecked]);
 
+  if (!sessionChecked) return <Loading />;
   if (!user) return null;
 
   const safeTheme =

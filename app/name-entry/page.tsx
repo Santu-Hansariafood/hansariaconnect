@@ -25,18 +25,21 @@ const NameEntry = dynamic(
 );
 
 export default function NameEntryPage() {
-  const { user, setUser } = useApp() as {
+  const { user, setUser, sessionChecked } = useApp() as {
     user: UserType | null;
+    sessionChecked: boolean;
     setUser: (u: UserType) => void;
   };
 
   const router = useRouter();
   useEffect(() => {
+    if (!sessionChecked) return;
     if (!user || user.step !== "name") {
       router.replace("/");
     }
-  }, [user, router]);
+  }, [user, router, sessionChecked]);
 
+  if (!sessionChecked) return null;
   if (!user || user.step !== "name") return null;
 
   const handleNameEntry = (name: string, photo: string) => {

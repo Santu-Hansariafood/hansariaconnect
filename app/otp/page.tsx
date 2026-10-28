@@ -8,15 +8,17 @@ import Loading from "@/components/common/Loading/Loading"
 const Otp = dynamic(() => import("@/components/pages/Otp/Otp"));
 
 export default function OtpPage() {
-  const { user, setUser } = useApp()
+  const { user, setUser, sessionChecked } = useApp()
   const router = useRouter()
 
   useEffect(() => {
+    if (!sessionChecked) return
     if (!user || user.step !== "otp") {
       router.push("/")
     }
-  }, [user, router])
+  }, [user, router, sessionChecked])
 
+  if (!sessionChecked) return <Loading />;
   if (!user || user.step !== "otp") {
     return null
   }

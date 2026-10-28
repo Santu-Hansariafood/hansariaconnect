@@ -145,7 +145,7 @@ export const userSessionCookieOptions = {
   secure: process.env.NODE_ENV === "production",
   sameSite: "strict" as const,
   path: "/" as const,
-  maxAge: 30 * 24 * 60 * 60,
+  maxAge: 365 * 24 * 60 * 60,
 };
 
 export const adminSessionCookieOptions = {
