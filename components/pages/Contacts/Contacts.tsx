@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, Suspense, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -25,10 +25,15 @@ declare global {
       select: (
         properties: string[],
         options?: { multiple?: boolean },
-      ) => Promise<any[]>;
+      ) => Promise<DeviceContact[]>;
     };
   }
 }
+
+type DeviceContact = {
+  name?: string[];
+  tel?: string[];
+};
 
 import {
   FaGoogle,
@@ -65,6 +70,19 @@ type Contact = {
   registeredProfile?: { name?: string; photo?: string } | null;
 };
 
+type ContactListItem = {
+  _id: string;
+  name: string;
+  mobiles?: string[];
+  avatar?: string;
+  email?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  registered?: boolean;
+  registeredUserId?: string;
+  registeredProfile?: { name?: string; photo?: string } | null;
+};
+
 interface ContactWithLinks extends Contact {
   shareLinks?: { wa: string; fb: string; x: string; sms: string };
   shareLinksLoading?: boolean;
@@ -92,18 +110,20 @@ export default function Contacts({ user, theme }: Props) {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const [inviteLoading, setInviteLoading] = useState<string>("");
   const [inviteMessage, setInviteMessage] = useState<string>("");
   const [googleImportError, setGoogleImportError] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [deviceContactSupported, setDeviceContactSupported] = useState(false);
+  const [deviceImportMessage, setDeviceImportMessage] = useState("");
+  const [deviceImportError, setDeviceImportError] = useState("");
   const googleAuthUrl = "/api/google/contacts/auth";
   const [loadingLastSeen, setLoadingLastSeen] = useState(true);
 
   useEffect(() => {
     if (typeof navigator !== "undefined") {
       setDeviceContactSupported(
-        !!navigator.contacts?.select && typeof navigator.contacts.select === "function",
+        window.isSecureContext &&
+          typeof navigator.contacts?.select === "function",
       );
     }
   }, []);
@@ -132,6 +152,53 @@ export default function Contacts({ user, theme }: Props) {
     },
     [],
   );
+
+  const reloadContacts = useCallback(async () => {
+    const response = await fetch("/api/contacts", {
+      cache: "no-store",
+      credentials: "include",
+    });
+    const data = await response.json();
+    if (!response.ok || !Array.isArray(data?.contacts)) {
+      throw new Error(data?.error || "Contacts could not be reloaded.");
+    }
+
+    const mapped: ContactWithLinks[] = data.contacts.map((contact: ContactListItem) => ({
+      id: contact._id,
+      name: contact.registeredProfile?.name || contact.name,
+      mobile: contact.mobiles?.[0] || "",
+      avatar: contact.registeredProfile?.photo || contact.avatar || "/logo/logo.png",
+      pinned: false,
+      blocked: false,
+      lastMessageTime: contact.updatedAt || contact.createdAt || "",
+      mobiles: contact.mobiles || [],
+      email: contact.email || "",
+      registered: !!contact.registered,
+      registeredUserId: contact.registeredUserId || "",
+      registeredProfile: contact.registeredProfile || null,
+      unread: 0,
+    }));
+
+    const unreadMap = await loadUnreadCountsForContacts(mapped);
+    mapped.forEach((contact) => {
+      if (contact.registeredUserId && unreadMap[contact.registeredUserId]) {
+        contact.unread = unreadMap[contact.registeredUserId];
+      }
+    });
+
+    setContacts(mapped);
+    const registeredIds = mapped
+      .filter((contact) => contact.registered && contact.registeredUserId)
+      .map((contact) => contact.registeredUserId as string);
+    setLoadingLastSeen(registeredIds.length > 0);
+    if (registeredIds.length > 0) {
+      try {
+        await preloadLastSeenForUsers(registeredIds);
+      } finally {
+        setLoadingLastSeen(false);
+      }
+    }
+  }, [loadUnreadCountsForContacts]);
 
   useEffect(() => {
     const registeredIds = Array.from(
@@ -281,48 +348,7 @@ export default function Contacts({ user, theme }: Props) {
         throw new Error(result?.error || "Google contacts could not be imported.");
       }
 
-      const listRes = await fetch("/api/contacts", {
-        cache: "no-store",
-        credentials: "include",
-      });
-      const data = await listRes.json();
-      if (!listRes.ok || !Array.isArray(data?.contacts)) {
-        throw new Error(data?.error || "Imported contacts could not be reloaded.");
-      }
-
-      const mapped: ContactWithLinks[] = data.contacts.map((c: any) => ({
-        id: c._id,
-        name: c.registeredProfile?.name || c.name,
-        mobile: c.mobiles?.[0] || "",
-        avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
-        pinned: false,
-        blocked: false,
-        lastMessageTime: c.updatedAt || c.createdAt || "",
-        mobiles: c.mobiles || [],
-        email: c.email || "",
-        registered: !!c.registered,
-        registeredUserId: c.registeredUserId || "",
-        registeredProfile: c.registeredProfile || null,
-        unread: 0,
-      }));
-
-      const unreadMap = await loadUnreadCountsForContacts(mapped);
-      mapped.forEach((c) => {
-        if (c.registeredUserId && unreadMap[c.registeredUserId]) {
-          c.unread = unreadMap[c.registeredUserId];
-        }
-      });
-
-      setContacts(mapped);
-      const ids = mapped
-        .filter((c) => c.registered && c.registeredUserId)
-        .map((c) => c.registeredUserId as string);
-      if (ids.length) {
-        setLoadingLastSeen(true);
-        void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
-      } else {
-        setLoadingLastSeen(false);
-      }
+      await reloadContacts();
 
       setInviteMessage(
         `Google contacts imported. ${result.importedCount ?? 0} new contact${result.importedCount === 1 ? "" : "s"} added.`,
@@ -341,109 +367,65 @@ export default function Contacts({ user, theme }: Props) {
 
   const importDeviceContacts = async () => {
     if (typeof navigator === "undefined" || !navigator.contacts?.select) {
-      setError(
-        "Direct mobile contact access is not supported in this browser. Please use Google import or add contacts manually.",
+      setDeviceImportError(
+        "Device contact importing is not available here. Use Google import or add contacts manually.",
       );
       return;
     }
 
     setSyncing(true);
-    setError("");
+    setDeviceImportError("");
+    setDeviceImportMessage("");
 
     try {
       const selectedContacts = await navigator.contacts.select(["name", "tel"], {
         multiple: true,
       });
 
-      const validEntries = selectedContacts
-        .map((person: any) => {
-          const numbers = Array.isArray(person?.tel)
-            ? person.tel
-                .map((entry: any) => String(entry ?? "").replace(/\D/g, ""))
-                .filter((value: string) => value.length >= 10)
-            : [];
-
-          if (!numbers.length) return null;
-
-          const name =
-            Array.isArray(person?.name) && person.name.length > 0
-              ? person.name[0]
-              : person?.name || "Mobile Contact";
-
-          return { name, mobiles: [...new Set(numbers)] };
-        })
-        .filter(Boolean) as { name: string; mobiles: string[] }[];
-
-      if (!validEntries.length) {
-        setError("No valid mobile numbers were selected from your device contacts.");
-        setSyncing(false);
+      if (selectedContacts.length === 0) {
         return;
       }
-
-      const created: any[] = [];
-      for (const entry of validEntries) {
-        const res = await fetch("/api/contacts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            name: entry.name.trim(),
-            mobiles: entry.mobiles,
-          }),
-        });
-
-        const data = await res.json();
-        if (res.ok && data?.contact) {
-          created.push(data.contact);
-        }
+      if (selectedContacts.length > 500) {
+        throw new Error("Select no more than 500 contacts at a time.");
       }
 
-      if (created.length) {
-        const listRes = await fetch("/api/contacts", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const data = await listRes.json();
-
-        if (Array.isArray(data?.contacts)) {
-          const mapped = data.contacts.map((c: any) => ({
-            id: c._id,
-            name: c.registeredProfile?.name || c.name,
-            mobile: c.mobiles?.[0] || "",
-            avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
-            pinned: false,
-            blocked: false,
-            lastMessageTime: c.updatedAt || c.createdAt || "",
-            mobiles: c.mobiles || [],
-            email: c.email || "",
-            registered: !!c.registered,
-            registeredUserId: c.registeredUserId || "",
-            registeredProfile: c.registeredProfile || null,
-            unread: 0,
-          }));
-
-          const unreadMap = await loadUnreadCountsForContacts(mapped);
-          mapped.forEach((c: any) => {
-            if (c.registeredUserId && unreadMap[c.registeredUserId]) {
-              c.unread = unreadMap[c.registeredUserId];
-            }
-          });
-
-          setContacts(mapped);
-          const ids = mapped
-            .filter((c: any) => c.registered && c.registeredUserId)
-            .map((c: any) => c.registeredUserId);
-          if (ids.length) {
-            setLoadingLastSeen(true);
-            void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
-          } else {
-            setLoadingLastSeen(false);
-          }
-        }
+      const response = await fetch("/api/contacts/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          contacts: selectedContacts.map((person) => ({
+            name: person.name?.[0] || "Mobile Contact",
+            mobiles: person.tel || [],
+          })),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || "Selected contacts could not be saved.");
       }
-    } catch (err) {
-      setError(
-        "The device contact picker was blocked or unavailable. Please try again or import contacts another way.",
+
+      try {
+        await reloadContacts();
+      } catch (loadError) {
+        console.error("[Contacts] Imported contacts could not be reloaded:", loadError);
+        setDeviceImportError(
+          `${result.importedCount} contacts were saved, but the list could not be refreshed. Reopen Contacts to see them.`,
+        );
+        return;
+      }
+      setDeviceImportMessage(
+        `Import complete: ${result.importedCount} added, ${result.skippedExistingCount} already saved, ${result.skippedInvalidCount} without a valid Indian mobile number.`,
+      );
+    } catch (importError) {
+      if (importError instanceof Error && importError.name === "AbortError") {
+        return;
+      }
+      console.error("[Contacts] Device contact import failed:", importError);
+      setDeviceImportError(
+        importError instanceof Error
+          ? importError.message
+          : "Device contacts could not be imported. Please try again.",
       );
     } finally {
       setSyncing(false);
@@ -453,54 +435,14 @@ export default function Contacts({ user, theme }: Props) {
   useEffect(() => {
     const loadContacts = async () => {
       try {
-        const res = await fetch("/api/contacts", {
-          cache: "no-store",
-          credentials: "include",
-        });
-        const data = await res.json();
-
-        if (Array.isArray(data?.contacts)) {
-          const mapped = data.contacts.map((c: any) => ({
-            id: c._id,
-            name: c.registeredProfile?.name || c.name,
-            mobile: c.mobiles?.[0] || "",
-            avatar: c.registeredProfile?.photo || c.avatar || "/logo/logo.png",
-            pinned: false,
-            blocked: false,
-            lastMessageTime: c.updatedAt || c.createdAt || "",
-            mobiles: c.mobiles || [],
-            email: c.email || "",
-            registered: !!c.registered,
-            registeredUserId: c.registeredUserId || "",
-            registeredProfile: c.registeredProfile || null,
-            unread: 0,
-          }));
-
-          const unreadMap = await loadUnreadCountsForContacts(mapped);
-          mapped.forEach((c: any) => {
-            if (c.registeredUserId && unreadMap[c.registeredUserId]) {
-              c.unread = unreadMap[c.registeredUserId];
-            }
-          });
-
-          setContacts(mapped);
-
-          const ids = mapped
-            .filter((c: any) => c.registered && c.registeredUserId)
-            .map((c: any) => c.registeredUserId);
-          if (ids.length) {
-            setLoadingLastSeen(true);
-            void preloadLastSeenForUsers(ids).finally(() => setLoadingLastSeen(false));
-          } else {
-            setLoadingLastSeen(false);
-          }
-        }
-      } catch {
+        await reloadContacts();
+      } catch (loadError) {
+        console.error("[Contacts] Failed to load contacts:", loadError);
         setLoadingLastSeen(false);
       }
     };
-    loadContacts();
-  }, [loadUnreadCountsForContacts]);
+    void loadContacts();
+  }, [reloadContacts]);
 
   useEffect(() => {
     let filtered = contacts;
@@ -863,7 +805,11 @@ export default function Contacts({ user, theme }: Props) {
                   className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <CircleUserRound className="w-4 h-4" />
-                  {deviceContactSupported ? "Use mobile contacts" : "Mobile contacts not supported"}
+                  {syncing
+                    ? "Importing..."
+                    : deviceContactSupported
+                      ? "Use mobile contacts"
+                      : "Mobile contacts not supported"}
                 </button>
                 <button
                   type="button"
@@ -879,6 +825,21 @@ export default function Contacts({ user, theme }: Props) {
                   )}
                 </button>
                 </div>
+                <p className="text-xs leading-5 text-slate-500">
+                  {deviceContactSupported
+                    ? "Choose contacts in the device picker. Only the names and phone numbers you select are saved to your account."
+                    : "Device contact picker requires a supported Android browser and a secure HTTPS app origin. Google import is available as an alternative."}
+                </p>
+                {deviceImportError && (
+                  <p role="alert" className="text-sm text-red-700">
+                    {deviceImportError}
+                  </p>
+                )}
+                {deviceImportMessage && (
+                  <p role="status" className="text-sm text-emerald-800">
+                    {deviceImportMessage}
+                  </p>
+                )}
               </div>
             </section>
             <div className="rounded-2xl border border-slate-200 bg-white px-3 shadow-sm sm:px-4">
