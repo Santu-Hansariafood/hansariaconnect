@@ -28,7 +28,7 @@ export default function ReactionPicker({
           position === "top" ? "bottom-full mb-2" : "top-full mt-2"
         } ${
           align === "right" ? "right-0" : "left-0"
-        } z-50 flex max-w-[min(20rem,calc(100vw-2rem))] flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/60 bg-white/70 p-2 shadow-[0_12px_40px_rgba(15,23,42,0.18)] backdrop-blur-2xl backdrop-saturate-150`}
+        } z-50 flex max-w-[min(20rem,calc(100vw-2rem))] flex-wrap items-center justify-center gap-1.5 rounded-full border border-[var(--chat-glass-border)] bg-[var(--chat-glass-surface)] p-2 text-[var(--chat-text)] shadow-[0_12px_40px_rgba(15,23,42,0.28)] backdrop-blur-2xl backdrop-saturate-150`}
       >
         {REACTION_EMOJIS.map((emoji) => (
           <motion.button
@@ -40,7 +40,7 @@ export default function ReactionPicker({
               onReactionSelect(emoji);
               onClose?.();
             }}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[19px] transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-[19px] transition-colors hover:bg-[var(--chat-glass-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/70"
             title={emoji}
             aria-label={`React with ${emoji}`}
           >

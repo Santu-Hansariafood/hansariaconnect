@@ -93,7 +93,6 @@ function ChatWindowHeader({
   lastSeenStatus,
 }: ChatWindowHeaderProps) {
   const router = useRouter();
-  const primaryColor = theme.primary || "#0CA678";
   const borderColor = theme.primary ? theme.primary + "80" : "#0b4d45";
   const typingStatus = typingUsers.length
     ? isGroup
@@ -106,7 +105,7 @@ function ChatWindowHeader({
   return (
     <header
       style={{
-        backgroundColor: primaryColor,
+        backgroundColor: "var(--chat-header-background)",
         borderBottomColor: borderColor,
       }}
       className="sticky top-0 z-30 flex h-14 items-center gap-1.5 border-b px-1.5 py-1 text-white shadow-sm sm:h-[60px] sm:gap-3 sm:px-3 sm:py-2 theme-transition"
@@ -232,7 +231,7 @@ function ChatWindowHeader({
         </button>
 
         {showOptionsMenu && (
-          <div className="absolute right-0 top-12 w-64 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50">
+          <div className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-xl border border-[var(--chat-border)] bg-[var(--chat-surface)] text-[var(--chat-text)] shadow-2xl">
             <div
               className="px-4 py-3"
               style={{
@@ -250,10 +249,10 @@ function ChatWindowHeader({
                     setShowOptionsMenu(false);
                     onSaveContact();
                   }}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--chat-glass-hover)]"
                 >
                   <CircleUserRound className="w-5 h-5 text-emerald-600" />
-                  <span className="text-gray-700 font-medium">
+                  <span className="font-medium text-[var(--chat-text)]">
                     Save Contact
                   </span>
                 </button>
@@ -263,10 +262,10 @@ function ChatWindowHeader({
                     setShowOptionsMenu(false);
                     onEditContact();
                   }}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--chat-glass-hover)]"
                 >
                   <CircleUserRound className="w-5 h-5 text-blue-600" />
-                  <span className="text-gray-700 font-medium">
+                  <span className="font-medium text-[var(--chat-text)]">
                     Edit Contact Name
                   </span>
                 </button>
@@ -277,10 +276,10 @@ function ChatWindowHeader({
                   setShowOptionsMenu(false);
                   onClearClick();
                 }}
-                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--chat-glass-hover)]"
               >
                 <Trash2 className="w-5 h-5 text-red-500" />
-                <span className="text-gray-700 font-medium">Clear Chat</span>
+                <span className="font-medium text-[var(--chat-text)]">Clear Chat</span>
               </button>
 
               <button
@@ -288,10 +287,10 @@ function ChatWindowHeader({
                   setShowOptionsMenu(false);
                   onArchive();
                 }}
-                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--chat-glass-hover)]"
               >
-                <Archive className="w-5 h-5 text-gray-600" />
-                <span className="text-gray-700 font-medium">Archive Chat</span>
+                <Archive className="h-5 w-5 text-[var(--chat-muted)]" />
+                <span className="font-medium text-[var(--chat-text)]">Archive Chat</span>
               </button>
 
               <button
@@ -299,10 +298,10 @@ function ChatWindowHeader({
                   setShowOptionsMenu(false);
                   onSearch();
                 }}
-                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--chat-glass-hover)]"
               >
                 <SearchIcon className="w-5 h-5 text-blue-500" />
-                <span className="text-gray-700 font-medium">Search</span>
+                <span className="font-medium text-[var(--chat-text)]">Search</span>
               </button>
 
               <button
@@ -310,10 +309,10 @@ function ChatWindowHeader({
                   setShowOptionsMenu(false);
                   onBlockToggle();
                 }}
-                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--chat-glass-hover)]"
               >
                 <Ban className="w-5 h-5 text-orange-500" />
-                <span className="text-gray-700 font-medium">Block/Mute</span>
+                <span className="font-medium text-[var(--chat-text)]">Block/Mute</span>
               </button>
             </div>
           </div>

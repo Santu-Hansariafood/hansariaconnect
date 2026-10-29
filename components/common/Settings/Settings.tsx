@@ -61,6 +61,11 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
     { primary: "#6B3FA0", secondary: "#CEB2E5", name: "Purple" },
     { primary: "#FF6B6B", secondary: "#FFD2D2", name: "Coral" },
     { primary: "#FF9700", secondary: "#FFDEA5", name: "Orange" },
+    { primary: "#0891B2", secondary: "#A5F3FC", name: "Cyan" },
+    { primary: "#7C3AED", secondary: "#DDD6FE", name: "Violet" },
+    { primary: "#E11D48", secondary: "#FECDD3", name: "Rose" },
+    { primary: "#4F46E5", secondary: "#C7D2FE", name: "Indigo" },
+    { primary: "#475569", secondary: "#CBD5E1", name: "Slate" },
   ];
 
   const wallpaperOptions = [
@@ -477,24 +482,32 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+        <motion.div {...fadeIn} className="mt-6 rounded-2xl bg-white p-6 shadow-lg dark:bg-slate-900">
           <div className="flex items-center gap-3 mb-4">
             <Palette className="w-6 h-6" style={{ color: localTheme?.primary }} />
-            <h2 className="text-xl font-semibold text-gray-800">Theme Color</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">Theme Color</h2>
           </div>
+          <p className="mb-4 text-sm text-gray-600 dark:text-slate-400">
+            Choose an accent color. Chat appearance follows your device&apos;s light or dark mode.
+          </p>
 
-          <div className="grid grid-cols-5 gap-4">
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5 sm:gap-4">
             {colorOptions.map((color) => (
               <button
                 key={color.name}
                 onClick={() => updateTheme(color)}
-                className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-gray-50"
+                aria-pressed={localTheme?.primary === color.primary}
+                className={`flex flex-col items-center gap-2 rounded-xl p-3 transition-colors hover:bg-gray-50 dark:hover:bg-slate-800 ${
+                  localTheme?.primary === color.primary
+                    ? "bg-gray-50 ring-2 ring-[var(--brand-primary)] dark:bg-slate-800"
+                    : ""
+                }`}
               >
                 <div
-                  className="w-12 h-12 rounded-full border-4 border-white shadow-lg"
+                  className="h-12 w-12 rounded-full border-4 border-white shadow-lg dark:border-slate-700"
                   style={{ backgroundColor: color.primary }}
                 />
-                <span className="text-xs text-gray-600">{color.name}</span>
+                <span className="text-xs text-gray-600 dark:text-slate-300">{color.name}</span>
               </button>
             ))}
           </div>

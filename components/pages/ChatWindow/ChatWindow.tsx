@@ -1383,7 +1383,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   if (initialLoading) {
     return (
       <div
-        className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[#efeae2]"
+        className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[var(--chat-wallpaper-surface)]"
         role="status"
         aria-live="polite"
       >
@@ -1456,7 +1456,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overscroll-none bg-[#efeae2]">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overscroll-none bg-[var(--chat-wallpaper-surface)]">
         {mediaError && (
           <div className="flex items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             <span>{mediaError}</span>
@@ -1492,7 +1492,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         />
 
         {showSearch && (
-          <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="border-b border-[var(--chat-border)] bg-[var(--chat-surface)] px-4 py-3 text-[var(--chat-text)]">
             <div className="max-w-4xl mx-auto">
               <SearchBar
                 onSearch={handleSearch}
@@ -1506,7 +1506,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           ref={containerRef}
           onScroll={handleScroll}
           className={`scroll-pane flex-1 min-h-0 min-w-0 overflow-y-auto px-2 pb-2 pt-3 sm:px-6 sm:py-4 md:px-8 ${
-            !theme.wallpaperImage ? theme.wallpaper || "bg-[#efeae2]" : ""
+            !theme.wallpaperImage
+              ? `chat-wallpaper ${theme.wallpaper || "bg-[#efeae2]"}`
+              : "chat-wallpaper-image"
           }`}
           style={
             theme.wallpaperImage

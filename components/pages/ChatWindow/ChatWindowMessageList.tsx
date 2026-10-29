@@ -239,7 +239,7 @@ function ChatWindowMessageList({
         </p>
       )}
       {messages.length === 0 && (
-        <div className="text-center text-gray-600 py-6">
+        <div className="py-6 text-center text-[var(--chat-muted)]">
           <p className="text-sm">
             {isGroup
               ? `No messages in ${headerName}. Start the conversation!`
@@ -278,7 +278,7 @@ function ChatWindowMessageList({
           <React.Fragment key={stableKey}>
             {showDateDivider && (
               <div className="flex justify-center my-4">
-                <span className="text-xs px-4 py-1 bg-gray-200 text-gray-700 rounded-full font-medium">
+                <span className="rounded-full border border-[var(--chat-glass-border)] bg-[var(--chat-glass-surface)] px-4 py-1 text-xs font-medium text-[var(--chat-text)] shadow-sm backdrop-blur-md">
                   {format(currentDate, "MMMM d, yyyy")}
                 </span>
               </div>

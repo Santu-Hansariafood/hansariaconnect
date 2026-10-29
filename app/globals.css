@@ -22,6 +22,20 @@
    */
   --brand-primary: #0ca678;
   --brand-secondary: #a2f5bf;
+  --chat-surface: #ffffff;
+  --chat-text: #111b21;
+  --chat-muted: #667781;
+  --chat-border: #e2e8e9;
+  --chat-input-surface: #ffffff;
+  --chat-composer-surface: #f0f2f5;
+  --chat-incoming-bubble: #ffffff;
+  --chat-outgoing-bubble: color-mix(in srgb, var(--brand-primary) 20%, #ffffff);
+  --chat-glass-surface: rgb(255 255 255 / 72%);
+  --chat-glass-border: rgb(255 255 255 / 68%);
+  --chat-glass-hover: rgb(255 255 255 / 84%);
+  --chat-wallpaper-surface: #efeae2;
+  --chat-header-background: var(--brand-primary);
+  color-scheme: light;
 }
 
 @theme inline {
@@ -34,8 +48,40 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0b141a;
+    --foreground: #e9edef;
+    --chat-surface: #111b21;
+    --chat-text: #e9edef;
+    --chat-muted: #aebac1;
+    --chat-border: #2a3942;
+    --chat-input-surface: #202c33;
+    --chat-composer-surface: #0b141a;
+    --chat-incoming-bubble: #202c33;
+    --chat-outgoing-bubble: color-mix(
+      in srgb,
+      var(--brand-primary) 32%,
+      #18252d
+    );
+    --chat-glass-surface: rgb(32 44 51 / 82%);
+    --chat-glass-border: rgb(255 255 255 / 14%);
+    --chat-glass-hover: rgb(255 255 255 / 12%);
+    --chat-wallpaper-surface: #0b141a;
+    --chat-header-background: color-mix(
+      in srgb,
+      var(--brand-primary) 62%,
+      #0b141a
+    );
+    color-scheme: dark;
+  }
+}
+
+.chat-wallpaper {
+  background-color: var(--chat-wallpaper-surface);
+}
+
+@media (prefers-color-scheme: dark) {
+  .chat-wallpaper {
+    background-image: none;
   }
 }
 

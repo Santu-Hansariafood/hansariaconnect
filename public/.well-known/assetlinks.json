@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.creadentdental.hansariaconnect",
+      "sha256_cert_fingerprints": [
+        "42:AD:E2:23:DF:F0:28:AA:F6:FF:4D:0C:6D:84:3E:8D:7E:0F:B3:7D:8B:67:96:B3:2E:94:FD:57:04:A5:0C:B4"
+      ]
+    }
+  }
+]

@@ -49,7 +49,7 @@ export default function LinkPreviewCard({
       target="_blank"
       rel="noopener noreferrer"
       onClick={(event) => event.stopPropagation()}
-      className="mb-2 block min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-black/10 bg-white/60 text-left transition hover:bg-white/90"
+      className="mb-2 block min-w-0 w-full max-w-full overflow-hidden rounded-xl border border-[var(--chat-border)] bg-[var(--chat-glass-surface)] text-left text-[var(--chat-text)] transition hover:bg-[var(--chat-glass-hover)]"
     >
       {image && (
         <span className="block h-40 w-full overflow-hidden bg-black/5 sm:h-44">
@@ -67,25 +67,25 @@ export default function LinkPreviewCard({
       )}
 
       <span className="block space-y-1 px-3 py-2.5">
-        <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[#667781]">
+        <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[var(--chat-muted)]">
           <Link2 className="h-3 w-3 shrink-0" aria-hidden="true" />
           <span className="truncate">{preview?.siteName || domain}</span>
         </span>
 
         {title && (
-          <span className="block line-clamp-2 text-[13.5px] font-semibold leading-[18px] text-[#111b21]">
+          <span className="block line-clamp-2 text-[13.5px] font-semibold leading-[18px] text-[var(--chat-text)]">
             {title}
           </span>
         )}
 
         {description && (
-          <span className="block line-clamp-3 text-[13px] leading-[18px] text-[#667781]">
+          <span className="block line-clamp-3 text-[13px] leading-[18px] text-[var(--chat-muted)]">
             {description}
           </span>
         )}
 
         {alwaysShow && (
-          <span className="block truncate text-[12px] text-[#667781]">{url}</span>
+          <span className="block truncate text-[12px] text-[var(--chat-muted)]">{url}</span>
         )}
       </span>
     </a>

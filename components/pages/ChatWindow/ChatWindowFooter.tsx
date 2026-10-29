@@ -15,6 +15,7 @@ const VoiceRecorder = dynamic(
 );
 import { ChatMessage, Theme, ForwardContact } from "./ChatWindowTypes";
 import Loading from "@/components/common/Loading/Loading";
+import { Theme as EmojiPickerTheme } from "emoji-picker-react";
 
 const Picker = dynamic(() => import("emoji-picker-react"), {
   loading: () => (
@@ -105,7 +106,7 @@ export default function ChatWindowFooter({
   return (
     <Suspense fallback={<Loading />}>
       <div
-        className="sticky bottom-0 z-30 w-full overflow-visible border-t border-[#e9edef] bg-[#f0f2f5] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 sm:px-4 sm:py-2.5"
+        className="sticky bottom-0 z-30 w-full overflow-visible border-t border-[var(--chat-border)] bg-[var(--chat-composer-surface)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 text-[var(--chat-text)] sm:px-4 sm:py-2.5"
       >
         <div className="mx-auto flex max-w-4xl items-end gap-1.5 sm:gap-2">
           {isRecording ? (
@@ -120,7 +121,7 @@ export default function ChatWindowFooter({
                 <button
                   type="button"
                   onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="flex h-11 w-11 items-center justify-center rounded-full text-[#54656f] transition-colors duration-150 hover:bg-[#e4e9eb] hover:text-[var(--brand-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--chat-muted)] transition-colors duration-150 hover:bg-[var(--chat-glass-hover)] hover:text-[var(--brand-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
                   title="Add emoji"
                   aria-label="Add emoji"
                 >
@@ -137,14 +138,14 @@ export default function ChatWindowFooter({
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
                     oneTimeViewEnabled
                       ? "bg-emerald-100 text-emerald-700"
-                      : "text-[#54656f] hover:bg-[#e4e9eb]"
+                      : "text-[var(--chat-muted)] hover:bg-[var(--chat-glass-hover)]"
                   }`}
                 >
                   <Eye className="h-5 w-5" />
                 </button>
               )}
 
-              <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-[24px] border border-[#e2e8e9] bg-white px-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 focus-within:border-[var(--brand-primary)] focus-within:ring-4 focus-within:ring-[var(--brand-primary)]/10">
+              <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-[24px] border border-[var(--chat-border)] bg-[var(--chat-input-surface)] px-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 focus-within:border-[var(--brand-primary)] focus-within:ring-4 focus-within:ring-[var(--brand-primary)]/10">
                 <textarea
                   ref={messageInputRef}
                   rows={1}
@@ -175,7 +176,7 @@ export default function ChatWindowFooter({
                     }
                   }}
                   placeholder="Message"
-                  className="max-h-36 min-h-10 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-3 py-2.5 text-base leading-5 text-[#172126] outline-none placeholder:text-[#879397] focus:ring-0 sm:px-4 sm:text-[15px]"
+                  className="max-h-36 min-h-10 min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-3 py-2.5 text-base leading-5 text-[var(--chat-text)] outline-none placeholder:text-[var(--chat-muted)] focus:ring-0 sm:px-4 sm:text-[15px]"
                 />
               </div>
 
@@ -222,6 +223,7 @@ export default function ChatWindowFooter({
             <Picker
               width="100%"
               height={360}
+              theme={EmojiPickerTheme.AUTO}
               onEmojiClick={(emojiObject) => {
                 setMessage((prev: string) => prev + emojiObject.emoji);
                 setShowEmojiPicker(false);

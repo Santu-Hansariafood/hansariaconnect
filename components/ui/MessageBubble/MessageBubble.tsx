@@ -166,10 +166,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     }
 
     if (message.status === "delivered") {
-      return <CheckCheck className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
+      return <CheckCheck className="h-3.5 w-3.5 text-[var(--chat-muted)]" strokeWidth={2.5} />
     }
 
-    return <Check className="h-3.5 w-3.5 text-[#667781]" strokeWidth={2.5} />
+    return <Check className="h-3.5 w-3.5 text-[var(--chat-muted)]" strokeWidth={2.5} />
   }
 
   const handleReaction = async (emoji: string) => {
@@ -265,7 +265,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         <div className="relative min-w-0 max-w-full">
           {(isHovered || showReactions || showMessageActions) && (
             <div
-              className={`absolute -top-9 z-20 flex items-center gap-1 rounded-full border border-white/60 bg-white/65 p-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)] backdrop-blur-xl ${
+              className={`absolute -top-9 z-20 flex items-center gap-1 rounded-full border border-[var(--chat-glass-border)] bg-[var(--chat-glass-surface)] p-1 shadow-[0_8px_24px_rgba(15,23,42,0.22)] backdrop-blur-xl ${
                 isSent ? "right-0" : "left-0"
               }`}
             >
@@ -277,11 +277,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     setShowReactions((prev) => !prev)
                   }}
                   aria-label="Add reaction"
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/80"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--chat-glass-hover)]"
                   title="Add reaction"
                 >
                   <Smile
-                    className="h-4 w-4 text-slate-600"
+                    className="h-4 w-4 text-[var(--chat-muted)]"
                     strokeWidth={1.8}
                   />
                 </button>
@@ -291,12 +291,12 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 <button
                   type="button"
                   onClick={onForward}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/80"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[var(--chat-glass-hover)]"
                   aria-label="Forward message"
                   title="Forward message"
                 >
                   <Forward
-                    className="h-4 w-4 text-slate-600"
+                    className="h-4 w-4 text-[var(--chat-muted)]"
                     strokeWidth={1.8}
                   />
                 </button>
@@ -315,15 +315,15 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                       }}
                       aria-label="Message actions"
                       title="Message actions"
-                      className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/80"
+                      className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-[var(--chat-glass-hover)]"
                     >
                       <MoreVertical
-                        className="h-4 w-4 text-slate-600"
+                        className="h-4 w-4 text-[var(--chat-muted)]"
                         strokeWidth={1.8}
                       />
                     </button>
                     {showMessageActions && (
-                      <div className="absolute right-0 top-full z-50 min-w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-xl">
+                      <div className="absolute right-0 top-full z-50 min-w-44 overflow-hidden rounded-lg border border-[var(--chat-border)] bg-[var(--chat-surface)] py-1 text-sm text-[var(--chat-text)] shadow-xl">
                         {isSent && (
                           <button
                             type="button"
@@ -336,7 +336,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         <button
                           type="button"
                           onClick={() => void handleDelete("forMe")}
-                          className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100"
+                          className="block w-full px-3 py-2 text-left text-[var(--chat-text)] hover:bg-[var(--chat-glass-hover)]"
                         >
                           Delete for me
                         </button>
@@ -350,7 +350,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           <div className="relative min-w-0 max-w-full">
             {displaySenderName && (
               <p
-                className={`text-[12.8px] font-medium text-[#111b21] mb-1 ml-2`}
+                className="mb-1 ml-2 text-[12.8px] font-medium text-[var(--chat-text)]"
               >
                 {senderName}
               </p>
@@ -362,8 +362,8 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 theme.textSize || "text-[14.2px]"
               } ${
                 isSent
-                  ? "rounded-2xl rounded-tr-md bg-[#d9fdd3] text-[#111b21]"
-                  : "rounded-2xl rounded-tl-md bg-white text-[#111b21] shadow-sm"
+                  ? "rounded-2xl rounded-tr-md bg-[var(--chat-outgoing-bubble)] text-[var(--chat-text)]"
+                  : "rounded-2xl rounded-tl-md bg-[var(--chat-incoming-bubble)] text-[var(--chat-text)] shadow-sm"
               } ${
                 harmful.hasWarning
                   ? isSent
@@ -373,7 +373,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 } relative min-w-0 max-w-full break-words leading-[19px]`}
             >
               {message.deletedForEveryone ? (
-                <span className="italic text-[#667781]">This message was deleted</span>
+                <span className="italic text-[var(--chat-muted)]">This message was deleted</span>
               ) : null}
               {!message.deletedForEveryone && message.type === "text" && (
                 <div className="break-words whitespace-pre-wrap inline">
@@ -507,9 +507,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         />
                       )}
                       <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--chat-glass-surface)] shadow-lg">
                           <Play
-                            className="h-5 w-5 translate-x-[1px] text-[#111b21]"
+                            className="h-5 w-5 translate-x-[1px] text-[var(--chat-text)]"
                             fill="currentColor"
                           />
                         </span>
@@ -718,7 +718,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         key={`${button.type}-${index}`}
                         href={`tel:${button.phoneNumber}`}
                         onClick={(event) => event.stopPropagation()}
-                        className="rounded-lg border border-emerald-700/30 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                        className="rounded-lg border border-emerald-700/30 bg-[var(--chat-surface)] px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-[var(--chat-glass-hover)]"
                       >
                         {button.label}
                       </a>
@@ -734,7 +734,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                           confirmedButtonIndexes.includes(index) ||
                           pendingButtonIndexes.includes(index)
                         }
-                        className="rounded-lg border border-emerald-700/30 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50"
+                        className="rounded-lg border border-emerald-700/30 bg-[var(--chat-surface)] px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-[var(--chat-glass-hover)]"
                       >
                         {pendingButtonIndexes.includes(index)
                           ? "Sending..."
@@ -763,7 +763,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
 
               <div className="float-right clear-both ml-1 mb-[-2px] mt-1 inline-block select-none">
                 <div className="flex h-[15px] items-center justify-end gap-0.5">
-                  <span className="text-[11px] font-normal leading-none tracking-tight text-[#667781] opacity-90">
+                  <span className="text-[11px] font-normal leading-none tracking-tight text-[var(--chat-muted)] opacity-90">
                     {format(new Date(message.timestamp), "h:mm a").toLowerCase()}
                   </span>
                   {isSent && (
@@ -784,16 +784,16 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     isSent ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <div className="flex flex-wrap gap-1 rounded-2xl border border-white/70 bg-white/65 px-1.5 py-1 shadow-[0_5px_18px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+                  <div className="flex flex-wrap gap-1 rounded-2xl border border-[var(--chat-glass-border)] bg-[var(--chat-glass-surface)] px-1.5 py-1 shadow-[0_5px_18px_rgba(15,23,42,0.22)] backdrop-blur-xl">
                     {Object.entries(localReactions).map(([emoji, count]) => (
                       <motion.span
                         key={emoji}
                         whileHover={{ scale: 1.08, y: -1 }}
-                        className="inline-flex min-h-7 items-center gap-1 rounded-full border border-white/70 bg-white/70 px-2 text-[12px] shadow-sm"
+                        className="inline-flex min-h-7 items-center gap-1 rounded-full border border-[var(--chat-glass-border)] bg-[var(--chat-glass-surface)] px-2 text-[12px] text-[var(--chat-text)] shadow-sm"
                       >
                         <span>{emoji}</span>
                         {count > 1 && (
-                          <span className="font-medium text-slate-600">
+                          <span className="font-medium text-[var(--chat-muted)]">
                             {count}
                           </span>
                         )}
