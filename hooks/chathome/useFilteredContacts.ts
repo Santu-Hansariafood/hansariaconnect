@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Contact } from "./useContacts";
 
-export type ChatFilter = "all" | "unread" | "groups" | "me";
+export type ChatFilter = "all" | "unread" | "groups" | "me" | "archived";
 
 interface UseFilteredContactsProps {
   contacts: Contact[];
@@ -18,6 +18,12 @@ export const useFilteredContacts = ({
 }: UseFilteredContactsProps) => {
   const filteredContacts = useMemo(() => {
     let filtered = contacts;
+
+    if (filter === "archived") {
+      filtered = filtered.filter((contact) => contact.archived);
+    } else {
+      filtered = filtered.filter((contact) => !contact.archived);
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();

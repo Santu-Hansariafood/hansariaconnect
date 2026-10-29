@@ -45,6 +45,12 @@ export type MessageType =
 export interface ChatMessage {
   _id?: string;
   id?: string;
+  clientMessageId?: string;
+  deletedForEveryone?: boolean;
+  viewOnce?: boolean;
+  viewedByMe?: boolean;
+  viewed?: boolean;
+  groupId?: string;
   from?: string | { toString?: () => string };
   to?: string;
   type?: MessageType;
@@ -57,6 +63,7 @@ export interface ChatMessage {
   duration?: number;
   status?: "sent" | "delivered" | "seen" | "sending" | "failed";
   reactions?: Record<string, number>;
+  viewedBy?: string[];
   buttons?: TemplateActionButton[];
   createdAt?: string | Date;
   timestamp?: string | Date;

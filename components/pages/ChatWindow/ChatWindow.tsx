@@ -46,7 +46,11 @@ import {
   User,
 } from "@/components/pages/ChatWindow/ChatWindowTypes";
 import { detectHarmfulFileName } from "@/utils/text/formatting";
-import { ApiCacheTTL, cachedFetch } from "@/lib/api/clientCache";
+import {
+  ApiCacheTTL,
+  cachedFetch,
+  invalidateApiCache,
+} from "@/lib/api/clientCache";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 import type { TemplateActionType } from "@/lib/templateActionButtons";
 
@@ -59,6 +63,8 @@ interface ChatWindowProps {
 
 type OutboundMessagePayload = {
   type: ChatMessage["type"];
+  clientMessageId?: string;
+  viewOnce?: boolean;
   text?: string;
   mediaUrl?: string;
   fileName?: string;
@@ -79,6 +85,13 @@ const extractId = (value?: string | { toString?: () => string }) => {
 
 const getMessageId = (msg?: ChatMessage) =>
   extractId(msg?._id) || extractId(msg?.id);
+
+const getMessageMergeKey = (msg: ChatMessage) =>
+  msg.clientMessageId
+    ? `${extractId(msg.from)}:${msg.clientMessageId}`
+    : extractId(msg._id) ||
+      extractId(msg.id) ||
+      String(msg.createdAt || msg.timestamp || "");
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
   user,
@@ -121,6 +134,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [pendingAttachment, setPendingAttachment] =
     useState<PendingAttachment | null>(null);
   const [attachmentSending, setAttachmentSending] = useState(false);
+  const [oneTimeViewEnabled, setOneTimeViewEnabled] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -193,19 +207,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       let hasUpdates = false;
 
       const addMessage = (msg: ChatMessage) => {
-        const key =
-          msg._id?.toString?.() ||
-          msg.id?.toString?.() ||
-          String(msg.createdAt || msg.timestamp || "");
+        const key = getMessageMergeKey(msg);
         if (key && !map.has(key)) map.set(key, msg);
       };
 
       prev.forEach(addMessage);
       incoming.forEach((msg) => {
-        const key =
-          msg._id?.toString?.() ||
-          msg.id?.toString?.() ||
-          String(msg.createdAt || msg.timestamp || "");
+        const key = getMessageMergeKey(msg);
         if (!key) return;
 
         const existing = map.get(key);
@@ -753,16 +761,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       });
       const data = await res.json();
       if (res.ok && data?.message) {
-        const tempId = tempMessage ? getMessageId(tempMessage) : "";
-        if (tempId) {
-          setChatMessages((prev) =>
-            prev.map((msg) =>
-              msg._id?.toString?.() === tempId ? data.message : msg,
-            ),
-          );
-        } else {
-          setChatMessages((prev) => mergeUnique(prev, [data.message]));
-        }
+        setChatMessages((prev) => mergeUnique(prev, [data.message]));
         return true;
       }
       console.warn(
@@ -776,10 +775,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     }
 
     const failedId = getMessageId(tempMessage);
-    if (failedId) {
+    if (failedId || tempMessage?.clientMessageId) {
       setChatMessages((prev) =>
         prev.map((msg) =>
-          msg._id?.toString?.() === failedId
+          (msg._id?.toString?.() === failedId ||
+            msg.id === failedId ||
+            msg.clientMessageId === tempMessage?.clientMessageId) &&
+          msg.status === "sending"
             ? { ...msg, status: "failed" }
             : msg,
         ),
@@ -791,7 +793,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const sendViaSocket = async (
     payload: OutboundMessagePayload,
-    tempMessage?: ChatMessage,
   ) => {
     if (!socket) {
       console.warn("[ChatWindow] sendViaSocket skipped — socket not initialized yet");
@@ -816,16 +817,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       const fail = () => {
         if (resolved) return;
         resolved = true;
-        const failedId = getMessageId(tempMessage);
-        if (failedId) {
-          setChatMessages((prev) =>
-            prev.map((msg) =>
-              msg._id?.toString?.() === failedId
-                ? { ...msg, status: "failed" }
-                : msg,
-            ),
-          );
-        }
         resolve(false);
       };
 
@@ -846,32 +837,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 ":",
                 timeoutError.message,
               );
-              const failedId = getMessageId(tempMessage);
-              if (failedId) {
-                setChatMessages((prev) =>
-                  prev.map((msg) =>
-                    msg._id?.toString?.() === failedId
-                      ? { ...msg, status: "failed" }
-                      : msg,
-                  ),
-                );
-              }
               resolve(false);
               return;
             }
 
             const ackMessage = ack?.ok && ack?.message ? ack.message : undefined;
             if (ackMessage) {
-              const tempId = getMessageId(tempMessage);
-              if (tempId) {
-                setChatMessages((prev) =>
-                  prev.map((msg) =>
-                    msg._id?.toString?.() === tempId ? ackMessage : msg,
-                  ),
-                );
-              } else {
-                setChatMessages((prev) => mergeUnique(prev, [ackMessage]));
-              }
+              setChatMessages((prev) => mergeUnique(prev, [ackMessage]));
               resolve(true);
               return;
             }
@@ -897,6 +869,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const tempId = generateTempId();
     const optimisticMessage: ChatMessage = {
       _id: tempId,
+      clientMessageId: tempId,
       from: String(user.id),
       to: chatId,
       type: "text",
@@ -908,9 +881,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
     if (messageOverride === undefined) setMessage("");
 
-    const payload: OutboundMessagePayload = { type: "text", text: trimmed };
+    const payload: OutboundMessagePayload = {
+      type: "text",
+      text: trimmed,
+      clientMessageId: tempId,
+    };
 
-    const socketOk = await sendViaSocket(payload, optimisticMessage);
+    const socketOk = await sendViaSocket(payload);
     if (socketOk) return true;
     console.warn(
       "[ChatWindow] sendViaSocket failed or no socket — falling back to REST send",
@@ -993,6 +970,130 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     [chatId, isGroup],
   );
 
+  const handleDeleteMessage = useCallback(
+    async (
+      msg: ChatMessage,
+      action: "forMe" | "forEveryone",
+    ): Promise<boolean> => {
+      const messageId = getMessageId(msg);
+      if (!messageId) return false;
+      try {
+        const endpoint = isGroup
+          ? `/api/groups/${chatId}/messages`
+          : `/api/messages/${chatId}`;
+        const response = await fetch(endpoint, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ messageId, action }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || "Could not delete message");
+        }
+
+        if (action === "forMe") {
+          setChatMessages((previous) =>
+            previous.filter((item) => getMessageId(item) !== messageId),
+          );
+        } else {
+          setChatMessages((previous) =>
+            previous.map((item) =>
+              getMessageId(item) === messageId
+                ? {
+                    ...item,
+                    type: "text",
+                    text: "",
+                    mediaUrl: "",
+                    fileName: "",
+                    fileSize: "",
+                    linkTitle: "",
+                    linkDescription: "",
+                    deletedForEveryone: true,
+                  }
+                : item,
+            ),
+          );
+        }
+        if (chatId) clearCachedMessages(chatId);
+        return true;
+      } catch (error) {
+        console.error("[ChatWindow] Failed to delete message:", error);
+        window.alert(
+          error instanceof Error ? error.message : "Could not delete message",
+        );
+        return false;
+      }
+    },
+    [chatId, clearCachedMessages, isGroup],
+  );
+
+  const handleViewOnce = useCallback(
+    async (msg: ChatMessage): Promise<string | null> => {
+      const messageId = getMessageId(msg);
+      if (!messageId) return null;
+      try {
+        const endpoint = isGroup
+          ? `/api/groups/${chatId}/messages`
+          : `/api/messages/${chatId}`;
+        const response = await fetch(endpoint, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ messageId, action: "viewOnce" }),
+        });
+        const data = await response.json();
+        if (!response.ok || typeof data?.mediaUrl !== "string") {
+          throw new Error(data?.error || "This view-once message is unavailable");
+        }
+
+        setChatMessages((previous) =>
+          previous.map((item) =>
+            getMessageId(item) === messageId
+              ? { ...item, viewedByMe: true, viewed: true }
+              : item,
+          ),
+        );
+        if (chatId) clearCachedMessages(chatId);
+        return data.mediaUrl;
+      } catch (error) {
+        console.error("[ChatWindow] Could not open view-once message:", error);
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : "This view-once message is unavailable",
+        );
+        return null;
+      }
+    },
+    [chatId, clearCachedMessages, isGroup],
+  );
+
+  const handleArchiveChat = useCallback(async () => {
+    try {
+      const response = await fetch("/api/conversations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          chatId,
+          isGroup,
+          archived: true,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || "Could not archive chat");
+      }
+      invalidateApiCache("/api/conversations");
+      onBack?.();
+      if (!onBack) router.replace("/chat");
+    } catch (error) {
+      console.error("[ChatWindow] Failed to archive chat:", error);
+      window.alert(error instanceof Error ? error.message : "Could not archive chat");
+    }
+  }, [chatId, isGroup, onBack, router]);
+
   const isMediaType = (
     type: ChatMessage["type"],
   ): type is "image" | "video" | "pdf" | "excel" =>
@@ -1017,6 +1118,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const tempId = generateTempId();
     const optimisticMessage: ChatMessage = {
       _id: tempId,
+      clientMessageId: tempId,
       from: String(user.id),
       to: chatId,
       ...payload,
@@ -1026,9 +1128,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
     setChatMessages((prev) => mergeUnique(prev, [optimisticMessage]));
 
-    const socketOk = await sendViaSocket(payload, optimisticMessage);
-    if (socketOk) return true;
-    return sendViaRest(payload, optimisticMessage);
+    payload.clientMessageId = tempId;
+    const usesViewOnce =
+      oneTimeViewEnabled &&
+      ["image", "video", "voice"].includes(payload.type || "");
+    if (usesViewOnce) payload.viewOnce = true;
+    const socketOk = await sendViaSocket(payload);
+    const sent = socketOk || (await sendViaRest(payload, optimisticMessage));
+    if (sent && usesViewOnce) setOneTimeViewEnabled(false);
+    return sent;
   };
 
   const uploadAndSend = async (
@@ -1378,6 +1486,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           onClearClick={handleHeaderClearClick}
           onSearch={handleHeaderSearchClick}
           onBlockToggle={handleBlockToggle}
+          onArchive={handleArchiveChat}
           maskedUrl={maskedUrl}
           lastSeenStatus={lastSeenStatus}
         />
@@ -1423,6 +1532,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             onForwardMessage={handleForwardMessage}
             onReaction={handleReaction}
             onTemplateButton={handleTemplateButton}
+            onDeleteMessage={handleDeleteMessage}
+            onViewOnce={handleViewOnce}
             showUnreadBanner={showUnreadBanner}
             unreadOnOpen={unreadOnOpen}
             unreadDividerRef={unreadDividerRef}
@@ -1440,6 +1551,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           showEmojiPicker={showEmojiPicker}
           setShowEmojiPicker={setShowEmojiPicker}
           allowAttachments={allowAttachments}
+          oneTimeViewEnabled={oneTimeViewEnabled}
+          setOneTimeViewEnabled={setOneTimeViewEnabled}
           showMediaPicker={showMediaPicker}
           setShowMediaPicker={setShowMediaPicker}
           handleMediaSelect={handleMediaSelect}

@@ -17,15 +17,20 @@ import {
   invalidateGroupMessages,
   invalidateUserConversations,
 } from "@/lib/redis/redis";
-import { emitGroupMessageReceived } from "@/lib/socketEmitter";
+import {
+  emitGroupMessageReceived,
+  emitGroupMessageUpdated,
+} from "@/lib/socketEmitter";
 
 const outboundMessageSchema = z.object({
   type: z.enum(["text", "image", "video", "voice", "pdf", "excel", "link", "file"]),
+  clientMessageId: z.string().min(1).max(100).optional(),
   text: z.string().max(10000).optional().default(""),
   mediaUrl: z.string().url().optional().or(z.literal("")),
   fileName: z.string().max(255).optional().or(z.literal("")),
   fileSize: z.string().max(32).optional().or(z.literal("")),
   duration: z.number().finite().min(0).max(3600).optional(),
+  viewOnce: z.boolean().optional().default(false),
   linkTitle: z.string().max(500).optional().or(z.literal("")),
   linkDescription: z.string().max(5000).optional().or(z.literal("")),
 });
@@ -55,6 +60,12 @@ const normalizeId = (val: unknown): string => {
   }
   return "";
 };
+
+const isDuplicateKeyError = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === 11000;
 
 const resolveParams = async (
   params: { id: string } | Promise<{ id: string }>,
@@ -131,7 +142,8 @@ export async function GET(
         groupIdStr,
         limit,
         fetchLast ? null : before,
-      );
+            normalizedUser,
+          );
       const cached = await redisGet<{ messages: any[]; hasMore: boolean }>(
         cacheKey,
       );
@@ -140,7 +152,10 @@ export async function GET(
       }
     }
 
-    const query: Record<string, any> = { groupId };
+    const query: Record<string, any> = {
+      groupId,
+      hiddenFor: { $ne: userId },
+    };
     let sort: Record<string, 1 | -1> = { createdAt: 1 };
 
     if (fetchLast && !fetchAll) {
@@ -154,37 +169,54 @@ export async function GET(
       ? await GroupMessage.find(query)
           .sort({ createdAt: 1 })
           .select(
-            "_id groupId from type text mediaUrl fileName fileSize duration reactions linkTitle linkDescription createdAt",
+            "_id groupId from clientMessageId type text mediaUrl fileName fileSize duration reactions linkTitle linkDescription createdAt deletedForEveryone viewOnce viewedBy",
           )
       : await GroupMessage.find(query)
           .sort(sort)
           .limit(limit)
           .select(
-            "_id groupId from type text mediaUrl fileName fileSize duration linkTitle linkDescription createdAt",
+            "_id groupId from clientMessageId type text mediaUrl fileName fileSize duration linkTitle linkDescription createdAt deletedForEveryone viewOnce viewedBy",
           );
 
     const ordered = (fetchLast && !fetchAll) || before ? docs.reverse() : docs;
 
     const messages = ordered.map((msg) => ({
       id: String(msg._id),
+      clientMessageId: msg.clientMessageId,
       groupId: String(msg.groupId),
       from: String(msg.from),
-      type: msg.type,
-      text: decryptGroupMessageContent(groupIdStr, msg.text || ""),
-      mediaUrl: decryptGroupMessageContent(groupIdStr, msg.mediaUrl || ""),
-      fileName: decryptGroupMessageContent(groupIdStr, msg.fileName || ""),
-      fileSize: decryptGroupMessageContent(groupIdStr, msg.fileSize || ""),
+      type: msg.deletedForEveryone ? "text" : msg.type,
+      text: msg.deletedForEveryone
+        ? ""
+        : decryptGroupMessageContent(groupIdStr, msg.text || ""),
+      mediaUrl:
+        msg.deletedForEveryone || msg.viewOnce
+          ? ""
+          : decryptGroupMessageContent(groupIdStr, msg.mediaUrl || ""),
+      fileName: msg.deletedForEveryone
+        ? ""
+        : decryptGroupMessageContent(groupIdStr, msg.fileName || ""),
+      fileSize: msg.deletedForEveryone
+        ? ""
+        : decryptGroupMessageContent(groupIdStr, msg.fileSize || ""),
       duration: msg.duration || undefined,
       reactions:
         msg.reactions instanceof Map
           ? Object.fromEntries(msg.reactions)
           : msg.reactions || {},
-      linkTitle: decryptGroupMessageContent(groupIdStr, msg.linkTitle || ""),
-      linkDescription: decryptGroupMessageContent(
-        groupIdStr,
-        msg.linkDescription || "",
-      ),
+      linkTitle: msg.deletedForEveryone
+        ? ""
+        : decryptGroupMessageContent(groupIdStr, msg.linkTitle || ""),
+      linkDescription: msg.deletedForEveryone
+        ? ""
+        : decryptGroupMessageContent(groupIdStr, msg.linkDescription || ""),
       timestamp: msg.createdAt,
+      deletedForEveryone: Boolean(msg.deletedForEveryone),
+      viewOnce: Boolean(msg.viewOnce),
+      viewedByMe: Array.isArray(msg.viewedBy)
+        ? msg.viewedBy.some((viewer: unknown) => String(viewer) === normalizedUser)
+        : false,
+      viewed: Array.isArray(msg.viewedBy) && msg.viewedBy.length > 0,
     }));
 
     const hasMore = fetchAll
@@ -199,6 +231,7 @@ export async function GET(
         groupIdStr,
         limit,
         fetchLast ? null : before,
+        normalizedUser,
       );
       void redisSet(cacheKey, { messages, hasMore }, TTL.groupMessages);
     }
@@ -239,6 +272,15 @@ export async function POST(
     if (!parsedBody.success) return parsedBody.response;
     const body = parsedBody.data;
     const type = body.type;
+    if (
+      body.viewOnce &&
+      !["image", "video", "voice"].includes(type)
+    ) {
+      return NextResponse.json(
+        { error: "View-once is only available for photos, videos, and voice notes" },
+        { status: 400 },
+      );
+    }
 
     await connectDB();
 
@@ -250,34 +292,70 @@ export async function POST(
       );
     }
 
-    const saved = await GroupMessage.create({
+    const messageQuery = {
       groupId,
       from: userId,
-      type,
-      text: encryptGroupMessageContent(groupIdStr, body?.text || ""),
-      mediaUrl: encryptGroupMessageContent(groupIdStr, body?.mediaUrl || ""),
-      fileName: encryptGroupMessageContent(groupIdStr, body?.fileName || ""),
-      fileSize: encryptGroupMessageContent(groupIdStr, body?.fileSize || ""),
-      duration: body?.duration || undefined,
-      linkTitle: encryptGroupMessageContent(groupIdStr, body?.linkTitle || ""),
-      linkDescription: encryptGroupMessageContent(
-        groupIdStr,
-        body?.linkDescription || "",
-      ),
-    });
+      clientMessageId: body.clientMessageId,
+    };
+    let saved = body.clientMessageId
+      ? await GroupMessage.findOne(messageQuery)
+      : null;
+    let isNewMessage = !saved;
+    if (!saved) {
+      try {
+        saved = await GroupMessage.create({
+          ...messageQuery,
+          type,
+          viewOnce: body.viewOnce,
+          text: encryptGroupMessageContent(groupIdStr, body?.text || ""),
+          mediaUrl: encryptGroupMessageContent(
+            groupIdStr,
+            body?.mediaUrl || "",
+          ),
+          fileName: encryptGroupMessageContent(
+            groupIdStr,
+            body?.fileName || "",
+          ),
+          fileSize: encryptGroupMessageContent(
+            groupIdStr,
+            body?.fileSize || "",
+          ),
+          duration: body?.duration || undefined,
+          linkTitle: encryptGroupMessageContent(
+            groupIdStr,
+            body?.linkTitle || "",
+          ),
+          linkDescription: encryptGroupMessageContent(
+            groupIdStr,
+            body?.linkDescription || "",
+          ),
+        });
+      } catch (error: unknown) {
+        if (!body.clientMessageId || !isDuplicateKeyError(error)) throw error;
+        saved = await GroupMessage.findOne(messageQuery);
+        if (!saved) throw error;
+        isNewMessage = false;
+      }
+    }
 
-    await Group.findByIdAndUpdate(groupId, {
-      lastMessage: body?.text || type,
-      lastMessageAt: new Date(),
-    }).catch(() => {});
+    if (isNewMessage) {
+      await Group.findByIdAndUpdate(groupId, {
+        lastMessage: body?.text || type,
+        lastMessageAt: new Date(),
+      }).catch(() => {});
+    }
 
     const message = {
+      _id: saved._id,
       id: String(saved._id),
+      clientMessageId: saved.clientMessageId,
       groupId: String(saved.groupId),
       from: String(saved.from),
       type: saved.type,
       text: decryptGroupMessageContent(groupIdStr, saved.text || ""),
-      mediaUrl: decryptGroupMessageContent(groupIdStr, saved.mediaUrl || ""),
+      mediaUrl: body.viewOnce
+        ? ""
+        : decryptGroupMessageContent(groupIdStr, saved.mediaUrl || ""),
       fileName: decryptGroupMessageContent(groupIdStr, saved.fileName || ""),
       fileSize: decryptGroupMessageContent(groupIdStr, saved.fileSize || ""),
       duration: saved.duration || undefined,
@@ -289,15 +367,20 @@ export async function POST(
       timestamp: saved.createdAt,
     };
 
-    void invalidateGroupMessages(groupIdStr);
-    const members = Array.isArray(membership.group?.members)
-      ? membership.group.members
-      : [];
-    for (const m of members) {
-      const memberId = normalizeId(m?.userId);
-      if (memberId) void invalidateUserConversations(memberId);
+    if (isNewMessage) {
+      void invalidateGroupMessages(groupIdStr);
+      const members = Array.isArray(membership.group?.members)
+        ? membership.group.members
+        : [];
+      for (const m of members) {
+        const memberId = normalizeId(m?.userId);
+        if (memberId) void invalidateUserConversations(memberId);
+      }
+      void emitGroupMessageReceived(groupIdStr, normalizedUser, members, {
+        ...message,
+        mediaUrl: body.viewOnce ? "" : message.mediaUrl,
+      });
     }
-    void emitGroupMessageReceived(groupIdStr, normalizedUser, members, message);
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: unknown) {
@@ -334,6 +417,7 @@ export async function PATCH(
     const body = await req.json();
     const messageId = normalizeId(body?.messageId);
     const emoji = String(body?.emoji || "");
+    const action = String(body?.action || "");
 
     if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(userId)) {
       return NextResponse.json(
@@ -341,8 +425,8 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    if (!Types.ObjectId.isValid(messageId) || !ALLOWED_REACTIONS.has(emoji)) {
-      return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
+    if (!Types.ObjectId.isValid(messageId)) {
+      return NextResponse.json({ error: "Invalid message id" }, { status: 400 });
     }
 
     await connectDB();
@@ -357,6 +441,48 @@ export async function PATCH(
       );
     }
 
+    if (action === "viewOnce") {
+      const viewed = await GroupMessage.findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(messageId),
+          groupId: new Types.ObjectId(id),
+          from: { $ne: new Types.ObjectId(userId) },
+          viewOnce: true,
+          deletedForEveryone: { $ne: true },
+          viewedBy: { $ne: new Types.ObjectId(userId) },
+          hiddenFor: { $ne: new Types.ObjectId(userId) },
+        },
+        { $addToSet: { viewedBy: new Types.ObjectId(userId) } },
+        { new: true },
+      );
+      if (!viewed) {
+        return NextResponse.json(
+          { error: "This view-once message has already been opened or is unavailable" },
+          { status: 410 },
+        );
+      }
+
+      const mediaUrl = decryptGroupMessageContent(id, viewed.mediaUrl || "");
+      void invalidateGroupMessages(id);
+      const members = membership.group.members || [];
+      void emitGroupMessageUpdated(id, members, {
+        _id: String(viewed._id),
+        id: String(viewed._id),
+        groupId: id,
+        from: String(viewed.from),
+        viewOnce: true,
+        viewedBy: (viewed.viewedBy || []).map(String),
+      });
+      return NextResponse.json({ mediaUrl });
+    }
+
+    if (action) {
+      return NextResponse.json({ error: "Invalid message action" }, { status: 400 });
+    }
+    if (!ALLOWED_REACTIONS.has(emoji)) {
+      return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
+    }
+
     const updated = await GroupMessage.findOneAndUpdate(
       { _id: new Types.ObjectId(messageId), groupId: new Types.ObjectId(id) },
       { $inc: { [`reactions.${emoji}`]: 1 } },
@@ -367,6 +493,109 @@ export async function PATCH(
     void invalidateGroupMessages(id);
     return NextResponse.json({
       reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: { id: string } | Promise<{ id: string }> },
+) {
+  try {
+    const session = await requireUser(req);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await resolveParams(context.params);
+    const userId = normalizeId(session.id);
+    const body = await req.json();
+    const messageId = normalizeId(body?.messageId);
+    const action = body?.action;
+
+    if (
+      !Types.ObjectId.isValid(id) ||
+      !Types.ObjectId.isValid(userId) ||
+      !Types.ObjectId.isValid(messageId) ||
+      !["forMe", "forEveryone"].includes(action)
+    ) {
+      return NextResponse.json({ error: "Invalid delete request" }, { status: 400 });
+    }
+
+    await connectDB();
+    const membership = await ensureMembership(
+      new Types.ObjectId(id),
+      new Types.ObjectId(userId),
+    );
+    if (!membership.ok) {
+      return NextResponse.json(
+        { error: membership.error },
+        { status: membership.status },
+      );
+    }
+
+    const baseQuery = {
+      _id: new Types.ObjectId(messageId),
+      groupId: new Types.ObjectId(id),
+      deletedForEveryone: { $ne: true },
+    };
+    const query =
+      action === "forEveryone"
+        ? { ...baseQuery, from: new Types.ObjectId(userId) }
+        : baseQuery;
+    const update =
+      action === "forMe"
+        ? { $addToSet: { hiddenFor: new Types.ObjectId(userId) } }
+        : {
+            $set: {
+              deletedForEveryone: true,
+              type: "text",
+              text: "",
+              mediaUrl: "",
+              fileName: "",
+              fileSize: "",
+              linkTitle: "",
+              linkDescription: "",
+            },
+            $unset: { reactions: 1 },
+          };
+    const updated = await GroupMessage.findOneAndUpdate(query, update, {
+      new: true,
+    });
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Message not found or you are not allowed to delete it" },
+        { status: 404 },
+      );
+    }
+
+    void invalidateGroupMessages(id);
+    if (action === "forMe") {
+      void invalidateUserConversations(userId);
+    }
+    if (action === "forEveryone") {
+      for (const member of membership.group.members || []) {
+        const memberId = normalizeId(member.userId);
+        if (memberId) void invalidateUserConversations(memberId);
+      }
+      void emitGroupMessageUpdated(id, membership.group.members || [], {
+        _id: String(updated._id),
+        id: String(updated._id),
+        groupId: id,
+        from: String(updated.from),
+        type: "text",
+        text: "",
+        deletedForEveryone: true,
+        timestamp: updated.createdAt,
+      });
+    }
+    return NextResponse.json({
+      messageId: String(updated._id),
+      action,
+      deletedForEveryone: Boolean(updated.deletedForEveryone),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Server error";

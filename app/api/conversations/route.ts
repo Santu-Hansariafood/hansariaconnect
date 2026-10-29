@@ -19,6 +19,7 @@ import {
   TTL,
   redisGet,
   redisSet,
+  invalidateUserConversations,
 } from "@/lib/redis/redis";
 
 interface IUser {
@@ -41,6 +42,7 @@ interface IMessage {
   from: string | Types.ObjectId;
   to: string | Types.ObjectId;
   status?: string;
+  deletedForEveryone?: boolean;
   createdAt: Date;
 }
 
@@ -49,6 +51,7 @@ interface IGroupMessage {
   text?: string;
   type: string;
   from: string | Types.ObjectId;
+  deletedForEveryone?: boolean;
   groupId: string | Types.ObjectId;
   createdAt: Date;
 }
@@ -159,6 +162,7 @@ export async function GET(req: NextRequest) {
                   { from: userId, to: { $in: peerObjectIds } },
                   { from: { $in: peerObjectIds }, to: userId },
                 ],
+                hiddenFor: { $ne: userId },
               },
             },
             {
@@ -239,6 +243,7 @@ export async function GET(req: NextRequest) {
             to: String(lastMessage.to),
             timestamp: lastMessage.createdAt,
             status: lastMessage.status ?? "sent",
+            deletedForEveryone: Boolean(lastMessage.deletedForEveryone),
           }
         : null;
 
@@ -253,6 +258,9 @@ export async function GET(req: NextRequest) {
         isCompanyVerified,
         registered: true,
         lastMessageAt: conv.lastMessageAt || conv.createdAt || new Date(),
+        archived: Array.isArray(conv.archivedBy)
+          ? conv.archivedBy.some((archivedId: unknown) => normalizeId(archivedId) === userIdStr)
+          : false,
         lastMessage: decryptedLastMessage,
       });
     }
@@ -270,7 +278,12 @@ export async function GET(req: NextRequest) {
 
     const groupLastMessageRows = groupObjectIds.length
       ? ((await GroupMessage.aggregate([
-          { $match: { groupId: { $in: groupObjectIds } } },
+          {
+            $match: {
+              groupId: { $in: groupObjectIds },
+              hiddenFor: { $ne: userId },
+            },
+          },
           { $sort: { createdAt: -1 } },
           { $group: { _id: "$groupId", doc: { $first: "$$ROOT" } } },
         ])) as Array<{ _id: unknown; doc: IGroupMessage }>)
@@ -301,6 +314,9 @@ export async function GET(req: NextRequest) {
           group.updatedAt ||
           group.createdAt ||
           new Date(),
+        archived: Array.isArray(group.archivedBy)
+          ? group.archivedBy.some((archivedId: unknown) => normalizeId(archivedId) === userIdStr)
+          : false,
         lastMessage: lastGroupMsg
           ? {
               id: String(lastGroupMsg._id),
@@ -312,6 +328,7 @@ export async function GET(req: NextRequest) {
               from: String(lastGroupMsg.from),
               groupId: groupIdStr,
               timestamp: lastGroupMsg.createdAt,
+              deletedForEveryone: Boolean(lastGroupMsg.deletedForEveryone),
             }
           : null,
       });
@@ -331,5 +348,72 @@ export async function GET(req: NextRequest) {
       { error: error?.message || "Server Error" },
       { status: 500 },
     );
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getUserSession(req);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const userId = normalizeId(session.id);
+    const body = await req.json();
+    const chatId = normalizeId(body?.chatId);
+    const isGroup = body?.isGroup === true;
+    const archived = body?.archived;
+
+    if (
+      !Types.ObjectId.isValid(userId) ||
+      !Types.ObjectId.isValid(chatId) ||
+      typeof archived !== "boolean"
+    ) {
+      return NextResponse.json({ error: "Invalid archive request" }, { status: 400 });
+    }
+
+    await connectDB();
+    const currentUserId = new Types.ObjectId(userId);
+    const targetId = new Types.ObjectId(chatId);
+    const update = archived
+      ? { $addToSet: { archivedBy: currentUserId } }
+      : { $pull: { archivedBy: currentUserId } };
+
+    if (isGroup) {
+      const group = await Group.findOneAndUpdate(
+        { _id: targetId, "members.userId": currentUserId },
+        update,
+        { new: true },
+      );
+      if (!group) {
+        return NextResponse.json(
+          { error: "Group not found or access denied" },
+          { status: 404 },
+        );
+      }
+    } else {
+      const conversation = await Conversation.findOneAndUpdate(
+        {
+          $or: [
+            { userA: currentUserId, userB: targetId },
+            { userA: targetId, userB: currentUserId },
+          ],
+        },
+        update,
+        { new: true },
+      );
+      if (!conversation) {
+        return NextResponse.json(
+          { error: "Conversation not found" },
+          { status: 404 },
+        );
+      }
+    }
+
+    await invalidateUserConversations(userId);
+    return NextResponse.json({ chatId, isGroup, archived });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

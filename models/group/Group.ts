@@ -17,6 +17,7 @@ export interface IGroup extends Document {
   members: IGroupMember[]
   lastMessage?: string
   lastMessageAt?: Date
+  archivedBy?: Types.ObjectId[]
   createdAt: Date
   updatedAt: Date
 }
@@ -40,6 +41,7 @@ const GroupSchema = new Schema<IGroup>(
     members: { type: [GroupMemberSchema], default: [] },
     lastMessage: { type: String, default: "" },
     lastMessageAt: { type: Date },
+    archivedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 )
@@ -49,5 +51,4 @@ GroupSchema.index({ "members.userId": 1 })
 const Group = mongoose.models.Group || mongoose.model<IGroup>("Group", GroupSchema)
 
 export default Group
-
 

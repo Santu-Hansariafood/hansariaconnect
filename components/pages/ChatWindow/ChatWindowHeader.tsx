@@ -10,6 +10,7 @@ import {
   CircleUserRound,
   BadgeCheck,
   Contact,
+  Archive,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Theme } from "./ChatWindowTypes";
@@ -60,6 +61,7 @@ interface ChatWindowHeaderProps {
   onClearClick: () => void;
   onSearch: () => void;
   onBlockToggle: () => void;
+  onArchive: () => void;
   maskedUrl: string;
   onOpenGroup?: () => void;
   lastSeenStatus?: string;
@@ -86,6 +88,7 @@ function ChatWindowHeader({
   onClearClick,
   onSearch,
   onBlockToggle,
+  onArchive,
   maskedUrl,
   lastSeenStatus,
 }: ChatWindowHeaderProps) {
@@ -278,6 +281,17 @@ function ChatWindowHeader({
               >
                 <Trash2 className="w-5 h-5 text-red-500" />
                 <span className="text-gray-700 font-medium">Clear Chat</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowOptionsMenu(false);
+                  onArchive();
+                }}
+                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
+              >
+                <Archive className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-700 font-medium">Archive Chat</span>
               </button>
 
               <button

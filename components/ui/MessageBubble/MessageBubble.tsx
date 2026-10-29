@@ -14,9 +14,11 @@ import {
   Smile,
   MapPin,
   ExternalLink,
+  Eye,
+  MoreVertical,
 } from "lucide-react"
 import Image from "next/image"
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useMemo, useState } from "react"
 import dynamic from "next/dynamic"
 import LinkPreviewCard from "@/components/ui/LinkPreview/LinkPreviewCard"
 import type { MediaViewerItem } from "@/components/ui/MediaViewer/MediaViewer"
@@ -57,6 +59,10 @@ interface Message {
   reactions?: Record<string, number>
   duration?: number
   buttons?: TemplateActionButton[]
+  deletedForEveryone?: boolean
+  viewOnce?: boolean
+  viewedByMe?: boolean
+  viewed?: boolean
 }
 
 interface User {
@@ -85,6 +91,8 @@ interface MessageBubbleProps {
   onTemplateButton?: (
     button: TemplateActionButton,
   ) => boolean | Promise<boolean>
+  onDeleteMessage?: (action: "forMe" | "forEveryone") => Promise<boolean>
+  onViewOnce?: () => Promise<string | null>
 }
 
 const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
@@ -97,20 +105,21 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   onForward,
   onReaction,
   onTemplateButton,
+  onDeleteMessage,
+  onViewOnce,
 }) => {
   const isSent = message.sender === "me"
   const senderName = isSent ? user.name : contact.name
   const [isHovered, setIsHovered] = useState(false)
   const [showReactions, setShowReactions] = useState(false)
+  const [showMessageActions, setShowMessageActions] = useState(false)
+  const [viewOnceOpened, setViewOnceOpened] = useState(Boolean(message.viewedByMe))
+  const [viewOnceVoiceUrl, setViewOnceVoiceUrl] = useState("")
   const [confirmedButtonIndexes, setConfirmedButtonIndexes] = useState<number[]>([])
   const [pendingButtonIndexes, setPendingButtonIndexes] = useState<number[]>([])
   const [templateButtonError, setTemplateButtonError] = useState("")
-  const [localReactions, setLocalReactions] = useState<Record<string, number>>(message.reactions || {})
+  const localReactions = message.reactions || {}
   const [viewerItem, setViewerItem] = useState<MediaViewerItem | null>(null)
-
-  useEffect(() => {
-    setLocalReactions(message.reactions || {})
-  }, [message.reactions])
 
   const textContent = message.text || ""
   const messageUrl = message.url || message.media || textContent
@@ -131,7 +140,9 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   const displaySenderName = !isSent && isGroup && showSenderInfo
 
   const messageStatusLabel =
-    message.status === "seen"
+    message.viewed && isSent
+      ? "Opened"
+      : message.status === "seen"
       ? "Read"
       : message.status === "delivered"
         ? "Delivered"
@@ -165,12 +176,37 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     const saved = onReaction ? await onReaction(emoji) : true
     if (!saved) return
 
-    setLocalReactions((prev) => ({
-      ...prev,
-      [emoji]: (prev[emoji] ?? 0) + 1,
-    }))
     setShowReactions(false)
   }
+
+  const handleViewOnce = async (kind: "image" | "video" | "voice") => {
+    if (!message.viewOnce || isSent || viewOnceOpened || !onViewOnce) return;
+    const mediaUrl = await onViewOnce();
+    if (!mediaUrl) return;
+    setViewOnceOpened(true);
+    if (kind === "image" || kind === "video") {
+      setViewerItem({
+        kind,
+        url: mediaUrl,
+        caption: message.text,
+        senderName,
+        timestamp: message.timestamp,
+        fileName: message.fileName,
+      });
+    } else {
+      setViewOnceVoiceUrl(mediaUrl);
+    }
+  };
+
+  const handleDelete = async (action: "forMe" | "forEveryone") => {
+    const prompt =
+      action === "forEveryone"
+        ? "Delete this message for everyone?"
+        : "Delete this message for you?";
+    if (!window.confirm(prompt)) return;
+    const deleted = await onDeleteMessage?.(action);
+    if (deleted) setShowMessageActions(false);
+  };
 
   const handleTemplateButton = async (
     button: TemplateActionButton,
@@ -226,25 +262,89 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
           <div className="w-7 h-7 flex-shrink-0" />
         )}
 
-        <div className="flex min-w-0 max-w-full items-end gap-1.5">
-          {isHovered && (
-            <button
-              onClick={() => setShowReactions((prev) => !prev)}
-              className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-200/80"
-              title="Add reaction"
+        <div className="relative min-w-0 max-w-full">
+          {(isHovered || showReactions || showMessageActions) && (
+            <div
+              className={`absolute -top-9 z-20 flex items-center gap-1 rounded-full border border-white/60 bg-white/65 p-1 shadow-[0_8px_24px_rgba(15,23,42,0.12)] backdrop-blur-xl ${
+                isSent ? "right-0" : "left-0"
+              }`}
             >
-              <Smile className="h-3.5 w-3.5 text-gray-500" />
-            </button>
-          )}
+              {isHovered && (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setShowReactions((prev) => !prev)
+                  }}
+                  aria-label="Add reaction"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/80"
+                  title="Add reaction"
+                >
+                  <Smile
+                    className="h-4 w-4 text-slate-600"
+                    strokeWidth={1.8}
+                  />
+                </button>
+              )}
 
-          {isHovered && onForward && (
-            <button
-              onClick={onForward}
-              className="mb-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-gray-200/80"
-              title="Forward message"
-            >
-              <Forward className="h-3.5 w-3.5 text-gray-500" />
-            </button>
+              {isHovered && onForward && (
+                <button
+                  type="button"
+                  onClick={onForward}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/80"
+                  aria-label="Forward message"
+                  title="Forward message"
+                >
+                  <Forward
+                    className="h-4 w-4 text-slate-600"
+                    strokeWidth={1.8}
+                  />
+                </button>
+              )}
+
+              {onDeleteMessage &&
+                !message.deletedForEveryone &&
+                message.status !== "sending" &&
+                message.status !== "failed" && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setShowMessageActions((shown) => !shown)
+                      }}
+                      aria-label="Message actions"
+                      title="Message actions"
+                      className="flex h-8 w-8 items-center justify-center rounded-full transition-colors hover:bg-white/80"
+                    >
+                      <MoreVertical
+                        className="h-4 w-4 text-slate-600"
+                        strokeWidth={1.8}
+                      />
+                    </button>
+                    {showMessageActions && (
+                      <div className="absolute right-0 top-full z-50 min-w-44 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-xl">
+                        {isSent && (
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete("forEveryone")}
+                            className="block w-full px-3 py-2 text-left text-red-600 hover:bg-gray-100"
+                          >
+                            Delete for everyone
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete("forMe")}
+                          className="block w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100"
+                        >
+                          Delete for me
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+            </div>
           )}
 
           <div className="relative min-w-0 max-w-full">
@@ -272,7 +372,10 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   : ""
                 } relative min-w-0 max-w-full break-words leading-[19px]`}
             >
-              {message.type === "text" && (
+              {message.deletedForEveryone ? (
+                <span className="italic text-[#667781]">This message was deleted</span>
+              ) : null}
+              {!message.deletedForEveryone && message.type === "text" && (
                 <div className="break-words whitespace-pre-wrap inline">
                   {previewLink && (
                     <LinkPreviewCard
@@ -292,13 +395,22 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {message.type === "image" && (
+              {!message.deletedForEveryone && message.type === "image" && (
                 <div className="space-y-2">
-                  {message.media && (
+                  {(message.media || message.viewOnce) && (
                     <button
                       type="button"
+                      disabled={
+                        message.viewOnce &&
+                        (isSent || viewOnceOpened || Boolean(message.viewedByMe))
+                      }
                       onClick={(event) => {
                         event.stopPropagation()
+                        if (message.viewOnce) {
+                          void handleViewOnce("image");
+                          return;
+                        }
+                        if (!message.media) return;
                         setViewerItem({
                           kind: "image",
                           url: message.media as string,
@@ -310,13 +422,26 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                       aria-label="Open image preview"
                       className="block max-w-full cursor-zoom-in overflow-hidden rounded-lg bg-black/5 transition active:opacity-90"
                     >
-                      <Image
-                        src={message.media}
-                        alt={message.text || "Shared image"}
-                        width={400}
-                        height={300}
-                        className="h-auto max-h-[360px] w-auto max-w-[260px] rounded-lg object-cover sm:max-w-[320px]"
-                      />
+                      {message.viewOnce ? (
+                        <span className="flex min-h-24 min-w-40 items-center justify-center gap-2 rounded-lg bg-black/10 px-4 text-sm font-medium">
+                          <Eye className="h-5 w-5" />
+                          {isSent
+                            ? message.viewed
+                              ? "Photo opened"
+                              : "Photo · View once"
+                            : viewOnceOpened || message.viewedByMe
+                              ? "Photo opened"
+                              : "Open photo"}
+                        </span>
+                      ) : (
+                        <Image
+                          src={message.media || ""}
+                          alt={message.text || "Shared image"}
+                          width={400}
+                          height={300}
+                          className="h-auto max-h-[360px] w-auto max-w-[260px] rounded-lg object-cover sm:max-w-[320px]"
+                        />
+                      )}
                     </button>
                   )}
 
@@ -333,13 +458,22 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {message.type === "video" && (
+              {!message.deletedForEveryone && message.type === "video" && (
                 <div className="space-y-2">
-                  {message.media && (
+                  {(message.media || message.viewOnce) && (
                     <button
                       type="button"
+                      disabled={
+                        message.viewOnce &&
+                        (isSent || viewOnceOpened || Boolean(message.viewedByMe))
+                      }
                       onClick={(event) => {
                         event.stopPropagation()
+                        if (message.viewOnce) {
+                          void handleViewOnce("video");
+                          return;
+                        }
+                        if (!message.media) return;
                         setViewerItem({
                           kind: "video",
                           url: message.media as string,
@@ -352,13 +486,26 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                       aria-label="Open video preview"
                       className="relative block w-[240px] max-w-full cursor-pointer overflow-hidden rounded-lg bg-black sm:w-[300px]"
                     >
-                      <video
-                        src={message.media}
-                        preload="metadata"
-                        muted
-                        playsInline
-                        className="h-auto w-full"
-                      />
+                      {message.viewOnce ? (
+                        <span className="flex min-h-28 items-center justify-center gap-2 text-sm font-medium text-white">
+                          <Eye className="h-5 w-5" />
+                          {isSent
+                            ? message.viewed
+                              ? "Video opened"
+                              : "Video · View once"
+                            : viewOnceOpened || message.viewedByMe
+                              ? "Video opened"
+                              : "Open video"}
+                        </span>
+                      ) : (
+                        <video
+                          src={message.media || ""}
+                          preload="metadata"
+                          muted
+                          playsInline
+                          className="h-auto w-full"
+                        />
+                      )}
                       <span className="absolute inset-0 flex items-center justify-center bg-black/25">
                         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
                           <Play
@@ -383,9 +530,37 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {message.type === "voice" && (
+              {!message.deletedForEveryone && message.type === "voice" && (
                 <div className="space-y-2">
-                  <VoicePlayer src={message.media || ""} duration={message.duration} />
+                  {message.viewOnce ? (
+                    viewOnceVoiceUrl ? (
+                      <audio
+                        controls
+                        autoPlay
+                        src={viewOnceVoiceUrl}
+                        onEnded={() => setViewOnceVoiceUrl("")}
+                        className="max-w-full"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSent || viewOnceOpened || message.viewedByMe}
+                        onClick={() => void handleViewOnce("voice")}
+                        className="flex items-center gap-2 rounded-lg bg-black/5 px-3 py-2 text-sm disabled:opacity-70"
+                      >
+                        <Eye className="h-4 w-4" />
+                        {isSent
+                          ? message.viewed
+                            ? "Voice note opened"
+                            : "Voice note · View once"
+                          : viewOnceOpened || message.viewedByMe
+                            ? "Voice note opened"
+                            : "Listen once"}
+                      </button>
+                    )
+                  ) : (
+                    <VoicePlayer src={message.media || ""} duration={message.duration} />
+                  )}
 
                   {message.text && (
                     <div className="break-words whitespace-pre-wrap inline">
@@ -400,7 +575,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {message.type === "pdf" && (
+              {!message.deletedForEveryone && message.type === "pdf" && (
                 <div className="space-y-2">
                   <div className="flex min-w-[220px] items-center gap-3 rounded-xl bg-black/5 p-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white">
@@ -434,7 +609,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {message.type === "excel" && (
+              {!message.deletedForEveryone && message.type === "excel" && (
                 <div className="space-y-2">
                   <div className="flex min-w-[220px] items-center gap-3 rounded-xl bg-black/5 p-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white">
@@ -463,7 +638,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {message.type === "file" && (
+              {!message.deletedForEveryone && message.type === "file" && (
                 <div className="space-y-2">
                   <div className="flex min-w-[220px] items-center gap-3 rounded-xl bg-black/5 p-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-500 text-white">
@@ -492,7 +667,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {message.type === "link" && (
+              {!message.deletedForEveryone && message.type === "link" && (
                 <div className="space-y-2">
                   {isMapLink ? (
                     <div className="min-w-[220px] overflow-hidden rounded-xl bg-black/5">
@@ -535,22 +710,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {Object.keys(localReactions).length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {Object.entries(localReactions).map(([emoji, count]) => (
-                    <motion.span
-                      key={emoji}
-                      whileHover={{ scale: 1.1 }}
-                      className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white/90 px-1.5 py-0.5 text-[11px] shadow-sm cursor-pointer hover:bg-white"
-                    >
-                      <span>{emoji}</span>
-                      {count > 1 && <span className="ml-0.5 font-medium">{count}</span>}
-                    </motion.span>
-                  ))}
-                </div>
-              )}
-
-              {!isSent && message.buttons && message.buttons.length > 0 && (
+              {!message.deletedForEveryone && !isSent && message.buttons && message.buttons.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2 border-t border-black/10 pt-3">
                   {message.buttons.map((button, index) =>
                     button.type === "call" ? (
@@ -597,6 +757,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   onReactionSelect={handleReaction}
                   onClose={() => setShowReactions(false)}
                   position="top"
+                  align={isSent ? "right" : "left"}
                 />
               )}
 
@@ -615,9 +776,34 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     </span>
                   )}
                 </div>
-              </div>
             </div>
+            {!message.deletedForEveryone &&
+              Object.keys(localReactions).length > 0 && (
+                <div
+                  className={`mt-1 flex ${
+                    isSent ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  <div className="flex flex-wrap gap-1 rounded-2xl border border-white/70 bg-white/65 px-1.5 py-1 shadow-[0_5px_18px_rgba(15,23,42,0.10)] backdrop-blur-xl">
+                    {Object.entries(localReactions).map(([emoji, count]) => (
+                      <motion.span
+                        key={emoji}
+                        whileHover={{ scale: 1.08, y: -1 }}
+                        className="inline-flex min-h-7 items-center gap-1 rounded-full border border-white/70 bg-white/70 px-2 text-[12px] shadow-sm"
+                      >
+                        <span>{emoji}</span>
+                        {count > 1 && (
+                          <span className="font-medium text-slate-600">
+                            {count}
+                          </span>
+                        )}
+                      </motion.span>
+                    ))}
+                  </div>
+                </div>
+              )}
           </div>
+        </div>
         </div>
       </div>
 
@@ -651,8 +837,14 @@ const arePropsEqual = (
   prev.message.linkTitle === next.message.linkTitle &&
   prev.message.linkDescription === next.message.linkDescription &&
   prev.message.status === next.message.status &&
+  prev.message.deletedForEveryone === next.message.deletedForEveryone &&
+  prev.message.viewOnce === next.message.viewOnce &&
+  prev.message.viewedByMe === next.message.viewedByMe &&
+  prev.message.viewed === next.message.viewed &&
   prev.message.duration === next.message.duration &&
   prev.message.reactions === next.message.reactions &&
+  prev.onDeleteMessage === next.onDeleteMessage &&
+  prev.onViewOnce === next.onViewOnce &&
   String(prev.message.timestamp) === String(next.message.timestamp) &&
   buttonsSignature(prev.message.buttons) === buttonsSignature(next.message.buttons)
 

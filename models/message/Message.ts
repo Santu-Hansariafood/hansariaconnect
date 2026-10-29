@@ -8,6 +8,11 @@ export interface IMessage extends Document {
   apiTemplateName?: string
   bulkJobId?: mongoose.Types.ObjectId
   bulkRecipientIndex?: number
+  clientMessageId?: string
+  hiddenFor?: mongoose.Types.ObjectId[]
+  deletedForEveryone?: boolean
+  viewOnce?: boolean
+  viewedBy?: mongoose.Types.ObjectId[]
   type: "text" | "image" | "video" | "voice" | "pdf" | "excel" | "link"
   text?: string
   mediaUrl?: string
@@ -31,6 +36,11 @@ const MessageSchema = new Schema<IMessage>(
     apiTemplateName: { type: String },
     bulkJobId: { type: Schema.Types.ObjectId },
     bulkRecipientIndex: { type: Number },
+    clientMessageId: { type: String, maxlength: 100 },
+    hiddenFor: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    deletedForEveryone: { type: Boolean, default: false },
+    viewOnce: { type: Boolean, default: false },
+    viewedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     type: { type: String, required: true },
     text: { type: String },
     mediaUrl: { type: String },
@@ -63,6 +73,13 @@ const MessageSchema = new Schema<IMessage>(
 MessageSchema.index({ from: 1, to: 1, createdAt: -1 })
 MessageSchema.index({ to: 1, createdAt: -1 })
 MessageSchema.index({ apiKeyId: 1, createdAt: -1 })
+MessageSchema.index(
+  { from: 1, to: 1, clientMessageId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { clientMessageId: { $type: "string" } },
+  },
+)
 MessageSchema.index(
   { bulkJobId: 1, bulkRecipientIndex: 1 },
   {

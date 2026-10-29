@@ -11,6 +11,7 @@ import {
   CheckCircle,
   Users,
   Pin,
+  Archive,
 } from "lucide-react";
 import React from "react";
 import dynamic from "next/dynamic";
@@ -30,6 +31,7 @@ import {
   normalizeIndianMobileInput,
 } from "@/utils/validation/formInputs";
 import { resolveChatId } from "@/lib/chatIdentity";
+import { invalidateApiCache } from "@/lib/api/clientCache";
 import type { RowTone } from "@/components/ui/ContactCard/ContactCard";
 const ContactCard = dynamic(
   () => import("@/components/ui/ContactCard/ContactCard"),
@@ -64,6 +66,7 @@ const FILTER_TABS: { key: ChatFilter; label: string }[] = [
   { key: "unread", label: "Unread" },
   { key: "groups", label: "Groups" },
   { key: "me", label: "Me" },
+  { key: "archived", label: "Archived" },
 ];
 
 interface GroupContactItemProps {
@@ -71,6 +74,7 @@ interface GroupContactItemProps {
   active: boolean;
   tone: RowTone;
   onSelect: (contact: Contact) => void;
+  onArchive: (contact: Contact) => void;
 }
 
 const GroupContactItem = React.memo(
@@ -79,6 +83,7 @@ const GroupContactItem = React.memo(
     active,
     tone,
     onSelect,
+    onArchive,
   }: GroupContactItemProps) {
     const unread = contact.unread || 0;
     let lastText = contact.lastMessage || "No messages yet";
@@ -88,9 +93,18 @@ const GroupContactItem = React.memo(
     const memberCount = contact.memberCount || 0;
 
     return (
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => onSelect(contact)}
-        className={`relative w-full text-left flex items-center gap-3 px-4 py-3 transition-colors duration-150 border-b ${tone.border} ${
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onSelect(contact);
+          }
+        }}
+        className={`relative w-full cursor-pointer text-left flex items-center gap-3 px-4 py-3 transition-colors duration-150 border-b ${tone.border} ${
           active ? tone.active : tone.hover
         } active:scale-[0.995]`}
       >
@@ -169,7 +183,19 @@ const GroupContactItem = React.memo(
             )}
           </div>
         </div>
-      </button>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onArchive(contact);
+          }}
+          aria-label={contact.archived ? "Unarchive group" : "Archive group"}
+          title={contact.archived ? "Unarchive group" : "Archive group"}
+          className={`z-10 rounded-full p-2 ${tone.muted} hover:bg-black/10`}
+        >
+          <Archive className="h-4 w-4" />
+        </button>
+      </div>
     );
   },
   (prev, next) =>
@@ -181,6 +207,7 @@ const GroupContactItem = React.memo(
     prev.contact.lastMessage === next.contact.lastMessage &&
     prev.contact.lastMessageTime === next.contact.lastMessageTime &&
     prev.contact.memberCount === next.contact.memberCount &&
+    prev.contact.archived === next.contact.archived &&
     prev.active === next.active &&
     prev.tone === next.tone,
 );
@@ -205,6 +232,42 @@ export default function ChatHome({
   const { contacts, loading, setContacts, refreshContacts } = useContacts(user.id);
   const { socket, addListener, removeListener } = useSocket({ subscribeOnline: false });
   const filteredContacts = useFilteredContacts({ contacts, searchQuery, filter: activeFilter });
+
+  const handleArchiveChat = useCallback(
+    async (contact: Contact) => {
+      const nextArchived = !contact.archived;
+      try {
+        const response = await fetch("/api/conversations", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            chatId: resolveChatId(contact),
+            isGroup: Boolean(contact.isGroup),
+            archived: nextArchived,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data?.error || "Could not update archived chat");
+        }
+        invalidateApiCache("/api/conversations");
+        setContacts((previous) =>
+          previous.map((item) =>
+            resolveChatId(item) === resolveChatId(contact)
+              ? { ...item, archived: nextArchived }
+              : item,
+          ),
+        );
+      } catch (error) {
+        console.error("[ChatHome] Failed to update archived chat:", error);
+        window.alert(
+          error instanceof Error ? error.message : "Could not update archived chat",
+        );
+      }
+    },
+    [setContacts],
+  );
 
   useChatListRealtime({
     userId: user.id,
@@ -459,6 +522,7 @@ export default function ChatHome({
                     active={isActive}
                     tone={rowTone}
                     onSelect={handleGroupClick}
+                    onArchive={handleArchiveChat}
                   />
                 );
               }
@@ -473,6 +537,7 @@ export default function ChatHome({
                     onForward={handleForwardMessage}
                     onEdit={noopEdit}
                     onDelete={noopDelete}
+                    onArchive={handleArchiveChat}
                     theme={theme}
                     tone={rowTone}
                     active={isActive}
@@ -494,6 +559,8 @@ export default function ChatHome({
                     ? "No group chats"
                     : activeFilter === "me"
                       ? "No chats with your last message"
+                      : activeFilter === "archived"
+                        ? "No archived chats"
                       : "No contacts or groups found"}
               </p>
             </motion.div>

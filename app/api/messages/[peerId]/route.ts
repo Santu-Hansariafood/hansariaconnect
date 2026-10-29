@@ -18,15 +18,20 @@ import {
   invalidateDirectMessages,
   invalidateUserConversations,
 } from "@/lib/redis/redis";
-import { emitDirectMessageReceived } from "@/lib/socketEmitter";
+import {
+  emitDirectMessageReceived,
+  emitDirectMessageUpdated,
+} from "@/lib/socketEmitter";
 
 const outboundMessageSchema = z.object({
   type: z.enum(["text", "image", "video", "voice", "pdf", "excel", "link", "file"]),
+  clientMessageId: z.string().min(1).max(100).optional(),
   text: z.string().max(10000).optional().default(""),
   mediaUrl: z.string().url().optional().or(z.literal("")),
   fileName: z.string().max(255).optional().or(z.literal("")),
   fileSize: z.string().max(32).optional().or(z.literal("")),
   duration: z.number().finite().min(0).max(3600).optional(),
+  viewOnce: z.boolean().optional().default(false),
   linkTitle: z.string().max(500).optional().or(z.literal("")),
   linkDescription: z.string().max(5000).optional().or(z.literal("")),
 });
@@ -70,6 +75,12 @@ const normalizeId = (val: unknown): string => {
 
   return String(val);
 };
+
+const isDuplicateKeyError = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === 11000;
 
 export async function GET(
   req: NextRequest,
@@ -128,6 +139,7 @@ export async function GET(
     }
 
     const query: any = {
+      hiddenFor: { $ne: userId },
       $or: [
         { from: userId, to: peerId },
         { from: peerId, to: userId },
@@ -154,43 +166,51 @@ export async function GET(
 
     const messages = ordered.map((msg: any) => ({
       id: String(msg._id),
+      clientMessageId: msg.clientMessageId,
       from: String(msg.from),
       to: String(msg.to),
-      type: msg.type,
-      text: decryptDirectMessageContent(userIdStr, peerIdStr, msg.text || ""),
-      mediaUrl: decryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        msg.mediaUrl || "",
-      ),
-      fileName: decryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        msg.fileName || "",
-      ),
-      fileSize: decryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        msg.fileSize || "",
-      ),
+      type: msg.deletedForEveryone ? "text" : msg.type,
+      text: msg.deletedForEveryone
+        ? ""
+        : decryptDirectMessageContent(userIdStr, peerIdStr, msg.text || ""),
+      mediaUrl:
+        msg.deletedForEveryone || msg.viewOnce
+          ? ""
+          : decryptDirectMessageContent(
+              userIdStr,
+              peerIdStr,
+              msg.mediaUrl || "",
+            ),
+      fileName: msg.deletedForEveryone
+        ? ""
+        : decryptDirectMessageContent(userIdStr, peerIdStr, msg.fileName || ""),
+      fileSize: msg.deletedForEveryone
+        ? ""
+        : decryptDirectMessageContent(userIdStr, peerIdStr, msg.fileSize || ""),
       duration: msg.duration || undefined,
       reactions:
         msg.reactions instanceof Map
           ? Object.fromEntries(msg.reactions)
           : msg.reactions || {},
-      linkTitle: decryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        msg.linkTitle || "",
-      ),
-      linkDescription: decryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        msg.linkDescription || "",
-      ),
+      linkTitle: msg.deletedForEveryone
+        ? ""
+        : decryptDirectMessageContent(userIdStr, peerIdStr, msg.linkTitle || ""),
+      linkDescription: msg.deletedForEveryone
+        ? ""
+        : decryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            msg.linkDescription || "",
+          ),
       buttons: msg.buttons || [],
       timestamp: msg.createdAt,
       status: msg.status || "sent",
+      deletedForEveryone: Boolean(msg.deletedForEveryone),
+      viewOnce: Boolean(msg.viewOnce),
+      viewedByMe: Array.isArray(msg.viewedBy)
+        ? msg.viewedBy.some((viewer: unknown) => String(viewer) === rawUserId)
+        : false,
+      viewed: Array.isArray(msg.viewedBy) && msg.viewedBy.length > 0,
     }));
 
     const hasMore = fetchAll
@@ -248,6 +268,15 @@ export async function POST(
     if (!parsedBody.success) return parsedBody.response;
     const body = parsedBody.data;
     const type = body.type;
+    if (
+      body.viewOnce &&
+      !["image", "video", "voice"].includes(type)
+    ) {
+      return NextResponse.json(
+        { error: "View-once is only available for photos, videos, and voice notes" },
+        { status: 400 },
+      );
+    }
 
     await connectDB();
 
@@ -258,63 +287,91 @@ export async function POST(
     const userIdStr = String(userId);
     const peerIdStr = String(peerId);
 
-    const saved = await Message.create({
+    const messageQuery = {
       from: userId,
       to: peerId,
-      type,
-      text: encryptDirectMessageContent(userIdStr, peerIdStr, body?.text || ""),
-      mediaUrl: encryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        body?.mediaUrl || "",
-      ),
-      fileName: encryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        body?.fileName || "",
-      ),
-      fileSize: encryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        body?.fileSize || "",
-      ),
-      duration: body?.duration || undefined,
-      linkTitle: encryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        body?.linkTitle || "",
-      ),
-      linkDescription: encryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        body?.linkDescription || "",
-      ),
-    });
+      clientMessageId: body.clientMessageId,
+    };
+    let saved = body.clientMessageId
+      ? await Message.findOne(messageQuery)
+      : null;
+    let isNewMessage = !saved;
+    if (!saved) {
+      try {
+        saved = await Message.create({
+          ...messageQuery,
+          type,
+          viewOnce: body.viewOnce,
+          text: encryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            body?.text || "",
+          ),
+          mediaUrl: encryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            body?.mediaUrl || "",
+          ),
+          fileName: encryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            body?.fileName || "",
+          ),
+          fileSize: encryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            body?.fileSize || "",
+          ),
+          duration: body?.duration || undefined,
+          linkTitle: encryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            body?.linkTitle || "",
+          ),
+          linkDescription: encryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            body?.linkDescription || "",
+          ),
+        });
+      } catch (error: unknown) {
+        if (!body.clientMessageId || !isDuplicateKeyError(error)) throw error;
+        saved = await Message.findOne(messageQuery);
+        if (!saved) throw error;
+        isNewMessage = false;
+      }
+    }
 
-    try {
-      const a = String(userId);
-      const b = String(peerId);
-      const userA = a < b ? userId : peerId;
-      const userB = a < b ? peerId : userId;
+    if (isNewMessage) {
+      try {
+        const a = String(userId);
+        const b = String(peerId);
+        const userA = a < b ? userId : peerId;
+        const userB = a < b ? peerId : userId;
 
-      await Conversation.findOneAndUpdate(
-        { userA, userB },
-        { userA, userB, lastMessageAt: new Date() },
-        { upsert: true },
-      );
-    } catch {}
+        await Conversation.findOneAndUpdate(
+          { userA, userB },
+          { userA, userB, lastMessageAt: new Date() },
+          { upsert: true },
+        );
+      } catch {}
+    }
 
     const message = {
+      _id: saved._id,
       id: String(saved._id),
+      clientMessageId: saved.clientMessageId,
       from: String(saved.from),
       to: String(saved.to),
       type: saved.type,
       text: decryptDirectMessageContent(userIdStr, peerIdStr, saved.text || ""),
-      mediaUrl: decryptDirectMessageContent(
-        userIdStr,
-        peerIdStr,
-        saved.mediaUrl || "",
-      ),
+      mediaUrl: body.viewOnce
+        ? ""
+        : decryptDirectMessageContent(
+            userIdStr,
+            peerIdStr,
+            saved.mediaUrl || "",
+          ),
       fileName: decryptDirectMessageContent(
         userIdStr,
         peerIdStr,
@@ -337,13 +394,15 @@ export async function POST(
         saved.linkDescription || "",
       ),
       timestamp: saved.createdAt,
-      status: "sent",
+      status: saved.status || "sent",
     };
 
-    void invalidateDirectMessages(rawUserId, rawPeerId);
-    void invalidateUserConversations(rawUserId);
-    void invalidateUserConversations(rawPeerId);
-    void emitDirectMessageReceived(rawUserId, rawPeerId, message);
+    if (isNewMessage) {
+      void invalidateDirectMessages(rawUserId, rawPeerId);
+      void invalidateUserConversations(rawUserId);
+      void invalidateUserConversations(rawPeerId);
+      void emitDirectMessageReceived(rawUserId, rawPeerId, message);
+    }
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (err: unknown) {
@@ -383,6 +442,7 @@ export async function PATCH(
     const body = await req.json();
     const messageId = normalizeId(body?.messageId);
     const emoji = String(body?.emoji || "");
+    const action = String(body?.action || "");
 
     if (!Types.ObjectId.isValid(userId) || !Types.ObjectId.isValid(peerId)) {
       return NextResponse.json(
@@ -390,11 +450,57 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    if (!Types.ObjectId.isValid(messageId) || !ALLOWED_REACTIONS.has(emoji)) {
-      return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
+    if (!Types.ObjectId.isValid(messageId)) {
+      return NextResponse.json({ error: "Invalid message id" }, { status: 400 });
     }
 
     await connectDB();
+
+    if (action === "viewOnce") {
+      const viewed = await Message.findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(messageId),
+          from: new Types.ObjectId(peerId),
+          to: new Types.ObjectId(userId),
+          viewOnce: true,
+          deletedForEveryone: { $ne: true },
+          viewedBy: { $ne: new Types.ObjectId(userId) },
+        },
+        { $addToSet: { viewedBy: new Types.ObjectId(userId) } },
+        { new: true },
+      );
+      if (!viewed) {
+        return NextResponse.json(
+          { error: "This view-once message has already been opened or is unavailable" },
+          { status: 410 },
+        );
+      }
+
+      const mediaUrl = decryptDirectMessageContent(
+        peerId,
+        userId,
+        viewed.mediaUrl || "",
+      );
+      void invalidateDirectMessages(userId, peerId);
+      void emitDirectMessageUpdated(userId, peerId, {
+        _id: String(viewed._id),
+        id: String(viewed._id),
+        from: String(viewed.from),
+        to: String(viewed.to),
+        viewOnce: true,
+        viewedBy: (viewed.viewedBy || []).map(String),
+      });
+      return NextResponse.json({ mediaUrl });
+    }
+
+    if (action) {
+      return NextResponse.json({ error: "Invalid message action" }, { status: 400 });
+    }
+
+    if (!ALLOWED_REACTIONS.has(emoji)) {
+      return NextResponse.json({ error: "Invalid reaction" }, { status: 400 });
+    }
+
     const updated = await Message.findOneAndUpdate(
       {
         _id: new Types.ObjectId(messageId),
@@ -412,6 +518,98 @@ export async function PATCH(
     void invalidateDirectMessages(userId, peerId);
     return NextResponse.json({
       reactions: Object.fromEntries(updated.reactions?.entries?.() ?? []),
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Server error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ peerId: string }> | { peerId: string } },
+) {
+  try {
+    const session = await requireUser(req);
+    if (!session?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const userId = normalizeId(session.id);
+    const peerId = normalizeId(resolvedParams.peerId);
+    const body = await req.json();
+    const messageId = normalizeId(body?.messageId);
+    const action = body?.action;
+
+    if (
+      !Types.ObjectId.isValid(userId) ||
+      !Types.ObjectId.isValid(peerId) ||
+      !Types.ObjectId.isValid(messageId) ||
+      !["forMe", "forEveryone"].includes(action)
+    ) {
+      return NextResponse.json({ error: "Invalid delete request" }, { status: 400 });
+    }
+
+    await connectDB();
+    const baseQuery = {
+      _id: new Types.ObjectId(messageId),
+      $or: [
+        { from: new Types.ObjectId(userId), to: new Types.ObjectId(peerId) },
+        { from: new Types.ObjectId(peerId), to: new Types.ObjectId(userId) },
+      ],
+      deletedForEveryone: { $ne: true },
+    };
+    const update =
+      action === "forMe"
+        ? { $addToSet: { hiddenFor: new Types.ObjectId(userId) } }
+        : {
+            $set: {
+              deletedForEveryone: true,
+              type: "text",
+              text: "",
+              mediaUrl: "",
+              fileName: "",
+              fileSize: "",
+              linkTitle: "",
+              linkDescription: "",
+            },
+            $unset: { reactions: 1, buttons: 1 },
+          };
+    const query =
+      action === "forEveryone"
+        ? { ...baseQuery, from: new Types.ObjectId(userId) }
+        : baseQuery;
+    const updated = await Message.findOneAndUpdate(query, update, { new: true });
+
+    if (!updated) {
+      return NextResponse.json(
+        { error: "Message not found or you are not allowed to delete it" },
+        { status: 404 },
+      );
+    }
+
+    void invalidateDirectMessages(userId, peerId);
+    void invalidateUserConversations(userId);
+    void invalidateUserConversations(peerId);
+
+    if (action === "forEveryone") {
+      void emitDirectMessageUpdated(userId, peerId, {
+        _id: String(updated._id),
+        id: String(updated._id),
+        from: String(updated.from),
+        to: String(updated.to),
+        type: "text",
+        text: "",
+        deletedForEveryone: true,
+        timestamp: updated.createdAt,
+      });
+    }
+
+    return NextResponse.json({
+      messageId: String(updated._id),
+      action,
+      deletedForEveryone: Boolean(updated.deletedForEveryone),
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Server error";

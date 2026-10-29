@@ -1,6 +1,6 @@
 "use client"
 
-import { Pin, Pencil, Trash2, Forward } from "lucide-react"
+import { Pin, Pencil, Trash2, Forward, Archive, ArchiveRestore } from "lucide-react"
 import React, { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { formatChatListTime } from "@/utils/time/chatTime"
@@ -16,6 +16,7 @@ interface Contact {
   lastMessage: string
   lastMessageTime: string
   registered?: boolean
+  archived?: boolean
 }
 
 interface Theme {
@@ -48,6 +49,7 @@ interface ContactCardProps {
   onForward: (contact: Contact) => void
   onEdit: (contact: Contact) => void
   onDelete: (id: string) => void
+  onArchive: (contact: Contact) => void
   theme: Theme
   tone: RowTone
   showContextMenu?: boolean
@@ -62,6 +64,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
   onForward,
   onEdit,
   onDelete,
+  onArchive,
   theme,
   tone,
   showContextMenu = true,
@@ -215,6 +218,16 @@ const ContactCard: React.FC<ContactCardProps> = ({
             transform: "translate(-50%, 0)",
           }}
         >
+          <button
+            onClick={() => {
+              onArchive(contact)
+              setContextMenu({ visible: false, x: 0, y: 0 })
+            }}
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+          >
+            {contact.archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+            <span>{contact.archived ? "Unarchive Chat" : "Archive Chat"}</span>
+          </button>
           <button
             onClick={handlePinToggle}
             className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"

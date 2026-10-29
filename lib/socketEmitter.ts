@@ -954,6 +954,54 @@ export const emitDirectMessageReceived = async (
   }
 };
 
+export const emitDirectMessageUpdated = async (
+  rawFromId: string,
+  rawToId: string,
+  message: unknown,
+): Promise<void> => {
+  const io = await getIo();
+  await Promise.all([
+    emitRoomEvent(io, rawFromId, "message:updated", {
+      peerId: rawToId,
+      message,
+    }),
+    emitRoomEvent(io, rawToId, "message:updated", {
+      peerId: rawFromId,
+      message,
+    }),
+    emitRoomEvent(io, rawFromId, "conversation:updated", {
+      peerId: rawToId,
+    }),
+    emitRoomEvent(io, rawToId, "conversation:updated", {
+      peerId: rawFromId,
+    }),
+  ]);
+};
+
+export const emitGroupMessageUpdated = async (
+  rawGroupId: string,
+  members: Array<string | { userId: string | Types.ObjectId }>,
+  message: unknown,
+): Promise<void> => {
+  const io = await getIo();
+  await Promise.all(
+    members.flatMap((member) => {
+      const userId =
+        typeof member === "string" ? member : String(member.userId);
+      return [
+        emitRoomEvent(io, userId, "group:message:updated", {
+          groupId: rawGroupId,
+          message,
+        }),
+        emitRoomEvent(io, userId, "conversation:updated", {
+          peerId: rawGroupId,
+          groupId: rawGroupId,
+        }),
+      ];
+    }),
+  );
+};
+
 /**
  * IMPORTANT: call this AFTER the group message has been saved to MongoDB.
  */

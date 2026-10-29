@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState, Suspense } from "react";
-import { ArrowUp, Mic, Paperclip, Smile } from "lucide-react";
+import { ArrowUp, Mic, Paperclip, Smile, Eye } from "lucide-react";
 import dynamic from "next/dynamic";
 
 const MediaPicker = dynamic(
@@ -34,6 +34,8 @@ interface ChatWindowFooterProps {
   showEmojiPicker: boolean;
   setShowEmojiPicker: React.Dispatch<React.SetStateAction<boolean>>;
   allowAttachments: boolean;
+  oneTimeViewEnabled: boolean;
+  setOneTimeViewEnabled: (enabled: boolean) => void;
   showMediaPicker: boolean;
   setShowMediaPicker: React.Dispatch<React.SetStateAction<boolean>>;
   handleMediaSelect: (
@@ -60,6 +62,8 @@ export default function ChatWindowFooter({
   showEmojiPicker,
   setShowEmojiPicker,
   allowAttachments,
+  oneTimeViewEnabled,
+  setOneTimeViewEnabled,
   showMediaPicker,
   setShowMediaPicker,
   handleMediaSelect,
@@ -123,6 +127,22 @@ export default function ChatWindowFooter({
                   <Smile className="h-[22px] w-[22px]" strokeWidth={1.9} />
                 </button>
               </div>
+              {allowAttachments && (
+                <button
+                  type="button"
+                  onClick={() => setOneTimeViewEnabled(!oneTimeViewEnabled)}
+                  aria-pressed={oneTimeViewEnabled}
+                  aria-label="Toggle view-once for next photo, video, or voice note"
+                  title="View once for next photo, video, or voice note"
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
+                    oneTimeViewEnabled
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "text-[#54656f] hover:bg-[#e4e9eb]"
+                  }`}
+                >
+                  <Eye className="h-5 w-5" />
+                </button>
+              )}
 
               <div className="flex min-h-11 min-w-0 flex-1 items-end rounded-[24px] border border-[#e2e8e9] bg-white px-1 shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-colors duration-150 focus-within:border-[var(--brand-primary)] focus-within:ring-4 focus-within:ring-[var(--brand-primary)]/10">
                 <textarea

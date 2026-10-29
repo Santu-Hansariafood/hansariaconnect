@@ -247,16 +247,17 @@ export const CacheKeys = {
   ) => {
     const base = CacheKeys.directMessages(userId, peerId);
     const suffix = before ? `:before:${before}` : ":latest";
-    return `${base}:limit:${limit}${suffix}`;
+    return `${base}:user:${userId}:limit:${limit}${suffix}`;
   },
   groupMessages: (groupId: string) => `messages:group:${groupId}`,
   groupMessagesPage: (
     groupId: string,
     limit: number,
     before: string | null,
+    userId: string,
   ) => {
     const suffix = before ? `:before:${before}` : ":latest";
-    return `messages:group:${groupId}:limit:${limit}${suffix}`;
+    return `messages:group:${groupId}:user:${userId}:limit:${limit}${suffix}`;
   },
   conversations: (userId: string) => `conversations:${userId}`,
   statuses: (userId: string) => `statuses:${userId}`,

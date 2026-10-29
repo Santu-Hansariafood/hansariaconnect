@@ -30,6 +30,7 @@ export interface Contact {
   isGroup?: boolean;
   memberCount?: number;
   lastMessageFromMe?: boolean;
+  archived?: boolean;
 }
 
 const CATCHUP_COOLDOWN_MS = 120_000;
@@ -54,7 +55,9 @@ export const useContacts = (userId?: string | number) => {
       let lastMessageText = "";
 
       if (c.lastMessage) {
-        if (c.lastMessage.type === "text") lastMessageText = c.lastMessage.text || "";
+        if (c.lastMessage.deletedForEveryone) {
+          lastMessageText = "This message was deleted";
+        } else if (c.lastMessage.type === "text") lastMessageText = c.lastMessage.text || "";
         else if (c.lastMessage.type === "image") lastMessageText = "📷 Image";
         else if (c.lastMessage.type === "video") lastMessageText = "🎥 Video";
         else if (c.lastMessage.type === "voice") lastMessageText = "🎤 Voice";
@@ -89,6 +92,7 @@ export const useContacts = (userId?: string | number) => {
         isGroup: !!c.isGroup,
         memberCount: c.memberCount || 0,
         lastMessageFromMe: lastMessageFrom === currentUserId,
+        archived: !!c.archived,
       };
     },
     [],

@@ -25,6 +25,11 @@ interface ChatWindowMessageListProps {
     message: ChatMessage,
     button: TemplateActionButton,
   ) => boolean | Promise<boolean>;
+  onDeleteMessage: (
+    message: ChatMessage,
+    action: "forMe" | "forEveryone",
+  ) => Promise<boolean>;
+  onViewOnce: (message: ChatMessage) => Promise<string | null>;
   showUnreadBanner: boolean;
   unreadOnOpen: number;
   unreadDividerRef: React.RefObject<HTMLDivElement | null>;
@@ -65,6 +70,11 @@ interface MessageRowProps {
     message: ChatMessage,
     button: TemplateActionButton,
   ) => boolean | Promise<boolean>;
+  onDeleteMessage: (
+    message: ChatMessage,
+    action: "forMe" | "forEveryone",
+  ) => Promise<boolean>;
+  onViewOnce: (message: ChatMessage) => Promise<string | null>;
 }
 
 /*
@@ -83,6 +93,8 @@ const MessageRow = React.memo(function MessageRow({
   onForwardMessage,
   onReaction,
   onTemplateButton,
+  onDeleteMessage,
+  onViewOnce,
 }: MessageRowProps) {
   const message = useMemo<React.ComponentProps<typeof MessageBubble>["message"]>(
     () => ({
@@ -93,6 +105,10 @@ const MessageRow = React.memo(function MessageRow({
       url: msg.mediaUrl || undefined,
       timestamp: msg.timestamp || msg.createdAt || new Date().toISOString(),
       status: msg.status || "sent",
+      deletedForEveryone: msg.deletedForEveryone,
+      viewOnce: msg.viewOnce,
+      viewedByMe: msg.viewedByMe,
+      viewed: msg.viewed,
       duration: msg.duration,
       fileName: msg.fileName,
       fileSize: msg.fileSize,
@@ -118,6 +134,14 @@ const MessageRow = React.memo(function MessageRow({
     (button: TemplateActionButton) => onTemplateButton(msg, button),
     [onTemplateButton, msg],
   );
+  const handleDeleteMessage = useCallback(
+    (action: "forMe" | "forEveryone") => onDeleteMessage(msg, action),
+    [onDeleteMessage, msg],
+  );
+  const handleViewOnce = useCallback(
+    () => onViewOnce(msg),
+    [onViewOnce, msg],
+  );
 
   return (
     <MessageBubble
@@ -129,6 +153,8 @@ const MessageRow = React.memo(function MessageRow({
       onForward={handleForward}
       onReaction={handleReaction}
       onTemplateButton={handleTemplateButton}
+      onDeleteMessage={handleDeleteMessage}
+      onViewOnce={handleViewOnce}
     />
   );
 });
@@ -147,6 +173,8 @@ function ChatWindowMessageList({
   onForwardMessage,
   onReaction,
   onTemplateButton,
+  onDeleteMessage,
+  onViewOnce,
   showUnreadBanner,
   unreadOnOpen,
   unreadDividerRef,
@@ -275,6 +303,8 @@ function ChatWindowMessageList({
               onForwardMessage={onForwardMessage}
               onReaction={onReaction}
               onTemplateButton={onTemplateButton}
+              onDeleteMessage={onDeleteMessage}
+              onViewOnce={onViewOnce}
             />
           </React.Fragment>
         );

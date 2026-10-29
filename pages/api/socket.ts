@@ -52,11 +52,13 @@ export const config = {
 const messagePayloadSchema = z.object({
   to: z.string().regex(/^[0-9a-fA-F]{24}$/),
   type: z.enum(["text", "image", "video", "voice", "pdf", "excel", "link", "file"]),
+  clientMessageId: z.string().min(1).max(100).optional(),
   text: z.string().max(10000).optional(),
   mediaUrl: z.string().max(2000).optional(),
   fileName: z.string().max(255).optional(),
   fileSize: z.string().max(32).optional(),
   duration: z.number().finite().min(0).max(3600).optional(),
+  viewOnce: z.boolean().optional(),
   linkTitle: z.string().max(500).optional(),
   linkDescription: z.string().max(5000).optional(),
 });
@@ -64,6 +66,12 @@ const messagePayloadSchema = z.object({
 const groupMessagePayloadSchema = messagePayloadSchema
   .omit({ to: true })
   .extend({ groupId: z.string().regex(/^[0-9a-fA-F]{24}$/) });
+
+const isDuplicateKeyError = (error: unknown) =>
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
+  error.code === 11000;
 
 const SESSION_REVALIDATE_INTERVAL_MS = Number(
   process.env.SOCKET_SESSION_REVALIDATE_MS || 30_000,
@@ -553,6 +561,15 @@ async function handleSocketRequest(
             const data = parsedPayload.data;
             const to = data.to;
             const type = data.type;
+            if (
+              data.viewOnce &&
+              !["image", "video", "voice"].includes(type)
+            ) {
+              return cb?.({
+                ok: false,
+                error: "View-once is only available for photos, videos, and voice notes",
+              });
+            }
 
             const fromId = new Types.ObjectId(userId);
             const toId = new Types.ObjectId(to);
@@ -569,66 +586,97 @@ async function handleSocketRequest(
             const userIdStr = String(fromId);
             const toIdStr = String(toId);
 
-            const doc = await Message.create({
+            const messageQuery = {
               from: fromId,
               to: toId,
-              type,
-              text: encryptDirectMessageContent(
-                userIdStr,
-                toIdStr,
-                data.text ?? "",
-              ),
-              mediaUrl: encryptDirectMessageContent(
-                userIdStr,
-                toIdStr,
-                data.mediaUrl ?? "",
-              ),
-              fileName: encryptDirectMessageContent(
-                userIdStr,
-                toIdStr,
-                data.fileName ?? "",
-              ),
-              fileSize: encryptDirectMessageContent(
-                userIdStr,
-                toIdStr,
-                data.fileSize ?? "",
-              ),
-              duration: data.duration,
-              linkTitle: encryptDirectMessageContent(
-                userIdStr,
-                toIdStr,
-                data.linkTitle ?? "",
-              ),
-              linkDescription: encryptDirectMessageContent(
-                userIdStr,
-                toIdStr,
-                data.linkDescription ?? "",
-              ),
-            });
+              clientMessageId: data.clientMessageId,
+            };
+            let doc = data.clientMessageId
+              ? await Message.findOne(messageQuery)
+              : null;
+            let isNewMessage = !doc;
+            if (!doc) {
+              try {
+                doc = await Message.create({
+                  ...messageQuery,
+                  type,
+                  viewOnce: data.viewOnce,
+                  text: encryptDirectMessageContent(
+                    userIdStr,
+                    toIdStr,
+                    data.text ?? "",
+                  ),
+                  mediaUrl: encryptDirectMessageContent(
+                    userIdStr,
+                    toIdStr,
+                    data.mediaUrl ?? "",
+                  ),
+                  fileName: encryptDirectMessageContent(
+                    userIdStr,
+                    toIdStr,
+                    data.fileName ?? "",
+                  ),
+                  fileSize: encryptDirectMessageContent(
+                    userIdStr,
+                    toIdStr,
+                    data.fileSize ?? "",
+                  ),
+                  duration: data.duration,
+                  linkTitle: encryptDirectMessageContent(
+                    userIdStr,
+                    toIdStr,
+                    data.linkTitle ?? "",
+                  ),
+                  linkDescription: encryptDirectMessageContent(
+                    userIdStr,
+                    toIdStr,
+                    data.linkDescription ?? "",
+                  ),
+                });
+              } catch (error: unknown) {
+                if (
+                  !data.clientMessageId ||
+                  !isDuplicateKeyError(error)
+                ) {
+                  throw error;
+                }
+                doc = await Message.findOne(messageQuery);
+                if (!doc) throw error;
+                isNewMessage = false;
+              }
+            }
 
-            const a = String(fromId);
-            const b = String(toId);
-            const userA = a < b ? fromId : toId;
-            const userB = a < b ? toId : fromId;
+            if (!doc) throw new Error("Message could not be saved");
 
-            await Conversation.findOneAndUpdate(
-              { userA, userB },
-              { userA, userB, lastMessageAt: new Date() },
-              { upsert: true },
-            );
+            if (isNewMessage) {
+              const a = String(fromId);
+              const b = String(toId);
+              const userA = a < b ? fromId : toId;
+              const userB = a < b ? toId : fromId;
+
+              await Conversation.findOneAndUpdate(
+                { userA, userB },
+                { userA, userB, lastMessageAt: new Date() },
+                { upsert: true },
+              );
+            }
 
             const decryptedForSender: any = {
               ...doc.toObject(),
+              clientMessageId: doc.clientMessageId,
+              viewOnce: Boolean(doc.viewOnce),
               text: decryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
                 doc.text || "",
               ),
-              mediaUrl: decryptDirectMessageContent(
-                userIdStr,
-                toIdStr,
-                doc.mediaUrl || "",
-              ),
+              mediaUrl: doc.viewOnce
+                ? ""
+                : decryptDirectMessageContent(
+                    userIdStr,
+                    toIdStr,
+                    doc.mediaUrl || "",
+                  ),
               fileName: decryptDirectMessageContent(
                 userIdStr,
                 toIdStr,
@@ -658,11 +706,13 @@ async function handleSocketRequest(
                 userIdStr,
                 doc.text || "",
               ),
-              mediaUrl: decryptDirectMessageContent(
-                toIdStr,
-                userIdStr,
-                doc.mediaUrl || "",
-              ),
+              mediaUrl: doc.viewOnce
+                ? ""
+                : decryptDirectMessageContent(
+                    toIdStr,
+                    userIdStr,
+                    doc.mediaUrl || "",
+                  ),
               fileName: decryptDirectMessageContent(
                 toIdStr,
                 userIdStr,
@@ -686,11 +736,13 @@ async function handleSocketRequest(
             };
 
             cb?.({ ok: true, message: decryptedForSender });
-            void emitDirectMessageReceived(
-              userIdStr,
-              toIdStr,
-              decryptedForRecipient,
-            );
+            if (isNewMessage) {
+              void emitDirectMessageReceived(
+                userIdStr,
+                toIdStr,
+                decryptedForRecipient,
+              );
+            }
           } catch (err: any) {
             cb?.({ ok: false, error: err.message || "Error sending message" });
           }
@@ -817,6 +869,15 @@ async function handleSocketRequest(
             const data = parsedPayload.data;
             const groupId = data.groupId;
             const type = data.type;
+            if (
+              data.viewOnce &&
+              !["image", "video", "voice"].includes(type)
+            ) {
+              return cb?.({
+                ok: false,
+                error: "View-once is only available for photos, videos, and voice notes",
+              });
+            }
 
             const fromId = new Types.ObjectId(userId);
             const group = await Group.findById(groupId);
@@ -845,44 +906,70 @@ async function handleSocketRequest(
             const groupIdStr = String(groupId);
             const userIdStr = String(fromId);
 
-            const msg = await GroupMessage.create({
+            const messageQuery = {
               groupId: new Types.ObjectId(groupId),
               from: fromId,
-              type,
-              text: encryptGroupMessageContent(
-                groupIdStr,
-                data.text ?? "",
-              ),
-              mediaUrl: encryptGroupMessageContent(
-                groupIdStr,
-                data.mediaUrl ?? "",
-              ),
-              fileName: encryptGroupMessageContent(
-                groupIdStr,
-                data.fileName ?? "",
-              ),
-              fileSize: encryptGroupMessageContent(
-                groupIdStr,
-                data.fileSize ?? "",
-              ),
-              duration: data.duration,
-              linkTitle: encryptGroupMessageContent(
-                groupIdStr,
-                data.linkTitle ?? "",
-              ),
-              linkDescription: encryptGroupMessageContent(
-                groupIdStr,
-                data.linkDescription ?? "",
-              ),
-            });
+              clientMessageId: data.clientMessageId,
+            };
+            let msg = data.clientMessageId
+              ? await GroupMessage.findOne(messageQuery)
+              : null;
+            let isNewMessage = !msg;
+            if (!msg) {
+              try {
+                msg = await GroupMessage.create({
+                  ...messageQuery,
+                  type,
+                  viewOnce: data.viewOnce,
+                  text: encryptGroupMessageContent(
+                    groupIdStr,
+                    data.text ?? "",
+                  ),
+                  mediaUrl: encryptGroupMessageContent(
+                    groupIdStr,
+                    data.mediaUrl ?? "",
+                  ),
+                  fileName: encryptGroupMessageContent(
+                    groupIdStr,
+                    data.fileName ?? "",
+                  ),
+                  fileSize: encryptGroupMessageContent(
+                    groupIdStr,
+                    data.fileSize ?? "",
+                  ),
+                  duration: data.duration,
+                  linkTitle: encryptGroupMessageContent(
+                    groupIdStr,
+                    data.linkTitle ?? "",
+                  ),
+                  linkDescription: encryptGroupMessageContent(
+                    groupIdStr,
+                    data.linkDescription ?? "",
+                  ),
+                });
+              } catch (error: unknown) {
+                if (
+                  !data.clientMessageId ||
+                  !isDuplicateKeyError(error)
+                ) {
+                  throw error;
+                }
+                msg = await GroupMessage.findOne(messageQuery);
+                if (!msg) throw error;
+                isNewMessage = false;
+              }
+            }
+
+            if (!msg) throw new Error("Group message could not be saved");
 
             const decryptedMsg: any = {
               ...msg.toObject(),
+              clientMessageId: msg.clientMessageId,
+              viewOnce: Boolean(msg.viewOnce),
               text: decryptGroupMessageContent(groupIdStr, msg.text || ""),
-              mediaUrl: decryptGroupMessageContent(
-                groupIdStr,
-                msg.mediaUrl || "",
-              ),
+              mediaUrl: msg.viewOnce
+                ? ""
+                : decryptGroupMessageContent(groupIdStr, msg.mediaUrl || ""),
               fileName: decryptGroupMessageContent(
                 groupIdStr,
                 msg.fileName || "",
@@ -902,12 +989,12 @@ async function handleSocketRequest(
             };
 
             cb?.({ ok: true, message: decryptedMsg });
-            void emitGroupMessageReceived(
-              groupIdStr,
-              userIdStr,
-              members,
-              decryptedMsg,
-            );
+            if (isNewMessage) {
+              void emitGroupMessageReceived(groupIdStr, userIdStr, members, {
+                ...decryptedMsg,
+                mediaUrl: msg.viewOnce ? "" : decryptedMsg.mediaUrl,
+              });
+            }
           } catch (err: any) {
             cb?.({
               ok: false,

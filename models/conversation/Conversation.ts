@@ -4,6 +4,7 @@ const ConversationSchema = new Schema(
   {
     userA: { type: Schema.Types.ObjectId, ref: "User", required: true },
     userB: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    archivedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     lastMessageAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
