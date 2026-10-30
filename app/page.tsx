@@ -3,16 +3,26 @@ import Link from "next/link";
 import { MessageCircle, LockKeyhole, Users, Sparkles } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Indian AI-Powered Chat Application | HansariaConnect",
+  title: "Indian Messaging App for Groups and Communities | HansariaConnect",
   description:
-    "HansariaConnect is an Indian AI-powered chat application created by the Hansaria Food IT team for private messaging, groups, media sharing, and local communities.",
+    "HansariaConnect is an India-built messaging app for direct chats, groups, contacts, status updates, and media sharing for families, teams, and communities.",
   alternates: { canonical: "https://hfconnect.in" },
   openGraph: {
-    title: "HansariaConnect | Indian AI-Powered Chat Application",
+    title: "HansariaConnect | Indian Messaging App for Groups and Communities",
     description:
-      "Private, practical messaging made in India by the Hansaria Food IT team.",
+      "An India-built messaging app for direct chats, groups, contacts, status updates, and media sharing.",
     url: "https://hfconnect.in",
+    siteName: "HansariaConnect",
+    locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "https://hfconnect.in/favicon/android-chrome-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "HansariaConnect app icon",
+      },
+    ],
   },
 };
 
@@ -29,8 +39,8 @@ const features = [
   },
   {
     icon: Sparkles,
-    title: "AI-powered direction",
-    text: "A modern communication platform designed to grow with useful, responsible AI features.",
+    title: "Practical technology",
+    text: "A modern communication platform focused on useful features and responsible product development.",
   },
 ];
 
@@ -55,7 +65,7 @@ export default function HomePage() {
             <div>
               <p className="mb-5 text-sm font-semibold uppercase tracking-[0.18em] text-[#f2d18a]">Made in India by Hansaria Food IT</p>
               <h1 className="max-w-3xl text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-                An Indian AI-powered chat application for real conversations.
+                An Indian messaging app for real conversations.
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-[#d3e7df] sm:text-xl">
                 HansariaConnect brings private messaging, groups, contacts, and media sharing together for people and local communities across India.

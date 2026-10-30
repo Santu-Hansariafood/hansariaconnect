@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import CompanyPage from "@/components/common/CompanyPage/CompanyPage";
 
 export const metadata: Metadata = {
-  title: "Affiliate Program | HansariaConnect",
+  title: "HansariaConnect Affiliate Program",
   description:
     "Learn who can apply to the HansariaConnect affiliate program and the transparency, privacy, and advertising standards expected of partners.",
   alternates: { canonical: "https://hfconnect.in/affiliate" },

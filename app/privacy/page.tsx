@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import CompanyPage from "@/components/common/CompanyPage/CompanyPage";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | HansariaConnect",
+  title: "HansariaConnect Privacy Policy",
   description:
     "Learn what information HansariaConnect processes, how it is used and protected, and how to make privacy or account deletion requests.",
   alternates: { canonical: "https://hfconnect.in/privacy" },

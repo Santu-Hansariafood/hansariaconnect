@@ -14,27 +14,12 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://hfconnect.in"),
 
   title: {
-    default: "HansariaConnect | Indian AI-Powered Chat Application",
+    default: "HansariaConnect | Indian Messaging App for Groups and Communities",
     template: "%s | HansariaConnect",
   },
 
   description:
-    "HansariaConnect is an Indian AI-powered chat application created by the Hansaria Food IT team for private messaging, groups, media sharing, and local communities.",
-
-  keywords: [
-    "Hansaria Food IT",
-    "HansariaConnect",
-    "Santu's Creations",
-    "Hansaria Food Private Limited",
-    "Indian AI chat application",
-    "India messaging app",
-    "Indian chat application",
-    "AI-powered chat app India",
-    "Made in India app",
-    "Indian messaging platform",
-    "local community chat app",
-    "Hansaria Food IT team",
-  ],
+    "HansariaConnect is an India-built messaging app for direct chats, groups, contacts, status updates, and media sharing for families, teams, and communities.",
 
   authors: [{ name: "Hansaria Food Private Limited", url: "https://hfconnect.in" }],
   creator: "Hansaria Food IT Team",
@@ -61,29 +46,27 @@ export const metadata: Metadata = {
   },
 
   openGraph: {
-    title: "HansariaConnect | Indian AI-Powered Chat Application",
+    title: "HansariaConnect | Indian Messaging App for Groups and Communities",
     description:
-      "Private, practical messaging made in India by the Hansaria Food IT team.",
-    url: "https://hfconnect.in",
+      "An India-built messaging app for direct chats, groups, contacts, status updates, and media sharing.",
     siteName: "HansariaConnect",
     locale: "en_US",
     type: "website",
     images: [
       {
         url: "https://hfconnect.in/favicon/android-chrome-512x512.png",
-        width: 1200,
-        height: 630,
-        alt: "HansariaConnect Secure Messaging",
+        width: 512,
+        height: 512,
+        alt: "HansariaConnect app icon",
       },
     ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "HansariaConnect | Indian AI-Powered Chat Application",
+    title: "HansariaConnect | Indian Messaging App for Groups and Communities",
     description:
-      "An Indian chat application for private conversations, groups, media sharing, and local communities.",
-    creator: "@HansariaConnect",
+      "An India-built messaging app for direct chats, groups, contacts, status updates, and media sharing.",
     images: ["https://hfconnect.in/favicon/android-chrome-512x512.png"],
   },
 
@@ -97,9 +80,6 @@ export const metadata: Metadata = {
 
   manifest: "/manifest.json",
 
-  alternates: {
-    canonical: "https://hfconnect.in",
-  },
 };
 
 export const viewport: Viewport = {
@@ -269,7 +249,7 @@ export default function RootLayout({
                   name: "HansariaConnect",
                   url: "https://hfconnect.in",
                   description:
-                    "An Indian AI-powered chat application created by the Hansaria Food IT team.",
+                    "An India-built messaging app for direct chats, groups, contacts, status updates, and media sharing.",
                   publisher: { "@id": "https://hfconnect.in/#organization" },
                   inLanguage: "en-IN",
                 },
@@ -279,11 +259,10 @@ export default function RootLayout({
                   name: "HansariaConnect",
                   applicationCategory: "CommunicationApplication",
                   operatingSystem: "Web, Android",
-                  url: "https://hfconnect.in/chat",
+                  url: "https://hfconnect.in",
                   description:
-                    "An Indian AI-powered chat application for private messaging, groups, media sharing, and local communities.",
+                    "An India-built messaging app for direct chats, groups, contacts, status updates, and media sharing.",
                   creator: { "@id": "https://hfconnect.in/#organization" },
-                  offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
                 },
               ],
             }),

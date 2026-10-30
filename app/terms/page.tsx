@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import CompanyPage from "@/components/common/CompanyPage/CompanyPage"
 
 export const metadata: Metadata = {
-  title: "Terms of Service | HansariaConnect",
+  title: "Terms of Service",
   description:
     "Read the terms that apply to using HansariaConnect, including the minimum age of 16, accounts, acceptable use, user content, and account deletion.",
   alternates: { canonical: "https://hfconnect.in/terms" },

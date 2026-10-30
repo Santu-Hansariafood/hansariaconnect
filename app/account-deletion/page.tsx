@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import CompanyPage from "@/components/common/CompanyPage/CompanyPage";
 
 export const metadata: Metadata = {
-  title: "Account Deletion | HansariaConnect",
+  title: "Delete Your HansariaConnect Account",
   description:
     "Learn how to request deletion of your HansariaConnect account and what happens to account information and messages.",
   alternates: { canonical: "https://hfconnect.in/account-deletion" },

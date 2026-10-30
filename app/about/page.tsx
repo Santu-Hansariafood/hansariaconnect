@@ -3,7 +3,7 @@ import CompanyPage from "@/components/common/CompanyPage/CompanyPage";
 import TeamPortfolio from "@/components/common/CompanyPage/TeamPortfolio";
 
 export const metadata: Metadata = {
-  title: "About HansariaConnect | Our Team and Mission",
+  title: "About HansariaConnect: Our Team and Mission",
   description:
     "Meet HansariaConnect's mission and team portfolio: product design, messaging technology, platform reliability, and privacy-led support, built in India.",
   alternates: { canonical: "https://hfconnect.in/about" },
