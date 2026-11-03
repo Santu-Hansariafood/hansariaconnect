@@ -61,7 +61,7 @@ export interface ChatMessage {
   linkTitle?: string;
   linkDescription?: string;
   duration?: number;
-  status?: "sent" | "delivered" | "seen" | "sending" | "failed";
+  status?: "sent" | "delivered" | "seen" | "sending" | "queued" | "failed";
   reactions?: Record<string, number>;
   viewedBy?: string[];
   buttons?: TemplateActionButton[];

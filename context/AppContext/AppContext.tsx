@@ -18,6 +18,10 @@ import {
   invalidateApiCache,
 } from "@/lib/api/clientCache";
 import { isMobileApp, MOBILE_APP_SESSION_HEADER } from "@/lib/mobileApp";
+import {
+  clearQueuedMessages,
+  syncQueuedMessages,
+} from "@/lib/offlineMessageQueue";
 
 const NotificationManager = dynamic(
   () => import("@/components/common/NotificationManager/NotificationManager"),
@@ -74,7 +78,7 @@ interface AppContextType {
   clearCachedMessages: (peerId?: string) => void;
   bootstrapData: BootstrapData;
   bootstrapReady: boolean;
-  prefetchHomeData: () => Promise<void>;
+  prefetchHomeData: (force?: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -151,16 +155,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     promise: Promise<void>;
   } | null>(null);
 
-  const prefetchHomeData = useCallback(() => {
+  const prefetchHomeData = useCallback((force = false) => {
     if (!user) return Promise.resolve();
     const userId = String(
       user.id ?? user.mobile ?? user.name ?? "authenticated",
     );
 
     const existingRequest = homeDataRequest.current;
-    if (existingRequest?.userId === userId) return existingRequest.promise;
+    if (!force && existingRequest?.userId === userId) {
+      return existingRequest.promise;
+    }
 
-    setBootstrapReady(false);
+    if (force) {
+      invalidateApiCache("/api/conversations");
+      invalidateApiCache("/api/status");
+      invalidateApiCache("/api/unread-counts");
+    }
+
+    if (!force) setBootstrapReady(false);
     const request = { userId, promise: Promise.resolve() };
     request.promise = (async () => {
       try {
@@ -169,16 +181,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             credentials: "include",
             cache: "no-store",
             ttlMs: ApiCacheTTL.short,
+            force,
           }),
           cachedFetch("/api/status", {
             credentials: "include",
             cache: "no-store",
             ttlMs: ApiCacheTTL.medium,
+            force,
           }),
           cachedFetch("/api/unread-counts", {
             credentials: "include",
             cache: "no-store",
             ttlMs: ApiCacheTTL.realtime,
+            force,
           }),
         ]);
         const [convRes, statusRes, unreadRes] = responses;
@@ -217,11 +232,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
       } catch (error) {
         if (homeDataRequest.current === request) {
-          console.error("[AppProvider] Home bootstrap failed:", error);
-          setBootstrapData({});
+          console.error("[AppProvider] Home data refresh failed:", error);
+          if (!force) setBootstrapData({});
         }
       } finally {
-        if (homeDataRequest.current === request) setBootstrapReady(true);
+        if (homeDataRequest.current === request) {
+          setBootstrapReady(true);
+          homeDataRequest.current = null;
+        }
       }
     })();
     homeDataRequest.current = request;
@@ -288,6 +306,32 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             registration.installing?.state ||
             "installing",
         );
+
+        const periodicSync = (
+          registration as ServiceWorkerRegistration & {
+            periodicSync?: {
+              register: (
+                tag: string,
+                options: { minInterval: number },
+              ) => Promise<void>;
+            };
+          }
+        ).periodicSync;
+        if (periodicSync) {
+          try {
+            await periodicSync.register("hansariaconnect-refresh", {
+              minInterval: 15 * 60 * 1000,
+            });
+            console.log(
+              "[AppProvider] Best-effort 15-minute background refresh registered",
+            );
+          } catch (error) {
+            console.warn(
+              "[AppProvider] Periodic Background Sync is unavailable or not permitted:",
+              error instanceof Error ? error.message : String(error),
+            );
+          }
+        }
 
         if (registration.waiting) {
           console.log(
@@ -431,6 +475,69 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     void prefetchHomeData();
   }, [prefetchHomeData, sessionChecked, user]);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = String(user.id);
+    let lastRefreshAt = 0;
+
+    const refreshLatest = () => {
+      if (document.visibilityState !== "visible" || !navigator.onLine) return;
+      const now = Date.now();
+      if (now - lastRefreshAt < 3000) return;
+      lastRefreshAt = now;
+      void prefetchHomeData(true);
+    };
+
+    const retryPendingMessages = () => {
+      void syncQueuedMessages(
+        userId,
+        isMobileApp() ? { [MOBILE_APP_SESSION_HEADER]: "true" } : undefined,
+      ).catch((error: unknown) =>
+        console.error("[AppProvider] Queued message sync failed:", error),
+      );
+    };
+
+    const handleServiceWorkerMessage = (event: MessageEvent<unknown>) => {
+      const data = event.data as { type?: string } | null;
+      if (
+        data?.type === "BACKGROUND_SYNC_COMPLETE" ||
+        data?.type === "PUSH_RECEIVED"
+      ) {
+        refreshLatest();
+      }
+    };
+
+    const handleResume = () => {
+      refreshLatest();
+      retryPendingMessages();
+    };
+
+    const refreshInterval = window.setInterval(() => {
+      if (document.visibilityState === "visible") refreshLatest();
+    }, 15 * 60 * 1000);
+    window.addEventListener("focus", handleResume);
+    window.addEventListener("pageshow", handleResume);
+    window.addEventListener("online", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
+    navigator.serviceWorker?.addEventListener(
+      "message",
+      handleServiceWorkerMessage,
+    );
+    retryPendingMessages();
+
+    return () => {
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", handleResume);
+      window.removeEventListener("pageshow", handleResume);
+      window.removeEventListener("online", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
+      navigator.serviceWorker?.removeEventListener(
+        "message",
+        handleServiceWorkerMessage,
+      );
+    };
+  }, [prefetchHomeData, user?.id]);
+
   const updateTheme = useCallback((newTheme: Theme) => {
     setTheme(newTheme);
     localStorage.setItem("hansariaTheme", JSON.stringify(newTheme));
@@ -517,6 +624,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
+    if (user?.id) {
+      await clearQueuedMessages(String(user.id)).catch((error: unknown) =>
+        console.error("[AppProvider] Could not clear queued messages on logout:", error),
+      );
+    }
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -535,7 +647,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     clearCachedMessages();
     // Drop every cached GET response so the next account never reads stale data.
     invalidateApiCache();
-  }, [clearCachedMessages]);
+  }, [clearCachedMessages, user?.id]);
 
   const contextValue = useMemo<AppContextType>(
     () => ({

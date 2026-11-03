@@ -51,6 +51,7 @@ import {
   cachedFetch,
   invalidateApiCache,
 } from "@/lib/api/clientCache";
+import { queueMessageForSync } from "@/lib/offlineMessageQueue";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 import type { TemplateActionType } from "@/lib/templateActionButtons";
 
@@ -231,7 +232,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         }
       });
       if (map.size === prev.length && !hasUpdates) return prev;
-      return Array.from(map.values()).sort((a: any, b: any) => {
+      return Array.from(map.values()).sort((a: ChatMessage, b: ChatMessage) => {
         const ta = new Date(a?.createdAt || a?.timestamp || 0).getTime();
         const tb = new Date(b?.createdAt || b?.timestamp || 0).getTime();
         return ta - tb;
@@ -239,6 +240,80 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     },
     [],
   );
+
+  useEffect(() => {
+    const applyQueueResult = (result: {
+      clientMessageId?: unknown;
+      message?: unknown;
+      error?: unknown;
+    }) => {
+      if (typeof result.clientMessageId !== "string") return;
+      if (
+        typeof result.message === "object" &&
+        result.message !== null &&
+        "clientMessageId" in result.message &&
+        result.message.clientMessageId === result.clientMessageId
+      ) {
+        const savedMessage = {
+          ...(result.message as ChatMessage),
+          status: "sent" as const,
+        };
+        setChatMessages((messages) => mergeUnique(messages, [savedMessage]));
+        return;
+      }
+
+      if (typeof result.error === "string") {
+        console.warn("[ChatWindow] Queued message could not be sent:", result.error);
+        setChatMessages((messages) =>
+          messages.map((message) =>
+            message.clientMessageId === result.clientMessageId
+              ? { ...message, status: "failed" }
+              : message,
+          ),
+        );
+      }
+    };
+
+    const handlePageQueueResult = (event: Event) => {
+      applyQueueResult(
+        (event as CustomEvent<{
+          clientMessageId?: unknown;
+          message?: unknown;
+          error?: unknown;
+        }>).detail || {},
+      );
+    };
+    const handleWorkerMessage = (event: MessageEvent<unknown>) => {
+      if (
+        typeof event.data === "object" &&
+        event.data !== null &&
+        "type" in event.data &&
+        event.data.type === "QUEUED_MESSAGE_RESULT"
+      ) {
+        applyQueueResult({
+          clientMessageId:
+            "clientMessageId" in event.data
+              ? event.data.clientMessageId
+              : undefined,
+          message: "message" in event.data ? event.data.message : undefined,
+          error: "error" in event.data ? event.data.error : undefined,
+        });
+      }
+    };
+
+    window.addEventListener(
+      "hansariaconnect:queued-message-result",
+      handlePageQueueResult,
+    );
+    navigator.serviceWorker?.addEventListener("message", handleWorkerMessage);
+    return () => {
+      window.removeEventListener(
+        "hansariaconnect:queued-message-result",
+        handlePageQueueResult,
+      );
+      navigator.serviceWorker?.removeEventListener("message", handleWorkerMessage);
+    };
+  }, [mergeUnique]);
 
   const { socket, typingUserIds, sendTyping } = useChatSocket(
     chatId,
@@ -759,7 +834,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         credentials: "include",
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (res.ok && data?.message) {
         setChatMessages((prev) => mergeUnique(prev, [data.message]));
         return true;
@@ -770,8 +845,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         "- server response:",
         data,
       );
+      if (res.status >= 500 || res.status === 408 || res.status === 429) {
+        return queueForRetry(payload, tempMessage);
+      }
     } catch (err: any) {
       console.error("[ChatWindow] sendViaRest network error:", err?.message || err);
+      return queueForRetry(payload, tempMessage);
     }
 
     const failedId = getMessageId(tempMessage);
@@ -790,6 +869,57 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
     return false;
   };
+
+  async function queueForRetry(
+    payload: OutboundMessagePayload,
+    tempMessage?: ChatMessage,
+  ): Promise<boolean> {
+    const clientMessageId = payload.clientMessageId;
+    const type = payload.type;
+    if (!clientMessageId || typeof type !== "string" || payload.viewOnce) {
+      if (tempMessage) {
+        setChatMessages((messages) =>
+          messages.map((message) =>
+            getMessageId(message) === getMessageId(tempMessage)
+              ? { ...message, status: "failed" }
+              : message,
+          ),
+        );
+      }
+      return false;
+    }
+
+    try {
+      await queueMessageForSync({
+        clientMessageId,
+        userId: String(user.id),
+        targetId: chatId,
+        isGroup,
+        payload: { ...payload, type, clientMessageId },
+        queuedAt: Date.now(),
+      });
+      setChatMessages((messages) =>
+        messages.map((message) =>
+          message.clientMessageId === clientMessageId
+            ? { ...message, status: "queued" }
+            : message,
+        ),
+      );
+      return true;
+    } catch (error) {
+      console.error("[ChatWindow] Could not queue offline message:", error);
+      if (tempMessage) {
+        setChatMessages((messages) =>
+          messages.map((message) =>
+            message.clientMessageId === clientMessageId
+              ? { ...message, status: "failed" }
+              : message,
+          ),
+        );
+      }
+      return false;
+    }
+  }
 
   const sendViaSocket = async (
     payload: OutboundMessagePayload,
@@ -886,6 +1016,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       text: trimmed,
       clientMessageId: tempId,
     };
+
+    if (!navigator.onLine) return queueForRetry(payload, optimisticMessage);
 
     const socketOk = await sendViaSocket(payload);
     if (socketOk) return true;
@@ -1133,6 +1265,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       oneTimeViewEnabled &&
       ["image", "video", "voice"].includes(payload.type || "");
     if (usesViewOnce) payload.viewOnce = true;
+    if (!navigator.onLine) return queueForRetry(payload, optimisticMessage);
     const socketOk = await sendViaSocket(payload);
     const sent = socketOk || (await sendViaRest(payload, optimisticMessage));
     if (sent && usesViewOnce) setOneTimeViewEnabled(false);

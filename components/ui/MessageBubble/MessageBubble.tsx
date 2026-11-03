@@ -55,7 +55,7 @@ interface Message {
   linkTitle?: string
   linkDescription?: string
   timestamp: string | Date
-  status?: "sent" | "delivered" | "seen" | "sending" | "failed"
+  status?: "sent" | "delivered" | "seen" | "sending" | "queued" | "failed"
   reactions?: Record<string, number>
   duration?: number
   buttons?: TemplateActionButton[]
@@ -148,13 +148,19 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
         ? "Delivered"
         : message.status === "failed"
           ? "Failed"
-          : message.status === "sending"
+          : message.status === "queued"
+            ? "Queued"
+            : message.status === "sending"
             ? "Sending"
             : "Sent"
 
   const renderStatusIcon = () => {
     if (message.status === "sending") {
       return <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-gray-400/40 border-t-gray-500/80" />
+    }
+
+    if (message.status === "queued") {
+      return <span className="text-[10px] font-medium leading-none text-gray-500">Queued</span>
     }
 
     if (message.status === "failed") {
@@ -305,6 +311,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
               {onDeleteMessage &&
                 !message.deletedForEveryone &&
                 message.status !== "sending" &&
+                message.status !== "queued" &&
                 message.status !== "failed" && (
                   <div className="relative">
                     <button

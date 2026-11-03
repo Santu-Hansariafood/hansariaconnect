@@ -33,7 +33,6 @@ export interface Contact {
   archived?: boolean;
 }
 
-const CATCHUP_COOLDOWN_MS = 120_000;
 /** Coalesces bursts of `conversation:updated` into a single list re-fetch. */
 const CONVERSATION_REFRESH_DEBOUNCE_MS = 350;
 
@@ -189,7 +188,7 @@ export const useContacts = (userId?: string | number) => {
     }
   }, [mergeSavedContacts, userId]);
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (force = false) => {
     try {
       if (!hasLoadedConversations.current) setLoading(true);
       const [convRes, unreadRes] = await Promise.all([
@@ -198,11 +197,13 @@ export const useContacts = (userId?: string | number) => {
           credentials: "include",
           cache: "no-store",
           ttlMs: ApiCacheTTL.short,
+          force,
         }),
         cachedFetch("/api/unread-counts", {
           cache: "no-store",
           credentials: "include",
           ttlMs: ApiCacheTTL.realtime,
+          force,
         }),
       ]);
 
@@ -243,6 +244,22 @@ export const useContacts = (userId?: string | number) => {
       setLoading(false);
     }
   }, [applyConversationList]);
+
+  const refreshLatest = useCallback(() => {
+    if (
+      typeof document !== "undefined" &&
+      document.visibilityState !== "visible"
+    ) {
+      return;
+    }
+    if (!navigator.onLine || Date.now() - lastCatchupAtRef.current < 3000) {
+      return;
+    }
+
+    lastCatchupAtRef.current = Date.now();
+    void loadConversations(true);
+    void loadSavedContacts();
+  }, [loadConversations, loadSavedContacts]);
 
   useEffect(() => {
     if (!socket) return;
@@ -313,53 +330,35 @@ export const useContacts = (userId?: string | number) => {
       }
       hasLoadedConversations.current = true;
       setLoading(false);
-      if (bootstrapData.conversations.length > 0) return;
-
-      lastCatchupAtRef.current = Date.now();
-      const catchupIfStale = () => {
-        if (document.visibilityState !== "visible") return;
-        const now = Date.now();
-        if (now - lastCatchupAtRef.current <= CATCHUP_COOLDOWN_MS) return;
-        lastCatchupAtRef.current = now;
-        void loadConversations();
-      };
-      window.addEventListener("focus", catchupIfStale);
-      document.addEventListener("visibilitychange", catchupIfStale);
-      return () => {
-        window.removeEventListener("focus", catchupIfStale);
-        document.removeEventListener("visibilitychange", catchupIfStale);
-      };
+      return;
     }
 
-    const catchupIfNeeded = () => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      const now = Date.now();
-      const stale = now - lastCatchupAtRef.current > CATCHUP_COOLDOWN_MS;
-      if (stale || !hasLoadedConversations.current) {
-        lastCatchupAtRef.current = now;
-        void loadConversations();
-      }
-    };
-
-    catchupIfNeeded();
-
-    const onWindowFocus = () => catchupIfNeeded();
-    const onVisibilityChange = () => catchupIfNeeded();
-
-    window.addEventListener("focus", onWindowFocus);
-    document.addEventListener("visibilitychange", onVisibilityChange);
-
-    return () => {
-      window.removeEventListener("focus", onWindowFocus);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-    };
+    void loadConversations();
   }, [
     applyConversationList,
     bootstrapData.conversations,
     bootstrapData.unreadCounts,
-    bootstrapReady,
     loadConversations,
+    bootstrapReady,
   ]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const handleResume = () => refreshLatest();
+    const refreshInterval = window.setInterval(refreshLatest, 15 * 60 * 1000);
+    window.addEventListener("focus", handleResume);
+    window.addEventListener("pageshow", handleResume);
+    window.addEventListener("online", handleResume);
+    document.addEventListener("visibilitychange", handleResume);
+
+    return () => {
+      window.clearInterval(refreshInterval);
+      window.removeEventListener("focus", handleResume);
+      window.removeEventListener("pageshow", handleResume);
+      window.removeEventListener("online", handleResume);
+      document.removeEventListener("visibilitychange", handleResume);
+    };
+  }, [refreshLatest, userId]);
 
   useEffect(() => {
     setContacts(prev => {
