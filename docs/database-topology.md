@@ -50,8 +50,10 @@ Login OTP emails are persisted as encrypted jobs in the control database and
 sent asynchronously. Run `npm run worker:auth-email` as a separate long-lived
 service on the same environment/database as the app, and keep the same
 `ENCRYPTION_SECRET` (or configured fallback) in both processes. The worker
-retries temporary mail failures with backoff, discards jobs whose five-minute
-OTP has expired, and records terminal failures. `AUTH_EMAIL_WORKER_CONCURRENCY`
+loads Next.js environment files from the project directory. In development,
+run it in a second terminal alongside `npm run dev`. It retries temporary mail
+failures with backoff, discards jobs whose five-minute OTP has expired, and
+records terminal failures. `AUTH_EMAIL_WORKER_CONCURRENCY`
 sets in-process worker concurrency (default `3`). Scale worker instances and
 SMTP/provider capacity together; queuing shortens login request latency but
 does not increase the email provider's delivery quota. A target such as

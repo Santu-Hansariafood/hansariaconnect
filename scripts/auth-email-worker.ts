@@ -1,8 +1,4 @@
-import mongoose from "mongoose";
-import {
-  initializeAuthEmailWorker,
-  processNextAuthEmailJob,
-} from "@/lib/auth/authEmailWorker";
+import { loadEnvConfig } from "@next/env";
 
 const POLL_INTERVAL_MS = 250;
 const ERROR_DELAY_MS = 1_000;
@@ -18,7 +14,10 @@ process.on("SIGTERM", () => {
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
-async function workerLoop(workerIndex: number): Promise<void> {
+async function workerLoop(
+  workerIndex: number,
+  processNextAuthEmailJob: () => Promise<boolean>,
+): Promise<void> {
   while (!stopping) {
     try {
       const processed = await processNextAuthEmailJob();
@@ -31,16 +30,24 @@ async function workerLoop(workerIndex: number): Promise<void> {
 }
 
 async function runWorker(): Promise<void> {
+  loadEnvConfig(process.cwd());
+
+  const [{ default: mongoose }, authEmailWorker] = await Promise.all([
+    import("mongoose"),
+    import("@/lib/auth/authEmailWorker"),
+  ]);
   const concurrency = Number(process.env.AUTH_EMAIL_WORKER_CONCURRENCY || 3);
   if (!Number.isSafeInteger(concurrency) || concurrency < 1 || concurrency > 100) {
     throw new Error("AUTH_EMAIL_WORKER_CONCURRENCY must be an integer from 1 to 100");
   }
 
-  await initializeAuthEmailWorker();
+  await authEmailWorker.initializeAuthEmailWorker();
   console.log(`[auth-email-worker] Started with concurrency ${concurrency}`);
 
   await Promise.all(
-    Array.from({ length: concurrency }, (_, index) => workerLoop(index + 1)),
+    Array.from({ length: concurrency }, (_, index) =>
+      workerLoop(index + 1, authEmailWorker.processNextAuthEmailJob),
+    ),
   );
 
   console.log("[auth-email-worker] Stopping");
