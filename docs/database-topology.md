@@ -40,6 +40,25 @@ Install production dependencies from the committed lockfile with `npm ci`. The p
 
 Set `REDIS_URL` (or the `REDIS_HOST` connection settings) on every app instance to the same private, authenticated Redis service. Socket.IO uses the Redis adapter for room broadcasts, a Redis event channel for HTTP API message delivery across instances, and expiring Redis presence leases. `SOCKET_IO_REDIS_KEY` can isolate this app from other Socket.IO deployments sharing Redis. If Redis is configured but unavailable during startup, `/api/socket` returns `503` and clients retry; without Redis configured, realtime delivery is single-instance only.
 
+Authentication rate limits use the shared Redis service when it is configured,
+so limits are atomic across app instances without writing a MongoDB counter for
+each request. Configure Redis on every instance; if configured Redis is
+unavailable, authentication requests fail rather than bypassing the shared
+limit. Without Redis, the existing MongoDB-backed limiter remains in use.
+
+Login OTP emails are persisted as encrypted jobs in the control database and
+sent asynchronously. Run `npm run worker:auth-email` as a separate long-lived
+service on the same environment/database as the app, and keep the same
+`ENCRYPTION_SECRET` (or configured fallback) in both processes. The worker
+retries temporary mail failures with backoff, discards jobs whose five-minute
+OTP has expired, and records terminal failures. `AUTH_EMAIL_WORKER_CONCURRENCY`
+sets in-process worker concurrency (default `3`). Scale worker instances and
+SMTP/provider capacity together; queuing shortens login request latency but
+does not increase the email provider's delivery quota. A target such as
+100,000 login requests per second must be load-tested with production-sized
+MongoDB, Redis, app instances, and a mail provider that can sustain the
+resulting email throughput.
+
 When the load balancer permits Engine.IO polling, enable sticky sessions so all polling requests in one Socket.IO session reach the same app instance. Forward WebSocket `Upgrade` and `Connection` headers, allow long-lived connections, and configure `NEXT_PUBLIC_APP_URL` to the public app origin. Admin, super-admin, and web subdomains of that origin are accepted by the socket origin check.
 
 For multiple geographic regions, use a low-latency Redis deployment shared by every instance that must exchange socket events, and account for cross-region latency/failure domains. Separate regional Redis clusters do not provide global room delivery by themselves. Regional message databases also require state-aware request routing; the connection helpers alone do not route chat data.

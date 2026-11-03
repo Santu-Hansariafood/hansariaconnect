@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Eye, EyeOff } from "lucide-react";
+import { Check, Copy, Download, Eye, EyeOff } from "lucide-react";
 import { getTemplateVariableNames } from "@/lib/messageTemplates";
 
 type CodeLanguage = "curl" | "JavaScript" | "Python" | "PHP";
@@ -15,6 +15,137 @@ const RECIPIENT_NUMBERS = ["919876543210", "919812345678"];
 
 const phpString = (value: string) =>
   `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+
+const createPostmanCollection = ({
+  name,
+  defaultLanguage,
+  variables,
+}: {
+  name: string;
+  defaultLanguage?: string;
+  variables: string[];
+}) => ({
+  info: {
+    name: `${name} - HansariaConnect Webhook`,
+    schema:
+      "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+  },
+  description:
+    "Incoming integration: your app calls the HansariaConnect API with POST requests. Set the apiKey collection variable before use. Recipients must have registered HansariaConnect accounts. The API key must be bound to a sender account; otherwise add fromUserId to send requests.",
+  auth: {
+    type: "bearer",
+    bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }],
+  },
+  item: [
+    {
+      name: "Test connection",
+      request: {
+        method: "GET",
+        url: `{{baseUrl}}/api/v1/connection/test?templateName=${encodeURIComponent(name)}`,
+      },
+    },
+    {
+      name: "Send to one number",
+      request: {
+        description:
+          "Send one in-app message. Replace RECIPIENT_MOBILE with one registered Indian mobile number or chat account ID. Uses the sender account bound to the API key; otherwise add fromUserId.",
+        method: "POST",
+        header: [{ key: "Content-Type", value: "application/json" }],
+        body: {
+          mode: "raw",
+          raw: JSON.stringify(
+            {
+              templateName: name,
+              language: defaultLanguage || "en",
+              toUserId: "RECIPIENT_MOBILE",
+              variables: Object.fromEntries(
+                variables.map((variable) => [
+                  variable,
+                  `YOUR_${variable.toUpperCase()}`,
+                ]),
+              ),
+            },
+            null,
+            2,
+          ),
+          options: { raw: { language: "json" } },
+        },
+        url: "{{baseUrl}}/api/v1/messages/send",
+      },
+    },
+    {
+      name: "Send to multiple numbers (bulk)",
+      request: {
+        description:
+          "Send to up to 1,000 unique registered recipients. Replace both sample numbers and provide each recipient's template variables. The request queues asynchronously; copy jobId from the response and use Check bulk job status.",
+        method: "POST",
+        header: [{ key: "Content-Type", value: "application/json" }],
+        body: {
+          mode: "raw",
+          raw: JSON.stringify(
+            {
+              templateName: name,
+              recipients: [
+                {
+                  toUserId: "REPLACE_WITH_REGISTERED_MOBILE_1",
+                  language: defaultLanguage || "en",
+                  variables: Object.fromEntries(
+                    variables.map((variable) => [
+                      variable,
+                      `YOUR_${variable.toUpperCase()}`,
+                    ]),
+                  ),
+                },
+                {
+                  toUserId: "REPLACE_WITH_REGISTERED_MOBILE_2",
+                  language: defaultLanguage || "en",
+                  variables: Object.fromEntries(
+                    variables.map((variable) => [
+                      variable,
+                      `YOUR_${variable.toUpperCase()}`,
+                    ]),
+                  ),
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+          options: { raw: { language: "json" } },
+        },
+        url: "{{baseUrl}}/api/v1/messages/bulk",
+      },
+      event: [
+        {
+          listen: "test",
+          script: {
+            type: "text/javascript",
+            exec: [
+              "if (pm.response.code === 202) {",
+              "  const result = pm.response.json();",
+              "  if (result.jobId) pm.collectionVariables.set('jobId', result.jobId);",
+              "}",
+            ],
+          },
+        },
+      ],
+    },
+    {
+      name: "Check bulk job status",
+      request: {
+        description:
+          "Run after the bulk request. The collection saves jobId from the accepted (202) response automatically.",
+        method: "GET",
+        url: "{{baseUrl}}/api/v1/messages/bulk/{{jobId}}",
+      },
+    },
+  ],
+  variable: [
+    { key: "baseUrl", value: "https://hfconnect.in", type: "string" },
+    { key: "apiKey", value: "", type: "string" },
+    { key: "jobId", value: "", type: "string" },
+  ],
+});
 
 export default function TemplateApiIntegrationExample({
   template,
@@ -68,6 +199,29 @@ HANSARIA_TEMPLATE_NAME=${template.name}`;
 
   const testCommand = `curl -H "Authorization: Bearer $HANSARIA_API_KEY" "${TEST_ENDPOINT}"`;
   const testCommandWithTemplate = `curl -H "Authorization: Bearer $HANSARIA_API_KEY" "${TEST_ENDPOINT}?templateName=${encodedName}"`;
+
+  const downloadPostmanCollection = () => {
+    const collection = createPostmanCollection({
+      name: template.name,
+      defaultLanguage: template.defaultLanguage,
+      variables: variableNames,
+    });
+    const blob = new Blob([JSON.stringify(collection, null, 2)], {
+      type: "application/json",
+    });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fileName =
+      template.name.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") ||
+      "hansariaconnect";
+    link.href = downloadUrl;
+    link.download = `${fileName}-webhook.postman_collection.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+    setCopyStatus("Postman collection downloaded. Import it into Postman.");
+  };
 
   const snippets: Record<CodeLanguage, string> = {
     curl: `curl -X POST "${ENDPOINT}" \\
@@ -249,6 +403,32 @@ const copy = async (value: string, label: string) => {
             <Copy className="h-3.5 w-3.5" />
             Copy `.env` block
           </button>
+          <div className="mt-3 rounded-lg border border-white/15 p-3">
+            <h5 className="font-semibold text-white">
+              Import into another app
+            </h5>
+            <p className="mt-1 leading-5 text-slate-300">
+              Your app connects by sending HTTP requests to HansariaConnect
+              (incoming integration). Download a Postman v2.1 collection with
+              a connection test, a single-number request, a multiple-number
+              bulk request, and a bulk status check. Import the JSON in
+              Postman, then set the collection&apos;s <code>apiKey</code>{" "}
+              variable. Replace the sample numbers with registered
+              HansariaConnect mobile numbers. Bulk sends queue up to 1,000
+              unique recipients; the collection saves the returned job ID for
+              the status check. The export contains no API secret. Bind a
+              sender account to the API key, or add <code>fromUserId</code> to
+              the send requests.
+            </p>
+            <button
+              type="button"
+              onClick={downloadPostmanCollection}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-emerald-400 px-3 py-1.5 font-semibold text-slate-950 hover:bg-emerald-300"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download integration config
+            </button>
+          </div>
         </div>
 
         <div className="border-t border-white/15 pt-4">

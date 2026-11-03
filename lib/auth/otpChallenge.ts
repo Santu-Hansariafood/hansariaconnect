@@ -24,13 +24,14 @@ function getOtpSecret(): string {
 export async function createOtpChallenge(
   target: string,
   purpose: OtpChallengePurpose,
-): Promise<{ challengeId: string; otp: string }> {
+): Promise<{ challengeId: string; otp: string; expiresAt: Date }> {
   await connectDB();
   const otp = randomInt(100_000, 1_000_000).toString();
   const salt = randomBytesHex(16);
   const challengeId = randomBytesHex(16);
   const hash = hmacSha256Hex(getOtpSecret(), `${challengeId}:${otp}:${salt}`);
   const now = new Date();
+  const expiresAt = new Date(now.getTime() + OTP_LIFETIME_MS);
 
   await OtpChallenge.updateMany(
     {
@@ -48,10 +49,10 @@ export async function createOtpChallenge(
     hash,
     salt,
     attempts: 0,
-    expiresAt: new Date(now.getTime() + OTP_LIFETIME_MS),
+    expiresAt,
   });
 
-  return { challengeId, otp };
+  return { challengeId, otp, expiresAt };
 }
 
 export async function invalidateOtpChallenge(challengeId: string): Promise<void> {

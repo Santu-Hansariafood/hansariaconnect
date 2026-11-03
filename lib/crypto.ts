@@ -182,6 +182,21 @@ export function decryptBulkMessageJobPayload(
   return plaintext;
 }
 
+export function encryptAuthEmailJobPayload(plaintext: string): string {
+  return encryptAuthenticated(deriveKey("auth-email-job"), plaintext);
+}
+
+export function decryptAuthEmailJobPayload(ciphertext: string): string {
+  const plaintext = decryptAuthenticated(
+    deriveKey("auth-email-job"),
+    ciphertext,
+  );
+  if (plaintext === null) {
+    throw new Error("Could not decrypt auth email job payload");
+  }
+  return plaintext;
+}
+
 export function encryptGroupMessageContent(
   groupId: string,
   plaintext: string,

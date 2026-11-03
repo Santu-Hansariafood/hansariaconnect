@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start -p 4000",
     "lint": "eslint",
-    "worker:bulk": "node --conditions=react-server --import tsx scripts/bulk-message-worker.ts"
+    "worker:bulk": "node --conditions=react-server --import tsx scripts/bulk-message-worker.ts",
+    "worker:auth-email": "node --conditions=react-server --import tsx scripts/auth-email-worker.ts"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
