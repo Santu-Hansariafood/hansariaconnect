@@ -25,6 +25,7 @@ import {
 } from "@/lib/auth/ageEligibility";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
 import {
+  EMAIL_REGEX,
   isValidPersonName,
   normalizeEmailInput,
   normalizeIndianMobileInput,
@@ -38,9 +39,6 @@ type LoginProps = {
   reason?: string;
   returnTo?: string;
 };
-
-const ALLOWED_EMAIL_REGEX =
-  /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)$/i;
 
 const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
   const router = useRouter();
@@ -248,10 +246,8 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
       return;
     }
 
-    if (!ALLOWED_EMAIL_REGEX.test(normalizedEmail)) {
-      setError(
-        "Only Gmail, Outlook, and Hansaria Food email addresses are allowed",
-      );
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setError("Enter a valid email address.");
       return;
     }
 
@@ -556,14 +552,14 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         autoCorrect="off"
                         spellCheck={false}
                         autoComplete="email"
-                        pattern="[A-Za-z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)"
+                        pattern={EMAIL_REGEX.source}
                         required
                         placeholder="Enter your email (OTP will be sent here)"
                         className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
                     <p className="mt-2 text-xs text-gray-500">
-                      Allowed: gmail.com, outlook.com, hansariafood.com
+                      Use any email address you can access. We’ll send your verification code there.
                     </p>
                   </div>
 

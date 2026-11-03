@@ -46,20 +46,11 @@ each request. Configure Redis on every instance; if configured Redis is
 unavailable, authentication requests fail rather than bypassing the shared
 limit. Without Redis, the existing MongoDB-backed limiter remains in use.
 
-Login OTP emails are persisted as encrypted jobs in the control database and
-sent asynchronously. Run `npm run worker:auth-email` as a separate long-lived
-service on the same environment/database as the app, and keep the same
-`ENCRYPTION_SECRET` (or configured fallback) in both processes. The worker
-loads Next.js environment files from the project directory. In development,
-run it in a second terminal alongside `npm run dev`. It retries temporary mail
-failures with backoff, discards jobs whose five-minute OTP has expired, and
-records terminal failures. `AUTH_EMAIL_WORKER_CONCURRENCY`
-sets in-process worker concurrency (default `3`). Scale worker instances and
-SMTP/provider capacity together; queuing shortens login request latency but
-does not increase the email provider's delivery quota. A target such as
-100,000 login requests per second must be load-tested with production-sized
-MongoDB, Redis, app instances, and a mail provider that can sustain the
-resulting email throughput.
+Login and registration OTP emails are sent by the authentication request using
+the configured `SMTP_*` or `EMAIL_*` settings. The request only reports success
+after the mail provider accepts the message; check the provider's delivery logs
+and recipients' spam folders if accepted messages do not arrive. SMTP/provider
+capacity and request timeouts should be load-tested before scaling login volume.
 
 When the load balancer permits Engine.IO polling, enable sticky sessions so all polling requests in one Socket.IO session reach the same app instance. Forward WebSocket `Upgrade` and `Connection` headers, allow long-lived connections, and configure `NEXT_PUBLIC_APP_URL` to the public app origin. Admin, super-admin, and web subdomains of that origin are accepted by the socket origin check.
 

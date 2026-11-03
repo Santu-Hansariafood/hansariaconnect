@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
@@ -11,19 +11,21 @@ import {
   MINIMUM_REGISTRATION_AGE,
 } from "@/lib/auth/ageEligibility";
 import {
+  EMAIL_REGEX,
   isValidPersonName,
   normalizeEmailInput,
   normalizeNameInput,
 } from "@/utils/validation/formInputs";
-import { createOtpChallenge } from "@/lib/auth/otpChallenge";
+import {
+  createOtpChallenge,
+  invalidateOtpChallenge,
+} from "@/lib/auth/otpChallenge";
 import {
   consumeAuthRateLimits,
   getAuthRateLimitScopes,
 } from "@/lib/auth/authRateLimit";
 
 const INDIAN_MOBILE_REGEX = /^[6-9]\d{9}$/;
-const ALLOWED_EMAIL_REGEX =
-  /^[a-zA-Z0-9._%+-]+@(gmail\.com|outlook\.com|hansariafood\.com)$/i;
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -82,12 +84,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (!ALLOWED_EMAIL_REGEX.test(email)) {
+    if (!EMAIL_REGEX.test(email)) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Only Gmail, Outlook, and Hansaria Food email addresses are allowed",
+          error: "Please enter a valid email address",
         },
         { status: 400 },
       );
@@ -137,6 +138,44 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       termsAccepted: true,
     });
 
+    try {
+      await sendMail({
+        from: mailFrom(),
+        to: email,
+        subject: template.subject,
+        text: template.text,
+        html: template.html,
+      });
+    } catch (emailError) {
+      console.error(
+        "[auth/register] OTP email could not be sent:",
+        emailError instanceof Error ? emailError.message : emailError,
+      );
+      try {
+        await User.deleteOne({ _id: created._id });
+      } catch (rollbackError) {
+        console.error(
+          "[auth/register] Account rollback failed:",
+          rollbackError instanceof Error ? rollbackError.message : rollbackError,
+        );
+      }
+      try {
+        await invalidateOtpChallenge(challengeId);
+      } catch (cleanupError) {
+        console.error(
+          "[auth/register] Failed to invalidate undelivered OTP:",
+          cleanupError instanceof Error ? cleanupError.message : cleanupError,
+        );
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          error: "We couldn't send your verification code. Please try again.",
+        },
+        { status: 503 },
+      );
+    }
+
     const response = NextResponse.json({
       success: true,
       message: "Registration successful, OTP sent to email",
@@ -151,34 +190,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }),
       authOtpCookieOptions,
     );
-
-    // Reply first, then mail the code. If the mail server rejects it the account
-    // is rolled back so the user can register again instead of being left with
-    // an account they can never verify.
-    after(async () => {
-      try {
-        await sendMail({
-          from: mailFrom(),
-          to: email,
-          subject: template.subject,
-          text: template.text,
-          html: template.html,
-        });
-      } catch (emailError) {
-        console.error(
-          "[auth/register] OTP email could not be sent, rolling back the account:",
-          emailError instanceof Error ? emailError.message : emailError,
-        );
-        try {
-          await User.deleteOne({ _id: created._id });
-        } catch (rollbackError) {
-          console.error(
-            "[auth/register] Rollback failed:",
-            rollbackError instanceof Error ? rollbackError.message : rollbackError,
-          );
-        }
-      }
-    });
 
     return response;
   } catch (error: unknown) {

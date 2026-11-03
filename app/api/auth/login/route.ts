@@ -3,7 +3,7 @@ import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 
 export const runtime = "nodejs";
 import { connectDB } from "@/lib/db/db";
-import { enqueueAuthEmail } from "@/lib/auth/authEmailQueue";
+import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
 import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 import { normalizeIndianMobile } from "@/lib/auth/normalizeIndianMobile";
@@ -67,24 +67,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const email = user.email;
-    const { challengeId, otp, expiresAt } = await createOtpChallenge(
-      mobile,
-      "login",
-    );
+    const { challengeId, otp } = await createOtpChallenge(mobile, "login");
 
     const template = buildOtpEmailTemplate(user.name || "User", otp);
 
     try {
-      await enqueueAuthEmail(challengeId, mobile, expiresAt, {
+      await sendMail({
+        from: mailFrom(),
         to: email,
         subject: template.subject,
         text: template.text,
         html: template.html,
       });
-    } catch (queueError) {
+    } catch (emailError) {
       console.error(
-        "[auth/login] OTP email could not be queued:",
-        queueError instanceof Error ? queueError.message : queueError,
+        "[auth/login] OTP email could not be sent:",
+        emailError instanceof Error ? emailError.message : emailError,
       );
       try {
         await invalidateOtpChallenge(challengeId);
@@ -97,7 +95,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         {
           success: false,
-          error: "We couldn't queue your login code right now. Please try again.",
+          error: "We couldn't send your login code right now. Please try again.",
         },
         { status: 503 },
       );
@@ -105,7 +103,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const response = NextResponse.json({
       success: true,
-      message: "Login code queued for email delivery",
+      message: "Login code sent to email",
       email,
       devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
     });
