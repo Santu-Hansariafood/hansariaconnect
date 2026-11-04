@@ -913,12 +913,12 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-neutral-950">
       <header
         className={`sticky top-0 z-30 border-b shadow-sm backdrop-blur ${
           isPlatformAdmin
             ? "border-indigo-900/20 bg-slate-950/95"
-            : "border-emerald-900/10 bg-white/95"
+            : "border-emerald-900/10 bg-white/95 dark:bg-slate-900/95"
         }`}
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
@@ -936,7 +936,7 @@ export default function AdminDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <h1
                   className={`truncate text-base font-bold sm:text-lg ${
-                    isPlatformAdmin ? "text-white" : "text-slate-900"
+                    isPlatformAdmin ? "text-white" : "text-slate-900 dark:text-slate-100"
                   }`}
                 >
                   {isPlatformAdmin ? "Super Admin Console" : "Admin Workspace"}
@@ -945,7 +945,7 @@ export default function AdminDashboard() {
                   className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ${
                     isPlatformAdmin
                       ? "bg-indigo-400/15 text-indigo-100 ring-indigo-300/25"
-                      : "bg-emerald-50 text-emerald-800 ring-emerald-700/10"
+                      : "bg-emerald-50 text-emerald-800 ring-emerald-700/10 dark:bg-emerald-900/30 dark:text-emerald-300 dark:ring-emerald-800"
                   }`}
                 >
                   {isPlatformAdmin ? "Platform admin" : "Workspace admin"}
@@ -953,7 +953,7 @@ export default function AdminDashboard() {
               </div>
               <p
                 className={`hidden truncate text-xs sm:block ${
-                  isPlatformAdmin ? "text-slate-300" : "text-slate-500"
+                  isPlatformAdmin ? "text-slate-300" : "text-slate-500 dark:text-slate-400"
                 }`}
               >
                 {adminProfile.email ||
@@ -984,7 +984,7 @@ export default function AdminDashboard() {
               className={`rounded-xl border px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 sm:px-4 ${
                 isPlatformAdmin
                   ? "border-white/15 bg-white/10 text-white hover:border-rose-300/40 hover:bg-rose-500/15 hover:text-rose-100"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-rose-800 dark:hover:bg-rose-900/30 dark:hover:text-rose-200"
               }`}
             >
               Logout
@@ -1000,9 +1000,9 @@ export default function AdminDashboard() {
             role="status"
             aria-label="Loading admin workspace"
           >
-            <div className="h-9 w-56 animate-pulse rounded-xl bg-slate-200" />
-            <div className="h-12 animate-pulse rounded-2xl bg-slate-200" />
-            <div className="h-72 animate-pulse rounded-2xl bg-white shadow-sm" />
+            <div className="h-9 w-56 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+            <div className="h-12 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />
+            <div className="h-72 animate-pulse rounded-2xl bg-white shadow-sm dark:bg-slate-900" />
           </div>
         ) : (
           <>
@@ -1010,7 +1010,7 @@ export default function AdminDashboard() {
               className={`mb-6 overflow-hidden rounded-3xl border p-5 shadow-sm sm:p-7 ${
                 isPlatformAdmin
                   ? "border-indigo-200 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-800 text-white"
-                  : "border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-100 text-slate-900"
+                  : "border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-100 text-slate-900 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 dark:text-slate-100"
               }`}
               aria-labelledby="workspace-title"
             >
@@ -1035,7 +1035,7 @@ export default function AdminDashboard() {
                   </h2>
                   <p
                     className={`mt-2 text-sm leading-6 sm:text-base ${
-                      isPlatformAdmin ? "text-slate-300" : "text-slate-600"
+                      isPlatformAdmin ? "text-slate-300" : "text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     {isPlatformAdmin
@@ -1062,7 +1062,7 @@ export default function AdminDashboard() {
                         className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
                           isPlatformAdmin
                             ? "bg-white/10 text-white ring-1 ring-white/20 hover:bg-white/15"
-                            : "bg-white text-emerald-900 ring-1 ring-emerald-900/10 hover:bg-emerald-50"
+                            : "bg-white text-emerald-900 ring-1 ring-emerald-900/10 hover:bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-800 dark:hover:bg-emerald-900/40"
                         }`}
                       >
                         Enable browser notifications
@@ -1072,7 +1072,7 @@ export default function AdminDashboard() {
                         className={`text-sm ${
                           isPlatformAdmin
                             ? "text-amber-200"
-                            : "text-amber-800"
+                            : "text-amber-800 dark:text-amber-300"
                         }`}
                         role="status"
                       >
@@ -1084,7 +1084,7 @@ export default function AdminDashboard() {
                         className={`text-sm ${
                           isPlatformAdmin
                             ? "text-slate-300"
-                            : "text-slate-500"
+                            : "text-slate-500 dark:text-slate-400"
                         }`}
                         role="status"
                       >
@@ -1120,12 +1120,12 @@ export default function AdminDashboard() {
                       className={`rounded-2xl border px-4 py-3 ${
                         isPlatformAdmin
                           ? "border-white/10 bg-white/5"
-                          : "border-white/80 bg-white/75 shadow-sm"
+                          : "border-white/80 bg-white/75 shadow-sm dark:border-slate-700 dark:bg-slate-900/70"
                       }`}
                     >
                       <p
                         className={`text-xs font-medium ${
-                          isPlatformAdmin ? "text-slate-300" : "text-slate-500"
+                          isPlatformAdmin ? "text-slate-300" : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
                         {stat.label}
@@ -1136,12 +1136,12 @@ export default function AdminDashboard() {
                 </div>
               </div>
               {!isPlatformAdmin && (
-                <p className="mt-5 border-t border-emerald-900/10 pt-4 text-xs text-slate-500">
+                <p className="mt-5 border-t border-emerald-900/10 pt-4 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
                   Workspace owner:{" "}
-                  <span className="font-semibold text-slate-700">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">
                     {adminProfile.email || adminProfile.userId}
                   </span>
-                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800">
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
                     {isPlatformAdmin ? "All workspaces" : "Private to this admin"}
                   </span>
                 </p>
@@ -1150,13 +1150,13 @@ export default function AdminDashboard() {
             {error && (
               <div
                 role="alert"
-                className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+                className="mb-5 flex items-start justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-900/25 dark:text-rose-300"
               >
                 <span>{error}</span>
                 <button
                   type="button"
                   onClick={() => setError("")}
-                  className="shrink-0 font-semibold text-rose-700 hover:text-rose-900"
+                  className="shrink-0 font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-100"
                   aria-label="Dismiss error"
                 >
                   Dismiss
@@ -1166,11 +1166,11 @@ export default function AdminDashboard() {
 
             <nav
               aria-label={isPlatformAdmin ? "Super Admin sections" : "Admin workspace sections"}
-              className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-900"
             >
               {isPlatformAdmin ? (
                 <div>
-                  <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-700">
+                  <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-700 dark:text-indigo-300">
                     Platform controls
                   </p>
                   <div className="flex gap-1 overflow-x-auto">
@@ -1180,7 +1180,7 @@ export default function AdminDashboard() {
                       className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
                         activeTab === "users"
                           ? "bg-indigo-700 text-white shadow-md shadow-indigo-900/15"
-                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
+                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800 dark:text-slate-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-200"
                       }`}
                     >
                       User directory
@@ -1191,7 +1191,7 @@ export default function AdminDashboard() {
                       className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
                         activeTab === "admins"
                           ? "bg-indigo-700 text-white shadow-md shadow-indigo-900/15"
-                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
+                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800 dark:text-slate-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-200"
                       }`}
                     >
                       Admin access
@@ -1204,7 +1204,7 @@ export default function AdminDashboard() {
                       className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
                         activeTab === "templates"
                           ? "bg-indigo-700 text-white shadow-md shadow-indigo-900/15"
-                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
+                          : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800 dark:text-slate-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-200"
                       }`}
                     >
                       My templates
@@ -1213,28 +1213,28 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div>
-                  <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-800">
+                  <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-800 dark:text-emerald-300">
                     Workspace tools
                   </p>
                   <div className="flex gap-1 overflow-x-auto">
                   <button
                     onClick={() => setActiveTab("accounts")}
                     aria-current={activeTab === "accounts" ? "page" : undefined}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"}`}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
                   >
                     Accounts
                   </button>
                   <button
                     onClick={() => setActiveTab("templates")}
                     aria-current={activeTab === "templates" ? "page" : undefined}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"}`}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
                   >
                     Templates
                   </button>
                   <button
                     onClick={() => setActiveTab("profile")}
                     aria-current={activeTab === "profile" ? "page" : undefined}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"}`}
+                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
                   >
                     Profile
                   </button>
@@ -1244,13 +1244,13 @@ export default function AdminDashboard() {
               <div
                 className={`border-t pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0 ${
                   isPlatformAdmin
-                    ? "border-indigo-100"
-                    : "border-emerald-100"
+                    ? "border-indigo-100 dark:border-slate-700"
+                    : "border-emerald-100 dark:border-slate-700"
                 }`}
               >
                 <p
                   className={`mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] ${
-                    isPlatformAdmin ? "text-indigo-700" : "text-emerald-800"
+                    isPlatformAdmin ? "text-indigo-700 dark:text-indigo-300" : "text-emerald-800 dark:text-emerald-300"
                   }`}
                 >
                   {isPlatformAdmin ? "Personal integrations" : "Integrations"}
@@ -1264,8 +1264,8 @@ export default function AdminDashboard() {
                           isPlatformAdmin ? "bg-indigo-700" : "bg-emerald-700"
                         } text-white shadow-md`
                       : isPlatformAdmin
-                        ? "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800"
-                        : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800"
+                        ? "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800 dark:text-slate-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-200"
+                        : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"
                   }`}
                 >
                   API Keys
@@ -1471,7 +1471,7 @@ export default function AdminDashboard() {
                   className={`overflow-hidden rounded-3xl border p-5 shadow-sm sm:p-7 ${
                     isPlatformAdmin
                       ? "border-indigo-200 bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-800 text-white"
-                      : "border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-100 text-slate-900"
+                      : "border-emerald-100 bg-gradient-to-br from-white via-emerald-50 to-teal-100 text-slate-900 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 dark:text-slate-100"
                   }`}
                 >
                   <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
@@ -1490,7 +1490,7 @@ export default function AdminDashboard() {
                       </h2>
                       <p
                         className={`mt-2 max-w-2xl text-sm leading-6 ${
-                          isPlatformAdmin ? "text-slate-300" : "text-slate-600"
+                          isPlatformAdmin ? "text-slate-300" : "text-slate-600 dark:text-slate-400"
                         }`}
                       >
                         {isPlatformAdmin
@@ -1515,7 +1515,7 @@ export default function AdminDashboard() {
                       className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                         isPlatformAdmin
                           ? "border-white/15 bg-white/5 text-slate-200"
-                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
                       {apiKeys.length} total key{apiKeys.length === 1 ? "" : "s"}
@@ -1524,7 +1524,7 @@ export default function AdminDashboard() {
                       className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                         isPlatformAdmin
                           ? "border-white/15 bg-white/5 text-slate-200"
-                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
                       {apiKeys.filter((apiKey) => apiKey.isActive).length} active
@@ -1533,7 +1533,7 @@ export default function AdminDashboard() {
                       className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                         isPlatformAdmin
                           ? "border-white/15 bg-white/5 text-slate-200"
-                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
                       {apiKeys.reduce((total, apiKey) => total + apiKey.sentCount, 0)} messages sent
@@ -1542,7 +1542,7 @@ export default function AdminDashboard() {
                       className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                         isPlatformAdmin
                           ? "border-white/15 bg-white/5 text-slate-200"
-                          : "border-emerald-900/10 bg-white/70 text-emerald-900"
+                          : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
                       {isPlatformAdmin ? "All workspaces" : "Private to this admin"}
@@ -1554,7 +1554,7 @@ export default function AdminDashboard() {
                   templates={templates}
                   isPlatformAdmin={isPlatformAdmin}
                 />
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/25 dark:text-amber-300">
                   Keep API keys secret. Use them only from trusted servers over
                   HTTPS, and disable or delete any key that may have been
                   exposed.
@@ -1572,9 +1572,9 @@ export default function AdminDashboard() {
                       role="dialog"
                       aria-modal="true"
                       aria-labelledby="api-key-created-title"
-                      className="my-auto w-full max-w-xl rounded-3xl border border-emerald-100 bg-white p-6 shadow-2xl sm:p-8"
+                      className="my-auto w-full max-w-xl rounded-3xl border border-emerald-100 bg-white p-6 shadow-2xl sm:p-8 dark:border-slate-700 dark:bg-slate-900"
                     >
-                      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-xl font-bold text-emerald-800">
+                      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-xl font-bold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
                         ✓
                       </div>
                       <h3

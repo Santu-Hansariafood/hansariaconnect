@@ -43,16 +43,16 @@ const NameEntry: React.FC<NameEntryProps> = ({ onComplete, user }) => {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
         <motion.div
           {...fadeIn}
-          className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-md"
+          className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-8 w-full max-w-md"
         >
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-2">
               Complete Your Profile
             </h2>
-            <p className="text-gray-600">Mobile: {user.mobile}</p>
+            <p className="text-gray-600 dark:text-slate-400">Mobile: {user.mobile}</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex justify-center">
@@ -81,11 +81,11 @@ const NameEntry: React.FC<NameEntryProps> = ({ onComplete, user }) => {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                 Full Name
               </label>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-400" />
                 <input
                   type="text"
                   value={name}
@@ -94,14 +94,14 @@ const NameEntry: React.FC<NameEntryProps> = ({ onComplete, user }) => {
                     setError("");
                   }}
                   placeholder="Enter your full name"
-                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                  className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                 />
               </div>
               {error && (
                 <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-red-500 text-sm mt-2"
+                  className="text-red-500 dark:text-red-400 text-sm mt-2"
                 >
                   {error}
                 </motion.p>

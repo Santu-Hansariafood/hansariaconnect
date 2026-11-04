@@ -59,10 +59,10 @@ export default function AdminUsersPanel({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-800">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
             Platform user directory
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             {pagination.total} total users across the platform, 100 per page
           </p>
         </div>
@@ -76,24 +76,24 @@ export default function AdminUsersPanel({
           <button
             onClick={() => onPageChange(pagination.page - 1)}
             disabled={pagination.page <= 1 || refreshing}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-gray-700 disabled:opacity-40"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-gray-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
           >
             Previous
           </button>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-gray-600 dark:text-slate-400">
             Page {pagination.page} of {pagination.totalPages}
           </span>
           <button
             onClick={() => onPageChange(pagination.page + 1)}
             disabled={pagination.page >= pagination.totalPages || refreshing}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-gray-700 disabled:opacity-40"
+            className="rounded-lg border border-gray-200 px-3 py-2 text-gray-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
           >
             Next
           </button>
         </div>
       </div>
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="grid grid-cols-12 gap-3 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="grid grid-cols-12 gap-3 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600 dark:bg-slate-800 dark:text-slate-400">
           <div className="col-span-3">User</div>
           <div className="col-span-2 text-center">Contacts</div>
           <div className="col-span-2 text-center">Groups</div>
@@ -111,7 +111,7 @@ export default function AdminUsersPanel({
           />
         ))}
         {users.length === 0 && (
-          <div className="px-4 py-8 text-center text-gray-500">
+          <div className="px-4 py-8 text-center text-gray-500 dark:text-slate-400">
             No users found.
           </div>
         )}
@@ -143,15 +143,15 @@ function UserRow({
   const [attachments, setAttachments] = useState(user.permissions.attachments);
 
   return (
-    <div className="grid grid-cols-12 items-center gap-3 border-t border-gray-100 px-4 py-3">
+    <div className="grid grid-cols-12 items-center gap-3 border-t border-gray-100 px-4 py-3 dark:border-slate-800">
       <div className="col-span-3">
         <button
           onClick={onView}
-          className="text-left font-medium text-emerald-700 hover:underline"
+          className="text-left font-medium text-emerald-700 hover:underline dark:text-emerald-300"
         >
           {user.name || user.mobile}
         </button>
-        <div className="text-xs text-gray-500">{user.mobile}</div>
+        <div className="text-xs text-gray-500 dark:text-slate-400">{user.mobile}</div>
       </div>
       <div className="col-span-2 flex justify-center">
         <input
@@ -209,13 +209,13 @@ function UserDetails({
     value ? new Date(value).toLocaleString() : "Not available";
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-950">
       <div className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8">
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-xl font-bold text-gray-900">User details</h3>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-slate-100">User details</h3>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-900"
+            className="text-gray-500 hover:text-gray-900 dark:text-slate-400 dark:hover:text-slate-100"
             aria-label="Close user details"
           >
             Close
@@ -253,10 +253,10 @@ function UserDetails({
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
+      <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-slate-400">
         {label}
       </div>
-      <div className="break-words text-gray-900">{value}</div>
+      <div className="break-words text-gray-900 dark:text-slate-100">{value}</div>
     </div>
   );
 }

@@ -31,7 +31,7 @@ const StatusCard: React.FC<StatusCardProps> = ({ status, theme }) => {
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
-      className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer"
+      className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer dark:bg-slate-800 dark:hover:bg-slate-800"
     >
       <div className="relative">
         <div className="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-emerald-500 to-teal-500">
@@ -56,13 +56,13 @@ const StatusCard: React.FC<StatusCardProps> = ({ status, theme }) => {
       </div>
 
       <div className="flex-1">
-        <h3 className={`font-semibold text-gray-800 ${theme.textSize || ""}`}>
+        <h3 className={`font-semibold text-gray-800 dark:text-slate-100 ${theme.textSize || ""}`}>
           {status.user}
         </h3>
-        <p className="text-sm text-gray-500">{timeAgo}</p>
+        <p className="text-sm text-gray-500 dark:text-slate-400">{timeAgo}</p>
       </div>
 
-      <div className="flex items-center gap-1 text-gray-500">
+      <div className="flex items-center gap-1 text-gray-500 dark:text-slate-400">
         <Eye className="w-4 h-4" />
         <span className="text-sm">{status.views}</span>
       </div>

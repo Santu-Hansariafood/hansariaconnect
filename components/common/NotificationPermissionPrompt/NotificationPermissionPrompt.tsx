@@ -113,16 +113,16 @@ export default function NotificationPermissionPrompt({
           transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
           className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+4rem)] z-[9999] flex justify-center px-3 sm:top-[calc(env(safe-area-inset-top)+4.4rem)]"
         >
-          <div className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-emerald-100 bg-white p-4 shadow-xl shadow-black/15">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+          <div className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-emerald-100 dark:border-emerald-800 bg-white dark:bg-slate-900 p-4 shadow-xl shadow-black/15">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300">
               <BellRing className="h-5 w-5" />
             </span>
 
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-gray-900">
+              <p className="text-sm font-semibold text-gray-900 dark:text-slate-100">
                 Turn on notifications
               </p>
-              <p className="mt-0.5 text-[13px] leading-snug text-gray-600">
+              <p className="mt-0.5 text-[13px] leading-snug text-gray-600 dark:text-slate-400">
                 Get alerts for new messages, even when HansariaConnect is closed.
               </p>
 
@@ -138,7 +138,7 @@ export default function NotificationPermissionPrompt({
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="min-h-[44px] rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+                  className="min-h-[44px] rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-slate-400 transition hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-700 dark:hover:text-slate-200"
                 >
                   Not now
                 </button>
@@ -149,7 +149,7 @@ export default function NotificationPermissionPrompt({
               type="button"
               onClick={dismiss}
               aria-label="Dismiss notifications prompt"
-              className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 dark:text-slate-400 transition hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-700 dark:hover:text-slate-200"
             >
               <X className="h-4 w-4" />
             </button>

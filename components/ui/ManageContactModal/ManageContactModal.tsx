@@ -116,10 +116,10 @@ const ManageContactModal: React.FC<Props> = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 24, scale: 0.98 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
-          className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:max-w-lg sm:rounded-[2rem]"
+          className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] bg-white dark:bg-slate-900 shadow-2xl sm:max-w-lg sm:rounded-[2rem]"
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-100 bg-white/95 px-5 pb-4 pt-5 backdrop-blur sm:px-7 sm:pt-7">
+          <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 px-5 pb-4 pt-5 backdrop-blur sm:px-7 sm:pt-7">
             <div className="flex min-w-0 items-center gap-3">
               <div
                 className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
@@ -128,10 +128,10 @@ const ManageContactModal: React.FC<Props> = ({
                 <Pencil className="h-5 w-5" aria-hidden="true" />
               </div>
               <div className="min-w-0">
-                <h2 id="manage-contact-title" className="text-lg font-bold text-slate-900">
+                <h2 id="manage-contact-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">
                   Manage contact
                 </h2>
-                <p className="truncate text-sm text-slate-500">
+                <p className="truncate text-sm text-slate-500 dark:text-slate-400">
                   Update details or remove this contact
                 </p>
               </div>
@@ -141,24 +141,24 @@ const ManageContactModal: React.FC<Props> = ({
               onClick={onClose}
               disabled={saving || deleting}
               aria-label="Close manage contact"
-              className="ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50"
+              className="ml-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:opacity-50"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
           <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
-            <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Contact details
               </p>
               {contact.mobile && (
-                <p className="mt-2 break-all text-sm font-medium text-slate-700">
+                <p className="mt-2 break-all text-sm font-medium text-slate-700 dark:text-slate-200">
                   {contact.mobile}
                 </p>
               )}
               {contact.email && (
-                <p className="mt-1 break-all text-sm text-slate-500">
+                <p className="mt-1 break-all text-sm text-slate-500 dark:text-slate-400">
                   {contact.email}
                 </p>
               )}
@@ -167,7 +167,7 @@ const ManageContactModal: React.FC<Props> = ({
             <div>
               <label
                 htmlFor="manage-contact-name"
-                className="mb-2 block text-sm font-semibold text-slate-700"
+                className="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200"
               >
                 Display name
               </label>
@@ -188,26 +188,26 @@ const ManageContactModal: React.FC<Props> = ({
                 }}
                 maxLength={100}
                 placeholder="Enter contact name"
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3.5 text-base text-slate-900 dark:text-slate-100 outline-none transition placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               />
             </div>
 
             {error && (
               <p
                 role="alert"
-                className="rounded-xl border border-red-100 bg-red-50 px-3.5 py-3 text-sm text-red-700"
+                className="rounded-xl border border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-900/25 px-3.5 py-3 text-sm text-red-700 dark:text-red-300"
               >
                 {error}
               </p>
             )}
 
             {confirmDelete ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+              <div className="rounded-2xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/25 p-4">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
                   <div>
-                    <p className="font-semibold text-red-900">Delete this contact?</p>
-                    <p className="mt-1 text-sm text-red-700">
+                    <p className="font-semibold text-red-900 dark:text-red-200">Delete this contact?</p>
+                    <p className="mt-1 text-sm text-red-700 dark:text-red-300">
                       This removes the contact from your address book. Your chat history will remain.
                     </p>
                   </div>
@@ -216,7 +216,7 @@ const ManageContactModal: React.FC<Props> = ({
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(false)}
-                    className="min-h-11 rounded-xl border border-red-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-red-100"
+                    className="min-h-11 rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-slate-900 px-4 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-red-100 dark:hover:bg-red-900/25"
                   >
                     Keep contact
                   </button>
@@ -236,7 +236,7 @@ const ManageContactModal: React.FC<Props> = ({
                 type="button"
                 onClick={() => setConfirmDelete(true)}
                 disabled={saving || deleting}
-                className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
               >
                 <Trash2 className="h-4 w-4" />
                 Delete contact
@@ -244,12 +244,12 @@ const ManageContactModal: React.FC<Props> = ({
             )}
           </div>
 
-          <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-100 bg-white/95 px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:justify-end sm:px-7 sm:py-5">
+          <div className="sticky bottom-0 flex flex-col-reverse gap-2 border-t border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur sm:flex-row sm:justify-end sm:px-7 sm:py-5">
             <button
               type="button"
               onClick={onClose}
               disabled={saving || deleting}
-              className="min-h-12 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:min-h-11"
+              className="min-h-12 rounded-xl border border-slate-200 dark:border-slate-700 px-5 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 sm:min-h-11"
             >
               Cancel
             </button>

@@ -10,8 +10,8 @@ export default function TermsClient() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
-      <motion.div {...fadeIn} className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
+      <motion.div {...fadeIn} className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 text-emerald-600 font-semibold mb-6 hover:underline"
@@ -36,13 +36,13 @@ export default function TermsClient() {
               priority
             />
           </motion.div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Terms and Conditions</h1>
-          <p className="text-gray-600">Last updated: {new Date().toLocaleDateString()}</p>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-slate-100 mb-2">Terms and Conditions</h1>
+          <p className="text-gray-600 dark:text-slate-400">Last updated: {new Date().toLocaleDateString()}</p>
         </div>
 
-        <div className="space-y-6 text-gray-700">
+        <div className="space-y-6 text-gray-700 dark:text-slate-200">
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">1. Introduction</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">1. Introduction</h2>
             <p>
               Welcome to HansariaConnect. These Terms and Conditions ("Terms") govern your access to and use of our platform,
               including our website and mobile applications (collectively, the "Service"). By using our Service, you agree to
@@ -51,7 +51,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">2. Eligibility</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">2. Eligibility</h2>
             <p>
               You must be at least 16 years old to use this Service, or meet any higher minimum age that applies where you live. By using the Service, you represent and warrant that
               you meet this age requirement.
@@ -59,7 +59,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">3. User Accounts</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">3. User Accounts</h2>
             <p>
               You are responsible for maintaining the confidentiality of your account and password, and for all activities
               that occur under your account. You agree to notify us immediately of any unauthorized use of your account.
@@ -67,7 +67,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">4. User Conduct</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">4. User Conduct</h2>
             <p>You agree not to:</p>
             <ul className="list-disc pl-6 mt-2 space-y-2">
               <li>Use the Service for any illegal purpose or in violation of any local, state, national, or international law.</li>
@@ -79,7 +79,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">5. Intellectual Property</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">5. Intellectual Property</h2>
             <p>
               All content on the Service, including text, graphics, logos, and software, is the property of HansariaConnect
               or its content suppliers and is protected by copyright laws.
@@ -87,7 +87,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">6. Termination</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">6. Termination</h2>
             <p>
               We reserve the right to terminate or suspend your account at our sole discretion, without notice, for conduct
               that we believe violates these Terms or is harmful to other users of the Service.
@@ -95,7 +95,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">7. Disclaimer of Warranties</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">7. Disclaimer of Warranties</h2>
             <p>
               The Service is provided on an "as is" and "as available" basis without any warranties of any kind, either express
               or implied.
@@ -103,7 +103,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">8. Limitation of Liability</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">8. Limitation of Liability</h2>
             <p>
               In no event shall HansariaConnect be liable for any indirect, incidental, special, consequential, or punitive
               damages arising out of or related to your use of the Service.
@@ -111,7 +111,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">9. Changes to Terms</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">9. Changes to Terms</h2>
             <p>
               We may revise these Terms from time to time. The most current version will be posted on our website. By
               continuing to use the Service after revisions become effective, you agree to be bound by the revised Terms.
@@ -119,7 +119,7 @@ export default function TermsClient() {
           </section>
 
           <section>
-            <h2 className="text-xl font-bold text-gray-800 mb-3">10. Contact Us</h2>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-3">10. Contact Us</h2>
             <p>If you have any questions about these Terms, please contact us.</p>
           </section>
         </div>

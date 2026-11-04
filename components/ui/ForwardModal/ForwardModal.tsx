@@ -59,7 +59,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 overflow-y-auto bg-white"
+      className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-900"
       onClick={onClose}
     >
       <motion.div
@@ -70,16 +70,16 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
         className="mx-auto flex min-h-full w-full max-w-3xl flex-col p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8"
       >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Forward Message</h2>
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">Forward Message</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
           >
-            <X className="w-6 h-6 text-gray-600" />
+            <X className="w-6 h-6 text-gray-600 dark:text-slate-400" />
           </button>
         </div>
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-400" />
           <input
             type="text"
             placeholder="Search contacts..."
@@ -87,7 +87,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
             onChange={(e: ChangeEvent<HTMLInputElement>) =>
               setSearchQuery(e.target.value)
             }
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2"
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
             style={{ "--tw-ring-color": theme.primary, boxShadow: `0 0 0 2px ${theme.primary}33` } as React.CSSProperties & Record<string, any>}
           />
         </div>
@@ -102,7 +102,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all ${
                 selectedContacts.includes(contact.id)
                   ? "border-2"
-                  : "bg-gray-50 hover:bg-gray-100 border-2 border-transparent"
+                  : "bg-gray-50 hover:bg-gray-100 border-2 border-transparent dark:bg-slate-800 dark:hover:bg-slate-700"
               }`}
               style={selectedContacts.includes(contact.id) ? { borderColor: theme.primary, backgroundColor: `${theme.primary}10` } : undefined}
             >
@@ -132,8 +132,8 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               </div>
 
               <div className="flex-1">
-                <h3 className="font-semibold text-gray-800">{contact.name}</h3>
-                <p className="text-sm text-gray-600">{contact.mobile}</p>
+                <h3 className="font-semibold text-gray-800 dark:text-slate-100">{contact.name}</h3>
+                <p className="text-sm text-gray-600 dark:text-slate-400">{contact.mobile}</p>
               </div>
             </motion.div>
           ))}
@@ -145,7 +145,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
               setMessage(e.target.value)
             }
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 resize-none"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 resize-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
             style={{ "--tw-ring-color": theme.primary, boxShadow: `0 0 0 2px ${theme.primary}33` } as React.CSSProperties & Record<string, any>}
             rows={3}
           />
@@ -155,7 +155,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={onClose}
-              className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors"
+              className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-colors dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
             >
               Cancel
             </motion.button>
@@ -167,7 +167,7 @@ const ForwardModal: React.FC<ForwardModalProps> = ({
               disabled={selectedContacts.length === 0}
               className={`flex-1 py-3 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 ${
                 selectedContacts.length === 0
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-slate-700 dark:text-slate-400"
                   : "text-white"
               }`}
               style={selectedContacts.length > 0 ? { backgroundColor: theme.primary } : undefined}

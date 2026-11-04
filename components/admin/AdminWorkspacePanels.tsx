@@ -28,11 +28,11 @@ export function AccountRegistrationPanel({
   onRegisterAccounts: () => void;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-800">
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
         Register chat accounts
       </h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
         Register multiple chat accounts with the admin Excel template.
       </p>
       <button
@@ -160,27 +160,29 @@ export function AdminTemplatesPanel({
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <form
         onSubmit={onCreate}
-        className={`rounded-2xl border bg-white p-6 shadow-sm ${
-          isPlatformAdmin ? "border-indigo-200" : "border-gray-200"
+        className={`rounded-2xl border bg-white p-6 shadow-sm dark:bg-slate-900 ${
+          isPlatformAdmin ? "border-indigo-200 dark:border-indigo-800" : "border-gray-200 dark:border-slate-700"
         }`}
       >
         <p
           className={`text-xs font-bold uppercase tracking-[0.16em] ${
-            isPlatformAdmin ? "text-indigo-700" : "text-emerald-800"
+            isPlatformAdmin
+              ? "text-indigo-700 dark:text-indigo-300"
+              : "text-emerald-800 dark:text-emerald-300"
           }`}
         >
           {isPlatformAdmin ? "Super Admin workspace" : "Admin workspace"}
         </p>
-        <h2 className="mt-2 text-lg font-semibold text-gray-800">
+        <h2 className="mt-2 text-lg font-semibold text-gray-800 dark:text-slate-100">
           Create a message template
         </h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
           {isPlatformAdmin
             ? "Super admins can manage templates across admin workspaces."
             : "Templates created here belong only to this admin account."}
         </p>
         {isPlatformAdmin && (
-          <label className="mt-4 block text-sm font-medium text-gray-700">
+          <label className="mt-4 block text-sm font-medium text-gray-700 dark:text-slate-200">
             Create template for
             <select
               value={ownerAdminId}
@@ -217,7 +219,7 @@ export function AdminTemplatesPanel({
         />
         <label
           htmlFor="template-default-language"
-          className="mt-3 block text-sm font-medium text-slate-700"
+          className="mt-3 block text-sm font-medium text-slate-700 dark:text-slate-200"
         >
           Default language code
         </label>
@@ -261,8 +263,8 @@ export function AdminTemplatesPanel({
           onChange={setTemplateButtons}
           idPrefix="create-template"
         />
-        <div className="mt-4 space-y-3 rounded-xl border border-slate-200 p-4">
-          <p className="text-sm font-semibold text-slate-800">
+        <div className="mt-4 space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             Translations (language codes such as hi, bn, fr)
           </p>
           <div className="flex gap-2">
@@ -271,7 +273,7 @@ export function AdminTemplatesPanel({
               onChange={(event) =>
                 setNewTranslationLanguage(event.target.value.toLowerCase())
               }
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
               maxLength={35}
               pattern="[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*"
               placeholder="hi"
@@ -285,7 +287,7 @@ export function AdminTemplatesPanel({
                   newTranslationLanguage,
                 ) || Object.hasOwn(translations, newTranslationLanguage)
               }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium disabled:opacity-50"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
             >
               Add language
             </button>
@@ -295,7 +297,7 @@ export function AdminTemplatesPanel({
               <div className="mb-1 flex items-center justify-between">
                 <label
                   htmlFor={`template-${language}`}
-                  className="text-xs font-semibold uppercase text-slate-600"
+                  className="text-xs font-semibold uppercase text-slate-600 dark:text-slate-400"
                 >
                   {language}
                 </label>
@@ -308,7 +310,7 @@ export function AdminTemplatesPanel({
                       return next;
                     })
                   }
-                  className="text-xs text-rose-700"
+                  className="text-xs text-rose-700 dark:text-rose-300"
                 >
                   Remove
                 </button>
@@ -330,17 +332,17 @@ export function AdminTemplatesPanel({
             </div>
           ))}
         </div>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
           Placeholders such as {"{{name}}"} and {"{{orderId}}"} are saved as
           written, then filled from the variables you pass to the API. The saved
           template text is not modified.
         </p>
-        <p className="mt-2 text-xs text-gray-500">
+        <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
           Template names are unique within each admin account. Regular admins
           can only see their own templates.
         </p>
         {templateVariableNames.length > 0 && (
-          <p className="mt-2 text-xs font-medium text-emerald-700">
+          <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
             Required variables: {templateVariableNames.join(", ")}
           </p>
         )}
@@ -358,7 +360,7 @@ export function AdminTemplatesPanel({
       </form>
 
       <div className="space-y-3">
-        <label className="block text-sm font-medium text-slate-700">
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
           Template folder
           <select
             value={selectedFolder}
@@ -386,18 +388,18 @@ export function AdminTemplatesPanel({
           return (
             <div
               key={template._id}
-              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900"
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold text-gray-800">
+                  <h3 className="font-semibold text-gray-800 dark:text-slate-100">
                     {template.name}
                   </h3>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                     Folder: {template.folder || "General"}
                   </p>
                   {isPlatformAdmin && template.ownerUserId && (
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Owner: {template.ownerUserId}
                     </p>
                   )}
@@ -406,14 +408,14 @@ export function AdminTemplatesPanel({
                   {!isEditing && (
                     <button
                       onClick={() => onEdit(template)}
-                      className="text-sm font-medium text-indigo-700"
+                      className="text-sm font-medium text-indigo-700 dark:text-indigo-300"
                     >
                       Edit
                     </button>
                   )}
                   <button
                     onClick={() => onDelete(template._id)}
-                    className="text-sm text-red-600"
+                    className="text-sm text-red-600 dark:text-red-400"
                   >
                     Delete
                   </button>
@@ -458,7 +460,7 @@ export function AdminTemplatesPanel({
                     className={adminFieldClass}
                     required
                   />
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
                     Body
                     <textarea
                       value={editingTemplateBody}
@@ -471,7 +473,7 @@ export function AdminTemplatesPanel({
                       required
                     />
                   </label>
-                  <label className="block text-sm font-medium text-slate-700">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-200">
                     Subject (optional)
                     <textarea
                       value={editingTemplateHeader}
@@ -498,7 +500,7 @@ export function AdminTemplatesPanel({
                       }
                       maxLength={35}
                       pattern="[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*"
-                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2"
+                      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
                       placeholder="New language code"
                       aria-label="New translation language"
                     />
@@ -519,7 +521,7 @@ export function AdminTemplatesPanel({
                           [newTranslationLanguage]: "",
                         }))
                       }
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:opacity-50 dark:border-slate-700"
                     >
                       Add language
                     </button>
@@ -527,7 +529,7 @@ export function AdminTemplatesPanel({
                   {Object.entries(editingTranslations).map(
                     ([language, text]) => (
                       <div key={language}>
-                        <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase text-slate-600">
+                        <div className="mb-1 flex items-center justify-between text-xs font-semibold uppercase text-slate-600 dark:text-slate-400">
                           <label
                             htmlFor={`edit-template-${template._id}-${language}`}
                           >
@@ -542,7 +544,7 @@ export function AdminTemplatesPanel({
                                 return next;
                               })
                             }
-                            className="ml-2 font-normal text-rose-700"
+                            className="ml-2 font-normal text-rose-700 dark:text-rose-300"
                           >
                             Remove
                           </button>
@@ -567,7 +569,7 @@ export function AdminTemplatesPanel({
                     <button
                       type="button"
                       onClick={onCancelEdit}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700"
                     >
                       Cancel
                     </button>
@@ -582,10 +584,10 @@ export function AdminTemplatesPanel({
                 </form>
               ) : (
                 <>
-                  <p className="mt-2 text-xs font-semibold uppercase text-slate-500">
+                  <p className="mt-2 text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">
                     Default ({template.defaultLanguage || "en"})
                   </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600">
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-gray-600 dark:text-slate-400">
                     {(template.subject || template.header) &&
                       `${template.subject || template.header}\n`}
                     {template.body}
@@ -597,27 +599,27 @@ export function AdminTemplatesPanel({
                 ([language, translation]) => (
                   <details
                     key={language}
-                    className="mt-2 rounded-lg bg-slate-50 px-3 py-2"
+                    className="mt-2 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800"
                   >
-                    <summary className="cursor-pointer text-xs font-semibold uppercase text-slate-600">
+                    <summary className="cursor-pointer text-xs font-semibold uppercase text-slate-600 dark:text-slate-400">
                       Translation: {language}
                     </summary>
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
                       {translation}
                     </p>
                   </details>
                 ),
               )}
               {variableNames.length > 0 ? (
-                <p className="mt-2 text-xs font-medium text-emerald-700">
+                <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
                   {variableNames.length} variable
                   {variableNames.length === 1 ? "" : "s"}:{" "}
                   {variableNames.join(", ")}
                 </p>
               ) : (
-                <p className="mt-2 text-xs text-gray-500">0 variables</p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">0 variables</p>
               )}
-              <p className="mt-3 break-all text-xs text-gray-500">
+              <p className="mt-3 break-all text-xs text-gray-500 dark:text-slate-400">
                 Template ID: <code>{template._id}</code>
               </p>
               <TemplateApiIntegrationExample
@@ -628,7 +630,7 @@ export function AdminTemplatesPanel({
           );
         })}
         {!visibleTemplates.length && (
-          <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500">
+          <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center text-gray-500 dark:border-slate-700 dark:text-slate-400">
             No templates yet.
           </div>
         )}
@@ -671,16 +673,16 @@ export function AdminProfilePanel({
   return (
     <form
       onSubmit={onSave}
-      className="max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+      className="max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900"
     >
-      <h2 className="text-lg font-semibold text-gray-800">Admin profile</h2>
-      <p className="mt-1 text-sm text-gray-500">Signed in as {userId}</p>
-      <p className="mt-2 break-all text-sm text-gray-600">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">Admin profile</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">Signed in as {userId}</p>
+      <p className="mt-2 break-all text-sm text-gray-600 dark:text-slate-400">
         Admin ID: <code>{adminId}</code>
       </p>
       <label
         htmlFor="admin-profile-email"
-        className="mt-5 block text-sm font-medium text-gray-700"
+        className="mt-5 block text-sm font-medium text-gray-700 dark:text-slate-200"
       >
         Email
       </label>
@@ -694,7 +696,7 @@ export function AdminProfilePanel({
       />
       <label
         htmlFor="admin-company-name"
-        className="mt-5 block text-sm font-medium text-gray-700"
+        className="mt-5 block text-sm font-medium text-gray-700 dark:text-slate-200"
       >
         Company display name
       </label>
@@ -708,7 +710,7 @@ export function AdminProfilePanel({
       />
       <label
         htmlFor="admin-company-domain"
-        className="mt-4 block text-sm font-medium text-gray-700"
+        className="mt-4 block text-sm font-medium text-gray-700 dark:text-slate-200"
       >
         Company website domain
       </label>
@@ -720,11 +722,11 @@ export function AdminProfilePanel({
         className={adminFieldClass}
         placeholder="example.com"
       />
-      <p className="mt-2 text-xs text-slate-500">
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Save your company name and domain to request super-admin verification.
         Only approved businesses show a verified badge to chat recipients.
       </p>
-      <p className="mt-1 text-xs font-semibold text-slate-600">
+      <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-400">
         Verification:{" "}
         {isCompanyVerified
           ? "Approved"
@@ -734,7 +736,7 @@ export function AdminProfilePanel({
       </p>
       <label
         htmlFor="admin-profile-password"
-        className="mt-4 block text-sm font-medium text-gray-700"
+        className="mt-4 block text-sm font-medium text-gray-700 dark:text-slate-200"
       >
         New password
       </label>

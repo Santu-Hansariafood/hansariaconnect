@@ -39,7 +39,7 @@ export default function CreateAdminModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-admin-title"
-        className="my-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-slate-950/25"
+        className="my-auto w-full max-w-xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-2xl shadow-slate-950/25 dark:border-slate-700 dark:bg-slate-900"
       >
         <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-indigo-950 via-indigo-900 to-violet-800 px-6 py-6 text-white sm:px-8">
           <div className="flex items-start gap-4">
@@ -72,7 +72,7 @@ export default function CreateAdminModal({
           {error && (
             <div
               role="alert"
-              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800"
+              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800 dark:border-rose-800 dark:bg-rose-900/25 dark:text-rose-300"
             >
               {error}
             </div>
@@ -81,7 +81,7 @@ export default function CreateAdminModal({
             <div>
               <label
                 htmlFor="create-admin-user-id"
-                className="mb-1.5 block text-sm font-semibold text-slate-700"
+                className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200"
               >
                 Admin ID
               </label>
@@ -99,14 +99,14 @@ export default function CreateAdminModal({
                 title="Use 3–40 letters, numbers, dots, underscores, or hyphens."
                 required
               />
-              <p className="mt-1.5 text-xs text-slate-500">
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
                 3–40 letters, numbers, dots, underscores, or hyphens.
               </p>
             </div>
             <div>
               <label
                 htmlFor="create-admin-email"
-                className="mb-1.5 block text-sm font-semibold text-slate-700"
+                className="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200"
               >
                 Email address
               </label>
@@ -144,33 +144,33 @@ export default function CreateAdminModal({
             />
             <p
               id="create-admin-password-hint"
-              className="mt-1.5 text-xs text-slate-500"
+              className="mt-1.5 text-xs text-slate-500 dark:text-slate-400"
             >
               Use 8–72 characters. The new admin can change it after signing in.
             </p>
           </div>
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 transition hover:bg-indigo-50">
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 transition hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700">
             <input
               type="checkbox"
               id="new-super"
               checked={isSuperAdmin}
               onChange={(event) => setIsSuperAdmin(event.target.checked)}
-              className="mt-0.5 size-4 rounded border-slate-300 text-indigo-700 focus:ring-indigo-600"
+              className="mt-0.5 size-4 rounded border-slate-300 text-indigo-700 focus:ring-indigo-600 dark:border-slate-600"
             />
             <span>
-              <span className="block text-sm font-semibold text-slate-800">
+              <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">
                 Grant super admin access
               </span>
-              <span className="mt-1 block text-xs leading-5 text-slate-600">
+              <span className="mt-1 block text-xs leading-5 text-slate-600 dark:text-slate-400">
                 Super admins can manage all workspaces and create other admins.
               </span>
             </span>
           </label>
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               Cancel
             </button>

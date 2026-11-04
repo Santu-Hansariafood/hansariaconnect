@@ -139,7 +139,7 @@ export default function VoicePlayer({ src, duration }: VoicePlayerProps) {
           cycleSpeed();
         }}
         aria-label={`Playback speed ${speed}x`}
-        className="h-6 shrink-0 rounded-full px-1.5 text-[11px] font-semibold text-[#667781] transition hover:bg-black/5"
+        className="h-6 shrink-0 rounded-full px-1.5 text-[11px] font-semibold text-[#667781] dark:text-slate-400 transition hover:bg-black/5 dark:hover:bg-white/10"
       >
         {speed}x
       </button>
@@ -163,13 +163,13 @@ export default function VoicePlayer({ src, duration }: VoicePlayerProps) {
             key={index}
             style={{ height: `${Math.round(height * 100)}%` }}
             className={`w-[2px] shrink-0 rounded-full transition-colors ${
-              index < playedBars ? "bg-[var(--brand-primary)]" : "bg-[#111b21]/25"
+              index < playedBars ? "bg-[var(--brand-primary)]" : "bg-[#111b21]/25 dark:bg-white/25"
             }`}
           />
         ))}
       </div>
 
-      <span className="shrink-0 tabular-nums text-[11px] font-medium text-[#667781]">
+      <span className="shrink-0 tabular-nums text-[11px] font-medium text-[#667781] dark:text-slate-400">
         {hasError ? "Unavailable" : isPlaying ? formatClock(currentTime) : formatClock(totalDuration)}
       </span>
 

@@ -95,15 +95,15 @@ export default function AdminAccessPanel({
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col justify-between gap-5 rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-white to-indigo-50 p-6 shadow-sm sm:flex-row sm:items-center sm:p-8">
+      <header className="flex flex-col justify-between gap-5 rounded-3xl border border-indigo-100 bg-gradient-to-br from-white via-white to-indigo-50 p-6 shadow-sm sm:flex-row sm:items-center sm:p-8 dark:border-slate-800 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700">
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700 dark:text-indigo-300">
             Platform controls
           </p>
-          <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950">
+          <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-100">
             Admin workspaces
           </h2>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+          <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-400">
             Create and manage isolated admin accounts. Each workspace keeps its
             own templates, users, and API keys.
           </p>
@@ -123,24 +123,24 @@ export default function AdminAccessPanel({
             label: "Total workspaces",
             value: admins.length,
             icon: Users,
-            tint: "bg-indigo-50 text-indigo-700",
+            tint: "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
           },
           {
             label: "Super admins",
             value: superAdminCount,
             icon: ShieldCheck,
-            tint: "bg-violet-50 text-violet-700",
+            tint: "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
           },
           {
             label: "Verification requests",
             value: pendingVerificationCount,
             icon: Building2,
-            tint: "bg-amber-50 text-amber-700",
+            tint: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
           },
         ].map(({ label, value, icon: Icon, tint }) => (
           <div
             key={label}
-            className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"
           >
             <span
               className={`grid size-11 place-items-center rounded-xl ${tint}`}
@@ -148,10 +148,10 @@ export default function AdminAccessPanel({
               <Icon aria-hidden="true" className="size-5" />
             </span>
             <span>
-              <span className="block text-2xl font-bold text-slate-950">
+              <span className="block text-2xl font-bold text-slate-950 dark:text-slate-100">
                 {value}
               </span>
-              <span className="block text-xs font-medium text-slate-500">
+              <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">
                 {label}
               </span>
             </span>
@@ -177,7 +177,7 @@ export default function AdminAccessPanel({
       )}
 
       {editingAdmin && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-950">
           <section
             role="dialog"
             aria-modal="true"
@@ -191,7 +191,7 @@ export default function AdminAccessPanel({
               <div>
                 <label
                   htmlFor="edit-admin-user-id"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200"
                 >
                   User ID
                 </label>
@@ -207,7 +207,7 @@ export default function AdminAccessPanel({
               <div>
                 <label
                   htmlFor="edit-admin-email"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200"
                 >
                   Email
                 </label>
@@ -223,7 +223,7 @@ export default function AdminAccessPanel({
               <div>
                 <label
                   htmlFor="edit-admin-password"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200"
                 >
                   New Password (leave blank to keep current)
                 </label>
@@ -244,14 +244,14 @@ export default function AdminAccessPanel({
                     setEditIsSuperAdmin(event.target.checked)
                   }
                 />
-                <label htmlFor="edit-super" className="text-sm text-gray-700">
+                <label htmlFor="edit-super" className="text-sm text-gray-700 dark:text-slate-200">
                   Is Super Admin
                 </label>
               </div>
               <div>
                 <label
                   htmlFor="edit-company-name"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200"
                 >
                   Company display name
                 </label>
@@ -266,7 +266,7 @@ export default function AdminAccessPanel({
               <div>
                 <label
                   htmlFor="edit-company-domain"
-                  className="mb-1 block text-sm font-medium text-gray-700"
+                  className="mb-1 block text-sm font-medium text-gray-700 dark:text-slate-200"
                 >
                   Company domain
                 </label>
@@ -278,7 +278,7 @@ export default function AdminAccessPanel({
                   className={adminFieldClass}
                 />
               </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-200">
                 <input
                   type="checkbox"
                   checked={editCompanyVerified}
@@ -292,7 +292,7 @@ export default function AdminAccessPanel({
                 <button
                   type="button"
                   onClick={onCloseEdit}
-                  className="flex-1 rounded-xl bg-gray-200 px-4 py-3 text-gray-700 hover:bg-gray-300"
+                  className="flex-1 rounded-xl bg-gray-200 px-4 py-3 text-gray-700 hover:bg-gray-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600"
                 >
                   Cancel
                 </button>
@@ -311,14 +311,14 @@ export default function AdminAccessPanel({
 
       <section aria-label="Admin account directory" className="space-y-3">
         {admins.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-700">
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900">
+            <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
               <Users aria-hidden="true" className="size-6" />
             </span>
-            <h3 className="mt-4 font-semibold text-slate-900">
+            <h3 className="mt-4 font-semibold text-slate-900 dark:text-slate-100">
               No admin workspaces yet
             </h3>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Create the first workspace to give an admin access to their own
               tools.
             </p>
@@ -327,41 +327,41 @@ export default function AdminAccessPanel({
           admins.map((admin) => (
             <article
               key={admin._id}
-              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-200 hover:shadow-md sm:flex-row sm:items-center sm:p-5"
+              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-200 hover:shadow-md sm:flex-row sm:items-center sm:p-5 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-indigo-800"
             >
               <div className="flex min-w-0 flex-1 items-center gap-4">
-                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 text-lg font-bold uppercase text-indigo-800">
+                <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-indigo-100 to-violet-100 text-lg font-bold uppercase text-indigo-800 dark:from-indigo-900/40 dark:to-violet-900/40 dark:text-indigo-200">
                   {admin.userId.slice(0, 1)}
                 </span>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="truncate font-semibold text-slate-950">
+                    <h3 className="truncate font-semibold text-slate-950 dark:text-slate-100">
                       {admin.userId}
                     </h3>
                     <span
                       className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
                         admin.isSuperAdmin
-                          ? "bg-violet-100 text-violet-800"
-                          : "bg-slate-100 text-slate-700"
+                          ? "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
+                          : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200"
                       }`}
                     >
                       {admin.isSuperAdmin ? "Super admin" : "Admin"}
                     </span>
                   </div>
-                  <p className="mt-1 truncate text-sm text-slate-600">
+                  <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-400">
                     {admin.email}
                   </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
                     <span>{admin.companyName || "No company name"}</span>
                     {admin.companyDomain && <span>{admin.companyDomain}</span>}
                     {admin.companyVerificationRequested &&
                       !admin.isCompanyVerified && (
-                        <span className="font-semibold text-amber-700">
+                        <span className="font-semibold text-amber-700 dark:text-amber-300">
                           Verification pending
                         </span>
                       )}
                     {admin.isCompanyVerified && (
-                      <span className="inline-flex items-center gap-1 font-semibold text-blue-700">
+                      <span className="inline-flex items-center gap-1 font-semibold text-blue-700 dark:text-blue-300">
                         <ShieldCheck aria-hidden="true" className="size-3.5" />
                         Verified company
                       </span>
@@ -369,17 +369,17 @@ export default function AdminAccessPanel({
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0">
+              <div className="flex gap-2 border-t border-slate-100 pt-3 sm:border-0 sm:pt-0 dark:border-slate-800">
                 <button
                   onClick={() => onEdit(admin)}
-                  className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800 sm:flex-none"
+                  className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800 sm:flex-none dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-800 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-200"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => onDelete(admin._id)}
                   disabled={saving === admin._id}
-                  className="flex-1 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none"
+                  className="flex-1 rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-900/30"
                 >
                   {saving === admin._id ? "Deleting..." : "Delete"}
                 </button>

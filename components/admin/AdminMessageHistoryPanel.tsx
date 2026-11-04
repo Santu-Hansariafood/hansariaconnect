@@ -163,15 +163,15 @@ export default function AdminMessageHistoryPanel({
   };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6">
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.15em] text-emerald-800">
+        <p className="text-xs font-bold uppercase tracking-[0.15em] text-emerald-800 dark:text-emerald-300">
           Reporting
         </p>
-        <h3 className="mt-1 text-xl font-bold text-slate-900">
+        <h3 className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
           API message history
         </h3>
-        <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
           Count API-created chat messages by India date, API key, and saved
           template. Each recipient message counts once. This report does not
           represent carrier SMS delivery.
@@ -182,7 +182,7 @@ export default function AdminMessageHistoryPanel({
         onSubmit={loadHistory}
         className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"
       >
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
           From
           <input
             type="date"
@@ -193,7 +193,7 @@ export default function AdminMessageHistoryPanel({
             required
           />
         </label>
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
           To
           <input
             type="date"
@@ -204,7 +204,7 @@ export default function AdminMessageHistoryPanel({
             required
           />
         </label>
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
           API key
           <select
             value={apiKeyId}
@@ -222,7 +222,7 @@ export default function AdminMessageHistoryPanel({
             ))}
           </select>
         </label>
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
           Template
           <select
             value={templateName}
@@ -250,7 +250,7 @@ export default function AdminMessageHistoryPanel({
       {error && (
         <p
           role="alert"
-          className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+          className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-900/25 dark:text-rose-300"
         >
           {error}
         </p>
@@ -258,17 +258,17 @@ export default function AdminMessageHistoryPanel({
 
       {hasRun && !error && (
         <div className="mt-5">
-          <p className="mb-3 text-sm font-semibold text-slate-700">
+          <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
             {total.toLocaleString()} messages in the selected range
           </p>
           {truncated && (
-            <p className="mb-3 text-sm text-amber-800">
+            <p className="mb-3 text-sm text-amber-800 dark:text-amber-300">
               Results were capped. Narrow the date range or choose an API key.
             </p>
           )}
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600">
+          <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-400">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Date (IST)</th>
                   <th className="px-4 py-3 font-semibold">API key</th>
@@ -276,21 +276,21 @@ export default function AdminMessageHistoryPanel({
                   <th className="px-4 py-3 text-right font-semibold">Count</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {rows.map((row, index) => (
                   <tr
                     key={`${row.date}-${row.apiKeyId}-${row.templateName}-${index}`}
                   >
-                    <td className="whitespace-nowrap px-4 py-3 text-slate-700">
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">
                       {row.date}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
                       {row.apiKeyName}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200">
                       {row.templateName}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900 dark:text-slate-100">
                       {row.count.toLocaleString()}
                     </td>
                   </tr>
@@ -299,7 +299,7 @@ export default function AdminMessageHistoryPanel({
                   <tr>
                     <td
                       colSpan={4}
-                      className="px-4 py-8 text-center text-slate-500"
+                      className="px-4 py-8 text-center text-slate-500 dark:text-slate-400"
                     >
                       No API messages found for these filters.
                     </td>
@@ -308,7 +308,7 @@ export default function AdminMessageHistoryPanel({
               </tbody>
             </table>
           </div>
-          <h4 className="mb-3 mt-7 text-base font-bold text-slate-900">
+          <h4 className="mb-3 mt-7 text-base font-bold text-slate-900 dark:text-slate-100">
             Bulk send jobs
           </h4>
           {jobs.length > 0 ? (
@@ -316,49 +316,49 @@ export default function AdminMessageHistoryPanel({
               {jobs.map((job) => (
                 <article
                   key={job.jobId}
-                  className="overflow-hidden rounded-xl border border-slate-200"
+                  className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700"
                 >
                   <button
                     type="button"
                     onClick={() => void toggleJobDetails(job.jobId)}
-                    className="grid w-full gap-2 p-4 text-left hover:bg-slate-50 sm:grid-cols-[1fr_1fr_1fr_auto]"
+                    className="grid w-full gap-2 p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800 sm:grid-cols-[1fr_1fr_1fr_auto]"
                     aria-expanded={expandedJobId === job.jobId}
                   >
                     <span>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-xs text-slate-500 dark:text-slate-400">
                         {new Date(job.date).toLocaleString(undefined, {
                           timeZone: "Asia/Kolkata",
                         })}{" "}
                         IST
                       </span>
-                      <span className="mt-1 block font-semibold text-slate-900">
+                      <span className="mt-1 block font-semibold text-slate-900 dark:text-slate-100">
                         {job.templateName}
                       </span>
                     </span>
-                    <span className="text-sm text-slate-700">
+                    <span className="text-sm text-slate-700 dark:text-slate-200">
                       {job.apiKeyName}
                     </span>
-                    <span className="text-sm text-slate-700">
+                    <span className="text-sm text-slate-700 dark:text-slate-200">
                       {job.sent} sent · {job.failed} failed · {job.pending}{" "}
                       pending
                     </span>
-                    <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700">
+                    <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                       {job.status}
                     </span>
                   </button>
                   {expandedJobId === job.jobId && (
-                    <div className="border-t border-slate-200 bg-slate-50 p-4">
+                    <div className="border-t border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
                       {loadingJobId === job.jobId ? (
-                        <p className="text-sm text-slate-600">
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
                           Loading recipient results…
                         </p>
                       ) : jobError ? (
-                        <p role="alert" className="text-sm text-rose-700">
+                        <p role="alert" className="text-sm text-rose-700 dark:text-rose-300">
                           {jobError}
                         </p>
                       ) : jobDetails[job.jobId] ? (
                         <div className="space-y-2">
-                          <p className="text-sm font-semibold text-slate-700">
+                          <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                             {job.total} recipient(s)
                           </p>
                           <ul className="grid gap-2 sm:grid-cols-2">
@@ -366,16 +366,16 @@ export default function AdminMessageHistoryPanel({
                               (recipient, index) => (
                                 <li
                                   key={`${recipient.recipient}-${index}`}
-                                  className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                                  className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
                                 >
-                                  <span className="break-all text-slate-800">
+                                  <span className="break-all text-slate-800 dark:text-slate-100">
                                     {recipient.recipient}
                                   </span>
-                                  <span className="font-semibold capitalize text-slate-600">
+                                  <span className="font-semibold capitalize text-slate-600 dark:text-slate-400">
                                     {recipient.status}
                                   </span>
                                   {recipient.error && (
-                                    <span className="w-full text-xs text-rose-700">
+                                    <span className="w-full text-xs text-rose-700 dark:text-rose-300">
                                       {recipient.error}
                                     </span>
                                   )}
@@ -390,14 +390,14 @@ export default function AdminMessageHistoryPanel({
                 </article>
               ))}
               {dataJobsTruncated && (
-                <p className="text-sm text-amber-800">
+                <p className="text-sm text-amber-800 dark:text-amber-300">
                   Showing the 100 most recent bulk jobs. Narrow the date range
                   or select an API key to see fewer results.
                 </p>
               )}
             </div>
           ) : (
-            <p className="rounded-xl border border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+            <p className="rounded-xl border border-slate-200 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
               No bulk send jobs found for these filters.
             </p>
           )}

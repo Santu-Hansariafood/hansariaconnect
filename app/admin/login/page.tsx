@@ -65,14 +65,14 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-neutral-950 dark:via-slate-900 dark:to-slate-900">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-emerald-400/20 to-transparent rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-[28rem] h-[28rem] bg-gradient-to-tr from-blue-500/20 to-transparent rounded-full blur-3xl transform translate-x-1/3 translate-y-1/3" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
-        <div className="bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-8 sm:p-10">
+        <div className="bg-white/90 backdrop-blur-2xl border border-white/60 shadow-2xl rounded-3xl p-8 sm:p-10 dark:bg-slate-900/90 dark:border-slate-700">
           <div className="mb-8 text-center">
             <div className="flex justify-center mb-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg">
@@ -82,16 +82,16 @@ export default function AdminLoginPage() {
             <h1 className="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-700 via-emerald-600 to-amber-500 bg-clip-text text-transparent">
               HansariaConnect
             </h1>
-            <p className="text-lg font-semibold text-slate-700 mt-2">
+            <p className="text-lg font-semibold text-slate-700 mt-2 dark:text-slate-200">
               {isSuperSubdomain ? "Super Admin Portal" : "Admin Portal"}
             </p>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500 mt-1 dark:text-slate-400">
               Sign in to access the admin dashboard
             </p>
           </div>
 
           {error && (
-            <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium flex items-center gap-2">
+            <div className="mb-6 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium flex items-center gap-2 dark:bg-red-900/25 dark:border-red-800 dark:text-red-300">
               <div className="w-2 h-2 rounded-full bg-red-500" />
               {error}
             </div>
@@ -99,14 +99,14 @@ export default function AdminLoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <User className="w-4 h-4 text-slate-500" />
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 dark:text-slate-200">
+                <User className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 User ID or Email
               </label>
               <div className="relative">
                 <input
                   type="text"
-                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all"
+                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   placeholder="admin or superadmin"
@@ -116,14 +116,14 @@ export default function AdminLoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-slate-500" />
+              <label className="text-sm font-semibold text-slate-700 flex items-center gap-2 dark:text-slate-200">
+                <Lock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                 Password
               </label>
               <div className="relative">
                 <input
                   type="password"
-                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all"
+                  className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 focus:bg-white transition-all dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-800"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -147,8 +147,8 @@ export default function AdminLoginPage() {
               )}
             </button>
           </form>
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-            <p className="text-xs text-slate-400">
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center dark:border-slate-800">
+            <p className="text-xs text-slate-400 dark:text-slate-500">
               {isSuperSubdomain
                 ? "Use superadmin credentials to access this portal"
                 : "Use admin credentials to access this portal"}

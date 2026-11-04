@@ -86,7 +86,7 @@ export default function VoiceRecorder({
       <motion.button
         whileTap={{ scale: 0.95 }}
         onClick={startRecording}
-        className="rounded-full p-2.5 text-[#54656f] transition-all duration-200 hover:bg-[#e5e7eb]"
+        className="rounded-full p-2.5 text-[#54656f] dark:text-slate-400 transition-all duration-200 hover:bg-[#e5e7eb] dark:hover:bg-slate-800"
         title="Record voice message"
       >
         <Mic className="h-5 w-5" />
@@ -98,7 +98,7 @@ export default function VoiceRecorder({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex-1 flex items-center gap-2 bg-red-50 rounded-full px-4 py-2.5 border border-red-200"
+      className="flex-1 flex items-center gap-2 bg-red-50 rounded-full px-4 py-2.5 border border-red-200 dark:bg-red-900/25 dark:border-red-800"
     >
       <motion.div
         animate={{ scale: [1, 1.2, 1] }}
@@ -106,7 +106,7 @@ export default function VoiceRecorder({
         className="w-3 h-3 bg-red-500 rounded-full"
       />
 
-      <span className="text-sm font-medium text-red-600 flex-1">
+      <span className="text-sm font-medium text-red-600 dark:text-red-300 flex-1">
         Recording: {formatTime(recordingTime)}
       </span>
 
@@ -114,10 +114,10 @@ export default function VoiceRecorder({
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={cancelRecording}
-          className="p-1.5 hover:bg-red-200 rounded-full transition-colors"
+          className="p-1.5 hover:bg-red-200 dark:hover:bg-red-900/40 rounded-full transition-colors"
           title="Cancel"
         >
-          <Trash2 className="w-4 h-4 text-red-600" />
+          <Trash2 className="w-4 h-4 text-red-600 dark:text-red-300" />
         </motion.button>
 
         <motion.button

@@ -58,7 +58,7 @@ export default function StatusPage({
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className={`min-h-screen ${theme.wallpaper}`}>
+      <div className={`min-h-screen ${theme.wallpaper} dark:bg-neutral-950 dark:bg-none`}>
         <Navbar user={user} onLogout={onLogout} />
 
         <div className="max-w-7xl mx-auto px-4 py-6">
@@ -68,7 +68,7 @@ export default function StatusPage({
             className="mb-6"
           >
             <h1
-              className={`text-3xl font-bold text-gray-800 mb-4 ${theme.textSize}`}
+              className={`text-3xl font-bold text-gray-800 dark:text-slate-100 mb-4 ${theme.textSize}`}
             >
               Status Updates
             </h1>
@@ -82,9 +82,9 @@ export default function StatusPage({
           >
             <motion.div
               variants={fadeInVariants}
-              className="bg-white rounded-2xl p-6 shadow-lg"
+              className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-lg"
             >
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">
                 My Status
               </h2>
 
@@ -130,10 +130,10 @@ export default function StatusPage({
                   </div>
 
                   <div>
-                    <p className="font-medium text-gray-800">
+                    <p className="font-medium text-gray-800 dark:text-slate-100">
                       {uploading ? "Uploading..." : "Add Status"}
                     </p>
-                    <p className="text-sm text-gray-500">Share your moment</p>
+                    <p className="text-sm text-gray-500 dark:text-slate-400">Share your moment</p>
                   </div>
                 </div>
               )}
@@ -141,27 +141,27 @@ export default function StatusPage({
 
             <motion.div
               variants={fadeInVariants}
-              className="bg-white rounded-2xl p-6 shadow-lg"
+              className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-lg"
             >
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">
                 Recent Updates
               </h2>
 
               <div className="space-y-4">
                 {loadingStatuses ? (
-                  <p className="text-gray-500 text-center py-8">
+                  <p className="text-gray-500 dark:text-slate-400 text-center py-8">
                     Loading status updates...
                   </p>
                 ) : statusError ? (
-                  <p className="text-red-500 text-center py-8">{statusError}</p>
+                  <p className="text-red-500 dark:text-red-400 text-center py-8">{statusError}</p>
                 ) : Object.keys(contactStatuses).length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
+                  <p className="text-gray-500 dark:text-slate-400 text-center py-8">
                     No status updates from your contacts
                   </p>
                 ) : (
                   Object.entries(contactStatuses).map(([uid, statuses]) => (
                     <div key={uid}>
-                      <h4 className="text-sm text-gray-500 mb-2">
+                      <h4 className="text-sm text-gray-500 dark:text-slate-400 mb-2">
                         {statuses[0]?.name || uid}
                       </h4>
                       <div className="space-y-2">

@@ -20,7 +20,7 @@ import { Theme as EmojiPickerTheme } from "emoji-picker-react";
 const Picker = dynamic(() => import("emoji-picker-react"), {
   loading: () => (
     <div
-      className="h-[360px] w-full animate-pulse rounded-xl bg-slate-100"
+      className="h-[360px] w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800"
       aria-label="Loading emoji picker"
     />
   ),
@@ -137,7 +137,7 @@ export default function ChatWindowFooter({
                   title="View once for next photo, video, or voice note"
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${
                     oneTimeViewEnabled
-                      ? "bg-emerald-100 text-emerald-700"
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                       : "text-[var(--chat-muted)] hover:bg-[var(--chat-glass-hover)]"
                   }`}
                 >
@@ -185,7 +185,7 @@ export default function ChatWindowFooter({
                   <button
                     type="button"
                     onClick={() => setShowMediaPicker(!showMediaPicker)}
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-[#54656f] transition-colors duration-150 hover:bg-[#e4e9eb] hover:text-[var(--brand-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-[#54656f] dark:text-slate-400 transition-colors duration-150 hover:bg-[#e4e9eb] dark:hover:bg-slate-800 hover:text-[var(--brand-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-primary)]"
                     title="Attach file, image, or video"
                     aria-label="Attach file, image, or video"
                   >

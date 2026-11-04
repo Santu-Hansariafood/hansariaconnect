@@ -134,21 +134,21 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className={`min-h-screen ${theme.wallpaper || ""}`}>
+      <div className={`min-h-screen ${theme.wallpaper || ""} dark:bg-neutral-950 dark:bg-none`}>
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-white border-b border-gray-200 px-4 py-4 shadow-sm"
+          className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 px-4 py-4 shadow-sm"
         >
           <div className="max-w-4xl mx-auto flex items-center gap-4">
             <button
               onClick={() => router.push("/groups")}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
             >
               <ArrowLeft className="w-6 h-6" style={{ color: theme.primary }} />
             </button>
             <h1
-              className={`text-2xl font-bold text-gray-800 ${
+              className={`text-2xl font-bold text-gray-800 dark:text-slate-100 ${
                 theme.textSize || ""
               }`}
             >
@@ -159,7 +159,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
         <div className="max-w-4xl mx-auto px-4 py-6">
           <motion.div
             {...fadeIn}
-            className="bg-white rounded-2xl p-6 shadow-lg mb-6"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-lg mb-6"
           >
             <div className="flex items-center gap-6 mb-6">
               <div className="relative">
@@ -195,13 +195,13 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   placeholder="Group Name"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors text-lg font-semibold"
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors text-lg font-semibold"
                 />
               </div>
             </div>
             {selectedMembers.length > 0 && (
               <div className="mb-4">
-                <p className="text-sm font-medium text-gray-700 mb-2">
+                <p className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                   Selected Members ({selectedMembers.length})
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -228,7 +228,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
           </motion.div>
           <motion.div
             {...fadeIn}
-            className="bg-white rounded-2xl p-6 shadow-lg"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-lg"
           >
             <div className="mb-4">
               <input
@@ -236,12 +236,12 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search contacts..."
-                className="w-full px-4 py-3 bg-gray-100 rounded-xl focus:outline-none"
+                className="w-full px-4 py-3 bg-gray-100 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:outline-none"
               />
             </div>
 
             {loadingContacts ? (
-              <div className="py-6 text-center text-gray-500">
+              <div className="py-6 text-center text-gray-500 dark:text-slate-400">
                 Loading contacts...
               </div>
             ) : (
@@ -260,10 +260,10 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                       disabled={disabled}
                       className={`w-full flex items-center gap-4 p-4 rounded-xl transition-colors ${
                         isSelected
-                          ? "bg-emerald-50"
+                          ? "bg-emerald-50 dark:bg-emerald-900/30"
                           : disabled
-                            ? "bg-gray-50 opacity-70"
-                            : "hover:bg-gray-50"
+                            ? "bg-gray-50 dark:bg-slate-800 opacity-70"
+                            : "hover:bg-gray-50 dark:hover:bg-slate-800"
                       }`}
                     >
                       <Image
@@ -275,10 +275,10 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                       />
 
                       <div className="flex-1 text-left">
-                        <p className="font-semibold text-gray-800">
+                        <p className="font-semibold text-gray-800 dark:text-slate-100">
                           {contact.name}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-slate-400">
                           {contact.mobile}
                         </p>
                       </div>
@@ -297,7 +297,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                 })}
 
                 {!filteredContacts.length && (
-                  <div className="py-6 text-center text-gray-500">
+                  <div className="py-6 text-center text-gray-500 dark:text-slate-400">
                     No contacts match your search.
                   </div>
                 )}
@@ -322,7 +322,7 @@ const CreateGroup: React.FC<CreateGroupProps> = ({ user, theme }) => {
                 }`}
           </motion.button>
           {error && (
-            <p className="mt-3 text-center text-sm text-red-600">{error}</p>
+            <p className="mt-3 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
           )}
         </div>
       </div>

@@ -47,7 +47,7 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, user, theme, onClick }) =>
       whileHover={{ scale: 1.02, y: -4 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all cursor-pointer"
+      className="bg-white rounded-2xl p-6 shadow-md hover:shadow-xl transition-all cursor-pointer dark:bg-slate-900"
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -64,10 +64,10 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, user, theme, onClick }) =>
             />
           </div>
           <div>
-            <h3 className={`font-bold text-gray-800 ${theme.textSize || "text-base"}`}>
+            <h3 className={`font-bold text-gray-800 dark:text-slate-100 ${theme.textSize || "text-base"}`}>
               {group.name}
             </h3>
-            <div className="flex items-center gap-1 text-sm text-gray-500">
+            <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-slate-400">
               <Users className="w-4 h-4" />
               <span>{group.members?.length || 0} members</span>
             </div>
@@ -79,24 +79,24 @@ const GroupCard: React.FC<GroupCardProps> = ({ group, user, theme, onClick }) =>
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={handleSettingsClick}
-            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors dark:hover:bg-slate-800"
             aria-label="Group settings"
           >
-            <Settings className="w-5 h-5 text-gray-600" />
+            <Settings className="w-5 h-5 text-gray-600 dark:text-slate-400" />
           </motion.button>
         )}
       </div>
       {group.lastMessage && (
         <div className="space-y-2">
-          <p className="text-sm text-gray-600 line-clamp-2">{group.lastMessage}</p>
+          <p className="text-sm text-gray-600 dark:text-slate-400 line-clamp-2">{group.lastMessage}</p>
           <div className="flex items-center justify-between">
             {group.lastMessageTime && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-gray-500 dark:text-slate-400">
                 {formatDistanceToNow(new Date(group.lastMessageTime), { addSuffix: true })}
               </span>
             )}
             {isAdmin && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+              <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium dark:bg-emerald-900/30 dark:text-emerald-300">
                 <Shield className="w-3 h-3" />
                 Admin
               </div>

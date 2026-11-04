@@ -121,7 +121,7 @@ export default function MobileQrLoginScanner({
       aria-modal="true"
       aria-labelledby="mobile-qr-login-title"
     >
-      <section className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <section className="w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl">
         <header className="flex items-center justify-between bg-[#075e54] px-5 py-4 text-white">
           <div className="flex items-center gap-3">
             <QrCode className="h-6 w-6" aria-hidden="true" />
@@ -146,7 +146,7 @@ export default function MobileQrLoginScanner({
 
         <div className="space-y-4 p-5">
           {approved ? (
-            <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 p-4 text-emerald-800">
+            <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 p-4 text-emerald-800 dark:text-emerald-300">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
                 <p className="font-semibold">Login approved</p>
@@ -174,12 +174,12 @@ export default function MobileQrLoginScanner({
           )}
 
           {error && (
-            <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p role="alert" className="rounded-xl bg-red-50 dark:bg-red-900/25 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               {error}
             </p>
           )}
           {!approved && !error && (
-            <p className="text-center text-sm text-slate-600">
+            <p className="text-center text-sm text-slate-600 dark:text-slate-400">
               Only approve a login you started on your own computer.
             </p>
           )}

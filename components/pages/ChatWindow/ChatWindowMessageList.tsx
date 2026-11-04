@@ -233,7 +233,7 @@ function ChatWindowMessageList({
   return (
     <div className="w-full mx-auto space-y-1.5 w-full min-w-0">
       {templateActionPreferencesError && (
-        <p className="px-3 text-xs text-red-700" role="status">
+        <p className="px-3 text-xs text-red-700 dark:text-red-300" role="status">
           Message action buttons are hidden because your preferences could not
           be loaded. {templateActionPreferencesError}
         </p>
@@ -250,7 +250,7 @@ function ChatWindowMessageList({
 
       {showUnreadBanner && unreadOnOpen > 0 && (
         <div className="sticky top-0 z-10">
-          <div className="px-3 py-2 bg-yellow-100 text-yellow-800 rounded-xl text-sm font-medium shadow">
+          <div className="px-3 py-2 bg-yellow-100 text-yellow-800 rounded-xl text-sm font-medium shadow dark:bg-yellow-900/30 dark:text-yellow-300">
             {unreadOnOpen} unread message{unreadOnOpen > 1 ? "s" : ""}
           </div>
         </div>
@@ -286,7 +286,7 @@ function ChatWindowMessageList({
 
             {idx === meta.firstUnreadIndex && meta.firstUnreadIndex >= 0 && (
               <div className="flex justify-center my-2" ref={unreadDividerRef}>
-                <span className="text-xs px-3 py-1 bg-yellow-200 rounded-full text-yellow-800 font-medium">
+                <span className="text-xs px-3 py-1 bg-yellow-200 rounded-full text-yellow-800 font-medium dark:bg-yellow-900/30 dark:text-yellow-300">
                   Unread messages
                 </span>
               </div>

@@ -211,9 +211,9 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
   if (!groupData) {
     return (
       <Suspense fallback={<Loading />}>
-        <div className={`min-h-screen ${theme.wallpaper}`}>
+        <div className={`min-h-screen ${theme.wallpaper} dark:bg-neutral-950 dark:bg-none`}>
           <div className="flex h-screen flex-col items-center justify-center gap-4 text-center">
-            <p className="text-gray-600">{error || "Group not found."}</p>
+            <p className="text-gray-600 dark:text-slate-400">{error || "Group not found."}</p>
             <button
               onClick={() => router.push("/groups")}
               className="rounded-xl bg-emerald-600 px-6 py-3 text-white"
@@ -228,21 +228,21 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className={`min-h-screen ${theme.wallpaper}`}>
+      <div className={`min-h-screen ${theme.wallpaper} dark:bg-neutral-950 dark:bg-none`}>
         <motion.header
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="bg-white border-b border-gray-200 px-4 py-4 shadow-sm"
+          className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 px-4 py-4 shadow-sm"
         >
           <div className="max-w-4xl mx-auto flex items-center gap-4">
             <button
               onClick={() => router.push("/groups")}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
             >
               <ArrowLeft className="w-6 h-6" style={{ color: theme.primary }} />
             </button>
             <h1
-              className={`text-2xl font-bold text-gray-800 ${theme.textSize || ""}`}
+              className={`text-2xl font-bold text-gray-800 dark:text-slate-100 ${theme.textSize || ""}`}
             >
               Group Settings
             </h1>
@@ -251,7 +251,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
         <div className="max-w-4xl mx-auto px-4 py-6">
           <motion.div
             {...fadeIn}
-            className="bg-white rounded-2xl p-6 shadow-lg mb-6"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-lg mb-6"
           >
             <div className="flex items-center gap-6 mb-6">
               <div className="relative">
@@ -290,10 +290,10 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                     type="text"
                     value={nameDraft}
                     onChange={(e) => setNameDraft(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors text-lg font-semibold"
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors text-lg font-semibold"
                   />
                 ) : (
-                  <h2 className="text-2xl font-bold text-gray-800">
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-slate-100">
                     {groupData.name}
                   </h2>
                 )}
@@ -311,13 +311,13 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                         setIsEditing(false);
                         setNameDraft(groupData.name);
                       }}
-                      className="rounded-xl bg-gray-200 px-4 py-2 text-gray-700"
+                      className="rounded-xl bg-gray-200 dark:bg-slate-700 px-4 py-2 text-gray-700 dark:text-slate-200"
                     >
                       Cancel
                     </button>
                   </div>
                 )}
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 dark:text-slate-400 mt-1">
                   {groupData.members.length} members
                 </p>
               </div>
@@ -336,9 +336,9 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
           </motion.div>
           <motion.div
             {...fadeIn}
-            className="bg-white rounded-2xl p-6 shadow-lg"
+            className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-lg"
           >
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">
               Members
             </h3>
             <div className="space-y-3">
@@ -348,7 +348,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                   <motion.div
                     key={member.id}
                     whileHover={{ scale: 1.01 }}
-                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
+                    className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-slate-800 rounded-xl"
                   >
                     <Image
                       src={member.avatar || "/logo/logo.png"}
@@ -359,14 +359,14 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                     />
 
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-800">
+                      <p className="font-semibold text-gray-800 dark:text-slate-100">
                         {member.name}
                       </p>
-                      <p className="text-sm text-gray-500">{member.mobile}</p>
+                      <p className="text-sm text-gray-500 dark:text-slate-400">{member.mobile}</p>
                     </div>
 
                     {isMemberAdmin && (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium">
+                      <div className="flex items-center gap-2 px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-sm font-medium">
                         <Shield className="w-4 h-4" />
                         Admin
                       </div>
@@ -378,7 +378,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           onClick={() => handleMakeAdmin(member.id)}
-                          className="p-2 bg-blue-100 text-blue-600 rounded-full hover:bg-blue-200 transition-colors"
+                          className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                           title="Make Admin"
                           disabled={memberActionId === member.id}
                         >
@@ -389,7 +389,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
                           onClick={() => handleRemoveMember(member.id)}
-                          className="p-2 bg-red-100 text-red-600 rounded-full hover:bg-red-200 transition-colors"
+                          className="p-2 bg-red-100 dark:bg-red-900/25 text-red-600 dark:text-red-300 rounded-full hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
                           title="Remove Member"
                           disabled={memberActionId === member.id}
                         >
@@ -415,7 +415,7 @@ const GroupSettings = ({ user, theme }: { user: User; theme: Theme }) => {
               </motion.button>
             )}
             {error && (
-              <p className="mt-3 text-center text-sm text-red-600">{error}</p>
+              <p className="mt-3 text-center text-sm text-red-600 dark:text-red-400">{error}</p>
             )}
           </motion.div>
         </div>

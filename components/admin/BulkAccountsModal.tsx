@@ -43,7 +43,7 @@ export default function BulkAccountsModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="bulk-accounts-title"
-        className="my-auto w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+        className="my-auto w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
       >
         <header
           className={`relative overflow-hidden px-5 py-6 text-white sm:px-8 sm:py-8 ${
@@ -112,13 +112,13 @@ export default function BulkAccountsModal({
           {error && (
             <div
               role="alert"
-              className="flex items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+              className="flex items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-900/25 dark:text-rose-300"
             >
               <span>{error}</span>
               <button
                 type="button"
                 onClick={onDismissError}
-                className="shrink-0 font-semibold text-rose-700 hover:text-rose-900"
+                className="shrink-0 font-semibold text-rose-700 hover:text-rose-900 dark:text-rose-300 dark:hover:text-rose-200"
                 aria-label="Dismiss error"
               >
                 Dismiss
@@ -127,16 +127,16 @@ export default function BulkAccountsModal({
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+            <section className="rounded-2xl border border-slate-200 p-4 sm:p-5 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   1
                 </span>
                 <div>
-                  <h3 className="font-semibold text-slate-900">
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-100">
                     Download the sample
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Use the required workbook and sheet format
                   </p>
                 </div>
@@ -145,7 +145,7 @@ export default function BulkAccountsModal({
                 {ACCOUNT_TEMPLATE_HEADERS.map((header) => (
                   <span
                     key={header}
-                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
                   >
                     {header}
                   </span>
@@ -156,8 +156,8 @@ export default function BulkAccountsModal({
                 onClick={onDownloadTemplate}
                 className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                   isPlatformAdmin
-                    ? "border-indigo-200 text-indigo-800 hover:bg-indigo-50 focus:ring-indigo-500"
-                    : "border-emerald-200 text-emerald-800 hover:bg-emerald-50 focus:ring-emerald-500"
+                    ? "border-indigo-200 text-indigo-800 hover:bg-indigo-50 focus:ring-indigo-500 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+                    : "border-emerald-200 text-emerald-800 hover:bg-emerald-50 focus:ring-emerald-500 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
                 }`}
               >
                 <Download className="h-4 w-4" aria-hidden="true" />
@@ -165,27 +165,27 @@ export default function BulkAccountsModal({
               </button>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+            <section className="rounded-2xl border border-slate-200 p-4 sm:p-5 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   2
                 </span>
                 <div>
-                  <h3 className="font-semibold text-slate-900">
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-100">
                     Fill in account details
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     One account per row, up to 100 rows
                   </p>
                 </div>
               </div>
-              <ul className="mt-4 space-y-2 text-sm text-slate-600">
+              <ul className="mt-4 space-y-2 text-sm text-slate-600 dark:text-slate-400">
                 <li className="flex gap-2">
-                  <span className="font-bold text-emerald-600">•</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">•</span>
                   Keep the sample column names and order unchanged.
                 </li>
                 <li className="flex gap-2">
-                  <span className="font-bold text-emerald-600">•</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">•</span>
                   Complete Name, Email, and 10-digit mobile.
                 </li>
               </ul>
@@ -194,10 +194,10 @@ export default function BulkAccountsModal({
 
           <form
             onSubmit={onSubmit}
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5 dark:border-slate-700 dark:bg-slate-800"
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-sm font-bold text-slate-700 shadow-sm">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-sm font-bold text-slate-700 shadow-sm dark:bg-slate-900 dark:text-slate-200">
                 3
               </span>
               <div>
@@ -209,27 +209,27 @@ export default function BulkAccountsModal({
             </div>
             <label
               htmlFor="account-excel-file"
-              className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-white px-4 py-6 text-center transition ${
+              className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed bg-white px-4 py-6 text-center transition dark:bg-slate-900 ${
                 isPlatformAdmin
-                  ? "border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/40"
-                  : "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/40"
+                  ? "border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50/40 dark:border-indigo-800 dark:hover:border-indigo-600 dark:hover:bg-indigo-900/30"
+                  : "border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50/40 dark:border-emerald-800 dark:hover:border-emerald-600 dark:hover:bg-emerald-900/30"
               }`}
             >
               <span
                 className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
                   isPlatformAdmin
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "bg-emerald-100 text-emerald-700"
+                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300"
+                    : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
                 }`}
               >
                 <Upload className="h-5 w-5" aria-hidden="true" />
               </span>
-              <span className="mt-3 text-sm font-semibold text-slate-800">
+              <span className="mt-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {fileName
                   ? "Choose a different workbook"
                   : "Choose your completed workbook"}
               </span>
-              <span className="mt-1 text-xs text-slate-500">
+              <span className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 Select an .xlsx file using the Accounts sheet
               </span>
               <input
@@ -244,32 +244,32 @@ export default function BulkAccountsModal({
 
             {fileName && (
               <div
-                className="mt-4 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                className="mt-4 flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-900/25 sm:flex-row sm:items-center sm:justify-between"
                 role="status"
                 aria-live="polite"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <FileSpreadsheet className="h-5 w-5 shrink-0 text-emerald-700" />
+                  <FileSpreadsheet className="h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-400" />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-emerald-950">
+                    <p className="truncate text-sm font-semibold text-emerald-950 dark:text-emerald-200">
                       {fileName}
                     </p>
-                    <p className="text-xs text-emerald-800">
+                    <p className="text-xs text-emerald-800 dark:text-emerald-300">
                       Ready to register
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 self-start rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200 sm:self-auto">
+                <span className="shrink-0 self-start rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-200 dark:ring-emerald-800 sm:self-auto">
                   {accounts.length} / 100 accounts
                 </span>
               </div>
             )}
 
-            <div className="mt-5 flex flex-col-reverse gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
+            <div className="mt-5 flex flex-col-reverse gap-3 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 Cancel
               </button>

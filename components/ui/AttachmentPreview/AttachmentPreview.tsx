@@ -113,17 +113,17 @@ export default function AttachmentPreview({
               className="max-h-full max-w-full rounded-lg bg-black"
             />
           ) : (
-            <div className="flex w-full max-w-sm items-center gap-3 rounded-xl bg-white/95 p-3">
+            <div className="flex w-full max-w-sm items-center gap-3 rounded-xl bg-white/95 dark:bg-slate-900/80 p-3">
               <div
                 className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white ${tint}`}
               >
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-[#111b21]">
+                <p className="truncate text-sm font-medium text-[#111b21] dark:text-slate-100">
                   {attachment.file.name}
                 </p>
-                <p className="text-xs text-[#667781]">
+                <p className="text-xs text-[#667781] dark:text-slate-400">
                   {formatSize(attachment.file.size)}
                 </p>
               </div>

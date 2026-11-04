@@ -129,15 +129,15 @@ export default function CodeExamplePanel({
   };
 
   return (
-    <section className="rounded-xl border border-slate-200 p-4">
+    <section className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-slate-900">Copy your code</h3>
-          <p className="mt-1 text-sm text-slate-600">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">Copy your code</h3>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Replace the recipient ID. Keep your API key on your server.
           </p>
         </div>
-        <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
           Code language
           <select
             value={language}
@@ -151,7 +151,7 @@ export default function CodeExamplePanel({
                 setLanguage(value);
               }
             }}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-800"
           >
             <option>JavaScript</option>
             <option>Python</option>
@@ -175,17 +175,17 @@ export default function CodeExamplePanel({
         >
           Copy code
         </button>
-        <span aria-live="polite" className="text-sm text-slate-600">
+        <span aria-live="polite" className="text-sm text-slate-600 dark:text-slate-400">
           {copyStatus}
         </span>
       </div>
       {templateTooLong && (
-        <p className="mt-2 text-sm text-red-700" role="alert">
+        <p className="mt-2 text-sm text-red-700 dark:text-red-300" role="alert">
           The combined header, body, and footer must be 2,000 characters or
           fewer.
         </p>
       )}
-      <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-100 p-3 text-xs leading-5 text-slate-800">
+      <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-100 p-3 text-xs leading-5 text-slate-800 dark:bg-slate-800 dark:text-slate-100">
         <code>{`# Add this to your server's environment
 HANSARIA_API_KEY=paste-your-api-key`}</code>
       </pre>

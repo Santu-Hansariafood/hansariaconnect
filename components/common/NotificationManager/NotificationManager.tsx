@@ -477,7 +477,7 @@ export default function NotificationManager({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-            className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-emerald-100 bg-white p-3 shadow-xl shadow-black/15"
+            className="pointer-events-auto flex items-center gap-3 rounded-2xl border border-emerald-100 dark:border-emerald-800 bg-white dark:bg-slate-900 p-3 shadow-xl shadow-black/15"
           >
             <button
               type="button"
@@ -511,19 +511,19 @@ export default function NotificationManager({
               />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="truncate text-sm font-semibold text-gray-900">
+                  <span className="truncate text-sm font-semibold text-gray-900 dark:text-slate-100">
                     {toast.kind === "group"
                       ? toast.chatName || "Group"
                       : toast.fromName || "New message"}
                   </span>
-                  <span className="shrink-0 text-xs text-gray-400">now</span>
+                  <span className="shrink-0 text-xs text-gray-400 dark:text-slate-400">now</span>
                 </span>
                 {toast.kind === "group" && (
-                  <span className="block truncate text-xs font-medium text-emerald-700">
+                  <span className="block truncate text-xs font-medium text-emerald-700 dark:text-emerald-300">
                     {toast.fromName}
                   </span>
                 )}
-                <span className="block truncate text-sm text-gray-600">
+                <span className="block truncate text-sm text-gray-600 dark:text-slate-400">
                   {toast.kind === "group" &&
                   toast.preview?.startsWith(`${toast.fromName}: `)
                     ? toast.preview.slice(toast.fromName.length + 2)
@@ -535,7 +535,7 @@ export default function NotificationManager({
               type="button"
               onClick={() => dismissToast(toast.id)}
               aria-label="Dismiss notification"
-              className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+              className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center self-start rounded-full text-gray-400 dark:text-slate-400 transition hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-700 dark:hover:text-slate-200"
             >
               <span aria-hidden="true" className="text-lg leading-none">
                 ×

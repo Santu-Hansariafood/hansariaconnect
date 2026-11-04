@@ -211,7 +211,7 @@ const ContactCard: React.FC<ContactCardProps> = ({
 
       {contextMenu.visible && (
         <div
-          className="absolute z-50 bg-white rounded-xl shadow-2xl py-2 min-w-[180px]"
+          className="absolute z-50 bg-white dark:bg-slate-900 rounded-xl shadow-2xl py-2 min-w-[180px]"
           style={{
             top: `${contextMenu.y}px`,
             left: `${contextMenu.x}px`,
@@ -223,35 +223,35 @@ const ContactCard: React.FC<ContactCardProps> = ({
               onArchive(contact)
               setContextMenu({ visible: false, x: 0, y: 0 })
             }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700 dark:hover:bg-slate-800 dark:text-slate-200"
           >
             {contact.archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
             <span>{contact.archived ? "Unarchive Chat" : "Archive Chat"}</span>
           </button>
           <button
             onClick={handlePinToggle}
-            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700 dark:hover:bg-slate-800 dark:text-slate-200"
           >
             <Pin className="w-4 h-4" />
             <span>{contact.pinned ? "Unpin Chat" : "Pin Chat"}</span>
           </button>
           <button
             onClick={handleForwardClick}
-            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700 dark:hover:bg-slate-800 dark:text-slate-200"
           >
             <Forward className="w-4 h-4" />
             <span>Forward Message</span>
           </button>
           <button
             onClick={() => { onEdit(contact); setContextMenu({ visible: false, x: 0, y: 0 }) }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700"
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-gray-700 dark:hover:bg-slate-800 dark:text-slate-200"
           >
             <Pencil className="w-4 h-4" />
             <span>Edit Contact</span>
           </button>
           <button
             onClick={() => { onDelete(contact.id); setContextMenu({ visible: false, x: 0, y: 0 }) }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-red-600"
+            className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors flex items-center gap-3 text-red-600 dark:hover:bg-slate-800"
           >
             <Trash2 className="w-4 h-4" />
             <span>Delete Contact</span>

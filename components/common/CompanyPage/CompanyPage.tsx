@@ -27,7 +27,7 @@ export default function CompanyPage({
   children,
 }: CompanyPageProps) {
   return (
-    <main className="min-h-screen bg-[#f4f8f6] text-[#17211f]">
+    <main className="min-h-screen bg-[#f4f8f6] text-[#17211f] dark:bg-neutral-950 dark:text-slate-100">
       <header className="border-b border-white/10 bg-[#073b32] text-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
           <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
@@ -64,13 +64,13 @@ export default function CompanyPage({
 
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:gap-5">
           {sections.map((section) => (
-            <section key={section.title} className="rounded-2xl border border-[#dfe9e5] bg-white p-5 shadow-sm shadow-[#0a514508] sm:p-7">
-              <h2 className="text-lg font-semibold tracking-tight text-[#123b32] sm:text-xl">{section.title}</h2>
-              <p className="mt-3 text-sm leading-7 text-[#53635e] sm:text-base">{section.body}</p>
+            <section key={section.title} className="rounded-2xl border border-[#dfe9e5] bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm shadow-[#0a514508] sm:p-7">
+              <h2 className="text-lg font-semibold tracking-tight text-[#123b32] dark:text-slate-100 sm:text-xl">{section.title}</h2>
+              <p className="mt-3 text-sm leading-7 text-[#53635e] dark:text-slate-400 sm:text-base">{section.body}</p>
               {section.items && (
                 <ul className="mt-4 grid gap-2 sm:grid-cols-2">
                   {section.items.map((item) => (
-                    <li key={item} className="rounded-xl border border-[#e5efeb] bg-[#f7faf8] px-3 py-3 text-sm leading-6 text-[#3d5b52]">
+                    <li key={item} className="rounded-xl border border-[#e5efeb] bg-[#f7faf8] dark:border-slate-700 dark:bg-slate-800 px-3 py-3 text-sm leading-6 text-[#3d5b52] dark:text-slate-300">
                       {item}
                     </li>
                   ))}
@@ -95,8 +95,8 @@ export default function CompanyPage({
         {children}
       </article>
 
-      <footer className="border-t border-[#dfe9e5] bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-[#71807b] sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <footer className="border-t border-[#dfe9e5] dark:border-slate-800 bg-white dark:bg-slate-900">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-6 text-sm text-[#71807b] dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <p>© {new Date().getFullYear()} HansariaConnect. All rights reserved.</p>
           <div className="flex flex-wrap gap-4">
             <Link href="/about" className="hover:text-[#075e54]">About</Link>

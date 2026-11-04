@@ -44,19 +44,19 @@ export default function TemplateActionButtonsEditor({
   };
 
   return (
-    <fieldset className="mt-4 space-y-3 rounded-xl border border-slate-200 p-4">
-      <legend className="px-1 text-sm font-semibold text-slate-800">
+    <fieldset className="mt-4 space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+      <legend className="px-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
         Recipient action buttons (optional)
       </legend>
-      <p className="text-xs leading-5 text-slate-600">
+      <p className="text-xs leading-5 text-slate-600 dark:text-slate-400">
         Call opens the phone app, Reply opens the chat composer, and Confirm
         sends a reply to the sender. Up to three buttons; one of each type.
         Button labels and actions are shared by all template translations.
       </p>
       {value.map((button, index) => (
-        <div key={button.type} className="space-y-2 rounded-lg bg-slate-50 p-3">
+        <div key={button.type} className="space-y-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-800">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold capitalize text-slate-800">
+            <p className="text-sm font-semibold capitalize text-slate-800 dark:text-slate-100">
               {button.type} button
             </p>
             <button
@@ -64,7 +64,7 @@ export default function TemplateActionButtonsEditor({
               onClick={() =>
                 onChange(value.filter((_, itemIndex) => itemIndex !== index))
               }
-              className="text-sm text-rose-700 hover:underline"
+              className="text-sm text-rose-700 hover:underline dark:text-rose-300"
             >
               Remove
             </button>
@@ -77,12 +77,12 @@ export default function TemplateActionButtonsEditor({
                 updateButton(index, { label: event.target.value })
               }
               maxLength={30}
-              className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900"
+              className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               required
             />
           </label>
           {button.type === "call" && (
-            <label className="grid gap-1 text-xs font-medium text-slate-600">
+            <label className="grid gap-1 text-xs font-medium text-slate-600 dark:text-slate-400">
               Phone number (include country code)
               <input
                 type="tel"
@@ -92,13 +92,13 @@ export default function TemplateActionButtonsEditor({
                 }
                 placeholder="+14155550123"
                 pattern="^\+[1-9][0-9]{7,14}$"
-                className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900"
+                className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 required
               />
             </label>
           )}
           {button.type === "reply" && (
-            <label className="grid gap-1 text-xs font-medium text-slate-600">
+            <label className="grid gap-1 text-xs font-medium text-slate-600 dark:text-slate-400">
               Optional starter text
               <input
                 value={button.replyText || ""}
@@ -107,12 +107,12 @@ export default function TemplateActionButtonsEditor({
                 }
                 maxLength={500}
                 placeholder="Leave blank to open an empty composer"
-                className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900"
+                className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               />
             </label>
           )}
           {button.type === "confirm" && (
-            <label className="grid gap-1 text-xs font-medium text-slate-600">
+            <label className="grid gap-1 text-xs font-medium text-slate-600 dark:text-slate-400">
               Confirmation sent to the sender
               <input
                 value={button.replyText}
@@ -120,7 +120,7 @@ export default function TemplateActionButtonsEditor({
                   updateButton(index, { replyText: event.target.value })
                 }
                 maxLength={500}
-                className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900"
+                className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 required
               />
             </label>
@@ -132,7 +132,7 @@ export default function TemplateActionButtonsEditor({
           <select
             value={nextType}
             onChange={(event) => setNextType(event.target.value as ActionType)}
-            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
             aria-label={`${idPrefix} button type to add`}
           >
             {(["call", "reply", "confirm"] as const)
@@ -161,7 +161,7 @@ export default function TemplateActionButtonsEditor({
               );
               if (nextAvailable) setNextType(nextAvailable);
             }}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium disabled:opacity-50"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium disabled:opacity-50 dark:border-slate-700"
           >
             Add button
           </button>

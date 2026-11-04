@@ -157,12 +157,12 @@ const Otp: React.FC<OtpProps> = ({
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f8f6] p-4">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f3f8f6] dark:bg-neutral-950 p-4">
         <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-emerald-200/50 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-28 -right-20 h-80 w-80 rounded-full bg-teal-200/50 blur-3xl" />
         <motion.div
           {...fadeIn}
-          className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white/80 bg-white p-7 shadow-[0_24px_80px_-28px_rgba(15,118,90,0.3)] sm:p-10"
+          className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-white/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-7 shadow-[0_24px_80px_-28px_rgba(15,118,90,0.3)] sm:p-10"
         >
           <div className="mb-8 text-center">
             <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-[1.6rem] bg-gradient-to-br from-emerald-50 to-teal-100 shadow-inner">
@@ -180,19 +180,19 @@ const Otp: React.FC<OtpProps> = ({
             <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
               Secure verification
             </p>
-            <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-slate-100 sm:text-3xl">
               Check your {email ? "email" : "phone"}
             </h2>
-            <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-gray-500">
+            <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-gray-500 dark:text-slate-400">
               Enter the 6-digit code we sent to{" "}
-              <span className="font-semibold text-gray-700">{email || mobile}</span>
+              <span className="font-semibold text-gray-700 dark:text-slate-200">{email || mobile}</span>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <span id="otp-code-label" className="text-sm font-semibold text-gray-700">
+                <span id="otp-code-label" className="text-sm font-semibold text-gray-700 dark:text-slate-200">
                   Verification code
                 </span>
                 <button
@@ -229,7 +229,7 @@ const Otp: React.FC<OtpProps> = ({
                       event.preventDefault();
                       fillCode(event.clipboardData.getData("text"), index);
                     }}
-                    className="h-12 w-11 rounded-xl border-2 border-gray-200 bg-gray-50/70 text-center text-xl font-semibold text-gray-900 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 sm:h-14 sm:w-12 sm:rounded-2xl sm:text-2xl"
+                    className="h-12 w-11 rounded-xl border-2 border-gray-200 dark:border-slate-700 bg-gray-50/70 dark:bg-slate-800 text-center text-xl font-semibold text-gray-900 dark:text-slate-100 outline-none transition focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-emerald-500/10 sm:h-14 sm:w-12 sm:rounded-2xl sm:text-2xl"
                     maxLength={6}
                     required
                   />
@@ -241,7 +241,7 @@ const Otp: React.FC<OtpProps> = ({
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   role="alert"
-                  className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-sm text-red-700"
+                  className="mt-3 rounded-xl border border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-900/25 px-3 py-2.5 text-sm text-red-700 dark:text-red-300"
                 >
                   {error || serverError}
                 </motion.p>
@@ -293,7 +293,7 @@ const Otp: React.FC<OtpProps> = ({
             </div>
           )}
 
-          <p className="mt-6 text-center text-xs leading-5 text-gray-400">
+          <p className="mt-6 text-center text-xs leading-5 text-gray-400 dark:text-slate-400">
             Your code expires after 5 minutes. Never share it with anyone.
           </p>
         </motion.div>

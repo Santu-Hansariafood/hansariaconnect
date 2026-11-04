@@ -290,10 +290,10 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
         <motion.div
           {...fadeIn}
-          className="bg-white rounded-3xl shadow-2xl p-4 md:p-6 w-full max-w-6xl overflow-hidden"
+          className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-4 md:p-6 w-full max-w-6xl overflow-hidden"
         >
           <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.9fr] gap-6">
             <div className="hidden lg:flex flex-col justify-center rounded-3xl bg-gradient-to-br from-emerald-600 to-cyan-500 p-10 text-white">
@@ -355,10 +355,10 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                   />
                 </motion.div>
 
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100 mb-2">
                   HansariaConnect
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-slate-400">
                   Fast, secure messaging with email OTP login.
                 </p>
               </div>
@@ -381,11 +381,11 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                   {showQrLogin ? "Hide QR login" : "Scan to login with mobile"}
                 </button>
                 {showQrLogin && (
-                  <div className="mt-4 rounded-2xl bg-gray-50 p-4">
+                  <div className="mt-4 rounded-2xl bg-gray-50 dark:bg-slate-800 p-4">
                     {scanLoading || !scanToken ? (
                       <div className="flex flex-col items-center justify-center py-6">
-                        <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-                        <p className="mt-3 text-sm text-gray-500">
+                        <RefreshCw className="h-8 w-8 animate-spin text-gray-400 dark:text-slate-400" />
+                        <p className="mt-3 text-sm text-gray-500 dark:text-slate-400">
                           Generating QR code…
                         </p>
                       </div>
@@ -403,14 +403,14 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                           size={220}
                           level="H"
                         />
-                        <p className="mt-3 text-sm text-gray-600">
+                        <p className="mt-3 text-sm text-gray-600 dark:text-slate-400">
                           Scan with your signed-in HansariaConnect mobile app.
                         </p>
                         <button
                           type="button"
                           onClick={() => void generateScanToken()}
                           disabled={scanLoading}
-                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-100 disabled:opacity-50"
+                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-white dark:bg-slate-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 shadow-sm hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50"
                         >
                           <RefreshCw className="h-4 w-4" />
                           Refresh QR code
@@ -418,7 +418,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                       </div>
                     )}
                     {error && (
-                      <p role="alert" className="mt-3 text-sm text-red-600">
+                      <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
                         {error}
                       </p>
                     )}
@@ -430,11 +430,11 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                 <div className="space-y-6">
                   <form onSubmit={handleLoginSubmit} className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                         Mobile Number
                       </label>
                       <div className="relative">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-400" />
                         <input
                           type="tel"
                           maxLength={10}
@@ -451,11 +451,11 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                             setInfoBanner("");
                           }}
                           placeholder="Enter 10-digit mobile number"
-                          className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                          className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                         />
                       </div>
                       {error && (
-                        <p className="text-red-500 text-sm mt-2">{error}</p>
+                        <p className="text-red-500 dark:text-red-400 text-sm mt-2">{error}</p>
                       )}
                     </div>
                     <motion.button
@@ -470,7 +470,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                   </form>
 
                   <div className="text-center">
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 dark:text-slate-400">
                       New to HansariaConnect?{" "}
                       <button
                         type="button"
@@ -496,7 +496,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                       setError("");
                       setInfoBanner("");
                     }}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-800 mb-4"
+                    className="flex items-center gap-2 text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-100 mb-4"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     Back to Login
@@ -506,19 +506,19 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl"
+                      className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/25 border border-amber-200 dark:border-amber-800 rounded-xl"
                     >
-                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <p className="text-sm text-amber-800">{infoBanner}</p>
+                      <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-300 flex-shrink-0 mt-0.5" />
+                      <p className="text-sm text-amber-800 dark:text-amber-300">{infoBanner}</p>
                     </motion.div>
                   )}
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                       Name
                     </label>
                     <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-400" />
                       <input
                         type="text"
                         value={name}
@@ -530,17 +530,17 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         autoComplete="name"
                         required
                         placeholder="Enter your name"
-                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                       Email
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-400" />
                       <input
                         type="email"
                         value={email}
@@ -555,20 +555,20 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         pattern={EMAIL_REGEX.source}
                         required
                         placeholder="Enter your email (OTP will be sent here)"
-                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
                       Use any email address you can access. We’ll send your verification code there.
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                       Mobile Number
                     </label>
                     <div className="relative">
-                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-400" />
                       <input
                         type="tel"
                         maxLength={10}
@@ -584,17 +584,17 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                           setError("");
                         }}
                         placeholder="Enter Indian mobile number"
-                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
                       Use a valid 10-digit Indian mobile number starting with 6
                       to 9
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                       Sex
                     </label>
                     <div className="flex gap-4">
@@ -614,18 +614,18 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                             }}
                             className="w-4 h-4 text-emerald-600"
                           />
-                          <span className="text-gray-700 capitalize">{s}</span>
+                          <span className="text-gray-700 dark:text-slate-200 capitalize">{s}</span>
                         </label>
                       ))}
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
                       Date of Birth
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-slate-400" />
                       <input
                         type="date"
                         value={dob}
@@ -634,17 +634,17 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                           setDob(e.target.value);
                           setError("");
                         }}
-                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
+                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 rounded-xl focus:border-emerald-500 focus:outline-none transition-colors"
                       />
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">
                       You must be at least {MINIMUM_REGISTRATION_AGE} years old
                       to register.
                     </p>
                     {dob &&
                       (registrationAge === null ||
                         registrationAge < MINIMUM_REGISTRATION_AGE) && (
-                        <p role="alert" className="mt-2 text-sm text-red-600">
+                        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
                           {registrationAge === null
                             ? "Enter a valid date of birth that is not in the future."
                             : `You must be at least ${MINIMUM_REGISTRATION_AGE} years old to create an account.`}
@@ -663,7 +663,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                         }}
                         className="w-5 h-5 text-emerald-600"
                       />
-                      <span className="text-gray-700">
+                      <span className="text-gray-700 dark:text-slate-200">
                         I confirm I am at least {MINIMUM_REGISTRATION_AGE} years
                         old and accept the{" "}
                         <button
@@ -677,7 +677,7 @@ const Login = ({ prefillMobile, reason, returnTo }: LoginProps) => {
                     </label>
                   </div>
 
-                  {error && <p className="text-red-500 text-sm">{error}</p>}
+                  {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
 
                   <motion.button
                     whileHover={{ scale: 1.02 }}

@@ -133,15 +133,15 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
-        className="absolute bottom-20 left-0 z-50 w-[320px] rounded-2xl border border-gray-200 bg-white p-4 shadow-2xl sm:left-2"
+        className="absolute bottom-20 left-0 z-50 w-[320px] rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl sm:left-2"
       >
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800">Share</h3>
+          <h3 className="font-semibold text-gray-800 dark:text-slate-100">Share</h3>
           <button
             onClick={onClose}
-            className="rounded-full p-1 transition-colors hover:bg-gray-100"
+            className="rounded-full p-1 transition-colors hover:bg-gray-100 dark:hover:bg-slate-800"
           >
-            <X className="h-4 w-4 text-gray-600" />
+            <X className="h-4 w-4 text-gray-600 dark:text-slate-400" />
           </button>
         </div>
 
@@ -150,7 +150,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => handleFileSelect("image", "image/*")}
-            className="flex flex-col items-center gap-2 rounded-xl bg-emerald-50 p-4 text-emerald-700 transition-colors hover:bg-emerald-100"
+            className="flex flex-col items-center gap-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 p-4 text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
           >
             <ImageIcon className="h-8 w-8" />
             <span className="text-sm font-medium">Photos</span>
@@ -160,7 +160,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleCameraPick}
-            className="flex flex-col items-center gap-2 rounded-xl bg-blue-50 p-4 text-blue-700 transition-colors hover:bg-blue-100"
+            className="flex flex-col items-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 p-4 text-blue-700 dark:text-blue-300 transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/50"
           >
             <Camera className="h-8 w-8" />
             <span className="text-sm font-medium">Camera</span>
@@ -184,7 +184,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
               }
               input.click()
             }}
-            className="flex flex-col items-center gap-2 rounded-xl bg-orange-50 p-4 text-orange-700 transition-colors hover:bg-orange-100"
+            className="flex flex-col items-center gap-2 rounded-xl bg-orange-50 dark:bg-orange-900/30 p-4 text-orange-700 dark:text-orange-300 transition-colors hover:bg-orange-100 dark:hover:bg-orange-900/50"
           >
             <FileText className="h-8 w-8" />
             <span className="text-sm font-medium">Documents</span>
@@ -194,7 +194,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleContactShare}
-            className="flex flex-col items-center gap-2 rounded-xl bg-violet-50 p-4 text-violet-700 transition-colors hover:bg-violet-100"
+            className="flex flex-col items-center gap-2 rounded-xl bg-violet-50 dark:bg-violet-900/30 p-4 text-violet-700 dark:text-violet-300 transition-colors hover:bg-violet-100 dark:hover:bg-violet-900/50"
           >
             <UserRound className="h-8 w-8" />
             <span className="text-sm font-medium">Contact</span>
@@ -204,7 +204,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleLocationShare}
-            className="flex flex-col items-center gap-2 rounded-xl bg-pink-50 p-4 text-pink-700 transition-colors hover:bg-pink-100"
+            className="flex flex-col items-center gap-2 rounded-xl bg-pink-50 dark:bg-pink-900/30 p-4 text-pink-700 dark:text-pink-300 transition-colors hover:bg-pink-100 dark:hover:bg-pink-900/50"
           >
             <MapPin className="h-8 w-8" />
             <span className="text-sm font-medium">Location</span>
@@ -214,7 +214,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleLinkShare}
-            className="flex flex-col items-center gap-2 rounded-xl bg-cyan-50 p-4 text-cyan-700 transition-colors hover:bg-cyan-100"
+            className="flex flex-col items-center gap-2 rounded-xl bg-cyan-50 dark:bg-cyan-900/30 p-4 text-cyan-700 dark:text-cyan-300 transition-colors hover:bg-cyan-100 dark:hover:bg-cyan-900/50"
           >
             <LinkIcon className="h-8 w-8" />
             <span className="text-sm font-medium">Link</span>
@@ -226,8 +226,8 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
             onClick={isRecording ? stopRecording : startRecording}
             className={`flex flex-col items-center gap-2 rounded-xl p-4 transition-colors ${
               isRecording
-                ? "bg-red-50 text-red-700 hover:bg-red-100"
-                : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                ? "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50"
+                : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
             }`}
           >
             <Mic
@@ -257,7 +257,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
               }
               input.click()
             }}
-            className="flex flex-col items-center gap-2 rounded-xl bg-gray-100 p-4 text-gray-700 transition-colors hover:bg-gray-200"
+            className="flex flex-col items-center gap-2 rounded-xl bg-gray-100 dark:bg-slate-800 p-4 text-gray-700 dark:text-slate-200 transition-colors hover:bg-gray-200 dark:hover:bg-slate-700"
           >
             <Paperclip className="h-8 w-8" />
             <span className="text-sm font-medium">File</span>
@@ -267,7 +267,7 @@ const MediaPicker: React.FC<MediaPickerProps> = ({ onSelect, onClose }) => {
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => handleFileSelect("video", "video/*")}
-            className="flex flex-col items-center gap-2 rounded-xl bg-sky-50 p-4 text-sky-700 transition-colors hover:bg-sky-100"
+            className="flex flex-col items-center gap-2 rounded-xl bg-sky-50 dark:bg-sky-900/30 p-4 text-sky-700 dark:text-sky-300 transition-colors hover:bg-sky-100 dark:hover:bg-sky-900/50"
           >
             <Video className="h-8 w-8" />
             <span className="text-sm font-medium">Video</span>

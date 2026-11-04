@@ -9,7 +9,7 @@ import Image from "next/image";
 export default function RootLoading() {
   return (
     <div
-      className="flex min-h-[100dvh] flex-col bg-white"
+      className="flex min-h-[100dvh] flex-col bg-white dark:bg-neutral-950"
       role="status"
       aria-live="polite"
     >
@@ -25,7 +25,7 @@ export default function RootLoading() {
             priority
           />
 
-          <div className="mt-5 h-1 w-48 overflow-hidden rounded-full bg-black/5">
+          <div className="mt-5 h-1 w-48 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
             <div className="loading-bar h-full w-1/3 rounded-full bg-[var(--brand-primary)]" />
           </div>
 

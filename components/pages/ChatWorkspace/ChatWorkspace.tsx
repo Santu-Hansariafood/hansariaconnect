@@ -67,9 +67,9 @@ export default function ChatWorkspace() {
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden">
       <Navbar user={user as any} />
-      <div className="flex flex-1 min-h-0 w-screen overflow-hidden bg-[#f0f2f5] touch-manipulation">
+      <div className="flex flex-1 min-h-0 w-screen overflow-hidden bg-[#f0f2f5] touch-manipulation dark:bg-neutral-950">
         <aside
-          className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full min-w-0 shrink-0 flex-col overflow-hidden border-r border-[#e9edef] bg-white md:w-[360px] md:max-w-[45%] md:flex-none lg:w-[400px] xl:w-[420px]`}
+          className={`${selectedChatId ? "hidden md:flex" : "flex"} w-full min-w-0 shrink-0 flex-col overflow-hidden border-r border-[#e9edef] bg-white md:w-[360px] md:max-w-[45%] md:flex-none lg:w-[400px] xl:w-[420px] dark:border-slate-800 dark:bg-slate-900`}
         >
           <ChatHome
             user={user!}

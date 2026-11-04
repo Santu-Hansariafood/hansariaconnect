@@ -790,7 +790,7 @@ export default function Contacts({ user, theme }: Props) {
 
     return (
       <motion.div key={c.id} {...fadeIn}>
-        <div className="h-full rounded-3xl border border-slate-200/80 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-lg sm:p-5">
+        <div className="h-full rounded-3xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-lg sm:p-5">
           <div className="flex items-start gap-3 sm:items-center sm:gap-4">
             <div className="relative shrink-0">
               <Image
@@ -798,7 +798,7 @@ export default function Contacts({ user, theme }: Props) {
                 alt={c.name}
                 width={64}
                 height={64}
-                className="h-14 w-14 rounded-2xl object-cover ring-1 ring-slate-100 sm:h-16 sm:w-16 sm:rounded-3xl"
+                className="h-14 w-14 rounded-2xl object-cover ring-1 ring-slate-100 dark:ring-slate-800 sm:h-16 sm:w-16 sm:rounded-3xl"
               />
               {c.registered && isOnline && (
                 <span className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full" title="Online" />
@@ -813,16 +813,16 @@ export default function Contacts({ user, theme }: Props) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-slate-900 sm:text-lg">
+                  <p className="truncate text-base font-semibold text-slate-900 dark:text-slate-100 sm:text-lg">
                     {c.name}
                   </p>
                   {c.email && (
-                    <p className="truncate text-sm text-slate-500">
+                    <p className="truncate text-sm text-slate-500 dark:text-slate-400">
                       {c.email}
                     </p>
                   )}
                   {getContactMobiles(c).map((mobile) => (
-                    <p key={mobile} className="text-sm text-slate-500">
+                    <p key={mobile} className="text-sm text-slate-500 dark:text-slate-400">
                       {mobile}
                     </p>
                   ))}
@@ -832,8 +832,8 @@ export default function Contacts({ user, theme }: Props) {
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold flex items-center gap-1.5 ${
                         isOnline
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-gray-100 text-gray-600"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                          : "bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-slate-400"
                       }`}
                       title={lastSeenLabel}
                     >
@@ -850,7 +850,7 @@ export default function Contacts({ user, theme }: Props) {
                       )}
                     </span>
                     <span
-                      className="text-[11px] text-gray-500 font-medium"
+                      className="text-[11px] text-gray-500 dark:text-slate-400 font-medium"
                       title={lastSeenLabel}
                     >
                       {loadingLastSeen && !lastSeen ? "Loading last seen…" : lastSeenLabel}
@@ -887,7 +887,7 @@ export default function Contacts({ user, theme }: Props) {
                       onClick={() => setManageContact(c)}
                       aria-label={`Manage ${c.name}`}
                       title="Edit contact"
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition hover:-translate-y-0.5 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -915,7 +915,7 @@ export default function Contacts({ user, theme }: Props) {
                       onClick={() => setManageContact(c)}
                       aria-label={`Manage ${c.name}`}
                       title="Edit contact"
-                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
+                      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 transition hover:-translate-y-0.5 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-white dark:hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-slate-500/10"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -925,7 +925,7 @@ export default function Contacts({ user, theme }: Props) {
 
               {c.shareLinks && (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <span className="text-xs uppercase tracking-[0.15em] text-gray-400">
+                  <span className="text-xs uppercase tracking-[0.15em] text-gray-400 dark:text-slate-400">
                     Share via
                   </span>
                   <Link
@@ -966,25 +966,25 @@ export default function Contacts({ user, theme }: Props) {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className={`min-h-screen ${theme.wallpaper || "bg-slate-50"}`}>
+      <div className={`min-h-screen ${theme.wallpaper || "bg-slate-50"} dark:bg-neutral-950 dark:bg-none`}>
         <Navbar user={user} />
 
         {googleImportError && (
           <aside
             aria-labelledby="google-import-title"
-            className="mx-auto mt-4 flex w-full max-w-7xl flex-col gap-4 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5"
+            className="mx-auto mt-4 flex w-full max-w-7xl flex-col gap-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 bg-white dark:bg-slate-900 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5"
           >
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/30">
                 <FaGoogle className="h-5 w-5 text-[#4285F4]" />
               </div>
               <div>
-                <h2 id="google-import-title" className="font-bold text-slate-900">
+                <h2 id="google-import-title" className="font-bold text-slate-900 dark:text-slate-100">
                     Google contact sync failed
                   </h2>
                   <p
                     role="alert"
-                    className="mt-1 text-sm leading-5 text-red-700"
+                    className="mt-1 text-sm leading-5 text-red-700 dark:text-red-300"
                   >
                     {googleImportError}
                   </p>
@@ -994,7 +994,7 @@ export default function Contacts({ user, theme }: Props) {
                 <button
                   type="button"
                   onClick={() => setGoogleImportError("")}
-                  className="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="min-h-11 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   Dismiss
                 </button>
@@ -1015,17 +1015,17 @@ export default function Contacts({ user, theme }: Props) {
 
         <main className="mx-auto w-full max-w-7xl px-3 py-5 pb-10 sm:px-5 sm:py-8 lg:px-8">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <section className="mb-6 rounded-3xl border border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/80 p-4 shadow-sm sm:p-6">
+            <section className="mb-6 rounded-3xl border border-emerald-100 dark:border-emerald-800 bg-gradient-to-br from-white dark:from-slate-900 via-white dark:via-slate-900 to-emerald-50/80 dark:to-emerald-900/20 p-4 shadow-sm sm:p-6">
               <div className="flex flex-col gap-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
                       Your people
                     </p>
-                    <h1 className={`mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl ${theme.textSize || ""}`}>
+                    <h1 className={`mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl ${theme.textSize || ""}`}>
                       Contacts
                     </h1>
-                    <p className="mt-1 text-sm text-slate-500">
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                       {contacts.length} saved contact{contacts.length === 1 ? "" : "s"}
                     </p>
                   </div>
@@ -1046,7 +1046,7 @@ export default function Contacts({ user, theme }: Props) {
                   type="button"
                   onClick={importDeviceContacts}
                   disabled={syncing || !deviceContactSupported}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-center text-sm font-semibold text-slate-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-100 dark:border-emerald-800 bg-white dark:bg-slate-900 px-3 py-2 text-center text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <CircleUserRound className="w-4 h-4" />
                   {syncing
@@ -1066,12 +1066,12 @@ export default function Contacts({ user, theme }: Props) {
                     }
                     window.location.href = googleAuthUrl;
                   }}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800"
                 >
                   <FaGoogle className="w-4 h-4" />
                   {syncing ? "Importing..." : "Import from Google"}
                   {syncing && (
-                    <span className="ml-2 text-xs text-slate-500">
+                    <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
                       Syncing...
                     </span>
                   )}
@@ -1080,7 +1080,7 @@ export default function Contacts({ user, theme }: Props) {
                   type="button"
                   onClick={() => contactsFileInputRef.current?.click()}
                   disabled={syncing}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Upload className="w-4 h-4" />
                   Import from file
@@ -1093,24 +1093,24 @@ export default function Contacts({ user, theme }: Props) {
                   className="hidden"
                 />
                 </div>
-                <p className="text-xs leading-5 text-slate-500">
+                <p className="text-xs leading-5 text-slate-500 dark:text-slate-400">
                   {deviceContactSupported
                     ? "Choose contacts in the device picker, or upload a CSV / vCard (.vcf) export. Only names and phone numbers you import are saved to your account."
                     : "The device contact picker needs a supported Android browser and a secure HTTPS origin. Import from a CSV / vCard (.vcf) export instead."}
                 </p>
                 {deviceImportError && (
-                  <p role="alert" className="text-sm text-red-700">
+                  <p role="alert" className="text-sm text-red-700 dark:text-red-300">
                     {deviceImportError}
                   </p>
                 )}
                 {deviceImportMessage && (
-                  <p role="status" className="text-sm text-emerald-800">
+                  <p role="status" className="text-sm text-emerald-800 dark:text-emerald-300">
                     {deviceImportMessage}
                   </p>
                 )}
               </div>
             </section>
-            <div className="rounded-2xl border border-slate-200 bg-white px-3 shadow-sm sm:px-4">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 shadow-sm sm:px-4">
               <SearchBar onSearch={setSearchQuery} placeholder="Search by name or mobile..." />
             </div>
           </motion.div>
@@ -1122,7 +1122,7 @@ export default function Contacts({ user, theme }: Props) {
             className="mt-6 space-y-8"
           >
             {inviteMessage && (
-              <div className="rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+              <div className="rounded-3xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 p-4 text-sm text-emerald-800 dark:text-emerald-300">
                 {inviteMessage}
               </div>
             )}
@@ -1135,12 +1135,12 @@ export default function Contacts({ user, theme }: Props) {
                     style={{ backgroundColor: theme.primary }}
                   />
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-700">
+                    <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-700 dark:text-slate-200">
                       Registered Contacts
                     </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {registeredContacts.length} user{registeredContacts.length !== 1 ? "s" : ""} ·{" "}
-                      <span className="font-semibold text-red-500">
+                      <span className="font-semibold text-red-500 dark:text-red-400">
                         {registeredContacts.reduce((sum, c) => sum + (c.unread || 0), 0)} unread
                       </span>{" "}
                       messages total
@@ -1166,16 +1166,16 @@ export default function Contacts({ user, theme }: Props) {
             {invitationContacts.length > 0 && (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 px-1">
-                  <div className="h-8 w-1.5 rounded-full bg-slate-300" />
+                  <div className="h-8 w-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-500">
+                    <h2 className="text-sm font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">
                       Invitations Pending
                     </h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {invitationContacts.length} contact{invitationContacts.length !== 1 ? "s" : ""} · Not yet on HansariaConnect
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
                     Invite to join
                   </span>
                 </div>
@@ -1187,8 +1187,8 @@ export default function Contacts({ user, theme }: Props) {
             )}
 
             {filteredContacts.length === 0 && (
-              <div className="rounded-3xl border border-dashed border-gray-300 bg-white p-12 text-center text-gray-500">
-                <p className="text-lg font-semibold text-gray-900">
+              <div className="rounded-3xl border border-dashed border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-12 text-center text-gray-500 dark:text-slate-400">
+                <p className="text-lg font-semibold text-gray-900 dark:text-slate-100">
                   No contacts found yet
                 </p>
                 <p className="mt-2 text-sm">
@@ -1213,15 +1213,15 @@ export default function Contacts({ user, theme }: Props) {
                 aria-labelledby="create-contact-title"
                 initial={{ opacity: 0, y: 24, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] bg-white shadow-2xl sm:max-w-xl sm:rounded-[2rem]"
+                className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] bg-white dark:bg-slate-900 shadow-2xl sm:max-w-xl sm:rounded-[2rem]"
                 onMouseDown={(event) => event.stopPropagation()}
               >
-                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur sm:px-7 sm:py-5">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-slate-900/80 px-5 py-4 backdrop-blur sm:px-7 sm:py-5">
                   <div>
-                    <h2 id="create-contact-title" className="text-lg font-bold text-slate-900">
+                    <h2 id="create-contact-title" className="text-lg font-bold text-slate-900 dark:text-slate-100">
                       New contact
                     </h2>
-                    <p className="mt-0.5 text-sm text-slate-500">
+                    <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
                       Save someone to your contacts
                     </p>
                   </div>
@@ -1230,7 +1230,7 @@ export default function Contacts({ user, theme }: Props) {
                     onClick={() => setShowCreateModal(false)}
                     disabled={creating}
                     aria-label="Close create contact"
-                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 disabled:opacity-50"
+                    className="flex h-10 w-10 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1238,7 +1238,7 @@ export default function Contacts({ user, theme }: Props) {
 
                 <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
                   <div>
-                    <label htmlFor="new-contact-name" className="text-sm font-semibold text-slate-700">
+                    <label htmlFor="new-contact-name" className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Name
                     </label>
                     <input
@@ -1249,12 +1249,12 @@ export default function Contacts({ user, theme }: Props) {
                       maxLength={100}
                       autoComplete="name"
                       placeholder="Enter their name"
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                      className="mt-2 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                     />
                   </div>
 
                   <div>
-                    <label className="text-sm font-semibold text-slate-700">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Mobile Numbers
                     </label>
 
@@ -1273,7 +1273,7 @@ export default function Contacts({ user, theme }: Props) {
                                 ),
                               )
                             }
-                            className="min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                            className="min-w-0 flex-1 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                             placeholder="10-digit number"
                           />
                           {newMobiles.length > 1 && (
@@ -1285,7 +1285,7 @@ export default function Contacts({ user, theme }: Props) {
                                 )
                               }
                               aria-label={`Remove mobile number ${index + 1}`}
-                              className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-red-600 transition hover:bg-red-50"
+                              className="flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-medium text-red-600 dark:text-red-400 transition hover:bg-red-50 dark:hover:bg-red-900/25"
                             >
                               <Trash2 className="h-4 w-4" />
                               <span className="hidden sm:inline">Remove</span>
@@ -1298,7 +1298,7 @@ export default function Contacts({ user, theme }: Props) {
                     <button
                       type="button"
                       onClick={() => setNewMobiles([...newMobiles, ""])}
-                      className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                      className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300 transition hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                     >
                       <Plus className="h-4 w-4" />
                       Add another number
@@ -1306,7 +1306,7 @@ export default function Contacts({ user, theme }: Props) {
                   </div>
 
                   <div>
-                    <label htmlFor="new-contact-email" className="text-sm font-semibold text-slate-700">
+                    <label htmlFor="new-contact-email" className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       Email
                     </label>
                     <input
@@ -1315,23 +1315,23 @@ export default function Contacts({ user, theme }: Props) {
                       value={newEmail}
                       onChange={(e) => setNewEmail(e.target.value)}
                       autoComplete="email"
-                      className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                      className="mt-2 w-full rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 px-4 py-3 text-base outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
                       placeholder="example@mail.com"
                     />
                   </div>
 
                   {error && (
-                    <p role="alert" className="rounded-xl border border-red-100 bg-red-50 px-3.5 py-3 text-sm text-red-700">
+                    <p role="alert" className="rounded-xl border border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-900/25 px-3.5 py-3 text-sm text-red-700 dark:text-red-300">
                       {error}
                     </p>
                   )}
 
-                  <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+                  <div className="flex flex-col-reverse gap-2 border-t border-slate-100 dark:border-slate-800 pt-4 sm:flex-row sm:justify-end">
                     <button
                       type="button"
                       onClick={() => setShowCreateModal(false)}
                       disabled={creating}
-                      className="min-h-12 rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 sm:min-h-11"
+                      className="min-h-12 rounded-xl border border-slate-200 dark:border-slate-700 px-5 text-sm font-semibold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50 sm:min-h-11"
                     >
                       Cancel
                     </button>

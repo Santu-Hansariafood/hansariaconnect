@@ -349,7 +349,10 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   };
 
   return (
-    <div className={`min-h-screen ${!localTheme?.wallpaperImage ? localTheme?.wallpaper : ""}`} style={backgroundStyle}>
+    <div
+      className={`min-h-screen ${!localTheme?.wallpaperImage ? localTheme?.wallpaper : ""} dark:bg-neutral-950 dark:bg-none`}
+      style={backgroundStyle}
+    >
       <Navbar user={user} onLogout={onLogout} />
 
       <div className="max-w-4xl mx-auto px-4 py-6">
@@ -358,36 +361,36 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           animate={{ opacity: 1, y: 0 }}
         >
           <h1
-            className={`text-3xl font-bold text-gray-800 mb-2 ${localTheme?.textSize}`}
+            className={`text-3xl font-bold text-gray-800 dark:text-slate-100 mb-2 ${localTheme?.textSize}`}
           >
             Settings
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-slate-400">
             Customize your HansariaConnect experience
           </p>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6 dark:bg-slate-900">
           <div className="mb-2">
-            <h2 className="text-xl font-semibold text-gray-800">Your Access</h2>
-            <p className="text-sm text-gray-600">Features available to you</p>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">Your Access</h2>
+            <p className="text-sm text-gray-600 dark:text-slate-400">Features available to you</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className={`px-4 py-3 rounded-xl border ${perm?.contacts ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Contacts</div>
-            <div className={`px-4 py-3 rounded-xl border ${perm?.groups ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Groups</div>
-            <div className={`px-4 py-3 rounded-xl border ${perm?.status ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Status</div>
-            <div className={`px-4 py-3 rounded-xl border ${perm?.attachments ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-gray-200 text-gray-600"}`}>Attachments</div>
+            <div className={`px-4 py-3 rounded-xl border ${perm?.contacts ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300" : "border-gray-200 text-gray-600 dark:border-slate-700 dark:text-slate-400"}`}>Contacts</div>
+            <div className={`px-4 py-3 rounded-xl border ${perm?.groups ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300" : "border-gray-200 text-gray-600 dark:border-slate-700 dark:text-slate-400"}`}>Groups</div>
+            <div className={`px-4 py-3 rounded-xl border ${perm?.status ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300" : "border-gray-200 text-gray-600 dark:border-slate-700 dark:text-slate-400"}`}>Status</div>
+            <div className={`px-4 py-3 rounded-xl border ${perm?.attachments ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300" : "border-gray-200 text-gray-600 dark:border-slate-700 dark:text-slate-400"}`}>Attachments</div>
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6 dark:bg-slate-900">
           <label
             htmlFor="preferred-language"
-            className="block text-xl font-semibold text-gray-800"
+            className="block text-xl font-semibold text-gray-800 dark:text-slate-100"
           >
             Message language preference
           </label>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-gray-600 dark:text-slate-400">
             Bulk template messages use this language when no language is
             provided for your recipient.
           </p>
@@ -396,7 +399,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
             value={preferredLanguage}
             disabled={languageSaving}
             onChange={(event) => void savePreferredLanguage(event.target.value)}
-            className="mt-4 w-full max-w-sm rounded-xl border border-gray-300 px-4 py-3 disabled:opacity-60"
+            className="mt-4 w-full max-w-sm rounded-xl border border-gray-300 px-4 py-3 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
           >
             {[
               ["en", "English"],
@@ -418,11 +421,11 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           </select>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
-          <h2 className="text-xl font-semibold text-gray-800">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6 dark:bg-slate-900">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">
             Message button preferences
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-gray-600 dark:text-slate-400">
             Choose which action buttons you want to see on messages sent from
             templates. Changes apply to messages you receive.
           </p>
@@ -436,7 +439,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
             ).map(([action, title, description]) => (
               <label
                 key={action}
-                className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4"
+                className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4 dark:border-slate-700"
               >
                 <input
                   type="checkbox"
@@ -452,8 +455,8 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                   className="mt-1 h-4 w-4 accent-emerald-600"
                 />
                 <span>
-                  <span className="block font-medium text-gray-800">{title}</span>
-                  <span className="mt-1 block text-xs text-gray-500">
+                  <span className="block font-medium text-gray-800 dark:text-slate-100">{title}</span>
+                  <span className="mt-1 block text-xs text-gray-500 dark:text-slate-400">
                     {description}
                   </span>
                 </span>
@@ -470,12 +473,12 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
               {actionPreferencesSaving ? "Saving..." : "Save preferences"}
             </button>
             {actionPreferencesSaved && (
-              <p className="text-sm text-emerald-700" role="status">
+              <p className="text-sm text-emerald-700 dark:text-emerald-300" role="status">
                 Preferences saved.
               </p>
             )}
             {actionPreferencesError && (
-              <p className="text-sm text-red-700" role="alert">
+              <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                 {actionPreferencesError}
               </p>
             )}
@@ -513,10 +516,10 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6 dark:bg-slate-900">
           <div className="flex items-center gap-3 mb-4">
             <ImageIcon className="w-6 h-6" style={{ color: localTheme?.primary }} />
-            <h2 className="text-xl font-semibold text-gray-800">Chat Wallpaper</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">Chat Wallpaper</h2>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -536,7 +539,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           </div>
 
           <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
               Custom Wallpaper URL
             </label>
             <div className="flex gap-3 items-center mb-3">
@@ -545,12 +548,12 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                 value={localTheme?.wallpaperImage || ""}
                 onChange={(e) => updateTheme({ wallpaperImage: e.target.value, wallpaper: "" })}
                 placeholder="https://example.com/wallpaper.jpg"
-                className="w-full px-4 py-3 border rounded-xl"
+                className="w-full px-4 py-3 border rounded-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
               <button
                 type="button"
                 onClick={() => updateTheme({ wallpaperImage: "", wallpaper: localTheme?.wallpaper || "bg-white" })}
-                className="px-4 py-3 rounded-xl bg-gray-100 text-gray-700"
+                className="px-4 py-3 rounded-xl bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 Clear
               </button>
@@ -563,12 +566,12 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
               >
                 {wallpaperUploading ? "Uploading…" : "Upload from gallery"}
               </button>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-slate-400">
                 Choose an image file from your device to set as chat wallpaper.
               </span>
             </div>
             {wallpaperUploadError && (
-              <p className="text-red-500 text-sm mt-2">{wallpaperUploadError}</p>
+              <p className="text-red-500 dark:text-red-400 text-sm mt-2">{wallpaperUploadError}</p>
             )}
             <input
               ref={wallpaperInputRef}
@@ -577,16 +580,16 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
               className="hidden"
               onChange={handleWallpaperUpload}
             />
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-slate-400 mt-2">
               Paste a wallpaper image URL or upload one from your gallery.
             </p>
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6 dark:bg-slate-900">
           <div className="flex items-center gap-3 mb-4">
             <Type className="w-6 h-6" style={{ color: localTheme?.primary }} />
-            <h2 className="text-xl font-semibold text-gray-800">Text Size</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">Text Size</h2>
           </div>
 
           <div className="flex gap-4">
@@ -611,46 +614,46 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6 dark:bg-slate-900">
           <div className="flex items-center gap-3 mb-4">
             <Bell className="w-6 h-6" style={{ color: localTheme?.primary }} />
-            <h2 className="text-xl font-semibold text-gray-800">Notifications</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">Notifications</h2>
           </div>
 
           {/* Browser Notification Permission Card - CRITICAL: REQUIRED USER CLICK */}
           <div className={`mb-6 px-4 py-4 rounded-xl border ${
-            browserPerm === "granted" ? "border-emerald-200 bg-emerald-50" :
-            browserPerm === "denied" ? "border-red-200 bg-red-50" :
-            browserPerm === "unsupported" ? "border-gray-200 bg-gray-50" :
-            "border-amber-200 bg-amber-50"
+            browserPerm === "granted" ? "border-emerald-200 bg-emerald-50 dark:bg-emerald-900/30 dark:border-emerald-800" :
+            browserPerm === "denied" ? "border-red-200 bg-red-50 dark:bg-red-900/25 dark:border-red-800" :
+            browserPerm === "unsupported" ? "border-gray-200 bg-gray-50 dark:bg-slate-800 dark:border-slate-700" :
+            "border-amber-200 bg-amber-50 dark:bg-amber-900/25 dark:border-amber-800"
           }`}>
             <div className="flex items-start gap-3">
               {browserPerm === "granted" && (
-                <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
               )}
               {browserPerm === "default" && (
-                <BellRing className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+                <BellRing className="w-6 h-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               )}
               {browserPerm === "denied" && (
-                <ShieldAlert className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+                <ShieldAlert className="w-6 h-6 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
               )}
               {browserPerm === "unsupported" && (
-                <AlertCircle className="w-6 h-6 text-gray-500 shrink-0 mt-0.5" />
+                <AlertCircle className="w-6 h-6 text-gray-500 dark:text-slate-400 shrink-0 mt-0.5" />
               )}
               <div className="flex-1 min-w-0">
                 {browserPerm === "unsupported" ? (
                   <>
-                    <p className="font-semibold text-gray-700">Notifications not supported</p>
-                    <p className="text-sm text-gray-600 mt-0.5">Your browser does not support the Notification API.</p>
+                    <p className="font-semibold text-gray-700 dark:text-slate-200">Notifications not supported</p>
+                    <p className="text-sm text-gray-600 dark:text-slate-400 mt-0.5">Your browser does not support the Notification API.</p>
                   </>
                 ) : browserPerm === "granted" ? (
                   <>
-                    <p className="font-semibold text-emerald-700">
+                    <p className="font-semibold text-emerald-700 dark:text-emerald-300">
                       {pushReady
                         ? "Background notifications enabled ✅"
                         : "Browser notifications allowed"}
                     </p>
-                    <p className="text-sm text-emerald-600 mt-0.5">
+                    <p className="text-sm text-emerald-600 dark:text-emerald-300 mt-0.5">
                       {pushReady
                         ? "System alerts can arrive when the app is in the background or closed."
                         : "Background delivery is not ready. Check browser push support, HTTPS, and the server VAPID configuration."}
@@ -658,13 +661,13 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                   </>
                 ) : browserPerm === "denied" ? (
                   <>
-                    <p className="font-semibold text-red-700">Notifications blocked by browser ❌</p>
-                    <p className="text-sm text-red-600 mt-0.5">You've blocked notifications. Enable them in browser settings to receive alerts.</p>
+                    <p className="font-semibold text-red-700 dark:text-red-300">Notifications blocked by browser ❌</p>
+                    <p className="text-sm text-red-600 dark:text-red-300 mt-0.5">You've blocked notifications. Enable them in browser settings to receive alerts.</p>
                   </>
                 ) : (
                   <>
-                    <p className="font-semibold text-amber-700">Permission not granted ⚠️</p>
-                    <p className="text-sm text-amber-600 mt-0.5">Click the button below to allow notifications. Your browser will show a prompt.</p>
+                    <p className="font-semibold text-amber-700 dark:text-amber-300">Permission not granted ⚠️</p>
+                    <p className="text-sm text-amber-600 dark:text-amber-300 mt-0.5">Click the button below to allow notifications. Your browser will show a prompt.</p>
                   </>
                 )}
 
@@ -703,9 +706,9 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           {notificationKeys.map((key) => (
             <div
               key={key}
-              className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl mb-3"
+              className="flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl mb-3 dark:bg-slate-800"
             >
-              <p className="font-medium text-gray-800 capitalize">
+              <p className="font-medium text-gray-800 dark:text-slate-100 capitalize">
                 {key} Notifications
               </p>
 
@@ -713,7 +716,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                 onClick={() => toggleNotification(key)}
                 disabled={notificationLoading}
                 className={`w-12 h-6 rounded-full relative ${
-                  notifications[key] ? "" : "bg-gray-300"
+                  notifications[key] ? "" : "bg-gray-300 dark:bg-slate-700"
                 }`}
                 style={
                   notifications[key]
@@ -731,7 +734,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
           ))}
 
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
+            <label className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-3">
               Notification Ringtone
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -742,8 +745,8 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                     key={option.value}
                     className={`relative flex items-center gap-2 px-4 py-3 rounded-xl border transition ${
                       isActive
-                        ? "bg-emerald-50 border-emerald-300"
-                        : "bg-white border-gray-200 hover:bg-gray-50"
+                        ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-800"
+                        : "bg-white border-gray-200 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800"
                     }`}
                   >
                     <button
@@ -759,7 +762,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                             style={{ color: localTheme?.primary }}
                           />
                         )}
-                        <p className="font-medium text-gray-800 truncate">
+                        <p className="font-medium text-gray-800 dark:text-slate-100 truncate">
                           {option.name}
                         </p>
                       </div>
@@ -775,8 +778,8 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                         title="Preview"
                         className={`shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-full transition ${
                           isActive
-                            ? "text-emerald-700 hover:bg-emerald-100"
-                            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                            ? "text-emerald-700 hover:bg-emerald-100 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                         }`}
                       >
                         <Play className="w-4 h-4" />
@@ -790,21 +793,21 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                 onClick={triggerRingtoneUpload}
                 className={`px-4 py-3 rounded-xl text-left border transition ${
                   customRingtoneActive
-                    ? "bg-emerald-50 border-emerald-300"
-                    : "bg-white border-gray-200 hover:bg-gray-50"
+                    ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-800"
+                    : "bg-white border-gray-200 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-700 dark:hover:bg-slate-800"
                 }`}
               >
-                <p className="font-medium text-gray-800">Upload Audio</p>
+                <p className="font-medium text-gray-800 dark:text-slate-100">Upload Audio</p>
               </button>
             </div>
             <div className="mt-4 flex flex-col gap-3">
-              <label className="block text-sm font-medium text-gray-700">Custom Ringtone URL</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">Custom Ringtone URL</label>
               <input
                 type="text"
                 value={notifications?.ringtone || ""}
                 onChange={(e) => setRingtone(e.target.value)}
                 placeholder="https://example.com/ringtone.mp3"
-                className="w-full px-4 py-3 border rounded-xl"
+                className="w-full px-4 py-3 border rounded-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
               />
               <div className="flex items-center gap-3">
                 <button
@@ -815,7 +818,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                   {ringtoneUploading ? "Uploading…" : "Upload Custom Ringtone"}
                 </button>
                 {ringtoneUploadError && (
-                  <span className="text-sm text-red-500">{ringtoneUploadError}</span>
+                  <span className="text-sm text-red-500 dark:text-red-400">{ringtoneUploadError}</span>
                 )}
               </div>
               <input
@@ -825,20 +828,20 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                 className="hidden"
                 onChange={handleRingtoneUpload}
               />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-slate-400">
                 Upload a local ringtone file or paste a remote audio URL.
               </p>
             </div>
           </div>
         </motion.div>
 
-        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6">
+        <motion.div {...fadeIn} className="bg-white rounded-2xl p-6 shadow-lg mt-6 dark:bg-slate-900">
           <div className="flex items-center gap-3 mb-4">
             <Info className="w-6 h-6" style={{ color: localTheme?.primary }} />
-            <h2 className="text-xl font-semibold text-gray-800">About</h2>
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100">About</h2>
           </div>
-          <p className="text-gray-600">HansariaConnect v1.0.0</p>
-          <p className="text-sm text-gray-500">
+          <p className="text-gray-600 dark:text-slate-400">HansariaConnect v1.0.0</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             © 2026 HansariaConnect. All rights reserved.
           </p>
         </motion.div>

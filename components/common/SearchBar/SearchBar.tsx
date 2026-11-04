@@ -15,13 +15,13 @@ const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   return (
     <div className="relative">
-      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#54656f]" />
+      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#54656f] dark:text-slate-400" />
       <input
         type="text"
         onChange={(e) => onSearch(e.target.value)}
         placeholder={placeholder}
         style={{ caretColor: accentColor }}
-        className="w-full rounded-lg border border-transparent bg-[#f0f2f5] py-2.5 pl-11 pr-4 text-base text-[#111b21] outline-none transition-all duration-150 placeholder:text-[#54656f] focus:bg-white sm:py-2 sm:text-[14px]"
+        className="w-full rounded-lg border border-transparent bg-[#f0f2f5] py-2.5 pl-11 pr-4 text-base text-[#111b21] outline-none transition-all duration-150 placeholder:text-[#54656f] focus:bg-white sm:py-2 sm:text-[14px] dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:bg-slate-900"
         onFocus={(e) => {
           e.currentTarget.style.boxShadow = `0 0 0 1px ${accentColor}33`;
         }}

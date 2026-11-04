@@ -206,14 +206,14 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className="min-h-screen bg-[#efeae2]">
+      <div className="min-h-screen bg-[#efeae2] dark:bg-neutral-950">
         <Navbar user={navbarUser} onLogout={onLogout} />
 
         <div className="mx-auto max-w-2xl px-4 py-5 sm:py-7">
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="overflow-hidden rounded-[28px] border border-[#d9dbdf] bg-[#f7f8fa] shadow-[0_18px_45px_rgba(17,27,33,0.12)]"
+            className="overflow-hidden rounded-[28px] border border-[#d9dbdf] dark:border-slate-700 bg-[#f7f8fa] dark:bg-slate-900 shadow-[0_18px_45px_rgba(17,27,33,0.12)]"
           >
             <div
               className="px-5 py-5 text-white sm:px-6"
@@ -265,7 +265,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
             </div>
 
             <motion.div {...fadeIn} className="px-4 pb-5 pt-6 sm:px-6">
-              <div className="flex flex-col items-center border-b border-[#e9edef] pb-6">
+              <div className="flex flex-col items-center border-b border-[#e9edef] dark:border-slate-800 pb-6">
                 <div className="relative">
                   <div className="relative h-32 w-32 overflow-hidden rounded-full border-4 border-white shadow-lg sm:h-36 sm:w-36">
                     <Image
@@ -296,28 +296,28 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                   </label>
                 </div>
 
-                <p className="mt-4 text-lg font-semibold text-[#111b21]">
+                <p className="mt-4 text-lg font-semibold text-[#111b21] dark:text-slate-100">
                   {draftProfile.name}
                 </p>
-                <p className="mt-1 text-sm text-[#667781]">
+                <p className="mt-1 text-sm text-[#667781] dark:text-slate-400">
                   {draftProfile.mobile}
                 </p>
               </div>
 
               {statusMessage && (
-                <div className="mt-4 rounded-2xl border border-[#dfe5e7] bg-white px-4 py-3 text-sm text-[#54656f]">
+                <div className="mt-4 rounded-2xl border border-[#dfe5e7] dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-[#54656f] dark:text-slate-400">
                   {statusMessage}
                 </div>
               )}
 
               <div className="mt-4 space-y-4">
-                <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
+                <section className="rounded-3xl bg-white dark:bg-slate-900 px-5 py-4 shadow-sm ring-1 ring-[#e9edef] dark:ring-slate-800">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781] dark:text-slate-400">
                         Name
                       </p>
-                      <p className="mt-1 text-sm text-[#54656f]">
+                      <p className="mt-1 text-sm text-[#54656f] dark:text-slate-400">
                         This is not your username or pin. This name will be
                         visible to your contacts.
                       </p>
@@ -329,7 +329,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                           current === "name" ? null : "name",
                         )
                       }
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] text-[#54656f] transition hover:bg-[#e4e7eb]"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] dark:bg-slate-800 text-[#54656f] dark:text-slate-400 transition hover:bg-[#e4e7eb] dark:hover:bg-slate-700"
                       title="Edit name"
                     >
                       {editingField === "name" ? (
@@ -351,23 +351,23 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                         }))
                       }
                       placeholder="Enter your name"
-                      className="w-full rounded-2xl border border-[#d1d7db] bg-[#f7f8fa] px-4 py-3 text-[#111b21] outline-none transition focus:border-transparent focus:ring-2"
+                      className="w-full rounded-2xl border border-[#d1d7db] dark:border-slate-700 bg-[#f7f8fa] dark:bg-slate-800 px-4 py-3 text-[#111b21] dark:text-slate-100 outline-none transition focus:border-transparent focus:ring-2"
                       style={{ boxShadow: `0 0 0 2px ${accentColor}22` }}
                     />
                   ) : (
-                    <p className="text-base font-medium text-[#111b21]">
+                    <p className="text-base font-medium text-[#111b21] dark:text-slate-100">
                       {draftProfile.name}
                     </p>
                   )}
                 </section>
 
-                <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
+                <section className="rounded-3xl bg-white dark:bg-slate-900 px-5 py-4 shadow-sm ring-1 ring-[#e9edef] dark:ring-slate-800">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781] dark:text-slate-400">
                         About
                       </p>
-                      <p className="mt-1 text-sm text-[#54656f]">
+                      <p className="mt-1 text-sm text-[#54656f] dark:text-slate-400">
                         Add a short line about yourself, just like WhatsApp
                         status text.
                       </p>
@@ -379,7 +379,7 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                           current === "about" ? null : "about",
                         )
                       }
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] text-[#54656f] transition hover:bg-[#e4e7eb]"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f0f2f5] dark:bg-slate-800 text-[#54656f] dark:text-slate-400 transition hover:bg-[#e4e7eb] dark:hover:bg-slate-700"
                       title="Edit about"
                     >
                       {editingField === "about" ? (
@@ -401,35 +401,35 @@ const Profile: React.FC<ProfileProps> = ({ user, theme, onLogout }) => {
                       }
                       rows={4}
                       placeholder="Write something about yourself"
-                      className="w-full resize-none rounded-2xl border border-[#d1d7db] bg-[#f7f8fa] px-4 py-3 text-[#111b21] outline-none transition focus:border-transparent focus:ring-2"
+                      className="w-full resize-none rounded-2xl border border-[#d1d7db] dark:border-slate-700 bg-[#f7f8fa] dark:bg-slate-800 px-4 py-3 text-[#111b21] dark:text-slate-100 outline-none transition focus:border-transparent focus:ring-2"
                       style={{ boxShadow: `0 0 0 2px ${accentColor}22` }}
                     />
                   ) : (
-                    <p className="whitespace-pre-wrap text-base text-[#111b21]">
+                    <p className="whitespace-pre-wrap text-base text-[#111b21] dark:text-slate-100">
                       {draftProfile.about || "No about added yet."}
                     </p>
                   )}
                 </section>
 
-                <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
+                <section className="rounded-3xl bg-white dark:bg-slate-900 px-5 py-4 shadow-sm ring-1 ring-[#e9edef] dark:ring-slate-800">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781] dark:text-slate-400">
                     Phone
                   </p>
-                  <p className="mt-3 text-base font-medium text-[#111b21]">
+                  <p className="mt-3 text-base font-medium text-[#111b21] dark:text-slate-100">
                     {draftProfile.mobile}
                   </p>
-                  <p className="mt-1 text-sm text-[#54656f]">
+                  <p className="mt-1 text-sm text-[#54656f] dark:text-slate-400">
                     Your mobile number is linked to the account and cannot be
                     changed here.
                   </p>
                 </section>
 
-                <section className="flex flex-col gap-3 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef] sm:flex-row sm:items-center sm:justify-between">
+                <section className="flex flex-col gap-3 rounded-3xl bg-white dark:bg-slate-900 px-5 py-4 shadow-sm ring-1 ring-[#e9edef] dark:ring-slate-800 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#111b21]">
+                    <p className="text-sm font-semibold text-[#111b21] dark:text-slate-100">
                       Link HansariaConnect Web
                     </p>
-                    <p className="mt-1 text-sm text-[#54656f]">
+                    <p className="mt-1 text-sm text-[#54656f] dark:text-slate-400">
                       Scan the login QR code on your computer and approve it
                       with this account.
                     </p>

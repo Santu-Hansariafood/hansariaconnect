@@ -83,7 +83,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0ca678",
+  /* The browser paints its own chrome (status bar, address bar) with this, so
+   * it has to follow the same light/dark preference as the page itself. */
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0ca678" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b141a" },
+  ],
+  colorScheme: "light dark",
   viewportFit: "cover",
 };
 
@@ -271,7 +277,7 @@ export default function RootLayout({
       </head>
 
       <body
-        className={`${roboto.variable} bg-neutral-50 text-gray-900 antialiased`}
+        className={`${roboto.variable} bg-neutral-50 text-gray-900 antialiased dark:bg-neutral-950 dark:text-slate-100`}
       >
         <AppProvider>{children}</AppProvider>
       </body>

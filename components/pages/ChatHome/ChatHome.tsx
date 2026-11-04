@@ -355,20 +355,20 @@ export default function ChatHome({
 
   const themeColors = useMemo(
     () => ({
-      textColor: theme.isDark ? "text-gray-100" : "text-gray-900",
-      textSecondary: theme.isDark ? "text-gray-300" : "text-gray-600",
-      textMuted: theme.isDark ? "text-gray-400" : "text-gray-500",
-      bgCard: theme.isDark ? "bg-gray-800" : "bg-white",
-      bgCardHover: theme.isDark ? "hover:bg-gray-700" : "hover:bg-gray-50",
-      borderColor: theme.isDark ? "border-gray-700" : "border-gray-200",
+      textColor: theme.isDark ? "text-gray-100" : "text-gray-900 dark:text-slate-100",
+      textSecondary: theme.isDark ? "text-gray-300" : "text-gray-600 dark:text-slate-400",
+      textMuted: theme.isDark ? "text-gray-400" : "text-gray-500 dark:text-slate-400",
+      bgCard: theme.isDark ? "bg-gray-800" : "bg-white dark:bg-slate-900",
+      bgCardHover: theme.isDark ? "hover:bg-gray-700" : "hover:bg-gray-50 dark:hover:bg-slate-800",
+      borderColor: theme.isDark ? "border-gray-700" : "border-gray-200 dark:border-slate-700",
       inputBg: theme.isDark
         ? "bg-gray-800 border-gray-600 focus:border-blue-400"
-        : "bg-white border-gray-200 focus:border-emerald-500",
-      listSurface: theme.isDark ? "bg-gray-900" : "bg-white",
-      rowHover: theme.isDark ? "hover:bg-gray-800" : "hover:bg-[#f5f6f6]",
-      rowActive: theme.isDark ? "bg-gray-800" : "bg-[#f0f2f5]",
-      rowBorder: theme.isDark ? "border-gray-800" : "border-[#e9edef]",
-      dotRing: theme.isDark ? "border-gray-900" : "border-white",
+        : "bg-white border-gray-200 focus:border-emerald-500 dark:bg-slate-900 dark:border-slate-700",
+      listSurface: theme.isDark ? "bg-gray-900" : "bg-white dark:bg-slate-900",
+      rowHover: theme.isDark ? "hover:bg-gray-800" : "hover:bg-[#f5f6f6] dark:hover:bg-slate-800",
+      rowActive: theme.isDark ? "bg-gray-800" : "bg-[#f0f2f5] dark:bg-slate-800",
+      rowBorder: theme.isDark ? "border-gray-800" : "border-[#e9edef] dark:border-slate-800",
+      dotRing: theme.isDark ? "border-gray-900" : "border-white dark:border-slate-900",
     }),
     [theme.isDark],
   );
@@ -405,7 +405,7 @@ export default function ChatHome({
   const isInitialLoading = loading && contacts.length === 0;
 
   if (isInitialLoading) {
-    const skeletonBlock = theme.isDark ? "bg-white/10" : "bg-black/5";
+    const skeletonBlock = "bg-black/5 dark:bg-white/10";
 
     return (
       <div
@@ -494,9 +494,7 @@ export default function ChatHome({
                   className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-all duration-150 active:scale-95 ${
                     activeFilter === tab.key
                       ? "text-white shadow-sm"
-                      : `${textMuted} ${
-                          theme.isDark ? "hover:bg-white/10" : "hover:bg-black/5"
-                        }`
+                      : `${textMuted} hover:bg-black/5 dark:hover:bg-white/10`
                   }`}
                   style={
                     activeFilter === tab.key
@@ -570,7 +568,7 @@ export default function ChatHome({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={`fixed inset-0 z-50 overflow-y-auto ${theme.isDark ? "bg-gray-900" : "bg-white"}`}
+              className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-900"
               onClick={closeContactModal}
             >
               <motion.div
@@ -601,13 +599,11 @@ export default function ChatHome({
                       height={128}
                       className="w-32 h-32 rounded-full object-cover border-4"
                       style={{
-                        borderColor:
-                          theme.secondary ||
-                          (theme.isDark ? "#374151" : "#e5e7eb"),
+                        borderColor: theme.secondary || "var(--chat-border)",
                       }}
                     />
                     {selectedContact.active && (
-                      <span className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white rounded-full" />
+                      <span className="absolute bottom-2 right-2 w-6 h-6 bg-green-500 border-4 border-white dark:border-slate-900 rounded-full" />
                     )}
                   </div>
                   <h3 className={`text-2xl font-bold ${textColor} mb-1`}>
@@ -718,7 +714,7 @@ export default function ChatHome({
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className={`fixed inset-0 z-50 overflow-y-auto ${theme.isDark ? "bg-gray-900" : "bg-white"}`}
+              className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-900"
               onClick={() => setShowCreateModal(false)}
             >
               <motion.div

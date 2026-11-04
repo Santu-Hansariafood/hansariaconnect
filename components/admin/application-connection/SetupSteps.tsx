@@ -11,13 +11,15 @@ export default function SetupSteps({
   onNavigate,
   onCreateApiKey,
 }: SetupStepsProps) {
-  const linkColor = isPlatformAdmin ? "text-indigo-700" : "text-emerald-700";
+  const linkColor = isPlatformAdmin
+    ? "text-indigo-700 dark:text-indigo-300"
+    : "text-emerald-700 dark:text-emerald-300";
 
   return (
     <ol className="grid gap-3 sm:grid-cols-2">
-      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="font-semibold text-slate-900">1. Prepare chat accounts</p>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
+      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+        <p className="font-semibold text-slate-900 dark:text-slate-100">1. Prepare chat accounts</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
           Bind an existing sender account to your API key. Each recipient needs
           a registered HansariaConnect account.
           {isPlatformAdmin
@@ -32,9 +34,9 @@ export default function SetupSteps({
           {isPlatformAdmin ? "Open User directory" : "Open Accounts"}
         </button>
       </li>
-      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="font-semibold text-slate-900">2. Create a template</p>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
+      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+        <p className="font-semibold text-slate-900 dark:text-slate-100">2. Create a template</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
           Create an email-style subject and body with any required variables.
           The saved template ID is the template key for your integration.
         </p>
@@ -46,11 +48,11 @@ export default function SetupSteps({
           Open templates
         </button>
       </li>
-      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="font-semibold text-slate-900">
+      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+        <p className="font-semibold text-slate-900 dark:text-slate-100">
           3. Optional: workspace ID
         </p>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
           Not needed to send messages or to test the connection. Provide it only
           when a super-admin key must target another workspace; it is not a
           secret and is shown on the Admin Profile.
@@ -63,9 +65,9 @@ export default function SetupSteps({
           Open Admin Profile
         </button>
       </li>
-      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <p className="font-semibold text-slate-900">4. Create an API key</p>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
+      <li className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+        <p className="font-semibold text-slate-900 dark:text-slate-100">4. Create an API key</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
           Bind a sender chat account to this key, or include its account ID as
           fromUserId in each request. This is a user account ID, not the
           workspace adminId. Mark your preferred key as primary and use its

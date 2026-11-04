@@ -160,11 +160,11 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
     }
 
     if (message.status === "queued") {
-      return <span className="text-[10px] font-medium leading-none text-gray-500">Queued</span>
+      return <span className="text-[10px] font-medium leading-none text-gray-500 dark:text-slate-400">Queued</span>
     }
 
     if (message.status === "failed") {
-      return <span className="text-[10px] font-medium leading-none text-red-500">Failed</span>
+      return <span className="text-[10px] font-medium leading-none text-red-500 dark:text-red-300">Failed</span>
     }
 
     if (message.status === "seen") {
@@ -335,7 +335,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                           <button
                             type="button"
                             onClick={() => void handleDelete("forEveryone")}
-                            className="block w-full px-3 py-2 text-left text-red-600 hover:bg-gray-100"
+                            className="block w-full px-3 py-2 text-left text-red-600 dark:text-red-300 hover:bg-gray-100 dark:hover:bg-slate-800"
                           >
                             Delete for everyone
                           </button>
@@ -395,7 +395,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                   <span>{rich.nodes}</span>
 
                   {harmful.hasWarning && (
-                    <div className="mt-2 text-xs font-medium text-red-700 clear-both">
+                    <div className="mt-2 text-xs font-medium text-red-700 dark:text-red-300 clear-both">
                       Harmful content detected: {harmful.warnings.join(", ")}
                     </div>
                   )}
@@ -456,7 +456,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     <div className="break-words whitespace-pre-wrap inline">
                       <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700 clear-both">
+                        <div className="mt-2 text-xs text-red-700 dark:text-red-300 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -528,7 +528,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     <div className="break-words whitespace-pre-wrap inline">
                       <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700 clear-both">
+                        <div className="mt-2 text-xs text-red-700 dark:text-red-300 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -573,7 +573,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     <div className="break-words whitespace-pre-wrap inline">
                       <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700 clear-both">
+                        <div className="mt-2 text-xs text-red-700 dark:text-red-300 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -607,7 +607,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                     <div className="break-words whitespace-pre-wrap inline">
                       <span>{formatRichText(message.text).nodes}</span>
                       {harmful.hasWarning && (
-                        <div className="mt-2 text-xs text-red-700 clear-both">
+                        <div className="mt-2 text-xs text-red-700 dark:text-red-300 clear-both">
                           Harmful content detected
                         </div>
                       )}
@@ -691,7 +691,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(event) => event.stopPropagation()}
-                          className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-[#075e54] transition hover:underline"
+                          className="flex items-center gap-2 px-3 py-3 text-sm font-medium text-[#075e54] dark:text-emerald-300 transition hover:underline"
                         >
                           <span className="min-w-0 flex-1 break-all">
                             Open location in Maps
@@ -725,7 +725,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                         key={`${button.type}-${index}`}
                         href={`tel:${button.phoneNumber}`}
                         onClick={(event) => event.stopPropagation()}
-                        className="rounded-lg border border-emerald-700/30 bg-[var(--chat-surface)] px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-[var(--chat-glass-hover)]"
+                        className="rounded-lg border border-emerald-700/30 bg-[var(--chat-surface)] px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-700 dark:text-emerald-300 hover:bg-[var(--chat-glass-hover)]"
                       >
                         {button.label}
                       </a>
@@ -741,7 +741,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                           confirmedButtonIndexes.includes(index) ||
                           pendingButtonIndexes.includes(index)
                         }
-                        className="rounded-lg border border-emerald-700/30 bg-[var(--chat-surface)] px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-[var(--chat-glass-hover)]"
+                        className="rounded-lg border border-emerald-700/30 bg-[var(--chat-surface)] px-3 py-1.5 text-xs font-semibold text-emerald-800 dark:border-emerald-700 dark:text-emerald-300 hover:bg-[var(--chat-glass-hover)]"
                       >
                         {pendingButtonIndexes.includes(index)
                           ? "Sending..."
@@ -754,7 +754,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
               {templateButtonError && (
-                <p className="mt-2 text-xs text-red-700" role="alert">
+                <p className="mt-2 text-xs text-red-700 dark:text-red-300" role="alert">
                   {templateButtonError}
                 </p>
               )}

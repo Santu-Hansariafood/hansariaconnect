@@ -100,8 +100,8 @@ export default function ScanLogin() {
   };
 
   return (
-    <main className="min-h-screen bg-[#efeae2] px-4 py-10">
-      <section className="mx-auto max-w-xl overflow-hidden rounded-3xl bg-white shadow-xl">
+    <main className="min-h-screen bg-[#efeae2] dark:bg-neutral-950 px-4 py-10">
+      <section className="mx-auto max-w-xl overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-xl">
         <header className="bg-[#075e54] px-6 py-6 text-white">
           <div className="flex items-center gap-3">
             <ShieldCheck className="h-7 w-7" aria-hidden="true" />
@@ -116,33 +116,33 @@ export default function ScanLogin() {
 
         <div className="space-y-5 p-5 sm:p-6">
           {loading ? (
-            <div className="flex items-center gap-3 py-4 text-sm text-[#54656f]">
+            <div className="flex items-center gap-3 py-4 text-sm text-[#54656f] dark:text-slate-400">
               <LoaderCircle className="h-5 w-5 animate-spin" />
               Checking your account…
             </div>
           ) : !isValidToken ? (
-            <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p role="alert" className="rounded-xl bg-red-50 dark:bg-red-900/25 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               This login QR code is invalid. Return to your computer and refresh it.
             </p>
           ) : account ? (
             <>
-              <div className="rounded-2xl bg-[#f0f2f5] p-4">
-                <p className="text-sm font-semibold text-[#111b21]">
+              <div className="rounded-2xl bg-[#f0f2f5] dark:bg-slate-800 p-4">
+                <p className="text-sm font-semibold text-[#111b21] dark:text-slate-100">
                   Approve sign-in for {account.name || account.mobile}
                 </p>
-                <p className="mt-1 text-sm text-[#54656f]">
+                <p className="mt-1 text-sm text-[#54656f] dark:text-slate-400">
                   Account ending in {account.mobile.slice(-4)}
                 </p>
               </div>
 
               {error && (
-                <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p role="alert" className="rounded-xl bg-red-50 dark:bg-red-900/25 px-4 py-3 text-sm text-red-700 dark:text-red-300">
                   {error}
                 </p>
               )}
 
               {approved ? (
-                <div className="flex items-start gap-3 rounded-2xl bg-[#e7f8f1] p-4 text-[#075e54]">
+                <div className="flex items-start gap-3 rounded-2xl bg-[#e7f8f1] dark:bg-emerald-900/30 p-4 text-[#075e54] dark:text-emerald-300">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
                   <div>
                     <p className="font-semibold">Login approved</p>
@@ -167,11 +167,11 @@ export default function ScanLogin() {
               <LinkedDevices onDevicesChange={handleDevicesChange} />
             </>
           ) : !error ? (
-            <p className="py-4 text-sm text-[#54656f]">
+            <p className="py-4 text-sm text-[#54656f] dark:text-slate-400">
               Redirecting you to sign in…
             </p>
           ) : (
-            <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+            <p role="alert" className="rounded-xl bg-red-50 dark:bg-red-900/25 px-4 py-3 text-sm text-red-700 dark:text-red-300">
               {error}
             </p>
           )}

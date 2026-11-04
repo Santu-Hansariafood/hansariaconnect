@@ -1,11 +1,11 @@
 export default function ConnectionTroubleshooting() {
   return (
     <>
-      <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-        <h3 className="font-semibold text-amber-950">
+      <section className="rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/30">
+        <h3 className="font-semibold text-amber-950 dark:text-amber-200">
           Getting HTTP 401? Check your API key
         </h3>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-amber-900">
+        <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-amber-900 dark:text-amber-300">
           <li>
             Send the API key as <code>Authorization: Bearer YOUR_API_KEY</code>.
             Confirm it is active, not expired, and copied correctly.
@@ -20,11 +20,11 @@ export default function ConnectionTroubleshooting() {
           </li>
         </ul>
       </section>
-      <section className="rounded-xl border border-sky-300 bg-sky-50 p-4">
-        <h3 className="font-semibold text-sky-950">
+      <section className="rounded-xl border border-sky-300 bg-sky-50 p-4 dark:border-sky-800 dark:bg-sky-900/30">
+        <h3 className="font-semibold text-sky-950 dark:text-sky-200">
           Which step failed? Read <code>failedAt</code>
         </h3>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-sky-900">
+        <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-6 text-sky-900 dark:text-sky-300">
           <li>
             Call <code>GET /api/v1/connection/test</code> with only your{" "}
             <code>Authorization: Bearer</code> header — nothing else is
@@ -63,7 +63,7 @@ export default function ConnectionTroubleshooting() {
           </li>
         </ul>
       </section>
-      <p className="text-sm leading-6 text-slate-600">
+      <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
         The example sends an in-app message, not SMS. It sends to one recipient
         using <code>POST /api/v1/messages/send</code>. To send to multiple
         recipients, use <code>POST /api/v1/messages/bulk</code> with a{" "}
@@ -74,7 +74,7 @@ export default function ConnectionTroubleshooting() {
         object in each recipient entry. To use a saved template, create it in My
         templates and use <code>templateName</code> or <code>templateId</code>.
       </p>
-      <p className="text-sm leading-6 text-slate-600">
+      <p className="text-sm leading-6 text-slate-600 dark:text-slate-400">
         Bulk sends return HTTP <code>202</code> with a <code>jobId</code> and{" "}
         <code>statusUrl</code> as soon as the request is accepted. Poll the
         status URL with the same API key to track each recipient; the VPS bulk

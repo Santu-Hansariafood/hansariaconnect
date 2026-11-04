@@ -1532,19 +1532,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         <div className="flex-1 min-h-0 overflow-hidden px-3 py-4 sm:px-6">
           <div className="mx-auto w-full max-w-3xl space-y-3">
             <div className="flex justify-start">
-              <div className="h-10 w-48 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white shadow-sm sm:w-56" />
+              <div className="h-10 w-48 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white dark:bg-slate-900 shadow-sm sm:w-56" />
             </div>
             <div className="flex justify-end">
               <div className="h-10 w-40 max-w-[75%] animate-pulse rounded-2xl rounded-br-sm bg-[#d9fdd3] shadow-sm sm:w-44" />
             </div>
             <div className="flex justify-start">
-              <div className="h-16 w-56 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white shadow-sm sm:w-64" />
+              <div className="h-16 w-56 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white dark:bg-slate-900 shadow-sm sm:w-64" />
             </div>
             <div className="flex justify-end">
               <div className="h-10 w-32 max-w-[75%] animate-pulse rounded-2xl rounded-br-sm bg-[#d9fdd3] shadow-sm" />
             </div>
             <div className="flex justify-start">
-              <div className="h-10 w-52 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white shadow-sm sm:w-60" />
+              <div className="h-10 w-52 max-w-[75%] animate-pulse rounded-2xl rounded-bl-sm bg-white dark:bg-slate-900 shadow-sm sm:w-60" />
             </div>
             <div className="flex justify-end">
               <div className="h-16 w-44 max-w-[75%] animate-pulse rounded-2xl rounded-br-sm bg-[#d9fdd3] shadow-sm sm:w-48" />
@@ -1553,8 +1553,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
 
         <div className="flex h-14 shrink-0 items-center gap-2 border-t border-[#e9edef] bg-[#f0f2f5] px-2 pb-[env(safe-area-inset-bottom)] sm:px-4">
-          <div className="h-10 flex-1 animate-pulse rounded-full bg-white" />
-          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-white" />
+          <div className="h-10 flex-1 animate-pulse rounded-full bg-white dark:bg-slate-900" />
+          <div className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-white dark:bg-slate-900" />
         </div>
 
         <span className="sr-only">Loading conversation…</span>
@@ -1578,7 +1578,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           </button>
           <button
             onClick={onBack || (() => router.replace("/chat"))}
-            className="flex-1 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#111b21]"
+            className="flex-1 rounded-xl bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-[#111b21] dark:text-slate-100"
           >
             Back
           </button>
@@ -1591,7 +1591,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     <Suspense fallback={<Loading />}>
       <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden overscroll-none bg-[var(--chat-wallpaper-surface)]">
         {mediaError && (
-          <div className="flex items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="flex items-center justify-between gap-3 border-b border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/25 dark:text-red-300">
             <span>{mediaError}</span>
             <button type="button" onClick={() => setMediaError("")} className="font-semibold">Dismiss</button>
           </div>

@@ -205,3 +205,19 @@ textarea {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
 }
+
+/* Dark scrollbars once the OS asks for a dark scheme, otherwise the light grey
+ * thumb is nearly invisible on the dark surfaces. */
+@media (prefers-color-scheme: dark) {
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.22);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.35);
+  }
+
+  * {
+    scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  }
+}

@@ -11,7 +11,7 @@ export default function Loading() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 flex items-center justify-center overflow-hidden bg-white"
+      className="fixed inset-0 flex items-center justify-center overflow-hidden bg-white dark:bg-slate-900"
     >
       <div
         aria-hidden
@@ -39,11 +39,11 @@ export default function Loading() {
           HansariaConnect
         </h1>
 
-        <p className="mt-1.5 text-center text-[13px] text-gray-500 sm:text-sm">
+        <p className="mt-1.5 text-center text-[13px] text-gray-500 dark:text-slate-400 sm:text-sm">
           Private messaging, made in India
         </p>
 
-        <div className="mt-8 h-1 w-56 overflow-hidden rounded-full bg-black/5">
+        <div className="mt-8 h-1 w-56 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
           <div
             className="loading-bar h-full w-1/3 rounded-full"
             style={{ backgroundColor: "var(--brand-primary)" }}

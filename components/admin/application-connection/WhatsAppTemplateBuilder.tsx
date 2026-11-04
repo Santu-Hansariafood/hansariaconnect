@@ -38,11 +38,13 @@ export default function WhatsAppTemplateBuilder({
   const [copyStatus, setCopyStatus] = useState("");
   const [clockTime, setClockTime] = useState("");
 
-  const accent = isPlatformAdmin ? "text-indigo-700" : "text-emerald-700";
+  const accent = isPlatformAdmin
+    ? "text-indigo-700 dark:text-indigo-300"
+    : "text-emerald-700 dark:text-emerald-300";
   const accentSolid = isPlatformAdmin ? "bg-indigo-700" : "bg-emerald-700";
   const accentSoft = isPlatformAdmin
-    ? "border-indigo-200 bg-indigo-50"
-    : "border-emerald-200 bg-emerald-50";
+    ? "border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-900/30"
+    : "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-900/30";
 
   useEffect(() => {
     const update = () =>
@@ -254,11 +256,11 @@ export default function WhatsAppTemplateBuilder({
 
   if (!template) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="font-semibold text-slate-900">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <h3 className="font-semibold text-slate-900 dark:text-slate-100">
           Template message builder
         </h3>
-        <p className="mt-1 text-sm leading-6 text-slate-600">
+        <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
           Create a template first. A template holds the header, body, footer,
           and buttons your other app sends.
         </p>
@@ -274,20 +276,20 @@ export default function WhatsAppTemplateBuilder({
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="font-semibold text-slate-900">Template message builder</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-600">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <h3 className="font-semibold text-slate-900 dark:text-slate-100">Template message builder</h3>
+      <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
         Pick a template, fill the sample values, and preview the exact message
         your other app will deliver. Send a test before wiring your code.
       </p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
+        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           Template
           <select
             value={template._id}
             onChange={(event) => setSelectedTemplateId(event.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {templates.map((item) => (
               <option key={item._id} value={item._id}>
@@ -296,12 +298,12 @@ export default function WhatsAppTemplateBuilder({
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
+        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           Language
           <select
             value={activeLanguage}
             onChange={(event) => setLanguage(event.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             {languages.map((item) => (
               <option key={item} value={item}>
@@ -314,10 +316,10 @@ export default function WhatsAppTemplateBuilder({
 
       {variableNames.length ? (
         <div className="mt-4">
-          <h4 className="text-sm font-semibold text-slate-900">
+          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Sample values
           </h4>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Your other app replaces each placeholder with real data when it
             sends.
           </p>
@@ -325,7 +327,7 @@ export default function WhatsAppTemplateBuilder({
             {variableNames.map((name) => (
               <label
                 key={name}
-                className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2"
+                className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800"
               >
                 <code
                   className={`shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold ${accentSoft} ${accent}`}
@@ -339,20 +341,20 @@ export default function WhatsAppTemplateBuilder({
                     }))
                   }
                   placeholder={`Example ${name}`}
-                  className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900"
+                  className="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
               </label>
             ))}
           </div>
         </div>
       ) : (
-        <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+        <p className="mt-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
           This template has no placeholders.
         </p>
       )}
 
       <div className="mt-4">
-        <h4 className="text-sm font-semibold text-slate-900">Preview</h4>
+        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Preview</h4>
         <div className="mt-2 rounded-2xl bg-[#efeae2] p-4">
           <div className="mx-auto max-w-sm">
             <div className="rounded-2xl rounded-tr-sm bg-[#d9fdd3] px-3 py-2 shadow-sm">
@@ -416,7 +418,7 @@ export default function WhatsAppTemplateBuilder({
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
+        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           Recipients
           <select
             value={recipientMode}
@@ -425,13 +427,13 @@ export default function WhatsAppTemplateBuilder({
                 event.target.value === "multiple" ? "multiple" : "single",
               )
             }
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           >
             <option value="single">One recipient</option>
             <option value="multiple">Multiple recipients</option>
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
+        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           {recipientMode === "single"
             ? "Recipient mobile or chat account ID"
             : `Recipient mobile numbers or chat account IDs (${recipients.length})`}
@@ -439,7 +441,7 @@ export default function WhatsAppTemplateBuilder({
             <input
               value={recipient}
               onChange={(event) => setRecipient(event.target.value)}
-              className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
+              className="rounded-lg border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               placeholder="e.g. 9876543210"
             />
           ) : (
@@ -447,24 +449,24 @@ export default function WhatsAppTemplateBuilder({
               value={recipient}
               onChange={(event) => setRecipient(event.target.value)}
               rows={3}
-              className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
+              className="rounded-lg border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               placeholder={"9876543210, 9876543211\n9876543212"}
             />
           )}
           {recipientMode === "multiple" && (
-            <span className="text-xs font-normal text-slate-500">
+            <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
               Separate recipients with commas or new lines (up to 1,000).
               Numbers are matched to existing HansariaConnect accounts
               automatically; no manual registration is needed here.
             </span>
           )}
         </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700">
+        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           Sender chat account ID (required unless already bound to the API key)
           <input
             value={senderUserId}
             onChange={(event) => setSenderUserId(event.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
+            className="rounded-lg border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             placeholder="Existing account's 24-character ID"
           />
           <span className="text-xs font-normal text-slate-500">
@@ -473,14 +475,14 @@ export default function WhatsAppTemplateBuilder({
             key and leave this blank.
           </span>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2">
+        <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2 dark:text-slate-200">
           Workspace API key
           <input
             type="password"
             autoComplete="off"
             value={apiKey}
             onChange={(event) => setApiKey(event.target.value.trim())}
-            className="rounded-lg border border-slate-300 px-3 py-2 font-normal"
+            className="rounded-lg border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             placeholder="Paste the key shown when you created it"
           />
         </label>
@@ -498,12 +500,12 @@ export default function WhatsAppTemplateBuilder({
         </button>
         <span
           aria-live="polite"
-          className={`text-sm ${sendResult?.ok ? "text-emerald-700" : "text-red-700"}`}
+          className={`text-sm ${sendResult?.ok ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}
         >
           {sendResult?.text}
         </span>
       </div>
-      <p className="mt-2 text-xs leading-5 text-slate-500">
+      <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
         The key is used in this page only and is never saved by HansariaConnect.
       </p>
     </section>

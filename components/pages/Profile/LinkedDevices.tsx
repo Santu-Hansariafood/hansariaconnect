@@ -118,56 +118,56 @@ export default function LinkedDevices({
   };
 
   return (
-    <section className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-[#e9edef]">
+    <section className="rounded-3xl bg-white dark:bg-slate-900 px-5 py-4 shadow-sm ring-1 ring-[#e9edef] dark:ring-slate-800">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781]">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#667781] dark:text-slate-400">
             Linked devices
           </p>
-          <p className="mt-1 text-sm text-[#54656f]">
+          <p className="mt-1 text-sm text-[#54656f] dark:text-slate-400">
             Up to {MAX_DEVICE_SESSIONS} devices can be signed in at once.
           </p>
         </div>
-        <span className="rounded-full bg-[#e7f8f1] px-3 py-1 text-sm font-semibold text-[#008069]">
+        <span className="rounded-full bg-[#e7f8f1] dark:bg-emerald-900/30 px-3 py-1 text-sm font-semibold text-[#008069] dark:text-emerald-300">
           {loading ? "…" : `${devices.length}/${MAX_DEVICE_SESSIONS}`}
         </span>
       </div>
 
       {error && (
-        <p role="alert" className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p role="alert" className="mb-3 rounded-xl bg-red-50 dark:bg-red-900/25 px-3 py-2 text-sm text-red-700 dark:text-red-300">
           {error}
         </p>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 py-3 text-sm text-[#667781]">
+        <div className="flex items-center gap-2 py-3 text-sm text-[#667781] dark:text-slate-400">
           <LoaderCircle className="h-4 w-4 animate-spin" />
           Loading devices…
         </div>
       ) : devices.length === 0 ? (
-        <p className="py-2 text-sm text-[#667781]">No linked devices found.</p>
+        <p className="py-2 text-sm text-[#667781] dark:text-slate-400">No linked devices found.</p>
       ) : (
-        <ul className="divide-y divide-[#e9edef]">
+        <ul className="divide-y divide-[#e9edef] dark:divide-slate-800">
           {devices.map((device) => (
             <li
               key={device.sessionId}
               className="flex items-center gap-3 py-3 first:pt-1 last:pb-1"
             >
               {device.deviceName.toLowerCase().includes("mobile") ? (
-                <Smartphone className="h-5 w-5 shrink-0 text-[#008069]" />
+                <Smartphone className="h-5 w-5 shrink-0 text-[#008069] dark:text-emerald-300" />
               ) : (
-                <Laptop className="h-5 w-5 shrink-0 text-[#008069]" />
+                <Laptop className="h-5 w-5 shrink-0 text-[#008069] dark:text-emerald-300" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-[#111b21]">
+                <p className="truncate text-sm font-medium text-[#111b21] dark:text-slate-100">
                   {device.browserName}
                   {device.current && (
-                    <span className="ml-2 text-xs font-normal text-[#008069]">
+                    <span className="ml-2 text-xs font-normal text-[#008069] dark:text-emerald-300">
                       This device
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-[#667781]">
+                <p className="text-xs text-[#667781] dark:text-slate-400">
                   {device.deviceName} ·{" "}
                   {new Date(device.createdAt).toLocaleDateString()}
                 </p>
@@ -177,7 +177,7 @@ export default function LinkedDevices({
                   type="button"
                   onClick={() => void removeDevice(device)}
                   disabled={removingId === device.sessionId}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs font-medium text-[#b42318] transition hover:bg-red-50 disabled:opacity-50"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-2 text-xs font-medium text-[#b42318] dark:text-red-300 transition hover:bg-red-50 dark:hover:bg-red-900/25 disabled:opacity-50"
                   aria-label={`Log out ${device.browserName}`}
                 >
                   {removingId === device.sessionId ? (

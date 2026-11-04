@@ -355,7 +355,9 @@ const copy = async (value: string, label: string) => {
     <details className="mt-3">
       <summary
         className={`cursor-pointer text-sm font-medium ${
-          isPlatformAdmin ? "text-indigo-700" : "text-emerald-700"
+          isPlatformAdmin
+            ? "text-indigo-700 dark:text-indigo-300"
+            : "text-emerald-700 dark:text-emerald-300"
         }`}
       >
         Copy this template into your app

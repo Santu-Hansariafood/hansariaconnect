@@ -40,11 +40,11 @@ export default function TeamPortfolio() {
   return (
     <section
       aria-labelledby="team-portfolio-title"
-      className="mt-8 overflow-hidden rounded-3xl border border-[#dfe9e5] bg-white p-5 shadow-sm sm:p-8 lg:p-10"
+      className="mt-8 overflow-hidden rounded-3xl border border-[#dfe9e5] bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm sm:p-8 lg:p-10"
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#f0f7f3] px-3 py-1.5">
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#f0f7f3] dark:bg-slate-800 px-3 py-1.5">
             <Image
               src="/logo/removebg.png"
               alt="HansariaConnect logo"
@@ -52,17 +52,17 @@ export default function TeamPortfolio() {
               height={24}
               className="h-6 w-6 object-contain"
             />
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#075e54]">
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#075e54] dark:text-emerald-400">
               The people behind the product
             </span>
           </div>
           <h2
             id="team-portfolio-title"
-            className="text-2xl font-semibold tracking-tight text-[#123b32] sm:text-3xl"
+            className="text-2xl font-semibold tracking-tight text-[#123b32] dark:text-slate-100 sm:text-3xl"
           >
             Meet our team
           </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#53635e] sm:text-base">
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#53635e] dark:text-slate-400 sm:text-base">
             A collaborative team portfolio from Hansaria Food IT. The logos are
             temporary portrait placeholders for these team roles, not photos or
             named employee profiles.
@@ -88,7 +88,7 @@ export default function TeamPortfolio() {
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.45, delay: index * 0.08 }}
                 whileHover={{ y: -5 }}
-                className="group overflow-hidden rounded-2xl border border-[#e5efeb] bg-[#f8fbf9] p-3 transition-colors hover:border-[#9ac7b7] hover:bg-white"
+                className="group overflow-hidden rounded-2xl border border-[#e5efeb] bg-[#f8fbf9] dark:border-slate-700 dark:bg-slate-800 p-3 transition-colors hover:border-[#9ac7b7] dark:hover:border-slate-600 hover:bg-white dark:hover:bg-slate-700"
               >
                 <div
                   className="relative flex aspect-[1.4] items-center justify-center overflow-hidden rounded-xl"
@@ -109,13 +109,13 @@ export default function TeamPortfolio() {
                   </div>
                 </div>
                 <div className="px-2 pb-2 pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0a8f76]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#0a8f76] dark:text-emerald-400">
                     Team portfolio
                   </p>
-                  <h3 className="mt-1.5 text-lg font-semibold text-[#123b32]">
+                  <h3 className="mt-1.5 text-lg font-semibold text-[#123b32] dark:text-slate-100">
                     {title}
                   </h3>
-                  <p className="mt-2 text-sm leading-6 text-[#53635e]">
+                  <p className="mt-2 text-sm leading-6 text-[#53635e] dark:text-slate-400">
                     {description}
                   </p>
                 </div>

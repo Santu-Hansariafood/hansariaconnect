@@ -47,31 +47,31 @@ export default function ChatWindowModals({
   return (
     <>
       {showSaveModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-900">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8"
           >
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">
               Save Contact
             </h3>
             {saveError && (
-              <div className="text-red-600 text-sm mb-2">{saveError}</div>
+              <div className="text-red-600 dark:text-red-300 text-sm mb-2">{saveError}</div>
             )}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-700">Name</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-200">Name</label>
               <input
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
-                className="w-full px-4 py-3 border rounded-xl"
+                className="w-full px-4 py-3 border rounded-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                 placeholder="Enter name"
               />
             </div>
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowSaveModal(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700"
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 Cancel
               </button>
@@ -89,31 +89,31 @@ export default function ChatWindowModals({
       )}
 
       {showEditModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-900">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8"
           >
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">
               Edit Contact Name
             </h3>
             {editError && (
-              <div className="text-red-600 text-sm mb-2">{editError}</div>
+              <div className="text-red-600 dark:text-red-300 text-sm mb-2">{editError}</div>
             )}
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-700">Name</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-200">Name</label>
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="w-full px-4 py-3 border rounded-xl"
+                className="w-full px-4 py-3 border rounded-xl dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-500"
                 placeholder={headerName}
               />
             </div>
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700"
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 Cancel
               </button>
@@ -130,23 +130,23 @@ export default function ChatWindowModals({
       )}
 
       {showClearConfirm && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white dark:bg-slate-900">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="mx-auto min-h-full w-full max-w-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:p-8"
           >
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">
               Clear Chat
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-slate-400">
               This will remove all messages from this conversation locally. Are
               you sure?
             </p>
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700"
+                className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 Cancel
               </button>

@@ -73,7 +73,7 @@ const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
 
   return (
     <Suspense fallback={<Loading />}>
-      <div className={`min-h-screen ${theme.wallpaper}`}>
+      <div className={`min-h-screen ${theme.wallpaper} dark:bg-neutral-950 dark:bg-none`}>
         <Navbar user={user} />
 
         <div className="max-w-7xl mx-auto px-4 py-6">
@@ -83,7 +83,7 @@ const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
             className="mb-6 flex items-center justify-between"
           >
             <h1
-              className={`text-3xl font-bold text-gray-800 ${theme.textSize || ""}`}
+              className={`text-3xl font-bold text-gray-800 dark:text-slate-100 ${theme.textSize || ""}`}
             >
               Groups
             </h1>
@@ -101,13 +101,13 @@ const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
           </motion.div>
 
           {error && (
-            <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-900/25 px-4 py-3 text-sm text-red-600 dark:text-red-400">
               {error}
             </div>
           )}
 
           {loading ? (
-            <div className="py-12 text-center text-gray-500">
+            <div className="py-12 text-center text-gray-500 dark:text-slate-400">
               Loading your groups...
             </div>
           ) : groupList.length ? (
@@ -129,7 +129,7 @@ const Groups: React.FC<GroupsProps> = ({ user, theme }) => {
               ))}
             </motion.div>
           ) : (
-            <div className="py-12 text-center text-gray-500">
+            <div className="py-12 text-center text-gray-500 dark:text-slate-400">
               No groups yet. Create one to start collaborating.
             </div>
           )}
