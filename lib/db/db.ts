@@ -33,36 +33,38 @@ global.communicationsConnectionCache = communicationsCache;
 
 const cached: MongooseCache = globalCache;
 
-async function seedSuperAdmin() {
-  try {
-    const userId = process.env.INITIAL_SUPER_ADMIN_USER_ID;
-    const email = process.env.INITIAL_SUPER_ADMIN_EMAIL;
-    const password = process.env.INITIAL_SUPER_ADMIN_PASSWORD;
+async function seedInitialAdmin(
+  userId: string | undefined,
+  email: string | undefined,
+  password: string | undefined,
+  isSuperAdmin: boolean,
+) {
+  if (!userId || !email || !password) return;
 
-    if (!userId || !email || !password) {
-      console.log("Skipping super admin seeding: missing env vars");
-      return;
-    }
+  const existingAdmin = await Admin.findOne({
+    $or: [{ userId }, { email }],
+  });
 
-    const existingAdmin = await Admin.findOne({
-      $or: [{ userId }, { email }],
-    });
+  if (existingAdmin) return;
 
-    if (!existingAdmin) {
-      const superAdmin = new Admin({
-        userId,
-        email,
-        password,
-        isSuperAdmin: true,
-      });
-      await superAdmin.save();
-      console.log("Initial super admin created successfully");
-    } else {
-      console.log("Super admin already exists");
-    }
-  } catch (error) {
-    console.error("Error seeding super admin:", error);
-  }
+  const admin = new Admin({ userId, email, password, isSuperAdmin });
+  await admin.save();
+  console.log(`Initial ${isSuperAdmin ? "super admin" : "admin"} created successfully`);
+}
+
+async function seedConfiguredAdmins() {
+  await seedInitialAdmin(
+    process.env.INITIAL_SUPER_ADMIN_USER_ID,
+    process.env.INITIAL_SUPER_ADMIN_EMAIL,
+    process.env.INITIAL_SUPER_ADMIN_PASSWORD,
+    true,
+  );
+  await seedInitialAdmin(
+    process.env.INITIAL_ADMIN_USER_ID,
+    process.env.INITIAL_ADMIN_EMAIL,
+    process.env.INITIAL_ADMIN_PASSWORD,
+    false,
+  );
 }
 
 export async function connectDB() {
@@ -97,9 +99,14 @@ export async function connectDB() {
 
     cached.promise = mongoose
       .connect(MONGODB_URI, opts)
-      .then((mongoose) => {
-        void seedSuperAdmin();
+      .then(async (mongoose) => {
+        await seedConfiguredAdmins();
         return mongoose;
+      })
+      .catch((error: unknown) => {
+        cached.conn = null;
+        cached.promise = null;
+        throw error;
       });
   }
 

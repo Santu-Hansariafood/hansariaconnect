@@ -25,16 +25,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
     }
 
-    if (
-      !DEFAULT_SUPER_ADMIN.userId ||
-      !DEFAULT_SUPER_ADMIN.email ||
-      !DEFAULT_SUPER_ADMIN.password ||
-      !DEFAULT_ADMIN.userId ||
-      !DEFAULT_ADMIN.email ||
-      !DEFAULT_ADMIN.password
-    ) {
+    const adminsToSeed = [DEFAULT_SUPER_ADMIN, DEFAULT_ADMIN].filter(
+      (admin) => admin.userId && admin.email && admin.password,
+    );
+
+    if (adminsToSeed.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Admin seed configuration is incomplete" },
+        { success: false, error: "No complete admin seed configuration is available" },
         { status: 503 },
       );
     }
@@ -47,44 +44,23 @@ export async function GET(req: NextRequest) {
 
     // Hash passwords manually
     const saltRounds = 10;
-    const hashedSuperAdminPassword = await bcrypt.hash(
-      DEFAULT_SUPER_ADMIN.password,
-      saltRounds,
-    );
-
-    const hashedAdminPassword = await bcrypt.hash(
-      DEFAULT_ADMIN.password,
-      saltRounds,
-    );
-
     if (shouldReset) {
       await Admin.deleteMany({});
     }
 
-    await Admin.findOneAndUpdate(
-      {
-        $or: [
-          { userId: DEFAULT_SUPER_ADMIN.userId },
-          { email: DEFAULT_SUPER_ADMIN.email },
-        ],
-      },
-      {
-        ...DEFAULT_SUPER_ADMIN,
-        password: hashedSuperAdminPassword,
-      },
-      { upsert: true, new: true },
-    );
-
-    await Admin.findOneAndUpdate(
-      {
-        $or: [{ userId: DEFAULT_ADMIN.userId }, { email: DEFAULT_ADMIN.email }],
-      },
-      {
-        ...DEFAULT_ADMIN,
-        password: hashedAdminPassword,
-      },
-      { upsert: true, new: true },
-    );
+    for (const admin of adminsToSeed) {
+      const hashedPassword = await bcrypt.hash(admin.password, saltRounds);
+      await Admin.findOneAndUpdate(
+        {
+          $or: [{ userId: admin.userId }, { email: admin.email }],
+        },
+        {
+          ...admin,
+          password: hashedPassword,
+        },
+        { upsert: true, new: true },
+      );
+    }
 
     return NextResponse.json({
       success: true,
