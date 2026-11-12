@@ -26,12 +26,12 @@ const createPostmanCollection = ({
   variables: string[];
 }) => ({
   info: {
-    name: `${name} - HansariaConnect Webhook`,
+    name: `${name} - HansariaConnect API Integration`,
     schema:
       "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
   },
   description:
-    "Incoming integration: your app calls the HansariaConnect API with POST requests. Set the apiKey collection variable before use. Recipients must have registered HansariaConnect accounts. The API key must be bound to a sender account; otherwise add fromUserId to send requests.",
+    "Incoming API integration: your app calls the HansariaConnect API with POST requests. Set the apiKey collection variable before use. Recipients must have registered HansariaConnect accounts. The API key must be bound to a sender account; otherwise add fromUserId to send requests. Configure outgoing signed message webhooks in Admin > API keys.",
   auth: {
     type: "bearer",
     bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }],
@@ -215,7 +215,7 @@ HANSARIA_TEMPLATE_NAME=${template.name}`;
       template.name.replace(/[^a-z0-9_-]+/gi, "-").replace(/^-|-$/g, "") ||
       "hansariaconnect";
     link.href = downloadUrl;
-    link.download = `${fileName}-webhook.postman_collection.json`;
+    link.download = `${fileName}-integration.postman_collection.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();

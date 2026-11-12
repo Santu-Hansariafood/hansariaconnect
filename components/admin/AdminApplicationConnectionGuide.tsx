@@ -3,6 +3,7 @@
 import ConnectionTroubleshooting from "./application-connection/ConnectionTroubleshooting";
 import SetupSteps from "./application-connection/SetupSteps";
 import WhatsAppTemplateBuilder from "./application-connection/WhatsAppTemplateBuilder";
+import WebhookSettings from "./WebhookSettings";
 import type {
   BuilderTemplate,
   DashboardTab,
@@ -10,6 +11,8 @@ import type {
 
 type AdminApplicationConnectionGuideProps = {
   isPlatformAdmin: boolean;
+  adminId: string;
+  workspaces: { _id: string; userId: string }[];
   templates: BuilderTemplate[];
   onNavigate: (tab: DashboardTab) => void;
   onCreateApiKey: () => void;
@@ -17,6 +20,8 @@ type AdminApplicationConnectionGuideProps = {
 
 export default function AdminApplicationConnectionGuide({
   isPlatformAdmin,
+  adminId,
+  workspaces,
   templates,
   onNavigate,
   onCreateApiKey,
@@ -40,8 +45,8 @@ export default function AdminApplicationConnectionGuide({
           <span>
             Connect your application with a saved template
             <span className="mt-1 block text-sm font-normal text-slate-500 dark:text-slate-400">
-              One API key is all your other app needs — copy it once and send
-              with a single POST
+              Send messages with the API and receive message events through a
+              signed HTTPS webhook
             </span>
           </span>
           <span
@@ -62,17 +67,21 @@ export default function AdminApplicationConnectionGuide({
           onNavigate={onNavigate}
           onCreateApiKey={onCreateApiKey}
         />
+        <WebhookSettings
+          adminId={adminId}
+          isPlatformAdmin={isPlatformAdmin}
+          workspaces={workspaces}
+        />
         <WhatsAppTemplateBuilder
           templates={templates}
           isPlatformAdmin={isPlatformAdmin}
           onCreateTemplate={() => onNavigate("templates")}
         />
         <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-          Your other application only needs the API key and the send endpoint.
-          The template ID is optional per message, and the recipient account is
-          provided when each message is sent. Admin login credentials are never
-          used by the integration. Open a template&apos;s API integration
-          example to copy a ready-to-paste config block and test command.
+          The API key lets your other application send messages. Configure the
+          webhook below to send new-message and status-change events back to
+          your application. Admin login credentials are never used by either
+          integration.
         </p>
         <ConnectionTroubleshooting />
       </div>

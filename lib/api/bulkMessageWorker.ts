@@ -11,6 +11,7 @@ import {
   encryptDirectMessageContent,
 } from "@/lib/crypto";
 import { templateActionButtonsSchema } from "@/lib/templateActionButtons";
+import { dispatchApiKeyWebhookEvent } from "@/lib/webhooks";
 
 const MAX_ATTEMPTS = 5;
 const JOB_LEASE_MS = 5 * 60_000;
@@ -350,6 +351,21 @@ export async function processNextBulkMessageRecipient(): Promise<boolean> {
           },
         },
       );
+      await dispatchApiKeyWebhookEvent(job.apiKeyId, "message.created", {
+        message: {
+          id: String(message._id),
+          from: senderId,
+          to: toUserId,
+          type: messageData.type,
+          text: messageData.text,
+          mediaUrl: messageData.mediaUrl,
+          fileName: messageData.fileName,
+          fileSize: messageData.fileSize,
+          buttons: messageData.buttons,
+          timestamp: message.createdAt,
+          status: message.status || "sent",
+        },
+      });
     } catch (error: unknown) {
       const attempts = recipient.attempts;
       console.error(

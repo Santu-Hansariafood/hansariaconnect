@@ -14,6 +14,7 @@ import {
   invalidateUserConversations,
 } from "@/lib/redis/redis";
 import { emitDirectMessageReceived } from "@/lib/socketEmitter";
+import { dispatchWebhookEvent } from "@/lib/webhooks";
 import {
   getTemplateVariableNames,
   joinTemplateParts,
@@ -494,6 +495,11 @@ export async function POST(req: NextRequest) {
       invalidateUserConversations(senderId),
       invalidateUserConversations(recipientId),
     ]);
+    await dispatchWebhookEvent(
+      String(authResult.apiKey.adminId),
+      "message.created",
+      { message: payload },
+    );
     await emitDirectMessageReceived(senderId, recipientId, payload);
 
     const response = NextResponse.json(

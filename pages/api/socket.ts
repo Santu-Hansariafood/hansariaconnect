@@ -26,6 +26,7 @@ import {
   emitDirectMessageReceived,
   emitGroupMessageReceived,
 } from "@/lib/socketEmitter";
+import { dispatchApiKeyWebhookEvent } from "@/lib/webhooks";
 import {
   redisDel,
   CacheKeys,
@@ -798,6 +799,17 @@ async function handleSocketRequest(
             const effectiveStatus = updatedMessage.status;
             if (updatedMessage.status !== message.status) {
               await invalidateDirectMessages(senderId, recipientId);
+              await dispatchApiKeyWebhookEvent(
+                updatedMessage.apiKeyId,
+                "message.status_changed",
+                {
+                  messageId: String(updatedMessage._id),
+                  from: senderId,
+                  to: recipientId,
+                  status: effectiveStatus,
+                  updatedAt: updatedMessage.updatedAt,
+                },
+              );
             }
             io.to(String(updatedMessage.from)).emit("message:status:update", {
               id: updatedMessage._id.toString(),

@@ -1561,6 +1561,8 @@ export default function AdminDashboard() {
                 </div>
                 <AdminApplicationConnectionGuide
                   isPlatformAdmin={isPlatformAdmin}
+                  adminId={effectiveKeyOwnerId}
+                  workspaces={admins.map(({ _id, userId }) => ({ _id, userId }))}
                   templates={templates}
                   onNavigate={setActiveTab}
                   onCreateApiKey={openCreateApiKey}

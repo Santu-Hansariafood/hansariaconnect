@@ -10,11 +10,14 @@ import Group from "@/models/group/Group";
 import { getUserSession } from "@/lib/sessionAuth";
 import { emitConversationRead } from "@/lib/socketEmitter";
 import { invalidateDirectMessages } from "@/lib/redis/redis";
+import { dispatchApiKeyWebhookEvent } from "@/lib/webhooks";
 
 interface MessageLean {
   _id: Types.ObjectId;
   from?: Types.ObjectId;
   to?: Types.ObjectId;
+  apiKeyId?: string;
+  status?: string;
 }
 
 interface GroupMessageLean {
@@ -118,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     if (messageId && isValidObjectId(messageId)) {
       const message = (await Message.findById(messageId)
-        .select("from to")
+        .select("from to apiKeyId status")
         .lean()
         .exec()) as MessageLean | null;
 
@@ -138,10 +141,24 @@ export async function POST(req: NextRequest) {
         { upsert: true, new: true, setDefaultsOnInsert: true },
       );
 
-      await Message.updateOne(
+      const updatedMessage = await Message.findOneAndUpdate(
         { _id: message._id, to: userId, status: { $ne: "seen" } },
         { $set: { status: "seen" } },
+        { new: true },
       );
+      if (updatedMessage) {
+        await dispatchApiKeyWebhookEvent(
+          updatedMessage.apiKeyId,
+          "message.status_changed",
+          {
+            messageId: String(updatedMessage._id),
+            from: String(updatedMessage.from),
+            to: String(updatedMessage.to),
+            status: updatedMessage.status,
+            updatedAt: updatedMessage.updatedAt,
+          },
+        );
+      }
       await invalidateDirectMessages(String(userId), String(message.from ?? ""));
       safeEmitToUser(String(message.from ?? ""), "message:status:update", {
         id: String(message._id),
@@ -325,9 +342,14 @@ export async function POST(req: NextRequest) {
         to: userId,
         status: { $ne: "seen" },
       })
-        .select("_id")
+        .select("_id apiKeyId from to")
         .lean()
-        .exec()) as Array<{ _id: Types.ObjectId }>;
+        .exec()) as Array<{
+        _id: Types.ObjectId;
+        apiKeyId?: string;
+        from?: Types.ObjectId;
+        to?: Types.ObjectId;
+      }>;
 
       if (unreadMessages.length > 0) {
         await Message.updateMany(
@@ -335,12 +357,23 @@ export async function POST(req: NextRequest) {
           { $set: { status: "seen" } },
         );
         await invalidateDirectMessages(String(userId), other);
-        unreadMessages.forEach((message) => {
+        await Promise.all(unreadMessages.map(async (message) => {
           safeEmitToUser(other, "message:status:update", {
             id: String(message._id),
             status: "seen",
           });
-        });
+          await dispatchApiKeyWebhookEvent(
+            message.apiKeyId,
+            "message.status_changed",
+            {
+              messageId: String(message._id),
+              from: String(message.from),
+              to: String(message.to),
+              status: "seen",
+              updatedAt: now,
+            },
+          );
+        }));
       }
       safeEmitToUser(other, "conversation:read", {
         conversationId: String(conversation._id),

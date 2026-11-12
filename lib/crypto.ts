@@ -197,6 +197,21 @@ export function decryptAuthEmailJobPayload(ciphertext: string): string {
   return plaintext;
 }
 
+export function encryptWebhookSecret(secret: string): string {
+  return encryptAuthenticated(deriveKey("webhook-secret"), secret);
+}
+
+export function decryptWebhookSecret(ciphertext: string): string {
+  const plaintext = decryptAuthenticated(
+    deriveKey("webhook-secret"),
+    ciphertext,
+  );
+  if (plaintext === null) {
+    throw new Error("Could not decrypt webhook signing secret");
+  }
+  return plaintext;
+}
+
 export function encryptGroupMessageContent(
   groupId: string,
   plaintext: string,
