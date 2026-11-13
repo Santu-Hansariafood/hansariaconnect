@@ -19,6 +19,7 @@ const createApiKeySchema = z.object({
     })
     .optional(),
   isPrimary: z.boolean().optional().default(false),
+  testOnly: z.boolean().optional().default(false),
   expiresDays: z.number().int().min(1).max(3650).optional(),
 });
 
@@ -106,6 +107,7 @@ export async function POST(req: NextRequest) {
       senderUserId,
       isPrimary,
       adminId: requestedAdminId,
+      testOnly,
     } = parsedBody.data;
 
     const ownerAdminId =
@@ -189,15 +191,26 @@ export async function POST(req: NextRequest) {
       adminId: ownerAdminId,
       keySlot,
       senderUserId: senderUserId ? String(senderUserId) : undefined,
-      isPrimary,
+      isPrimary: testOnly ? false : isPrimary,
       name,
-      expiresAt: expiresDays
-        ? new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
-        : undefined,
+      ...(testOnly
+        ? {
+            permissions: {
+              sendMessage: true,
+              readMessages: false,
+              manageContacts: false,
+            },
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          }
+        : {
+            expiresAt: expiresDays
+              ? new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000)
+              : undefined,
+          }),
     });
 
     const rawKey = await apiKey.generateHash();
-    if (isPrimary) {
+    if (!testOnly && isPrimary) {
       await ApiKey.updateMany(
         { adminId: ownerAdminId, isPrimary: true },
         { $set: { isPrimary: false } },

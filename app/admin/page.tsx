@@ -1566,6 +1566,7 @@ export default function AdminDashboard() {
                   templates={templates}
                   onNavigate={setActiveTab}
                   onCreateApiKey={openCreateApiKey}
+                  onKeyCreated={() => void refreshData()}
                 />
 
                 {newlyCreatedApiKey && (
