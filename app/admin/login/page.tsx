@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Lock, User, Loader2 } from "lucide-react";
+
+const subscribeToHost = () => () => {};
+const getSuperSubdomainSnapshot = () => /^super\./i.test(window.location.host);
+const getServerSuperSubdomainSnapshot = () => false;
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -10,11 +14,14 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [isSuperSubdomain, setIsSuperSubdomain] = useState(false);
+  const isSuperSubdomain = useSyncExternalStore(
+    subscribeToHost,
+    getSuperSubdomainSnapshot,
+    getServerSuperSubdomainSnapshot,
+  );
 
   useEffect(() => {
-    const host = window.location.host;
-    setIsSuperSubdomain(/^super\./i.test(host));
+    const isSuperPortal = /^super\./i.test(window.location.host);
     const checkExistingSession = async () => {
       try {
         const res = await fetch("/api/admin/me", {
@@ -22,7 +29,10 @@ export default function AdminLoginPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success) {
+          if (
+            data.success &&
+            (!isSuperPortal || data.admin?.isSuperAdmin === true)
+          ) {
             router.replace("/admin");
           }
         }
@@ -48,11 +58,6 @@ export default function AdminLoginPage() {
 
       if (!res.ok || !data.success) {
         setError(data.error || "Login failed");
-        return;
-      }
-
-      if (isSuperSubdomain && !data.admin.isSuperAdmin) {
-        setError("Only super admins can access this subdomain");
         return;
       }
 

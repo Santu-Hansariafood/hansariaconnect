@@ -7,7 +7,10 @@ export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const body = await req.json();
-    const { identifier, password } = body;
+    const identifier =
+      typeof body?.identifier === "string" ? body.identifier.trim() : "";
+    const password =
+      typeof body?.password === "string" ? body.password : "";
 
     if (!identifier || !password) {
       return NextResponse.json(
@@ -16,8 +19,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const admin = await Admin.findOne({
-      $or: [{ userId: identifier }, { email: identifier.toLowerCase() }],
+      $or: [
+        { userId: { $regex: `^${escapedIdentifier}$`, $options: "i" } },
+        { email: identifier.toLowerCase() },
+      ],
     });
 
     if (!admin) {
@@ -32,6 +39,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Invalid credentials" },
         { status: 401 },
+      );
+    }
+
+    if (/^super\./i.test(req.headers.get("host") || "") && !admin.isSuperAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Only super admins can access this subdomain",
+        },
+        { status: 403 },
       );
     }
 
