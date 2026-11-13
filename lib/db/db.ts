@@ -41,13 +41,40 @@ async function seedInitialAdmin(
 ) {
   if (!userId || !email || !password) return;
 
-  const existingAdmin = await Admin.findOne({
-    $or: [{ userId }, { email }],
+  const normalizedUserId = userId.trim();
+  const normalizedEmail = email.trim().toLowerCase();
+  const [adminByUserId, adminByEmail] = await Promise.all([
+    Admin.findOne({ userId: normalizedUserId }),
+    Admin.findOne({ email: normalizedEmail }),
+  ]);
+
+  if (
+    adminByUserId &&
+    adminByEmail &&
+    String(adminByUserId._id) !== String(adminByEmail._id)
+  ) {
+    console.error(
+      "Initial admin configuration matches different accounts; skipping bootstrap",
+    );
+    return;
+  }
+
+  const existingAdmin = adminByUserId || adminByEmail;
+  if (existingAdmin) {
+    if (isSuperAdmin && !existingAdmin.isSuperAdmin) {
+      existingAdmin.isSuperAdmin = true;
+      await existingAdmin.save();
+      console.log("Configured super admin role ensured");
+    }
+    return;
+  }
+
+  const admin = new Admin({
+    userId: normalizedUserId,
+    email: normalizedEmail,
+    password,
+    isSuperAdmin,
   });
-
-  if (existingAdmin) return;
-
-  const admin = new Admin({ userId, email, password, isSuperAdmin });
   await admin.save();
   console.log(`Initial ${isSuperAdmin ? "super admin" : "admin"} created successfully`);
 }
