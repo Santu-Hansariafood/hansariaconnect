@@ -234,15 +234,15 @@ export default function ConnectionApiTest({
           </span>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-          Workspace API key
+          Workspace API key (optional)
           <span className="flex flex-wrap gap-2">
             <input
-              type="password"
+              type="text"
               autoComplete="off"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value.trim())}
               className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              placeholder="Paste the key shown when it was created"
+              placeholder="Create a test key below or paste an existing key"
             />
             <button
               type="button"
@@ -253,8 +253,11 @@ export default function ConnectionApiTest({
               Copy key
             </button>
           </span>
-          <span aria-live="polite" className="min-h-4 text-xs font-normal text-slate-500">
-            {keyCopyStatus}
+          <span aria-live="polite" className="min-h-4 text-xs font-normal text-slate-500 dark:text-slate-400">
+            {keyCopyStatus ||
+              (testKeyCreated
+                ? "The generated key is already selected for sending; no paste is needed."
+                : "Create a 24-hour key below to fill this automatically, or paste an existing workspace key.")}
           </span>
         </label>
       </div>
@@ -275,7 +278,7 @@ export default function ConnectionApiTest({
             ? "Creating key..."
             : testKeyCreated
               ? "Test key created"
-              : "Create 24-hour test key"}
+              : "Create and use 24-hour test key"}
         </button>
         <button
           type="button"
