@@ -44,6 +44,7 @@ const requestSchema = z.object({
   fromUserId: z.string().optional(),
   toUserId: z.string(),
   adminId: z.string().optional(),
+  expectedApiKeyId: z.string().optional(),
   templateId: z.string().optional(),
   language: z.string().trim().regex(/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i).optional(),
   templateName: z.string().trim().min(1).max(100).optional(),
@@ -140,6 +141,18 @@ export async function POST(req: NextRequest) {
       );
     }
     const input = parsed.data;
+    if (
+      input.expectedApiKeyId &&
+      String(authResult.apiKey._id) !== input.expectedApiKeyId
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "The API key does not match the selected active key.",
+        },
+        { status: 403 },
+      );
+    }
     const senderId = String(authResult.apiKey.senderUserId || input.fromUserId || "");
     if (!Types.ObjectId.isValid(senderId)) {
       return NextResponse.json(

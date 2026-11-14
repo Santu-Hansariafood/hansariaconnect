@@ -87,6 +87,7 @@ type ApiKeyRow = {
   sentCount: number;
   lastUsed?: string;
   expiresAt?: string;
+  isExpired?: boolean;
   isActive: boolean;
   createdAt: string;
   senderUserId?: string;
@@ -1640,7 +1641,6 @@ export default function AdminDashboard() {
                   templates={templates}
                   onNavigate={setActiveTab}
                   onCreateApiKey={openCreateApiKey}
-                  onKeyCreated={() => void refreshData()}
                 />
 
                 {newlyCreatedApiKey && (
@@ -2077,7 +2077,11 @@ export default function AdminDashboard() {
             )}
             {activeTab === "chat-test" && (
               <ConnectionApiTestPanel
+                key={effectiveKeyOwnerId}
                 adminId={effectiveKeyOwnerId}
+                apiKeys={apiKeys.filter(
+                  (apiKey) => apiKey.adminId === effectiveKeyOwnerId,
+                )}
                 onKeyCreated={() => void refreshData()}
               />
             )}

@@ -57,6 +57,9 @@ export async function GET(req: NextRequest) {
         lastUsed: key.lastUsed,
         expiresAt: key.expiresAt,
         isActive: key.isActive,
+        isExpired: Boolean(
+          key.expiresAt && key.expiresAt.getTime() <= Date.now(),
+        ),
         createdAt: key.createdAt,
         sentCount: await Message.countDocuments({
           apiKeyId: String(key._id),

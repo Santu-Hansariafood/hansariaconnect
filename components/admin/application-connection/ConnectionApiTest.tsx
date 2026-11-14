@@ -2,8 +2,20 @@
 
 import { useState } from "react";
 
+type WorkspaceApiKey = {
+  _id: string;
+  name: string;
+  isActive: boolean;
+  isPrimary: boolean;
+  permissions: { sendMessage: boolean };
+  expiresAt?: string;
+  isExpired?: boolean;
+  senderUserId?: string;
+};
+
 type ConnectionApiTestProps = {
   adminId: string;
+  apiKeys: WorkspaceApiKey[];
   onKeyCreated: () => void;
 };
 
@@ -27,10 +39,12 @@ const requestTemplate = `curl -X POST "https://hfconnect.in/api/v1/messages/send
 
 export default function ConnectionApiTest({
   adminId,
+  apiKeys,
   onKeyCreated,
 }: ConnectionApiTestProps) {
   const [apiKey, setApiKey] = useState("");
   const [senderUserId, setSenderUserId] = useState("");
+  const [selectedApiKeyId, setSelectedApiKeyId] = useState("");
   const [recipientInput, setRecipientInput] = useState("");
   const [recipientResults, setRecipientResults] = useState<RecipientResult[]>([]);
   const [busy, setBusy] = useState<"key" | "send" | null>(null);
@@ -39,6 +53,18 @@ export default function ConnectionApiTest({
   const [status, setStatus] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [keyCopyStatus, setKeyCopyStatus] = useState("");
+  const activeSendKeys = apiKeys.filter(
+    (key) =>
+      key.isActive &&
+      !key.isExpired &&
+      key.permissions.sendMessage,
+  );
+  const effectiveSelectedApiKeyId =
+    selectedApiKeyId ||
+    (activeSendKeys.length === 1 ? activeSendKeys[0]._id : "");
+  const selectedApiKey = activeSendKeys.find(
+    (key) => key._id === effectiveSelectedApiKeyId,
+  );
 
   const createTestKey = async () => {
     if (!senderUserId.trim()) {
@@ -61,15 +87,16 @@ export default function ConnectionApiTest({
       });
       const result = (await response.json().catch(() => null)) as {
         error?: string;
-        apiKey?: { key?: string };
+        apiKey?: { _id?: string; key?: string };
       } | null;
       if (!response.ok) {
         throw new Error(result?.error || `Key request failed: ${response.status}`);
       }
-      if (!result?.apiKey?.key) {
+      if (!result?.apiKey?._id || !result.apiKey.key) {
         throw new Error("The key was created, but the secret was not returned.");
       }
       setApiKey(result.apiKey.key);
+      setSelectedApiKeyId(result.apiKey._id);
       setTestKeyCreated(true);
       setStatus(
         "A send-only key bound to this sender was created for this workspace. It expires in 24 hours; copy it now because it cannot be shown again.",
@@ -89,7 +116,15 @@ export default function ConnectionApiTest({
 
   const sendTestMessage = async () => {
     if (!apiKey.trim()) {
-      setError("Create a test key or paste an API key for this workspace.");
+      setError(
+        effectiveSelectedApiKeyId
+          ? "Paste the secret for the selected active key, or create a new test key."
+          : "Select an active key or create a new test key.",
+      );
+      return;
+    }
+    if (!effectiveSelectedApiKeyId) {
+      setError("Select the active key that matches the key entered above.");
       return;
     }
     if (!senderUserId.trim()) {
@@ -127,6 +162,7 @@ export default function ConnectionApiTest({
               fromUserId: senderUserId.trim(),
               toUserId: recipient,
               text: sampleMessage,
+              expectedApiKeyId: effectiveSelectedApiKeyId,
             }),
           });
           const result = (await response.json().catch(() => null)) as {
@@ -194,26 +230,76 @@ export default function ConnectionApiTest({
           Test in-app chat delivery
         </h3>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
-          Send the sample through HansariaConnect chat, not carrier SMS. Create
-          a short-lived, send-only key for this workspace or paste an existing
+          Send the sample through HansariaConnect chat, not carrier SMS. Select
+          an active send key for this workspace, or create a short-lived test
+          key that is selected automatically. Existing key secrets are shown
+          only once, so paste that key&apos;s secret if you choose an existing
           key. Use already registered recipients; there is no need to register
           them again.
         </p>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+          Active workspace API key
+          <select
+            value={effectiveSelectedApiKeyId}
+            onChange={(event) => {
+              const nextKey = activeSendKeys.find(
+                (key) => key._id === event.target.value,
+              );
+              setSelectedApiKeyId(event.target.value);
+              setApiKey("");
+              setTestKeyCreated(false);
+              setKeyCopyStatus("");
+              setSenderUserId(nextKey?.senderUserId || "");
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">Select an active key</option>
+            {activeSendKeys.map((key) => (
+              <option key={key._id} value={key._id}>
+                {key.name}
+                {key.isPrimary ? " - Primary" : ""}
+                {` - ID ${key._id.slice(-6)}`}
+                {key.expiresAt
+                  ? ` - expires ${new Date(key.expiresAt).toLocaleDateString()}`
+                  : " - no expiry"}
+              </option>
+            ))}
+            {testKeyCreated &&
+              selectedApiKeyId &&
+              !activeSendKeys.some(
+                (key) => key._id === selectedApiKeyId,
+              ) && (
+                <option value={selectedApiKeyId}>
+                  Temporary test key - just created
+                </option>
+              )}
+          </select>
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+            {activeSendKeys.length
+              ? "Choose the key whose secret you are using. The ID suffix and primary label help distinguish keys."
+              : "No active send-enabled keys found in this workspace. Create a temporary test key below."}
+          </span>
+        </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           Sender chat account ID
           <input
             value={senderUserId}
             onChange={(event) => setSenderUserId(event.target.value)}
-            disabled={testKeyCreated}
+            disabled={testKeyCreated || Boolean(selectedApiKey?.senderUserId)}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             placeholder="Existing account's 24-character ID"
           />
           {testKeyCreated && (
             <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
               This test key is bound to the sender shown here.
+            </span>
+          )}
+          {!testKeyCreated && selectedApiKey?.senderUserId && (
+            <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+              This key is bound to the sender shown here.
             </span>
           )}
         </label>
@@ -234,7 +320,7 @@ export default function ConnectionApiTest({
           </span>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-          Workspace API key (optional)
+          Workspace API key
           <span className="flex flex-wrap gap-2">
             <input
               type="text"
@@ -242,7 +328,11 @@ export default function ConnectionApiTest({
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value.trim())}
               className="min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-              placeholder="Create a test key below or paste an existing key"
+              placeholder={
+                effectiveSelectedApiKeyId
+                  ? "Paste the selected key's secret, or create a test key"
+                  : "Select an active key or create a test key"
+              }
             />
             <button
               type="button"
@@ -257,7 +347,9 @@ export default function ConnectionApiTest({
             {keyCopyStatus ||
               (testKeyCreated
                 ? "The generated key is already selected for sending; no paste is needed."
-                : "Create a 24-hour key below to fill this automatically, or paste an existing workspace key.")}
+                : effectiveSelectedApiKeyId
+                  ? "Existing keys are selected by name, but their secret must be pasted because it cannot be retrieved."
+                  : "Select an active key and paste its secret, or create a 24-hour key below to fill this automatically.")}
           </span>
         </label>
       </div>

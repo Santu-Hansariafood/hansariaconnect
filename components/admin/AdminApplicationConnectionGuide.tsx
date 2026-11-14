@@ -1,7 +1,6 @@
 "use client";
 
 import ConnectionTroubleshooting from "./application-connection/ConnectionTroubleshooting";
-import ConnectionApiTest from "./application-connection/ConnectionApiTest";
 import SetupSteps from "./application-connection/SetupSteps";
 import WhatsAppTemplateBuilder from "./application-connection/WhatsAppTemplateBuilder";
 import WebhookSettings from "./WebhookSettings";
@@ -17,7 +16,6 @@ type AdminApplicationConnectionGuideProps = {
   templates: BuilderTemplate[];
   onNavigate: (tab: DashboardTab) => void;
   onCreateApiKey: () => void;
-  onKeyCreated: () => void;
 };
 
 export default function AdminApplicationConnectionGuide({
@@ -27,7 +25,6 @@ export default function AdminApplicationConnectionGuide({
   templates,
   onNavigate,
   onCreateApiKey,
-  onKeyCreated,
 }: AdminApplicationConnectionGuideProps) {
   const borderColor = isPlatformAdmin
     ? "border-indigo-200 dark:border-indigo-800"
@@ -75,7 +72,6 @@ export default function AdminApplicationConnectionGuide({
           isPlatformAdmin={isPlatformAdmin}
           workspaces={workspaces}
         />
-        <ConnectionApiTest adminId={adminId} onKeyCreated={onKeyCreated} />
         <WhatsAppTemplateBuilder
           templates={templates}
           isPlatformAdmin={isPlatformAdmin}
