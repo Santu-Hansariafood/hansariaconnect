@@ -12,6 +12,7 @@ import {
   invalidateOtpChallenge,
 } from "@/lib/auth/otpChallenge";
 import {
+  consumeOtpSendCooldown,
   consumeAuthRateLimits,
   getAuthRateLimitScopes,
 } from "@/lib/auth/authRateLimit";
@@ -67,6 +68,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const email = user.email;
+    const cooldown = await consumeOtpSendCooldown(req, mobile);
+    if (!cooldown.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "A verification code was requested recently. Please wait before trying again.",
+        },
+        { status: 429, headers: { "Retry-After": String(cooldown.retryAfter) } },
+      );
+    }
+
     const { challengeId, otp } = await createOtpChallenge(mobile, "login");
 
     const template = buildOtpEmailTemplate(user.name || "User", otp);

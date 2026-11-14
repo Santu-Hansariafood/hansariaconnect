@@ -148,6 +148,16 @@ export async function consumeAuthRateLimits(
   return { allowed, retryAfter };
 }
 
+export async function consumeOtpSendCooldown(
+  req: { headers: Headers },
+  target: string,
+): Promise<AuthRateLimitResult> {
+  const scopes = getAuthRateLimitScopes(req, target);
+  return consumeAuthRateLimits("otp-send", [
+    { scope: scopes.target, limit: 1, windowSeconds: 30 },
+  ]);
+}
+
 export function getAuthRateLimitScopes(
   req: { headers: Headers },
   target: string,

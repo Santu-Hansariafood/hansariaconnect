@@ -6,6 +6,7 @@ import Admin from "@/models/admin/Admin";
 import { signAdminOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
 import { createOtpChallenge } from "@/lib/auth/otpChallenge";
 import {
+  consumeOtpSendCooldown,
   consumeAuthRateLimits,
   getAuthRateLimitScopes,
 } from "@/lib/auth/authRateLimit";
@@ -44,6 +45,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         { success: false, error: "Not allowed" },
         { status: 403 },
+      );
+    }
+
+    const cooldown = await consumeOtpSendCooldown(req, email);
+    if (!cooldown.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "A verification code was requested recently. Please wait before trying again.",
+        },
+        { status: 429, headers: { "Retry-After": String(cooldown.retryAfter) } },
       );
     }
 

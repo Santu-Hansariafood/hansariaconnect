@@ -72,7 +72,9 @@ function VerifyOtpInner() {
     [mobile, returnTo, setUser, router]
   );
 
-  const handleResend = useCallback(async (): Promise<string | null> => {
+  const handleResend = useCallback(async (): Promise<
+    string | { message: string; retryAfter?: number } | null
+  > => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -82,7 +84,13 @@ function VerifyOtpInner() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
-        return data?.error || "Could not send a new code. Please try again.";
+        return {
+          message: data?.error || "Could not send a new code. Please try again.",
+          retryAfter:
+            res.status === 429
+              ? Number(res.headers.get("Retry-After")) || undefined
+              : undefined,
+        };
       }
       return null;
     } catch {

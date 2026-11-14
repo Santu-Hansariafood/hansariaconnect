@@ -1,16 +1,8 @@
-import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/db/db";
-import User from "@/models/user/User";
+import { NextRequest, NextResponse } from "next/server";
+import { POST as verifyOtp } from "../auth/verify/route";
 
-export async function POST(req: Request) {
-  await connectDB();
-  const { mobile, code } = await req.json();
+export const runtime = "nodejs";
 
-  const user = await User.findOne({ mobile });
-
-  if (!user || user.otp !== code) {
-    return NextResponse.json({ success: false, message: "Invalid OTP" });
-  }
-
-  return NextResponse.json({ success: true, userId: user._id });
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  return verifyOtp(req);
 }

@@ -10,10 +10,12 @@ import { ClipboardPaste, LoaderCircle, ShieldCheck } from "lucide-react";
 type OtpProps = {
   onVerify: (code: string) => void | Promise<void>;
   /**
-   * Requests a fresh code. Resolves with an error message to display, or null
-   * when a new code was sent.
+   * Requests a fresh code. Resolves with an error message (and optional
+   * retry delay), or null when a new code was sent.
    */
-  onResend?: () => Promise<string | null>;
+  onResend?: () => Promise<
+    string | { message: string; retryAfter?: number } | null
+  >;
   mobile: string;
   email?: string;
   serverError?: string;
@@ -53,7 +55,18 @@ const Otp: React.FC<OtpProps> = ({
     try {
       const failure = await onResend();
       if (failure) {
-        setError(failure);
+        const message =
+          typeof failure === "string" ? failure : failure.message;
+        const retryAfter =
+          typeof failure === "string" ? undefined : failure.retryAfter;
+        setError(message);
+        if (
+          typeof retryAfter === "number" &&
+          Number.isFinite(retryAfter) &&
+          retryAfter > 0
+        ) {
+          setCooldown(Math.min(15 * 60, Math.ceil(retryAfter)));
+        }
         return;
       }
       setResendNotice(`A new code was sent to ${email || mobile}.`);
