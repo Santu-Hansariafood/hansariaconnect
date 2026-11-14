@@ -23,6 +23,9 @@ const AdminApplicationConnectionGuide = dynamic(
 const AdminMessageHistoryPanel = dynamic(
   () => import("@/components/admin/AdminMessageHistoryPanel"),
 );
+const AdminSmsTestPanel = dynamic(
+  () => import("@/components/admin/AdminSmsTestPanel"),
+);
 const BulkAccountsModal = dynamic(
   () => import("@/components/admin/BulkAccountsModal"),
 );
@@ -117,7 +120,13 @@ export default function AdminDashboard() {
         : "unsupported",
     );
   const [activeTab, setActiveTab] = useState<
-    "users" | "admins" | "api-keys" | "accounts" | "templates" | "profile"
+    | "users"
+    | "admins"
+    | "api-keys"
+    | "sms-test"
+    | "accounts"
+    | "templates"
+    | "profile"
   >("users");
   const [templates, setTemplates] = useState<AdminTemplateRow[]>([]);
   const [ownerAdminId, setOwnerAdminId] = useState("");
@@ -1300,6 +1309,19 @@ export default function AdminDashboard() {
                 >
                   API Keys
                 </button>
+                <button
+                  onClick={() => setActiveTab("sms-test")}
+                  aria-current={activeTab === "sms-test" ? "page" : undefined}
+                  className={`ml-1 shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                    activeTab === "sms-test"
+                      ? `${isPlatformAdmin ? "bg-indigo-700" : "bg-emerald-700"} text-white shadow-md`
+                      : isPlatformAdmin
+                        ? "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800 dark:text-slate-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-200"
+                        : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"
+                  }`}
+                >
+                  SMS test
+                </button>
               </div>
             </nav>
 
@@ -2053,6 +2075,7 @@ export default function AdminDashboard() {
                 </section>
               </div>
             )}
+            {activeTab === "sms-test" && <AdminSmsTestPanel />}
           </>
         )}
       </main>
