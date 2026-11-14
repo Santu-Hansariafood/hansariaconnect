@@ -20,12 +20,34 @@ export async function POST(req: NextRequest) {
     }
 
     const escapedIdentifier = identifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const admin = await Admin.findOne({
+    let admin = await Admin.findOne({
       $or: [
         { userId: { $regex: `^${escapedIdentifier}$`, $options: "i" } },
         { email: identifier.toLowerCase() },
       ],
     });
+
+    const configuredSuperAdminEmail =
+      process.env.INITIAL_SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+    const configuredSuperAdminUserId =
+      process.env.INITIAL_SUPER_ADMIN_USER_ID?.trim();
+    if (
+      !admin &&
+      configuredSuperAdminEmail &&
+      configuredSuperAdminEmail === identifier.toLowerCase() &&
+      configuredSuperAdminUserId
+    ) {
+      const escapedSuperAdminUserId = configuredSuperAdminUserId.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        "\\$&",
+      );
+      const configuredSuperAdmin = await Admin.findOne({
+        userId: { $regex: `^${escapedSuperAdminUserId}$`, $options: "i" },
+      });
+      if (configuredSuperAdmin?.isSuperAdmin) {
+        admin = configuredSuperAdmin;
+      }
+    }
 
     if (!admin) {
       return NextResponse.json(
