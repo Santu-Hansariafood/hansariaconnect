@@ -61,10 +61,38 @@ async function seedInitialAdmin(
 
   const existingAdmin = adminByUserId || adminByEmail;
   if (existingAdmin) {
+    // Only the account that already owns the configured userId is reconciled
+    // with the environment. This keeps INITIAL_*_USER_ID / PASSWORD able to
+    // sign in even when the database was bootstrapped with other credentials.
+    if (!adminByUserId) {
+      if (isSuperAdmin && !existingAdmin.isSuperAdmin) {
+        existingAdmin.isSuperAdmin = true;
+        await existingAdmin.save();
+        console.log("Configured super admin role ensured");
+      }
+      return;
+    }
+
+    let needsSave = false;
+
     if (isSuperAdmin && !existingAdmin.isSuperAdmin) {
       existingAdmin.isSuperAdmin = true;
+      needsSave = true;
+    }
+
+    if (existingAdmin.email !== normalizedEmail) {
+      existingAdmin.email = normalizedEmail;
+      needsSave = true;
+    }
+
+    if (!(await existingAdmin.comparePassword(password))) {
+      existingAdmin.password = password;
+      needsSave = true;
+    }
+
+    if (needsSave) {
       await existingAdmin.save();
-      console.log("Configured super admin role ensured");
+      console.log("Initial admin credentials synced with environment");
     }
     return;
   }
