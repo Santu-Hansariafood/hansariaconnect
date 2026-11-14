@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type WorkspaceApiKey = {
   _id: string;
+  adminId: string;
   name: string;
   isActive: boolean;
   isPrimary: boolean;
@@ -13,8 +14,23 @@ type WorkspaceApiKey = {
   senderUserId?: string;
 };
 
+type AdminOption = {
+  _id: string;
+  userId: string;
+  email: string;
+};
+
+type SenderAccountOption = {
+  id: string;
+  name: string;
+  adminId: string;
+};
+
 type ConnectionApiTestProps = {
   adminId: string;
+  adminUserId: string;
+  isSuperAdmin: boolean;
+  admins: AdminOption[];
   apiKeys: WorkspaceApiKey[];
   onKeyCreated: () => void;
 };
@@ -39,11 +55,18 @@ const requestTemplate = `curl -X POST "https://hfconnect.in/api/v1/messages/send
 
 export default function ConnectionApiTest({
   adminId,
+  adminUserId,
+  isSuperAdmin,
+  admins,
   apiKeys,
   onKeyCreated,
 }: ConnectionApiTestProps) {
+  const [selectedAdminId, setSelectedAdminId] = useState(adminId);
   const [apiKey, setApiKey] = useState("");
   const [senderUserId, setSenderUserId] = useState("");
+  const [senderAccounts, setSenderAccounts] = useState<SenderAccountOption[]>([]);
+  const [senderAccountsAdminId, setSenderAccountsAdminId] = useState("");
+  const [senderAccountsError, setSenderAccountsError] = useState("");
   const [selectedApiKeyId, setSelectedApiKeyId] = useState("");
   const [recipientInput, setRecipientInput] = useState("");
   const [recipientResults, setRecipientResults] = useState<RecipientResult[]>([]);
@@ -53,12 +76,63 @@ export default function ConnectionApiTest({
   const [status, setStatus] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [keyCopyStatus, setKeyCopyStatus] = useState("");
+  const selectedOwnerAdminId = selectedAdminId || adminId;
+  const senderAccountsLoading =
+    Boolean(selectedOwnerAdminId) &&
+    senderAccountsAdminId !== selectedOwnerAdminId;
+  const currentSenderAccountsError =
+    senderAccountsAdminId === selectedOwnerAdminId ? senderAccountsError : "";
+  useEffect(() => {
+    if (!selectedOwnerAdminId) return;
+
+    let cancelled = false;
+    const loadSenderAccounts = async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/sender-accounts?adminId=${encodeURIComponent(selectedOwnerAdminId)}`,
+          { cache: "no-store" },
+        );
+        const result = (await response.json().catch(() => null)) as {
+          error?: string;
+          accounts?: SenderAccountOption[];
+        } | null;
+        if (!response.ok) {
+          throw new Error(result?.error || "Failed to load sender accounts.");
+        }
+        if (!cancelled) {
+          setSenderAccounts(result?.accounts || []);
+          setSenderAccountsAdminId(selectedOwnerAdminId);
+          setSenderAccountsError("");
+        }
+      } catch (cause: unknown) {
+        console.error("[admin] Failed to load sender accounts:", cause);
+        if (!cancelled) {
+          setSenderAccounts([]);
+          setSenderAccountsAdminId(selectedOwnerAdminId);
+          setSenderAccountsError(
+            cause instanceof Error
+              ? cause.message
+              : "Failed to load sender accounts.",
+          );
+        }
+      }
+    };
+
+    void loadSenderAccounts();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedOwnerAdminId]);
+
   const activeSendKeys = apiKeys.filter(
     (key) =>
+      key.adminId === selectedOwnerAdminId &&
       key.isActive &&
       !key.isExpired &&
       key.permissions.sendMessage,
   );
+  const availableSenderAccounts =
+    senderAccountsAdminId === selectedOwnerAdminId ? senderAccounts : [];
   const effectiveSelectedApiKeyId =
     selectedApiKeyId ||
     (activeSendKeys.length === 1 ? activeSendKeys[0]._id : "");
@@ -68,7 +142,7 @@ export default function ConnectionApiTest({
 
   const createTestKey = async () => {
     if (!senderUserId.trim()) {
-      setError("Enter the sender's existing chat account ID before creating a test key.");
+      setError("Select an existing sender account before creating a test key.");
       return;
     }
     setBusy("key");
@@ -80,7 +154,7 @@ export default function ConnectionApiTest({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: "Connection test (24 hours)",
-          adminId,
+          adminId: selectedOwnerAdminId,
           senderUserId: senderUserId.trim(),
           testOnly: true,
         }),
@@ -128,7 +202,7 @@ export default function ConnectionApiTest({
       return;
     }
     if (!senderUserId.trim()) {
-      setError("Enter the sender's existing chat account ID.");
+      setError("Select an existing sender account.");
       return;
     }
     const recipients = recipientInput
@@ -234,12 +308,43 @@ export default function ConnectionApiTest({
           an active send key for this workspace, or create a short-lived test
           key that is selected automatically. Existing key secrets are shown
           only once, so paste that key&apos;s secret if you choose an existing
-          key. Use already registered recipients; there is no need to register
-          them again.
+          key. Super admins can select a workspace; admins see their own
+          workspace. Use already registered recipients; there is no need to
+          register them again.
         </p>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {isSuperAdmin && (
+          <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+            Admin workspace
+            <select
+              value={selectedOwnerAdminId}
+              onChange={(event) => {
+                setSelectedAdminId(event.target.value);
+                setApiKey("");
+                setSenderUserId("");
+                setSelectedApiKeyId("");
+                setTestKeyCreated(false);
+                setRecipientResults([]);
+                setError("");
+                setStatus("");
+              }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            >
+              <option value={adminId}>
+                Your Super Admin workspace ({adminUserId})
+              </option>
+              {admins
+                .filter((admin) => admin._id !== adminId)
+                .map((admin) => (
+                  <option key={admin._id} value={admin._id}>
+                    {admin.userId} - {admin.email}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
           Active workspace API key
           <select
@@ -285,13 +390,45 @@ export default function ConnectionApiTest({
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           Sender chat account ID
-          <input
+          <select
             value={senderUserId}
             onChange={(event) => setSenderUserId(event.target.value)}
-            disabled={testKeyCreated || Boolean(selectedApiKey?.senderUserId)}
+            disabled={
+              senderAccountsLoading ||
+              testKeyCreated ||
+              Boolean(selectedApiKey?.senderUserId)
+            }
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            placeholder="Existing account's 24-character ID"
-          />
+          >
+            <option value="">
+              {senderAccountsLoading
+                ? "Loading sender accounts..."
+                : "Select a sender account"}
+            </option>
+            {senderUserId &&
+              !availableSenderAccounts.some(
+                (account) => account.id === senderUserId,
+              ) && (
+                <option value={senderUserId}>
+                  {senderUserId} - bound to selected API key
+                </option>
+              )}
+            {availableSenderAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name} - ID {account.id}
+                {!account.adminId ? " - Unassigned" : ""}
+              </option>
+            ))}
+          </select>
+          {currentSenderAccountsError ? (
+            <span className="text-xs font-normal text-red-600 dark:text-red-300">
+              {currentSenderAccountsError}
+            </span>
+          ) : !senderAccountsLoading && availableSenderAccounts.length === 0 ? (
+            <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+              No sender accounts are available in this workspace.
+            </span>
+          ) : null}
           {testKeyCreated && (
             <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
               This test key is bound to the sender shown here.
@@ -360,7 +497,7 @@ export default function ConnectionApiTest({
           onClick={createTestKey}
           disabled={
             busy !== null ||
-            !adminId ||
+            !selectedOwnerAdminId ||
             testKeyCreated ||
             Boolean(apiKey.trim())
           }

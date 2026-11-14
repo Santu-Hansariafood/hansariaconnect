@@ -2077,11 +2077,12 @@ export default function AdminDashboard() {
             )}
             {activeTab === "chat-test" && (
               <ConnectionApiTestPanel
-                key={effectiveKeyOwnerId}
-                adminId={effectiveKeyOwnerId}
-                apiKeys={apiKeys.filter(
-                  (apiKey) => apiKey.adminId === effectiveKeyOwnerId,
-                )}
+                key={currentAdminId}
+                adminId={currentAdminId}
+                adminUserId={adminProfile.userId}
+                isSuperAdmin={isSuperAdmin}
+                admins={admins}
+                apiKeys={apiKeys}
                 onKeyCreated={() => void refreshData()}
               />
             )}
