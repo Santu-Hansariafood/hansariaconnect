@@ -35,7 +35,7 @@ const createExamples = (
       template: ${JSON.stringify(template)},
       language: "en",
       fromUserId: "SENDER_CHAT_ACCOUNT_ID",
-      toUserId: "RECIPIENT_CHAT_ACCOUNT_ID",
+      toUserId: "RECIPIENT_MOBILE_OR_CHAT_ACCOUNT_ID",
       variables: ${formattedVariables}
     })
   }
@@ -59,7 +59,7 @@ response = requests.post(
         "template": ${JSON.stringify(template)},
         "language": "en",
         "fromUserId": "SENDER_CHAT_ACCOUNT_ID",
-        "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
+        "toUserId": "RECIPIENT_MOBILE_OR_CHAT_ACCOUNT_ID",
         "variables": ${formattedVariables},
     },
     timeout=30,
@@ -73,7 +73,7 @@ $payload = [
   "template" => ${phpString(template)},
   "language" => "en",
   "fromUserId" => "SENDER_CHAT_ACCOUNT_ID",
-  "toUserId" => "RECIPIENT_CHAT_ACCOUNT_ID",
+  "toUserId" => "RECIPIENT_MOBILE_OR_CHAT_ACCOUNT_ID",
   "variables" => [
 ${phpVariables}
   ]
@@ -134,7 +134,8 @@ export default function CodeExamplePanel({
         <div>
           <h3 className="font-semibold text-slate-900 dark:text-slate-100">Copy your code</h3>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Replace the recipient ID. Keep your API key on your server.
+            Use an existing user&apos;s registered mobile number or account ID;
+            no re-registration is needed. Keep your API key on your server.
           </p>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">

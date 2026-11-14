@@ -26,6 +26,9 @@ const AdminMessageHistoryPanel = dynamic(
 const BulkAccountsModal = dynamic(
   () => import("@/components/admin/BulkAccountsModal"),
 );
+const SingleAccountModal = dynamic(
+  () => import("@/components/admin/SingleAccountModal"),
+);
 const AdminAccessPanel = dynamic(
   () => import("@/components/admin/AdminAccessPanel"),
 );
@@ -190,6 +193,7 @@ export default function AdminDashboard() {
   const [editAdminCompanyVerified, setEditAdminCompanyVerified] =
     useState(false);
   const [showBulkUsers, setShowBulkUsers] = useState(false);
+  const [showSingleUser, setShowSingleUser] = useState(false);
   const [bulkUsers, setBulkUsers] = useState<BulkUserInput[]>([]);
   const [bulkUsersFileName, setBulkUsersFileName] = useState("");
   const bulkUsersFileInput = useRef<HTMLInputElement>(null);
@@ -598,9 +602,35 @@ export default function AdminDashboard() {
       setBulkUsersFileName("");
       if (bulkUsersFileInput.current) bulkUsersFileInput.current.value = "";
       setShowBulkUsers(false);
-      void loadData(1, true);
-    } catch (error: any) {
-      setError(error?.message || "Failed to create accounts");
+      void refreshData(1);
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "Failed to create accounts",
+      );
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const handleCreateSingleUser = async (account: BulkUserInput) => {
+    setError("");
+    setSaving("create-user");
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(account),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to create account");
+      }
+      setShowSingleUser(false);
+      void refreshData(1);
+    } catch (error: unknown) {
+      setError(
+        error instanceof Error ? error.message : "Failed to create account",
+      );
     } finally {
       setSaving(null);
     }
@@ -1296,9 +1326,27 @@ export default function AdminDashboard() {
               />
             )}
 
+            {showSingleUser && (
+              <SingleAccountModal
+                isPlatformAdmin={isPlatformAdmin}
+                error={error}
+                isSaving={saving === "create-user"}
+                onDismissError={() => setError("")}
+                onClose={() => {
+                  setShowSingleUser(false);
+                  setError("");
+                }}
+                onSubmit={handleCreateSingleUser}
+              />
+            )}
+
             {activeTab === "accounts" && !isSuperAdmin && !isSuperSubdomain && (
               <AccountRegistrationPanel
-                onRegisterAccounts={() => {
+                onRegisterSingleAccount={() => {
+                  setError("");
+                  setShowSingleUser(true);
+                }}
+                onRegisterMultipleAccounts={() => {
                   setError("");
                   setShowBulkUsers(true);
                 }}
@@ -1407,6 +1455,10 @@ export default function AdminDashboard() {
                 onRegisterAccounts={() => {
                   setError("");
                   setShowBulkUsers(true);
+                }}
+                onRegisterSingleAccount={() => {
+                  setError("");
+                  setShowSingleUser(true);
                 }}
                 onPageChange={(page) => void refreshData(page)}
                 onSavePermissions={updateUserPermissions}

@@ -40,6 +40,7 @@ interface AdminUsersPanelProps {
   selectedUser: AdminDirectoryUser | null;
   setSelectedUser: (user: AdminDirectoryUser | null) => void;
   onRegisterAccounts: () => void;
+  onRegisterSingleAccount: () => void;
   onPageChange: (page: number) => void;
   onSavePermissions: (id: string, permissions: AdminUserPermissions) => void;
 }
@@ -52,12 +53,13 @@ export default function AdminUsersPanel({
   selectedUser,
   setSelectedUser,
   onRegisterAccounts,
+  onRegisterSingleAccount,
   onPageChange,
   onSavePermissions,
 }: AdminUsersPanelProps) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">
             Platform user directory
@@ -66,12 +68,18 @@ export default function AdminUsersPanel({
             {pagination.total} total users across the platform, 100 per page
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <button
+            onClick={onRegisterSingleAccount}
+            className="rounded-xl border border-blue-600 px-4 py-2 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+          >
+            Register single account
+          </button>
           <button
             onClick={onRegisterAccounts}
             className="rounded-xl bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
           >
-            Register Accounts
+            Register multiple accounts
           </button>
           <button
             onClick={() => onPageChange(pagination.page - 1)}

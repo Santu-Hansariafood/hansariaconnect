@@ -14,7 +14,7 @@ const requestTemplate = `curl -X POST "https://hfconnect.in/api/v1/messages/send
   -H "Content-Type: application/json" \\
   -d '{
     "fromUserId": "SENDER_CHAT_ACCOUNT_ID",
-    "toUserId": "RECIPIENT_CHAT_ACCOUNT_ID",
+    "toUserId": "REGISTERED_RECIPIENT_MOBILE_OR_CHAT_ACCOUNT_ID",
     "text": "${sampleMessage}"
   }'`;
 
@@ -155,7 +155,8 @@ export default function ConnectionApiTest({
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
           Create a short-lived, send-only key for this workspace or paste an
           existing workspace key. The sample sends only after you press the
-          button below.
+          button below. Use an existing user&apos;s registered mobile number
+          or chat account ID; there is no need to register that user again.
         </p>
       </div>
 
@@ -181,8 +182,12 @@ export default function ConnectionApiTest({
             value={recipient}
             onChange={(event) => setRecipient(event.target.value)}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            placeholder="e.g. 9876543210"
+            placeholder="Registered user's mobile or account ID"
           />
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+            The API finds an existing account automatically. New recipients
+            must be onboarded before they can receive in-app messages.
+          </span>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
           Workspace API key

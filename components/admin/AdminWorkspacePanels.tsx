@@ -23,9 +23,11 @@ export interface AdminMessageTemplate {
 }
 
 export function AccountRegistrationPanel({
-  onRegisterAccounts,
+  onRegisterSingleAccount,
+  onRegisterMultipleAccounts,
 }: {
-  onRegisterAccounts: () => void;
+  onRegisterSingleAccount: () => void;
+  onRegisterMultipleAccounts: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -33,14 +35,23 @@ export function AccountRegistrationPanel({
         Register chat accounts
       </h2>
       <p className="mt-1 text-sm text-gray-500 dark:text-slate-400">
-        Register multiple chat accounts with the admin Excel template.
+        Register one account directly or import multiple accounts with the
+        admin Excel template.
       </p>
-      <button
-        onClick={onRegisterAccounts}
-        className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700"
-      >
-        Register Accounts
-      </button>
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button
+          onClick={onRegisterSingleAccount}
+          className="rounded-xl border border-emerald-700 px-5 py-3 font-semibold text-emerald-800 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+        >
+          Register single account
+        </button>
+        <button
+          onClick={onRegisterMultipleAccounts}
+          className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700"
+        >
+          Register multiple accounts
+        </button>
+      </div>
     </div>
   );
 }

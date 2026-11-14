@@ -31,7 +31,7 @@ const createPostmanCollection = ({
       "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
   },
   description:
-    "Incoming API integration: your app calls the HansariaConnect API with POST requests. Set the apiKey collection variable before use. Recipients must have registered HansariaConnect accounts. The API key must be bound to a sender account; otherwise add fromUserId to send requests. Configure outgoing signed message webhooks in Admin > API keys.",
+    "Incoming API integration: your app calls the HansariaConnect API with POST requests. Set the apiKey collection variable before use. Recipients must have registered HansariaConnect accounts; once registered, use the same mobile number or account ID for future messages without registering them again. The API key must be bound to a sender account; otherwise add fromUserId to send requests. Configure outgoing signed message webhooks in Admin > API keys.",
   auth: {
     type: "bearer",
     bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }],
@@ -48,7 +48,7 @@ const createPostmanCollection = ({
       name: "Send to one number",
       request: {
         description:
-          "Send one in-app message. Replace RECIPIENT_MOBILE with one registered Indian mobile number or chat account ID. Uses the sender account bound to the API key; otherwise add fromUserId.",
+          "Send one in-app message. Replace RECIPIENT_MOBILE with the registered Indian mobile number or chat account ID. The existing account is reused; no re-registration is needed. Uses the sender account bound to the API key; otherwise add fromUserId.",
         method: "POST",
         header: [{ key: "Content-Type", value: "application/json" }],
         body: {

@@ -182,7 +182,11 @@ export async function POST(req: NextRequest) {
       .lean();
     if (!recipientProfile) {
       return NextResponse.json(
-        { success: false, error: "Recipient account not found" },
+        {
+          success: false,
+          error:
+            "Recipient account not found. Register this recipient once in HansariaConnect, then use their registered mobile number or chat account ID for future messages.",
+        },
         { status: 404 },
       );
     }
