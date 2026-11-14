@@ -23,8 +23,8 @@ const AdminApplicationConnectionGuide = dynamic(
 const AdminMessageHistoryPanel = dynamic(
   () => import("@/components/admin/AdminMessageHistoryPanel"),
 );
-const AdminSmsTestPanel = dynamic(
-  () => import("@/components/admin/AdminSmsTestPanel"),
+const ConnectionApiTestPanel = dynamic(
+  () => import("@/components/admin/application-connection/ConnectionApiTest"),
 );
 const BulkAccountsModal = dynamic(
   () => import("@/components/admin/BulkAccountsModal"),
@@ -123,7 +123,7 @@ export default function AdminDashboard() {
     | "users"
     | "admins"
     | "api-keys"
-    | "sms-test"
+    | "chat-test"
     | "accounts"
     | "templates"
     | "profile"
@@ -1310,17 +1310,17 @@ export default function AdminDashboard() {
                   API Keys
                 </button>
                 <button
-                  onClick={() => setActiveTab("sms-test")}
-                  aria-current={activeTab === "sms-test" ? "page" : undefined}
+                  onClick={() => setActiveTab("chat-test")}
+                  aria-current={activeTab === "chat-test" ? "page" : undefined}
                   className={`ml-1 shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                    activeTab === "sms-test"
+                    activeTab === "chat-test"
                       ? `${isPlatformAdmin ? "bg-indigo-700" : "bg-emerald-700"} text-white shadow-md`
                       : isPlatformAdmin
                         ? "text-slate-600 hover:bg-indigo-50 hover:text-indigo-800 dark:text-slate-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-200"
                         : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"
                   }`}
                 >
-                  SMS test
+                  Chat test
                 </button>
               </div>
             </nav>
@@ -2075,7 +2075,12 @@ export default function AdminDashboard() {
                 </section>
               </div>
             )}
-            {activeTab === "sms-test" && <AdminSmsTestPanel />}
+            {activeTab === "chat-test" && (
+              <ConnectionApiTestPanel
+                adminId={effectiveKeyOwnerId}
+                onKeyCreated={() => void refreshData()}
+              />
+            )}
           </>
         )}
       </main>

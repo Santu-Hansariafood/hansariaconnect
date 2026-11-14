@@ -9,6 +9,13 @@ type ConnectionApiTestProps = {
 
 const sampleMessage = "Hello, I am from Hansaria Connect.";
 
+type RecipientResult = {
+  recipient: string;
+  success: boolean;
+  messageId?: string;
+  error?: string;
+};
+
 const requestTemplate = `curl -X POST "https://hfconnect.in/api/v1/messages/send" \\
   -H "Authorization: Bearer $HANSARIA_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -24,7 +31,8 @@ export default function ConnectionApiTest({
 }: ConnectionApiTestProps) {
   const [apiKey, setApiKey] = useState("");
   const [senderUserId, setSenderUserId] = useState("");
-  const [recipient, setRecipient] = useState("");
+  const [recipientInput, setRecipientInput] = useState("");
+  const [recipientResults, setRecipientResults] = useState<RecipientResult[]>([]);
   const [busy, setBusy] = useState<"key" | "send" | null>(null);
   const [testKeyCreated, setTestKeyCreated] = useState(false);
   const [error, setError] = useState("");
@@ -88,42 +96,75 @@ export default function ConnectionApiTest({
       setError("Enter the sender's existing chat account ID.");
       return;
     }
-    if (!recipient.trim()) {
-      setError("Enter a recipient's mobile number or chat account ID.");
+    const recipients = recipientInput
+      .split(/[\n,;]+/)
+      .map((recipient) => recipient.trim())
+      .filter(Boolean);
+    if (!recipients.length) {
+      setError("Enter at least one recipient's mobile number or chat account ID.");
+      return;
+    }
+    if (recipients.length > 10) {
+      setError("You can test up to 10 recipients at a time.");
       return;
     }
 
     setBusy("send");
     setError("");
     setStatus("");
+    setRecipientResults([]);
+    const results: RecipientResult[] = [];
     try {
-      const response = await fetch("/api/v1/messages/send", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey.trim()}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fromUserId: senderUserId.trim(),
-          toUserId: recipient.trim(),
-          text: sampleMessage,
-        }),
-      });
-      const result = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      if (!response.ok) {
-        throw new Error(result?.error || `Message request failed: ${response.status}`);
+      for (const recipient of Array.from(new Set(recipients))) {
+        try {
+          const response = await fetch("/api/v1/messages/send", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey.trim()}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              fromUserId: senderUserId.trim(),
+              toUserId: recipient,
+              text: sampleMessage,
+            }),
+          });
+          const result = (await response.json().catch(() => null)) as {
+            success?: boolean;
+            error?: string;
+            message?: { id?: string };
+          } | null;
+          if (!response.ok || !result?.success) {
+            results.push({
+              recipient,
+              success: false,
+              error:
+                result?.error || `Message request failed: ${response.status}`,
+            });
+          } else {
+            results.push({
+              recipient,
+              success: true,
+              messageId: result.message?.id,
+            });
+          }
+        } catch (cause: unknown) {
+          results.push({
+            recipient,
+            success: false,
+            error:
+              cause instanceof Error
+                ? cause.message
+                : "Failed to send the test message.",
+          });
+        }
       }
-      setStatus("Test message sent. Check the recipient's chat to confirm delivery.");
-    } catch (cause: unknown) {
-      console.error("[admin] Connection test message failed:", cause);
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "Failed to send the test message.",
-      );
     } finally {
+      setRecipientResults(results);
+      const sentCount = results.filter((result) => result.success).length;
+      setStatus(
+        `${sentCount} of ${results.length} in-app chat message(s) created. Check each recipient's chat; this does not send carrier SMS.`,
+      );
       setBusy(null);
     }
   };
@@ -150,13 +191,13 @@ export default function ConnectionApiTest({
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div>
         <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-          Test your API connection
+          Test in-app chat delivery
         </h3>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
-          Create a short-lived, send-only key for this workspace or paste an
-          existing workspace key. The sample sends only after you press the
-          button below. Use an existing user&apos;s registered mobile number
-          or chat account ID; there is no need to register that user again.
+          Send the sample through HansariaConnect chat, not carrier SMS. Create
+          a short-lived, send-only key for this workspace or paste an existing
+          key. Use already registered recipients; there is no need to register
+          them again.
         </p>
       </div>
 
@@ -177,16 +218,19 @@ export default function ConnectionApiTest({
           )}
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-          Recipient mobile or chat account ID
-          <input
-            value={recipient}
-            onChange={(event) => setRecipient(event.target.value)}
+          Recipient mobile numbers or chat account IDs
+          <textarea
+            value={recipientInput}
+            onChange={(event) => setRecipientInput(event.target.value)}
+            rows={3}
+            maxLength={400}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            placeholder="Registered user's mobile or account ID"
+            placeholder={"Registered mobile or account ID, one per line"}
           />
           <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
-            The API finds an existing account automatically. New recipients
-            must be onboarded before they can receive in-app messages.
+            Separate recipients with a new line, comma, or semicolon. Up to 10
+            per test. The API finds registered accounts automatically; new
+            recipients must be onboarded first.
           </span>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
@@ -239,7 +283,7 @@ export default function ConnectionApiTest({
           disabled={busy !== null}
           className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {busy === "send" ? "Sending..." : "Send sample message"}
+          {busy === "send" ? "Sending..." : "Send sample chat message(s)"}
         </button>
         <span
           aria-live="polite"
@@ -248,6 +292,42 @@ export default function ConnectionApiTest({
           {error || status}
         </span>
       </div>
+
+      {recipientResults.length > 0 && (
+        <ul className="mt-4 space-y-2">
+          {recipientResults.map((result, index) => (
+            <li
+              key={`${result.recipient}-${index}`}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="break-all text-slate-800 dark:text-slate-100">
+                  {result.recipient}
+                </span>
+                <span
+                  className={
+                    result.success
+                      ? "font-semibold text-emerald-700 dark:text-emerald-300"
+                      : "font-semibold text-red-700 dark:text-red-300"
+                  }
+                >
+                  {result.success ? "Created in chat" : "Failed"}
+                </span>
+              </div>
+              {result.error && (
+                <p className="mt-1 text-xs text-red-700 dark:text-red-300">
+                  {result.error}
+                </p>
+              )}
+              {result.messageId && (
+                <p className="mt-1 break-all text-xs text-slate-500 dark:text-slate-400">
+                  Message ID: {result.messageId}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
 
       <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
         New test keys are workspace-scoped, bound to the sender above,
