@@ -6,7 +6,7 @@ import Admin from "@/models/admin/Admin";
 import {
   verifyAdminOtpSession,
   signAdminSession,
-  adminSessionCookieOptions,
+  getAdminSessionCookieOptions,
 } from "@/lib/sessionAuth";
 import { consumeOtpChallenge } from "@/lib/auth/otpChallenge";
 import {
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         email: admin.email,
         isSuperAdmin: admin.isSuperAdmin,
       }),
-      adminSessionCookieOptions,
+      getAdminSessionCookieOptions(req),
     );
     return response;
   } catch (error: unknown) {

@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 import { connectDB } from "@/lib/db/db";
 import { mailFrom, sendMail } from "@/lib/mailer";
 import User from "@/models/user/User";
-import { signOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
+import { signOtpSession, getAuthOtpCookieOptions } from "@/lib/sessionAuth";
 import {
   getAgeOnDateOfBirth,
   MINIMUM_REGISTRATION_AGE,
@@ -200,7 +200,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         challengeId,
         exp: Date.now() + 5 * 60 * 1000,
       }),
-      authOtpCookieOptions,
+      getAuthOtpCookieOptions(req),
     );
 
     return response;

@@ -19,7 +19,11 @@ import {
 } from "@/lib/redis/redis";
 import { publishSocketRoomEvent } from "@/lib/socketRedisAdapter";
 import { isUserActivelyViewing } from "@/lib/presence";
-import { pushIfNotViewing, type PushPayload } from "@/lib/webPush";
+import {
+  isWebPushEnabled,
+  pushIfNotViewing,
+  type PushPayload,
+} from "@/lib/webPush";
 import {
   clearAllUnread,
   clearChatUnread,
@@ -97,7 +101,6 @@ type IncomingNotificationPayload = {
   fromAvatar?: string;
   preview: string;
   messageType: string;
-  /** Lets the client show the actual photo/video as the notification image. */
   mediaUrl?: string;
   timestamp: Date | string;
   unreadCounts?: UnreadPayload;
@@ -301,10 +304,6 @@ const truncatePreview = (value: string) =>
     ? `${value.slice(0, MAX_PREVIEW_LENGTH)}…`
     : value;
 
-/**
- * WhatsApp shows what *kind* of message arrived before the text does, so every
- * media type gets its own label instead of falling through to "New message".
- */
 const buildPreview = (
   message: Pick<
     DecryptedMessage,
@@ -348,7 +347,6 @@ const buildPreview = (
   }
 };
 
-/** Only visual media is worth using as a notification thumbnail. */
 const notificationMedia = (
   message: Pick<DecryptedMessage, "type" | "mediaUrl">,
 ): string | undefined =>
@@ -372,18 +370,12 @@ const toAdminNotification = (
 const getMessageId = (message: DecryptedMessage): string | undefined =>
   message.id || String(message._id ?? "") || undefined;
 
-/**
- * Mirrors what the in-app notification shows, so a push raised while the app is
- * closed reads exactly like the one the user sees while it is open.
- */
 const toPushPayload = (notification: NotificationMeta): PushPayload => ({
   title:
     notification.kind === "group"
       ? `${notification.fromName} in ${notification.chatName}`
       : notification.fromName || notification.chatName || "New message",
   body: notification.preview || "You have a new message",
-  // Same tag the client uses, so a follow-up message replaces the entry in the
-  // notification tray instead of stacking a second one for the same chat.
   tag: `${notification.kind}-${notification.chatId}`,
   url:
     notification.kind === "direct"
@@ -615,16 +607,6 @@ export const getUnreadCountsForUser = async (
   }
 };
 
-/**
- * Backend refresh trigger for a single user id.
- *
- * Anything that "hits" an id — a direct message, a group fan-out, a read
- * receipt — must leave that id's server state consistent and tell its live
- * sockets to re-sync. This is the single funnel for that: drop the id's cached
- * conversation list, push a server-authoritative `conversation:updated` so the
- * sidebar re-fetches from the backend, then push the authoritative unread
- * counters. Clients never need a manual page refresh to see the change.
- */
 const refreshUserId = async (
   io: ServerIO | null,
   rawUserId: string,
@@ -887,12 +869,6 @@ export const emitDirectMessageReceived = async (
       deliver,
     ]);
 
-    /*
-     * Backend trigger. Both ids were just hit by this message, so each one is
-     * refreshed server-side (conversation-list cache dropped, re-sync signal
-     * pushed, unread counters re-published). The sidebar updates itself — the
-     * user never has to refresh the page to discover the new message.
-     */
     const changedAt =
       decryptedMessage.createdAt ?? decryptedMessage.timestamp ?? new Date();
 
@@ -922,9 +898,13 @@ export const emitDirectMessageReceived = async (
       from: notification.fromUserId,
     });
 
+    const recipientIsViewing = await isUserActivelyViewing(rawToId);
+    const pushDispatched = isWebPushEnabled() && !recipientIsViewing;
+
     await Promise.all([
       emitRoomEvent(io, rawToId, "message:notify", {
         ...notification,
+        pushDispatched,
         ...(recipientCounts ? { unreadCounts: recipientCounts } : {}),
       }),
       emitRoomEvent(
@@ -935,17 +915,29 @@ export const emitDirectMessageReceived = async (
       ),
     ]);
 
-    /*
-     * Anything the socket could not alert — the app is minimised, backgrounded,
-     * frozen by the OS, or closed — is reached over the internet as a Web Push
-     * instead. Not awaited so the push round trip never delays delivery.
-     */
+    if (!pushDispatched) return;
+
     void pushIfNotViewing(
       rawToId,
       "direct",
       toPushPayload(notification),
-      () => isUserActivelyViewing(rawToId),
-    );
+      async () => recipientIsViewing,
+    ).then((delivered) => {
+      if (delivered > 0) return;
+
+      console.warn(
+        "[socketEmitter] Web Push reached no device for",
+        rawToId,
+        "- falling back to the in-app alert",
+      );
+
+      return emitRoomEvent(io, rawToId, "message:notify", {
+        ...notification,
+        pushDispatched: false,
+        fallback: true,
+        ...(recipientCounts ? { unreadCounts: recipientCounts } : {}),
+      });
+    });
   } catch (error: unknown) {
     console.error(
       "[socketEmitter] emitDirectMessageReceived error:",
@@ -1002,9 +994,6 @@ export const emitGroupMessageUpdated = async (
   );
 };
 
-/**
- * IMPORTANT: call this AFTER the group message has been saved to MongoDB.
- */
 export const emitGroupMessageReceived = async (
   rawGroupId: string,
   rawFromId: string,
@@ -1043,11 +1032,6 @@ export const emitGroupMessageReceived = async (
     const changedAt =
       decryptedMessage.createdAt ?? decryptedMessage.timestamp ?? new Date();
 
-    /*
-     * Backend trigger for the sender. The sender's own id was hit by this
-     * message too, so its conversation list is refreshed exactly like every
-     * other member's.
-     */
     await Promise.all([
       emitRoomEvent(io, rawFromId, "group:message:new", decryptedMessage),
       refreshUserId(io, rawFromId, {
@@ -1109,12 +1093,19 @@ export const emitGroupMessageReceived = async (
           changedAt,
         });
 
+        const memberIsViewing = meta
+          ? await isUserActivelyViewing(memberId)
+          : false;
+        const memberPushDispatched =
+          Boolean(meta) && isWebPushEnabled() && !memberIsViewing;
+
         const notificationTasks: Promise<void>[] = [];
 
         if (meta) {
           notificationTasks.push(
             emitRoomEvent(io, memberId, "message:notify", {
               ...meta,
+              pushDispatched: memberPushDispatched,
               ...(unread ? { unreadCounts: unread } : {}),
             }),
             emitRoomEvent(
@@ -1136,15 +1127,29 @@ export const emitGroupMessageReceived = async (
           }
         }
 
-        // Reaches members whose app is minimised, backgrounded or closed; see
-        // emitDirectMessageReceived.
-        if (pushPayload) {
+        if (meta && pushPayload && memberPushDispatched) {
+          const groupNotification = meta;
           void pushIfNotViewing(
             memberId,
             "group",
             pushPayload,
-            () => isUserActivelyViewing(memberId),
-          );
+            async () => memberIsViewing,
+          ).then((delivered) => {
+            if (delivered > 0) return;
+
+            console.warn(
+              "[socketEmitter] Web Push reached no device for",
+              memberId,
+              "- falling back to the in-app alert",
+            );
+
+            return emitRoomEvent(io, memberId, "message:notify", {
+              ...groupNotification,
+              pushDispatched: false,
+              fallback: true,
+              ...(unread ? { unreadCounts: unread } : {}),
+            });
+          });
         }
       },
     );

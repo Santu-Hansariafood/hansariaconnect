@@ -191,30 +191,36 @@ export const sendPushToUser = async (
 };
 
 /**
- * Fire-and-forget helper: offloaded only when the app is not on screen — i.e.
- * the user cannot be alerted through the socket — and their preferences allow
- * this kind of chat. `isViewing` is the visibility-aware presence check, so a
- * minimised app is pushed to just like a closed one.
+ * Offloaded only when the app is not on screen — i.e. the user cannot be
+ * alerted through the socket — and their preferences allow this kind of chat.
+ * `isViewing` is the visibility-aware presence check, so a minimised app is
+ * pushed to just like a closed one.
+ *
+ * Returns how many devices the push actually reached. Callers use it to tell
+ * "the push carried this alert" apart from "the push was skipped or reached
+ * nobody" — the latter happens when the endpoint has gone stale, and is the
+ * case where the app still has to be alerted on its own.
  */
 export const pushIfNotViewing = async (
   rawUserId: string,
   kind: "direct" | "group",
   payload: PushPayload,
   isViewing: () => Promise<boolean>,
-): Promise<void> => {
-  if (!isWebPushEnabled()) return;
+): Promise<number> => {
+  if (!isWebPushEnabled()) return 0;
 
   try {
     const preferences = await getNotificationPreferences(rawUserId);
-    if (!preferences.enabled) return;
-    if (kind === "group" ? !preferences.groups : !preferences.messages) return;
-    if (await isViewing()) return;
+    if (!preferences.enabled) return 0;
+    if (kind === "group" ? !preferences.groups : !preferences.messages) return 0;
+    if (await isViewing()) return 0;
 
-    await sendPushToUser(rawUserId, payload);
+    return await sendPushToUser(rawUserId, payload);
   } catch (error) {
     console.error(
       "[webPush] Offline push failed:",
       error instanceof Error ? error.message : error,
     );
+    return 0;
   }
 };

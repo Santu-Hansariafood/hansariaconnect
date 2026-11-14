@@ -6,7 +6,7 @@ import {
   addUserSession,
   signUserSession,
   verifyOtpSession,
-  userSessionCookieOptions,
+  getUserSessionCookieOptions,
   getDeviceMetadata,
 } from "@/lib/sessionAuth";
 import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     response.cookies.set(
       "user_session",
       await signUserSession({ id: user._id.toString(), sessionId, mobile }),
-      userSessionCookieOptions,
+      getUserSessionCookieOptions(req),
     );
 
     return response;

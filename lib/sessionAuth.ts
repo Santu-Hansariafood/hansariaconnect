@@ -174,6 +174,50 @@ export const authOtpCookieOptions = {
   maxAge: 5 * 60,
 };
 
+type SecureRequestLike = {
+  headers?: { get?: (name: string) => string | null };
+  nextUrl?: { protocol?: string };
+  url?: string;
+};
+
+/**
+ * A cookie marked `Secure` is dropped by browsers whenever the page is served
+ * over plain HTTP (localhost is the only exception), so a production build
+ * reached over http never keeps its session and every authenticated request
+ * looks anonymous. Decide from the actual request instead of NODE_ENV alone:
+ * HTTPS deployments (including those behind a TLS-terminating proxy) still get
+ * Secure cookies, while an http deployment can sign in.
+ */
+const requestIsSecure = (req?: unknown): boolean => {
+  if (req && typeof req === "object") {
+    const request = req as SecureRequestLike;
+    const forwardedProto = request.headers?.get?.("x-forwarded-proto");
+    if (forwardedProto) {
+      return forwardedProto.split(",")[0]!.trim().toLowerCase() === "https";
+    }
+    const protocol = request.nextUrl?.protocol || request.url;
+    if (typeof protocol === "string" && protocol) {
+      return protocol.startsWith("https:");
+    }
+  }
+  return process.env.NODE_ENV === "production";
+};
+
+export const getAdminSessionCookieOptions = (req?: unknown) => ({
+  ...adminSessionCookieOptions,
+  secure: requestIsSecure(req),
+});
+
+export const getUserSessionCookieOptions = (req?: unknown) => ({
+  ...userSessionCookieOptions,
+  secure: requestIsSecure(req),
+});
+
+export const getAuthOtpCookieOptions = (req?: unknown) => ({
+  ...authOtpCookieOptions,
+  secure: requestIsSecure(req),
+});
+
 const isSessionExpired = (exp?: unknown): boolean =>
   typeof exp !== "number" || !Number.isFinite(exp) || Date.now() >= exp;
 

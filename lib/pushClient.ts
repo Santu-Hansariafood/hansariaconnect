@@ -22,6 +22,35 @@ const urlBase64ToUint8Array = (base64: string) => {
 /** How long to wait for the app's service worker registration to go active. */
 const SERVICE_WORKER_WAIT_MS = 8000;
 
+/**
+ * A subscription is bound to the VAPID key it was created with. If that key has
+ * changed since (a rotated key, or a device that subscribed before the current
+ * one was configured) the push service rejects every delivery to it, so the
+ * subscription has to be replaced instead of reused — otherwise the device
+ * stays silent while the server keeps signing pushes with the new key.
+ *
+ * When the browser does not expose the key, the subscription is kept rather
+ * than churned on every check.
+ */
+const subscriptionUsesKey = (
+  subscription: PushSubscription,
+  expected: Uint8Array,
+): boolean => {
+  const applicationServerKey = (
+    subscription as PushSubscription & {
+      options?: { applicationServerKey?: ArrayBuffer | null };
+    }
+  ).options?.applicationServerKey;
+
+  if (!applicationServerKey) return true;
+
+  const current = new Uint8Array(applicationServerKey);
+  return (
+    current.length === expected.length &&
+    current.every((byte, index) => byte === expected[index])
+  );
+};
+
 const getRegistration = async (): Promise<ServiceWorkerRegistration | null> => {
   try {
     const existing = await navigator.serviceWorker.getRegistration();
@@ -77,12 +106,21 @@ const subscribe = async (): Promise<boolean> => {
     return false;
   }
 
+  const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
   let subscription = await registration.pushManager.getSubscription();
+
+  if (subscription && !subscriptionUsesKey(subscription, applicationServerKey)) {
+    console.warn(
+      "[pushClient] Stored push subscription was created with a different VAPID key — replacing it so this device can be alerted again.",
+    );
+    await subscription.unsubscribe().catch(() => false);
+    subscription = null;
+  }
 
   if (!subscription) {
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      applicationServerKey,
     });
   }
 

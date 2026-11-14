@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import Admin from "@/models/admin/Admin";
-import { signAdminSession, adminSessionCookieOptions } from "@/lib/sessionAuth";
+import { signAdminSession, getAdminSessionCookieOptions } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
         email: admin.email,
         isSuperAdmin: admin.isSuperAdmin,
       }),
-      adminSessionCookieOptions,
+      getAdminSessionCookieOptions(req),
     );
 
     return response;

@@ -3,7 +3,7 @@ import { buildOtpEmailTemplate } from "@/lib/emailTemplates";
 import { connectDB } from "@/lib/db/db";
 import { mailFrom, sendMail } from "@/lib/mailer";
 import Admin from "@/models/admin/Admin";
-import { signAdminOtpSession, authOtpCookieOptions } from "@/lib/sessionAuth";
+import { signAdminOtpSession, getAuthOtpCookieOptions } from "@/lib/sessionAuth";
 import { createOtpChallenge } from "@/lib/auth/otpChallenge";
 import {
   consumeOtpSendCooldown,
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         challengeId,
         exp: Date.now() + 5 * 60 * 1000,
       }),
-      authOtpCookieOptions,
+      getAuthOtpCookieOptions(req),
     );
 
     // Reply first: the admin is waiting on this request, not on the mail server.

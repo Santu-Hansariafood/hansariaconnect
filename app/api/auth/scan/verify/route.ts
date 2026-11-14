@@ -6,7 +6,7 @@ import { randomBytesHex } from "@/lib/crypto";
 import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
 import {
   signUserSession,
-  userSessionCookieOptions,
+  getUserSessionCookieOptions,
   addUserSession,
   getDeviceMetadata,
 } from "@/lib/sessionAuth";
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
         sessionId,
         mobile: scanData.mobile,
       }),
-      userSessionCookieOptions,
+      getUserSessionCookieOptions(req),
     );
 
     return response;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { signAdminSession, adminSessionCookieOptions } from "@/lib/sessionAuth";
+import { signAdminSession, getAdminSessionCookieOptions } from "@/lib/sessionAuth";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         email: process.env.ADMIN_LOGIN_KEY_EMAIL || "admin-key-login@local",
         isSuperAdmin: false,
       }),
-      adminSessionCookieOptions,
+      getAdminSessionCookieOptions(req),
     );
     return response;
   } catch (e: any) {

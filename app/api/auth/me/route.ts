@@ -6,6 +6,7 @@ import {
   getUserSession,
   signUserSession,
   userSessionCookieOptions,
+  getUserSessionCookieOptions,
 } from "@/lib/sessionAuth";
 import { MAX_DEVICE_SESSIONS } from "@/lib/auth/deviceLimits";
 import { MOBILE_APP_SESSION_HEADER } from "@/lib/mobileApp";
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       response.cookies.set(
         "user_session",
         await signUserSession(session),
-        userSessionCookieOptions,
+        getUserSessionCookieOptions(req),
       );
     }
     return response;

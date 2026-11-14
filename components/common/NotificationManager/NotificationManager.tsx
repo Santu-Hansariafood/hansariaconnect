@@ -22,6 +22,17 @@ type NotifyPayload = {
   messageType: string;
   mediaUrl?: string;
   timestamp?: string | Date;
+  /**
+   * Server-side verdict on whether Web Push is carrying this alert. Set by the
+   * backend, which also knows whether the recipient has a visible socket — the
+   * page cannot work that out reliably on its own.
+   */
+  pushDispatched?: boolean;
+  /**
+   * Set when the push reached no device and this is the server re-raising the
+   * same message so the app alerts on its own.
+   */
+  fallback?: boolean;
 };
 
 type ToastNotification = NotifyPayload & { id: number };
@@ -258,7 +269,7 @@ export default function NotificationManager({
         );
         return;
       }
-      if (payload.messageId) {
+      if (payload.messageId && !payload.fallback) {
         if (notifiedMessageIds.current.has(payload.messageId)) return;
         notifiedMessageIds.current.add(payload.messageId);
         if (notifiedMessageIds.current.size > 200) {
@@ -343,10 +354,22 @@ export default function NotificationManager({
        * While the app is hidden the backend raises a Web Push — it knows no
        * socket of this user is on screen — and that notification plays the
        * device alert sound by itself. Raising our own on top would alert twice,
-       * so the in-app alert stands down. Only where a push subscription really
-       * exists though: without one, this notification is the only alert left.
+       * so the in-app alert stands down.
+       *
+       * The decision is taken from the payload, not from this page's own
+       * "a push subscription exists" flag: that flag is stale whenever the
+       * device's endpoint has been revoked, and it is still unset during the
+       * first moments after mount, which is exactly the race that produced a
+       * double alert. The backend knows the truth and states it. Payloads from
+       * surfaces that do not carry the flag (e.g. the admin feed) keep the old
+       * local behaviour.
        */
-      const delegatesToPush = !isPageVisible && pushReady;
+      const serverPushDispatched =
+        typeof payload.pushDispatched === "boolean"
+          ? payload.pushDispatched
+          : null;
+      const delegatesToPush =
+        !isPageVisible && (serverPushDispatched ?? pushReady);
 
       if (!isFocusedConversation && isAppInUse) {
         playRingtone(preferences.ringtone || "whatsapp");
