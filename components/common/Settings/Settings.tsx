@@ -91,6 +91,9 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
   const ringtoneInputRef = useRef<HTMLInputElement | null>(null);
   const [browserPerm, setBrowserPerm] = useState<NotificationPermission | "unsupported">("default");
   const [permRequesting, setPermRequesting] = useState(false);
+  const [pushTestBusy, setPushTestBusy] = useState(false);
+  const [pushTestStatus, setPushTestStatus] = useState("");
+  const [pushTestError, setPushTestError] = useState("");
   const [notificationLoading, setNotificationLoading] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState("en");
   const [languageSaving, setLanguageSaving] = useState(false);
@@ -225,6 +228,35 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
       setBrowserPerm(Notification.permission);
     } finally {
       setPermRequesting(false);
+    }
+  };
+
+  const sendPushTest = async () => {
+    setPushTestBusy(true);
+    setPushTestStatus("");
+    setPushTestError("");
+    try {
+      await requestPermission();
+      const response = await fetch("/api/push/test", {
+        method: "POST",
+        credentials: "include",
+      });
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+        acceptedDevices?: number;
+      } | null;
+      if (!response.ok) {
+        throw new Error(result?.error || "Test notification failed.");
+      }
+      setPushTestStatus(
+        `Push service accepted the notification for ${result?.acceptedDevices || 0} device(s). Check the device notification center.`,
+      );
+    } catch (error: unknown) {
+      setPushTestError(
+        error instanceof Error ? error.message : "Test notification failed.",
+      );
+    } finally {
+      setPushTestBusy(false);
     }
   };
 
@@ -687,6 +719,30 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
                       )}
                       {permRequesting ? "Requesting…" : "Allow Notifications"}
                     </button>
+                  )}
+                  {browserPerm === "granted" && (
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={sendPushTest}
+                        disabled={pushTestBusy}
+                        className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 font-medium text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        {pushTestBusy
+                          ? "Sending test..."
+                          : "Send test notification"}
+                      </button>
+                      <p
+                        aria-live="polite"
+                        className={`text-sm ${
+                          pushTestError
+                            ? "text-red-600 dark:text-red-300"
+                            : "text-emerald-700 dark:text-emerald-300"
+                        }`}
+                      >
+                        {pushTestError || pushTestStatus}
+                      </p>
+                    </div>
                   )}
                   {browserPerm === "denied" && (
                     <button

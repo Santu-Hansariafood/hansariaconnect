@@ -143,8 +143,14 @@ const subscribe = async (): Promise<boolean> => {
     }),
   });
 
-  if (!response.ok) {
-    console.warn("[pushClient] Could not store the subscription:", response.status);
+  const result = (await response.json().catch(() => null)) as {
+    backgroundPushEnabled?: boolean;
+  } | null;
+  if (!response.ok || result?.backgroundPushEnabled !== true) {
+    console.warn(
+      "[pushClient] Background push is not ready:",
+      response.status,
+    );
     return false;
   }
 

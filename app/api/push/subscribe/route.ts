@@ -5,6 +5,7 @@ import { Types } from "mongoose";
 import { connectDB } from "@/lib/db/db";
 import PushSubscription from "@/models/pushSubscription/PushSubscription";
 import { apiError, parseJson, requireUser } from "@/lib/api/request";
+import { isWebPushEnabled } from "@/lib/webPush";
 
 const subscribeSchema = z.object({
   endpoint: z.string().url().max(2000),
@@ -45,7 +46,10 @@ export async function POST(req: NextRequest) {
       { upsert: true, new: true },
     );
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      backgroundPushEnabled: isWebPushEnabled(),
+    });
   } catch (error: unknown) {
     return apiError(error, "POST /api/push/subscribe");
   }
