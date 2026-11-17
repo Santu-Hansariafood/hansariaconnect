@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Indian Messaging App for Groups and Communities | HansariaConnect",
   description:
     "HansariaConnect is an India-built messaging app for direct chats, groups, contacts, status updates, and media sharing for families, teams, and communities.",
-  alternates: { canonical: "https://hfconnect.in" },
+  alternates: { canonical: "https://hfconnect.in/" },
   openGraph: {
     title: "HansariaConnect | Indian Messaging App for Groups and Communities",
     description:
