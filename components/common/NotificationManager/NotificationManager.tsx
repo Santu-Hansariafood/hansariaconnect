@@ -67,7 +67,7 @@ export default function NotificationManager({
     subscribeOnline: false,
     enabled: Boolean(userId) || Boolean(isAdminSurface && adminUserId),
   });
-  const { preferences, preferencesLoaded, pushReady, playRingtone, playStartupTune, showNotification } =
+  const { preferences, preferencesLoaded, pushReady, playStartupTune, showNotification } =
     useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
   const startupTunePlayed = useRef(false);
@@ -287,12 +287,6 @@ export default function NotificationManager({
       const isPageVisible = document.visibilityState === "visible";
       const isWindowFocused = typeof document.hasFocus === "function" ? document.hasFocus() : isPageVisible;
       const isFocusedConversation = Boolean(isActiveChat && isPageVisible && isWindowFocused);
-      /*
-       * The in-app tone only rings while the user is actually in the app.
-       * When the app is hidden the OS notification already plays the device
-       * alert sound, and firing both makes the tone sound doubled and mushy.
-       */
-      const isAppInUse = isPageVisible && isWindowFocused;
 
       console.log(
         "[NotificationManager] Focus state check:",
@@ -325,12 +319,7 @@ export default function NotificationManager({
       const delegatesToPush =
         !isPageVisible && (serverPushDispatched ?? pushReady);
 
-      if (!isFocusedConversation && isAppInUse) {
-        playRingtone(preferences.ringtone || "whatsapp");
-      }
-
-      const showSystemNotification =
-        !isFocusedConversation && !delegatesToPush;
+      const showSystemNotification = !delegatesToPush;
       const titleSource =
         payload.kind === "group"
           ? `${payload.fromName} in ${payload.chatName || "Group"}`
@@ -362,8 +351,8 @@ export default function NotificationManager({
            */
           `${payload.kind}-${payload.chatId}`,
           buildUrlFromPayload(payload, isAdminSurface),
-          // The in-app tone already rang, so keep the OS notification quiet.
-          isAppInUse,
+          // Use the OS notification sound even when the chat is currently open.
+           false,
           // Photos and videos preview themselves inside the notification.
           isAdminSurface ? undefined : payload.mediaUrl,
         );
@@ -372,10 +361,8 @@ export default function NotificationManager({
   }, [
     adminUserId,
     isAdminSurface,
-    playRingtone,
     preferences.groups,
     preferences.messages,
-    preferences.ringtone,
     pushReady,
     showNotification,
     userId,
