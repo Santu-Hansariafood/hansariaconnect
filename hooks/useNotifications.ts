@@ -577,7 +577,7 @@ export function useNotifications(userId?: string | number) {
     const createNotification = () => {
       try {
         const notification = new Notification(title, options);
-        console.log("[Notifications] In-page notification created successfully");
+        console.log("[Notifications] System notification created successfully");
         notification.onclick = () => {
           try {
             window.focus();
@@ -595,7 +595,7 @@ export function useNotifications(userId?: string | number) {
 
     const createServiceWorkerNotification = async () => {
       if (!("serviceWorker" in navigator)) {
-        console.log("[Notifications] ServiceWorker API not available, falling back to in-page notification");
+        console.log("[Notifications] ServiceWorker API not available, using system notification");
         createNotification();
         return;
       }
@@ -604,53 +604,46 @@ export function useNotifications(userId?: string | number) {
       try {
         registration = await navigator.serviceWorker.getRegistration();
       } catch (e: any) {
-        console.warn("[Notifications] getRegistration() threw - using in-page fallback:", e?.message || e);
+        console.warn("[Notifications] getRegistration() threw - using system notification fallback:", e?.message || e);
         createNotification();
         return;
       }
 
       if (!registration) {
-        console.log("[Notifications] No active SW registration (may still be registering). Using in-page notification.");
+        console.log("[Notifications] No active SW registration. Using system notification fallback.");
         createNotification();
         return;
       }
 
-      const preferSW = !isVisible || !isFocused;
-      if (preferSW) {
-        try {
-          console.log(
-            "[Notifications] Using SW notification (page:",
-            isVisible ? "visible" : "hidden",
-            "| window:",
-            isFocused ? "focused" : "not focused",
-            ")",
-          );
-          await registration.showNotification(title, options);
-          console.log("[Notifications] SW notification shown successfully");
-          scheduleAutoClose(autoCloseKey, () => {
-            void registration
-              .getNotifications({ tag })
-              .then((notifications) =>
-                notifications.forEach((notificationInstance) =>
-                  notificationInstance.close(),
-                ),
-              )
-              .catch((closeError: any) => {
-                console.warn(
-                  "[Notifications] Could not auto-close SW notification:",
-                  closeError?.message || closeError,
-                );
-              });
-          });
-          return;
-        } catch (e: any) {
-          console.warn("[Notifications] SW notification failed, falling back to in-page:", e?.message || e);
-        }
-      } else {
-        console.log("[Notifications] Window is focused. Using in-page notification.");
+      try {
+        console.log(
+          "[Notifications] Using service worker system notification (page:",
+          isVisible ? "visible" : "hidden",
+          "| window:",
+          isFocused ? "focused" : "not focused",
+          ")",
+        );
+        await registration.showNotification(title, options);
+        console.log("[Notifications] Service worker system notification shown successfully");
+        scheduleAutoClose(autoCloseKey, () => {
+          void registration
+            .getNotifications({ tag })
+            .then((notifications) =>
+              notifications.forEach((notificationInstance) =>
+                notificationInstance.close(),
+              ),
+            )
+            .catch((closeError: any) => {
+              console.warn(
+                "[Notifications] Could not auto-close system notification:",
+                closeError?.message || closeError,
+              );
+            });
+        });
+      } catch (e: any) {
+        console.warn("[Notifications] Service worker notification failed, using system notification fallback:", e?.message || e);
+        createNotification();
       }
-
-      createNotification();
     };
 
     if (Notification.permission === "granted") {
