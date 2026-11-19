@@ -200,14 +200,46 @@ self.addEventListener("push", (event) => {
     silent: false,
     vibrate: [0, 200, 100, 200],
     timestamp: payload.timestamp || Date.now(),
-    data: { url: payload.url || "/chat", timestamp: payload.timestamp },
+    data: {
+      url: payload.url || "/chat",
+      tag: payload.tag,
+      messageId: payload.messageId,
+      timestamp: payload.timestamp,
+    },
   };
 
   event.waitUntil(
-    Promise.all([
-      self.registration.showNotification(title, options),
-      notifyClients({ type: "PUSH_RECEIVED" }),
-    ]),
+    (async () => {
+      /*
+       * The page raises the very same alert over its socket, and either
+       * transport can land first. One notification per message is the rule, so
+       * if this device already shows it, the push stands down instead of
+       * buzzing a second time.
+       */
+      let alreadyShown = false;
+
+      if (payload.tag && payload.messageId) {
+        try {
+          const existing = await self.registration.getNotifications({
+            tag: payload.tag,
+          });
+          alreadyShown = existing.some(
+            (notification) =>
+              notification.data &&
+              notification.data.messageId === payload.messageId,
+          );
+        } catch {
+          alreadyShown = false;
+        }
+      }
+
+      await Promise.all([
+        alreadyShown
+          ? Promise.resolve()
+          : self.registration.showNotification(title, options),
+        notifyClients({ type: "PUSH_RECEIVED" }),
+      ]);
+    })(),
   );
 });
 

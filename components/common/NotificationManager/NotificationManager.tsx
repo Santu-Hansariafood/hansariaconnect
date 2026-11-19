@@ -67,7 +67,7 @@ export default function NotificationManager({
     subscribeOnline: false,
     enabled: Boolean(userId) || Boolean(isAdminSurface && adminUserId),
   });
-  const { preferences, preferencesLoaded, pushReady, playStartupTune, showNotification } =
+  const { preferences, preferencesLoaded, playStartupTune, showNotification } =
     useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
   const startupTunePlayed = useRef(false);
@@ -299,27 +299,15 @@ export default function NotificationManager({
       );
 
       /*
-       * While the app is hidden the backend raises a Web Push — it knows no
-       * socket of this user is on screen — and that notification plays the
-       * device alert sound by itself. Raising our own on top would alert twice,
-       * so the in-app alert stands down.
-       *
-       * The decision is taken from the payload, not from this page's own
-       * "a push subscription exists" flag: that flag is stale whenever the
-       * device's endpoint has been revoked, and it is still unset during the
-       * first moments after mount, which is exactly the race that produced a
-       * double alert. The backend knows the truth and states it. Payloads from
-       * surfaces that do not carry the flag (e.g. the admin feed) keep the old
-       * local behaviour.
+       * Both transports are used, always: Web Push reaches the device even when
+       * the app is closed, while the socket reaches it while the tab is alive.
+       * The old code stood down whenever the backend reported that a push had
+       * gone out, but that verdict is per account rather than per device — a
+       * push delivered to another, stale device left this one completely
+       * silent. Duplicates are prevented per device instead, by message id:
+       * `showNotification` and the service worker each drop their copy when
+       * this device already shows the message.
        */
-      const serverPushDispatched =
-        typeof payload.pushDispatched === "boolean"
-          ? payload.pushDispatched
-          : null;
-      const delegatesToPush =
-        !isPageVisible && (serverPushDispatched ?? pushReady);
-
-      const showSystemNotification = !delegatesToPush;
       const titleSource =
         payload.kind === "group"
           ? `${payload.fromName} in ${payload.chatName || "Group"}`
@@ -333,37 +321,36 @@ export default function NotificationManager({
         document.title = `${titleSource} - ${baseDocumentTitleRef.current}`;
       }
 
-      if (showSystemNotification) {
-        console.log(
-          "[NotificationManager] → Showing system notification (page:",
-          isPageVisible ? "visible" : "hidden",
-          "| window:",
-          isWindowFocused ? "focused" : "not focused",
-          ")",
-        );
-        showNotification(
-          notificationTitle,
-          notificationBody,
-          /*
-           * One tray entry per conversation: a follow-up message replaces the
-           * notification already showing for that chat instead of stacking a
-           * separate one for every message.
-           */
-          `${payload.kind}-${payload.chatId}`,
-          buildUrlFromPayload(payload, isAdminSurface),
-          // Use the OS notification sound even when the chat is currently open.
-           false,
-          // Photos and videos preview themselves inside the notification.
-          isAdminSurface ? undefined : payload.mediaUrl,
-        );
-      }
+      console.log(
+        "[NotificationManager] → Showing system notification (page:",
+        isPageVisible ? "visible" : "hidden",
+        "| window:",
+        isWindowFocused ? "focused" : "not focused",
+        ")",
+      );
+      showNotification(
+        notificationTitle,
+        notificationBody,
+        /*
+         * One tray entry per conversation: a follow-up message replaces the
+         * notification already showing for that chat instead of stacking a
+         * separate one for every message.
+         */
+        `${payload.kind}-${payload.chatId}`,
+        buildUrlFromPayload(payload, isAdminSurface),
+        // Use the OS notification sound even when the chat is currently open.
+        false,
+        // Photos and videos preview themselves inside the notification.
+        isAdminSurface ? undefined : payload.mediaUrl,
+        // Lets this page and the service worker drop a duplicate per device.
+        payload.messageId,
+      );
     };
   }, [
     adminUserId,
     isAdminSurface,
     preferences.groups,
     preferences.messages,
-    pushReady,
     showNotification,
     userId,
   ]);

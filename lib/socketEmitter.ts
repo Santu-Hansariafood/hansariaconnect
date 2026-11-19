@@ -382,6 +382,7 @@ const toPushPayload = (notification: NotificationMeta): PushPayload => ({
       ? `/chat/${notification.chatId}`
       : `/chat/${notification.chatId}?group=true`,
   image: notification.mediaUrl,
+  messageId: notification.messageId,
 });
 
 const computeDirectUnread = async (

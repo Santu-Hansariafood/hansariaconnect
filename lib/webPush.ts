@@ -19,6 +19,13 @@ export type PushPayload = {
   tag?: string;
   url?: string;
   image?: string;
+  /**
+   * Identifies the message this alert is for. The service worker stamps it on
+   * the notification so the page can tell "this device already got the push"
+   * apart from "the push went to another device", which is what keeps alerts
+   * both duplicate-free and never missing.
+   */
+  messageId?: string;
 };
 
 type StoredSubscription = {

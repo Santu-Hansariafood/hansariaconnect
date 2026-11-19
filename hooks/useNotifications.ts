@@ -249,6 +249,9 @@ const getAudioContextCtor = (): (new () => AudioContext) | null => {
 
 const NOTIFICATION_VIBRATION: number[] = [0, 200, 100, 200];
 
+/** How long to wait for a usable service worker before falling back. */
+const SERVICE_WORKER_WAIT_MS = 3000;
+
 export function useNotifications(userId?: string | number) {
   const normalizedUserId = userId == null ? null : String(userId);
 
@@ -609,6 +612,7 @@ export function useNotifications(userId?: string | number) {
       url = "/chat",
       silent = false,
       image?: string,
+      messageId?: string,
     ) => {
       if (!preferences.enabled) {
         console.warn("[Notifications] Skipped: notifications are disabled in preferences.");
@@ -644,6 +648,7 @@ export function useNotifications(userId?: string | number) {
         data: {
           url,
           tag,
+          messageId,
         },
         ...(image ? { image } : {}),
       };
@@ -675,9 +680,48 @@ export function useNotifications(userId?: string | number) {
 
       try {
         if ("serviceWorker" in navigator) {
-          const registration = await navigator.serviceWorker.getRegistration();
+          /*
+           * A worker that is registered but still installing cannot raise the
+           * notification, and on phones the window fallback below does not
+           * exist at all — so a short wait for a usable registration is what
+           * decides between an alert and silence.
+           */
+          const registration =
+            (await navigator.serviceWorker.getRegistration()) ??
+            (await Promise.race([
+              navigator.serviceWorker.ready,
+              new Promise<ServiceWorkerRegistration | null>((resolve) =>
+                setTimeout(() => resolve(null), SERVICE_WORKER_WAIT_MS),
+              ),
+            ]));
 
           if (registration?.active) {
+            /*
+             * Web Push may have already raised this exact message on this
+             * device (the service worker uses the same per-chat tag). One alert
+             * per message is the goal, so that copy wins and this one stands
+             * down — which is what keeps a push delivered to another device
+             * from leaving this one silent.
+             */
+            if (tag && messageId) {
+              const shown = await registration
+                .getNotifications({ tag })
+                .catch(() => [] as Notification[]);
+
+              if (
+                shown.some(
+                  (notification) =>
+                    (notification.data as { messageId?: string } | undefined)
+                      ?.messageId === messageId,
+                )
+              ) {
+                console.log(
+                  "[Notifications] This device already shows this message; skipping the duplicate.",
+                );
+                return true;
+              }
+            }
+
             await registration.showNotification(title, options);
             console.log("[Notifications] System notification shown by service worker.");
             return true;
