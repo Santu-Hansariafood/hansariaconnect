@@ -381,6 +381,10 @@ const toPushPayload = (notification: NotificationMeta): PushPayload => ({
     notification.kind === "direct"
       ? `/chat/${notification.chatId}`
       : `/chat/${notification.chatId}?group=true`,
+  icon:
+    notification.kind === "group"
+      ? notification.chatAvatar || notification.fromAvatar
+      : notification.fromAvatar || notification.chatAvatar,
   image: notification.mediaUrl,
   messageId: notification.messageId,
 });

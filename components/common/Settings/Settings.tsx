@@ -47,6 +47,7 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
     playRingtone,
     pushReady,
     requestPermission,
+    showNotification,
   } = useNotifications(user?.id);
 
   const {
@@ -237,6 +238,13 @@ const Settings = ({ user, theme, onThemeChange, onLogout }: any) => {
     setPushTestError("");
     try {
       await requestPermission();
+      await showNotification(
+        "HansariaConnect",
+        "This is how new messages will appear in your system notification center.",
+        `local-test-${Date.now()}`,
+        "/settings",
+        false,
+      );
       const response = await fetch("/api/push/test", {
         method: "POST",
         credentials: "include",

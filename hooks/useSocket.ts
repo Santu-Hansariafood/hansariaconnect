@@ -9,6 +9,7 @@ type SocketLibraryHandler = Parameters<Socket["on"]>[1];
 
 let socketInstance: Socket | null = null;
 let socketConnectPromise: Promise<Socket> | null = null;
+let resumeRealtimeConnection: (() => void) | null = null;
 let socketListeners: Array<{ type: string; handler: SocketHandler }> = [];
 let onlineListeners: Array<(ids: string[]) => void> = [];
 let onlineUsersSnapshot: string[] = [];
@@ -63,10 +64,10 @@ export const useSocket = (options: UseSocketOptions = {}) => {
         withCredentials: true,
         reconnection: true,
         reconnectionAttempts: Infinity,
-        reconnectionDelay: 800,
-        reconnectionDelayMax: 5000,
+        reconnectionDelay: 400,
+        reconnectionDelayMax: 4000,
         randomizationFactor: 0.2,
-        timeout: 20000,
+        timeout: 15000,
         upgrade: true,
         autoConnect: true,
         forceNew: false,
@@ -75,12 +76,36 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       socketInstance = s;
       setSocket(s);
 
+      let lastPacketAt = Date.now();
+      let resumeProbeInFlight = false;
+      const STALE_CONNECTION_MS = 35_000;
+
+      const markPacket = () => {
+        lastPacketAt = Date.now();
+      };
+      s.on("pong", markPacket);
+      s.io.on("packet", markPacket);
+      s.on("connect", markPacket);
+
+      const reportVisibility = (hidden = document.visibilityState !== "visible") => {
+        if (!socketInstance?.connected) return;
+        socketInstance.emit("presence:visibility", { hidden });
+      };
+
+      const forceReconnect = () => {
+        if (!socketInstance) return;
+        console.info("[Socket] Refreshing realtime connection");
+        if (socketInstance.connected) {
+          socketInstance.disconnect();
+        }
+        socketInstance.connect();
+      };
+
       /*
        * Mobile browsers freeze a backgrounded tab, which leaves the socket in a
        * half-dead state until Socket.IO's own heartbeat notices — that can mean
-       * up to ~45s of missed messages, and therefore missed notifications.
-       * Nudge it back the instant the page becomes visible again, regains
-       * focus, or the network comes back.
+       * up to ~45s of missed messages. Keep the socket open in the background
+       * while JS is still scheduled, and probe it the instant the app returns.
        */
       const resumeRealtime = () => {
         if (
@@ -89,32 +114,81 @@ export const useSocket = (options: UseSocketOptions = {}) => {
         ) {
           return;
         }
-        if (!socketInstance || socketInstance.connected) return;
-        console.info(
-          "[Socket] App is back in the foreground — resuming realtime connection",
-        );
-        socketInstance.connect();
-      };
-      window.addEventListener("online", resumeRealtime);
-      window.addEventListener("focus", resumeRealtime);
-      document.addEventListener("visibilitychange", resumeRealtime);
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          return;
+        }
+        if (!socketInstance) return;
 
-      /*
-       * The server has to know whether the app is actually on screen, not merely
-       * connected: a minimised tab keeps its socket open. Without this signal the
-       * backend would believe the user is present and hold back the Web Push, so
-       * a message arriving while the app is in the background would stay silent.
-       */
-      const reportVisibility = () => {
-        if (!socketInstance?.connected) return;
-        socketInstance.emit("presence:visibility", {
-          hidden: document.visibilityState !== "visible",
+        if (!socketInstance.connected) {
+          console.info(
+            "[Socket] App is back in the foreground — resuming realtime connection",
+          );
+          socketInstance.connect();
+          return;
+        }
+
+        if (Date.now() - lastPacketAt > STALE_CONNECTION_MS) {
+          forceReconnect();
+          return;
+        }
+
+        if (resumeProbeInFlight) {
+          reportVisibility(false);
+          return;
+        }
+
+        resumeProbeInFlight = true;
+        socketInstance.timeout(2500).emit("presence:ping", (error: Error | null) => {
+          resumeProbeInFlight = false;
+          if (error) {
+            forceReconnect();
+            return;
+          }
+          markPacket();
+          reportVisibility(false);
         });
       };
-      s.on("connect", reportVisibility);
-      document.addEventListener("visibilitychange", reportVisibility);
-      window.addEventListener("focus", reportVisibility);
-      window.addEventListener("blur", reportVisibility);
+
+      const keepAlive = () => {
+        if (!socketInstance) return;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          return;
+        }
+
+        const hidden =
+          typeof document !== "undefined" &&
+          document.visibilityState !== "visible";
+
+        if (!socketInstance.connected) {
+          if (!hidden) socketInstance.connect();
+          return;
+        }
+
+        reportVisibility(hidden);
+      };
+
+      window.addEventListener("online", resumeRealtime);
+      window.addEventListener("focus", resumeRealtime);
+      window.addEventListener("pageshow", resumeRealtime);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") resumeRealtime();
+        else reportVisibility(true);
+      });
+      document.addEventListener("freeze", () => reportVisibility(true));
+      document.addEventListener("resume", resumeRealtime);
+      window.addEventListener("pagehide", () => reportVisibility(true));
+
+      s.on("connect", () => reportVisibility());
+      window.addEventListener("blur", () => reportVisibility());
+
+      const keepAliveTimer = window.setInterval(keepAlive, 20_000);
+      s.on("disconnect", () => {
+        window.clearInterval(keepAliveTimer);
+      });
+      // Recreate the timer across reconnects by always running it on the window,
+      // not tying its lifetime to a single socket disconnect.
+      window.clearInterval(keepAliveTimer);
+      window.setInterval(keepAlive, 20_000);
 
       let authenticationRetry: ReturnType<typeof setTimeout> | null = null;
       s.on("connect", () => {

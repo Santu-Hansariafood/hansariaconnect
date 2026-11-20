@@ -322,8 +322,4 @@ function ChatWindowHeader({
   );
 }
 
-/*
- * The header never depends on composer text, so memoising it keeps each
- * keystroke from re-rendering it. Its callbacks are stabilised in ChatWindow.
- */
 export default memo(ChatWindowHeader);

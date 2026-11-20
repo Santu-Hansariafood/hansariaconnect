@@ -189,19 +189,42 @@ self.addEventListener("push", (event) => {
     payload = { body: event.data ? event.data.text() : "" };
   }
 
+  const toAbsoluteUrl = (value) => {
+    if (!value) return undefined;
+    if (
+      /^https?:\/\//i.test(value) ||
+      String(value).startsWith("data:") ||
+      String(value).startsWith("blob:")
+    ) {
+      return value;
+    }
+    try {
+      return new URL(value, self.location.origin).href;
+    } catch {
+      return value;
+    }
+  };
+
   const title = payload.title || "HansariaConnect";
+  const icon =
+    toAbsoluteUrl(payload.icon) ||
+    toAbsoluteUrl("/favicon/android-chrome-192x192.png");
+  const image = toAbsoluteUrl(payload.image);
+  const targetUrl = toAbsoluteUrl(payload.url || "/chat") || "/chat";
   const options = {
     body: payload.body || "You have a new message",
-    icon: payload.image || payload.icon || "/logo/logo.png",
-    image: payload.image,
-    badge: "/logo/logo.png",
+    icon,
+    image,
+    badge: toAbsoluteUrl("/favicon/android-chrome-192x192.png"),
     tag: payload.tag,
     renotify: Boolean(payload.tag),
     silent: false,
+    requireInteraction: true,
     vibrate: [0, 200, 100, 200],
     timestamp: payload.timestamp || Date.now(),
+    actions: [{ action: "open", title: "Open chat" }],
     data: {
-      url: payload.url || "/chat",
+      url: targetUrl,
       tag: payload.tag,
       messageId: payload.messageId,
       timestamp: payload.timestamp,

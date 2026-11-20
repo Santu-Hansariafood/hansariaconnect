@@ -371,11 +371,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     containerScrollRef.current.isAtBottom = checkIsAtBottom();
   }, [checkIsAtBottom]);
 
-  /*
-   * Scroll the message pane itself instead of the sentinel node so only the
-   * list moves (scrollIntoView would also scroll the page) and the smooth
-   * animation is driven by the pane's own frame budget on mobile.
-   */
   const scrollToBottom = useCallback((smooth: boolean = false) => {
     const el = containerRef?.current ?? null;
     if (!el) {
@@ -467,12 +462,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           setHasMore(!!cached.hasMore);
         }
 
-        /*
-         * The access check only tells us which endpoint to read (direct vs group).
-         * Contacts and permissions do not depend on it, so they are started here
-         * and awaited together below — that keeps one full round trip off the
-         * critical path and the conversation appears sooner.
-         */
         const contactsPromise = fetch("/api/contacts", {
           credentials: "include",
           cache: "no-store",
@@ -688,11 +677,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           setAllowAttachments(true);
         }
 
-        /*
-         * Receipts are bookkeeping, not something the user waits for. Firing them
-         * without awaiting lets the thread paint as soon as the messages land
-         * instead of after one more round trip.
-         */
         const receiptBody = isGroupChat
           ? { groupId: chatId }
           : { peerId: chatId };
@@ -1358,16 +1342,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       return;
     }
 
-    // Voice notes are recorded in place, so they go straight out like WhatsApp.
     if (type === "voice") {
       await uploadAndSend(fileOrData, "voice", undefined, duration);
       return;
     }
 
-    /*
-     * Everything else stops here for the WhatsApp-style confirmation screen, so
-     * a caption can be written before the file is uploaded.
-     */
     setPendingAttachment({
       id: generateTempId(),
       file: fileOrData,
@@ -1398,7 +1377,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         caption,
         pendingAttachment.duration,
       );
-      // Keep the preview (and caption) on screen if the upload failed.
       if (sent) releasePendingAttachment();
     } finally {
       setAttachmentSending(false);
@@ -1436,10 +1414,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setShowOptionsMenu(false);
   }, []);
 
-  /*
-   * Stable wrappers for the header props. `ChatWindowHeader` is memoised, so
-   * these must not be re-created while the user types in the composer.
-   */
   const handleHeaderBack = useCallback(() => {
     if (onBack) onBack();
     else router.push("/");
@@ -1507,12 +1481,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     !isGroup ? chatId : undefined,
   );
 
-  /*
-   * Opening a conversation used to swap the entire viewport for the brand splash
-   * (`fixed inset-0`), which blanked the chat list too and read as a flash. This
-   * keeps the transition inside the conversation pane and mirrors the shape of
-   * the thread that is about to replace it.
-   */
   if (initialLoading) {
     return (
       <div

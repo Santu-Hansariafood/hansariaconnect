@@ -1,11 +1,5 @@
 import Image from "next/image";
 
-/*
- * Boot screen shown while the app restores the session. Deliberately CSS-only
- * (no JS-driven animation loop) so it paints instantly and costs nothing while
- * the rest of the app is loading. Colors come from the brand tokens that the
- * inline script in app/layout.tsx sets before the first paint.
- */
 export default function Loading() {
   return (
     <div

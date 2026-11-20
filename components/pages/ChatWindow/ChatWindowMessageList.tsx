@@ -77,11 +77,6 @@ interface MessageRowProps {
   onViewOnce: (message: ChatMessage) => Promise<string | null>;
 }
 
-/*
- * One memoised message. The bubble props (message object + handlers) are built
- * here rather than inline in the list, so re-rendering the parent — for example
- * on every keystroke in the composer — does not rebuild every bubble.
- */
 const MessageRow = React.memo(function MessageRow({
   msg,
   isIncoming,
@@ -319,9 +314,4 @@ function ChatWindowMessageList({
   );
 }
 
-/*
- * Memoised so composer keystrokes — that state lives in ChatWindow — no longer
- * walk the whole thread. Every prop passed here is referentially stable while
- * typing, so the list (and each MessageRow inside it) bails out early.
- */
 export default React.memo(ChatWindowMessageList);

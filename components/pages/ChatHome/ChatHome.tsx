@@ -388,7 +388,6 @@ export default function ChatHome({
     dotRing,
   } = themeColors;
 
-  // Shared visual tokens for both DM and group rows so the list stays uniform.
   const rowTone = useMemo<RowTone>(
     () => ({
       accent: theme.primary,

@@ -20,16 +20,7 @@ type NotifyPayload = {
   messageType: string;
   mediaUrl?: string;
   timestamp?: string | Date;
-  /**
-   * Server-side verdict on whether Web Push is carrying this alert. Set by the
-   * backend, which also knows whether the recipient has a visible socket — the
-   * page cannot work that out reliably on its own.
-   */
   pushDispatched?: boolean;
-  /**
-   * Set when the push reached no device and this is the server re-raising the
-   * same message so the app alerts on its own.
-   */
   fallback?: boolean;
 };
 
@@ -67,17 +58,17 @@ export default function NotificationManager({
     subscribeOnline: false,
     enabled: Boolean(userId) || Boolean(isAdminSurface && adminUserId),
   });
-  const { preferences, preferencesLoaded, playStartupTune, showNotification } =
-    useNotifications(userId || undefined);
+  const {
+    preferences,
+    preferencesLoaded,
+    playRingtone,
+    playStartupTune,
+    showNotification,
+  } = useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
   const startupTunePlayed = useRef(false);
   const socketAdminUserId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());
-  /*
-   * The notify handler closes over the current preferences and user id. Keeping
-   * it in a ref means the socket listener can be registered once per identity
-   * instead of being torn down and re-added whenever a preference changes.
-   */
   const handleNotifyRef = useRef<(payload: NotifyPayload) => void>(() => {});
   const baseDocumentTitleRef = useRef("HansariaConnect");
 
@@ -171,11 +162,6 @@ export default function NotificationManager({
     };
   }, []);
 
-  /*
-   * Launch tune. Only the installed app greets the user with it — a normal
-   * browser tab stays silent — and it runs once per launch, after the saved
-   * ringtone choice has loaded so a muted ringtone really is muted.
-   */
   useEffect(() => {
     if (!preferencesLoaded || startupTunePlayed.current) return;
     startupTunePlayed.current = true;
@@ -298,28 +284,26 @@ export default function NotificationManager({
         isFocusedConversation,
       );
 
-      /*
-       * Both transports are used, always: Web Push reaches the device even when
-       * the app is closed, while the socket reaches it while the tab is alive.
-       * The old code stood down whenever the backend reported that a push had
-       * gone out, but that verdict is per account rather than per device — a
-       * push delivered to another, stale device left this one completely
-       * silent. Duplicates are prevented per device instead, by message id:
-       * `showNotification` and the service worker each drop their copy when
-       * this device already shows the message.
-       */
       const titleSource =
         payload.kind === "group"
           ? `${payload.fromName} in ${payload.chatName || "Group"}`
           : payload.fromName || payload.chatName || "New message";
 
+      if (isFocusedConversation) {
+        console.log(
+          "[NotificationManager] ⏭️ message:notify skipped - this conversation is already open and focused",
+        );
+        return;
+      }
+
       if (
         typeof document !== "undefined" &&
-        !isFocusedConversation &&
         (!isPageVisible || !isWindowFocused)
       ) {
         document.title = `${titleSource} - ${baseDocumentTitleRef.current}`;
       }
+
+      const appInForeground = isPageVisible && isWindowFocused;
 
       console.log(
         "[NotificationManager] → Showing system notification (page:",
@@ -328,38 +312,34 @@ export default function NotificationManager({
         isWindowFocused ? "focused" : "not focused",
         ")",
       );
-      showNotification(
+      void showNotification(
         notificationTitle,
         notificationBody,
-        /*
-         * One tray entry per conversation: a follow-up message replaces the
-         * notification already showing for that chat instead of stacking a
-         * separate one for every message.
-         */
         `${payload.kind}-${payload.chatId}`,
         buildUrlFromPayload(payload, isAdminSurface),
-        // Use the OS notification sound even when the chat is currently open.
-        false,
-        // Photos and videos preview themselves inside the notification.
+        appInForeground,
         isAdminSurface ? undefined : payload.mediaUrl,
-        // Lets this page and the service worker drop a duplicate per device.
         payload.messageId,
+        payload.kind === "group"
+          ? payload.chatAvatar || payload.fromAvatar
+          : payload.fromAvatar || payload.chatAvatar,
       );
+
+      if (appInForeground) {
+        void playRingtone(preferences.ringtone || "whatsapp");
+      }
     };
   }, [
     adminUserId,
     isAdminSurface,
+    playRingtone,
     preferences.groups,
     preferences.messages,
+    preferences.ringtone,
     showNotification,
     userId,
   ]);
 
-  /*
-   * Registration is keyed only on the notification channel and identity, so the
-   * listener survives preference tweaks; the ref above always carries the latest
-   * handler with up-to-date preferences.
-   */
   useEffect(() => {
     if (
       !preferences.enabled ||

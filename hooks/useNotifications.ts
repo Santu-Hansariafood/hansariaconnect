@@ -248,9 +248,27 @@ const getAudioContextCtor = (): (new () => AudioContext) | null => {
 };
 
 const NOTIFICATION_VIBRATION: number[] = [0, 200, 100, 200];
+const DEFAULT_NOTIFICATION_ICON = "/favicon/android-chrome-192x192.png";
 
 /** How long to wait for a usable service worker before falling back. */
 const SERVICE_WORKER_WAIT_MS = 3000;
+
+const toAbsoluteUrl = (value?: string | null): string | undefined => {
+  if (!value) return undefined;
+  if (
+    /^https?:\/\//i.test(value) ||
+    value.startsWith("data:") ||
+    value.startsWith("blob:")
+  ) {
+    return value;
+  }
+  if (typeof window === "undefined") return value;
+  try {
+    return new URL(value, window.location.origin).href;
+  } catch {
+    return value;
+  }
+};
 
 export function useNotifications(userId?: string | number) {
   const normalizedUserId = userId == null ? null : String(userId);
@@ -613,6 +631,7 @@ export function useNotifications(userId?: string | number) {
       silent = false,
       image?: string,
       messageId?: string,
+      icon?: string,
     ) => {
       if (!preferences.enabled) {
         console.warn("[Notifications] Skipped: notifications are disabled in preferences.");
@@ -632,25 +651,37 @@ export function useNotifications(userId?: string | number) {
         return false;
       }
 
+      const iconUrl =
+        toAbsoluteUrl(icon) || toAbsoluteUrl(DEFAULT_NOTIFICATION_ICON);
+      const badgeUrl = toAbsoluteUrl(DEFAULT_NOTIFICATION_ICON);
+      const imageUrl = toAbsoluteUrl(image);
+      const targetUrl = toAbsoluteUrl(url) || url;
+
       const options: NotificationOptions & {
         renotify: boolean;
         vibrate: number[] | undefined;
         timestamp: number;
+        actions?: Array<{ action: string; title: string }>;
       } = {
         body,
-        icon: "/logo/logo.png",
-        badge: "/logo/logo.png",
+        icon: iconUrl,
+        badge: badgeUrl,
         tag,
         renotify: Boolean(tag) && !silent,
         silent,
+        requireInteraction: !silent,
         vibrate: silent ? undefined : NOTIFICATION_VIBRATION,
         timestamp: Date.now(),
         data: {
-          url,
+          url: targetUrl,
           tag,
           messageId,
         },
-        ...(image ? { image } : {}),
+        ...(imageUrl ? { image: imageUrl } : {}),
+      };
+      const serviceWorkerOptions = {
+        ...options,
+        actions: [{ action: "open", title: "Open chat" }],
       };
 
       const showWindowNotification = () => {
@@ -664,7 +695,7 @@ export function useNotifications(userId?: string | number) {
 
           notification.onclick = () => {
             window.focus();
-            window.location.assign(url);
+            window.location.assign(targetUrl);
             notification.close();
           };
 
@@ -722,7 +753,7 @@ export function useNotifications(userId?: string | number) {
               }
             }
 
-            await registration.showNotification(title, options);
+            await registration.showNotification(title, serviceWorkerOptions);
             console.log("[Notifications] System notification shown by service worker.");
             return true;
           }

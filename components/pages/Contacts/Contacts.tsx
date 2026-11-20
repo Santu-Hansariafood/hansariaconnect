@@ -149,8 +149,6 @@ const parseCsvContacts = (text: string): ParsedContact[] => {
     }
 
     if (!mobiles.length) continue;
-    // Exports repeat the name across columns (e.g. "John Doe", "John", "Doe"),
-    // so dedupe the tokens instead of joining the repeats.
     const nameTokens = nameParts
       .flatMap((part) => part.split(/\s+/))
       .filter(Boolean);
@@ -162,7 +160,6 @@ const parseCsvContacts = (text: string): ParsedContact[] => {
   return contacts;
 };
 
-/** Parses a vCard (.vcf) export using FN/N for the name and adr TEL lines. */
 const parseVCardContacts = (text: string): ParsedContact[] => {
   const contacts: ParsedContact[] = [];
 
@@ -210,8 +207,6 @@ const parseContactsFile = (fileName: string, text: string): ParsedContact[] => {
   const isVCard = /\.vcf$/i.test(fileName) || /BEGIN:VCARD/i.test(text);
   const parsed = isVCard ? parseVCardContacts(text) : parseCsvContacts(text);
 
-  // A number can appear in more than one row/entry; keep the first owner so the
-  // server's per-number duplicate check does not reject the whole batch.
   const byMobile = new Map<string, ParsedContact>();
   for (const contact of parsed) {
     if (!contact.mobiles.length) continue;
@@ -723,8 +718,6 @@ export default function Contacts({ user, theme }: Props) {
       }
 
       const created = data.contact;
-      // Show the new contact immediately rather than waiting on a round trip, so
-      // it is visible even if the refresh below is slow or fails.
       setContacts((prev) =>
         prev.some((c) => c.id === created._id)
           ? prev

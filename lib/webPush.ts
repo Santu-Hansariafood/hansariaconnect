@@ -18,6 +18,7 @@ export type PushPayload = {
   body: string;
   tag?: string;
   url?: string;
+  icon?: string;
   image?: string;
   /**
    * Identifies the message this alert is for. The service worker stamps it on

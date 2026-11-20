@@ -7,18 +7,8 @@ import { ensurePushSubscription } from "@/lib/pushClient";
 
 type PermissionState = "unsupported" | "default" | "granted" | "denied";
 
-/**
- * Remembers that the card was dealt with, so it is shown once per device
- * instead of nagging on every page load.
- */
 const DISMISS_KEY = "hansariaconnect.notificationPromptDismissed";
 
-/*
- * Permission lives outside React: the browser can flip it behind our back
- * (address-bar settings, or another tab). Reading it through an external store
- * keeps the first paint hydration-safe, because React renders the server
- * snapshot ("unsupported" → hidden) and only then switches to the real value.
- */
 const readPermission = (): PermissionState => {
   if (typeof window === "undefined" || !("Notification" in window)) {
     return "unsupported";
@@ -70,10 +60,6 @@ export default function NotificationPermissionPrompt({
     setDismissed(true);
   }, []);
 
-  /*
-   * Devices that granted permission before Web Push existed get subscribed the
-   * next time the app opens — no extra click, no missing notifications.
-   */
   useEffect(() => {
     if (permission === "granted") void ensurePushSubscription();
   }, [permission]);
@@ -86,8 +72,6 @@ export default function NotificationPermissionPrompt({
       const result = await Notification.requestPermission();
 
       if (result === "granted") {
-        // Register for Web Push straight away, so alerts also arrive once the
-        // browser is fully closed.
         await ensurePushSubscription();
         dismiss();
       }
