@@ -12,6 +12,7 @@ import type {
 } from "@/components/admin/AdminUsersPanel";
 import { ACCOUNT_TEMPLATE_HEADERS } from "@/components/admin/adminConstants";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
+import { ensurePushSubscription } from "@/lib/pushClient";
 
 const AdminApplicationConnectionGuide = dynamic(
   () => import("@/components/admin/AdminApplicationConnectionGuide"),
@@ -348,6 +349,11 @@ export default function AdminDashboard() {
     void checkSession();
   }, [loadData, router]);
 
+  useEffect(() => {
+    if (browserNotificationPermission !== "granted") return;
+    void ensurePushSubscription();
+  }, [browserNotificationPermission]);
+
   const requestBrowserNotifications = async () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
       setBrowserNotificationPermission("unsupported");
@@ -356,6 +362,14 @@ export default function AdminDashboard() {
     try {
       const permission = await Notification.requestPermission();
       setBrowserNotificationPermission(permission);
+      if (permission === "granted") {
+        const ready = await ensurePushSubscription();
+        if (!ready) {
+          setError(
+            "Notification permission was granted, but background push subscription could not be registered.",
+          );
+        }
+      }
     } catch (permissionError) {
       console.error(
         "[AdminDashboard] Browser notification permission request failed:",

@@ -8,11 +8,16 @@ import {
 } from "@/lib/webPush";
 import { requireUser } from "@/lib/api/request";
 import PushSubscription from "@/models/pushSubscription/PushSubscription";
+import { getAdminSessionFromRequest } from "@/lib/adminAuth";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireUser(req);
-    if (!session?.id || !Types.ObjectId.isValid(session.id)) {
+    const userSession = await requireUser(req);
+    const adminSession = userSession
+      ? null
+      : await getAdminSessionFromRequest(req);
+    const userId = userSession?.id || adminSession?.userId;
+    if (!userId || !Types.ObjectId.isValid(userId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     if (!isWebPushEnabled()) {
@@ -22,7 +27,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const preferences = await getNotificationPreferences(session.id);
+    const preferences = await getNotificationPreferences(userId);
     if (!preferences.enabled || !preferences.messages) {
       return NextResponse.json(
         { error: "Enable message notifications in Settings before testing." },
@@ -31,8 +36,9 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB();
-    const userId = new Types.ObjectId(session.id);
-    const subscriptionCount = await PushSubscription.countDocuments({ userId });
+    const subscriptionCount = await PushSubscription.countDocuments({
+      userId: new Types.ObjectId(userId),
+    });
     if (subscriptionCount === 0) {
       return NextResponse.json(
         { error: "This device is not subscribed. Re-enable browser notifications and try again." },
@@ -40,7 +46,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const acceptedDevices = await sendPushToUser(session.id, {
+    const acceptedDevices = await sendPushToUser(userId, {
       title: "HansariaConnect test notification",
       body: "Your device can receive background push notifications.",
       tag: `push-test-${Date.now()}`,

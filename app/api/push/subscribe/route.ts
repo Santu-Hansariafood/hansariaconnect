@@ -6,6 +6,7 @@ import { connectDB } from "@/lib/db/db";
 import PushSubscription from "@/models/pushSubscription/PushSubscription";
 import { apiError, parseJson, requireUser } from "@/lib/api/request";
 import { isWebPushEnabled } from "@/lib/webPush";
+import { getAdminSessionFromRequest } from "@/lib/adminAuth";
 
 const subscribeSchema = z.object({
   endpoint: z.string().url().max(2000),
@@ -22,8 +23,12 @@ const unsubscribeSchema = z.object({
 /** Registers (or refreshes) the browser/device endpoint for Web Push. */
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireUser(req);
-    if (!session?.id || !Types.ObjectId.isValid(session.id)) {
+    const userSession = await requireUser(req);
+    const adminSession = userSession
+      ? null
+      : await getAdminSessionFromRequest(req);
+    const userId = userSession?.id || adminSession?.userId;
+    if (!userId || !Types.ObjectId.isValid(userId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -38,7 +43,7 @@ export async function POST(req: NextRequest) {
       { endpoint },
       {
         $set: {
-          userId: new Types.ObjectId(session.id),
+          userId: new Types.ObjectId(userId),
           keys,
           userAgent: (req.headers.get("user-agent") || "").slice(0, 400),
         },
@@ -58,8 +63,12 @@ export async function POST(req: NextRequest) {
 /** Called when the user turns notifications off, or the device signs out. */
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await requireUser(req);
-    if (!session?.id || !Types.ObjectId.isValid(session.id)) {
+    const userSession = await requireUser(req);
+    const adminSession = userSession
+      ? null
+      : await getAdminSessionFromRequest(req);
+    const userId = userSession?.id || adminSession?.userId;
+    if (!userId || !Types.ObjectId.isValid(userId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -69,7 +78,7 @@ export async function DELETE(req: NextRequest) {
     await connectDB();
 
     await PushSubscription.deleteOne({
-      userId: new Types.ObjectId(session.id),
+      userId: new Types.ObjectId(userId),
       endpoint: parsedBody.data.endpoint,
     });
 
