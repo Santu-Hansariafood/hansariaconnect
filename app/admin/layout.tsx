@@ -1,13 +1,13 @@
-import type { Metadata } from "next"
-import "../globals.css"
-import { Roboto } from "next/font/google"
+import type { Metadata } from "next";
+import "../globals.css";
+import { Roboto } from "next/font/google";
 
 const roboto = Roboto({
   subsets: ["latin"],
   weight: ["300", "400", "500", "700", "900"],
   variable: "--font-roboto",
   display: "swap",
-})
+});
 
 export const metadata: Metadata = {
   title: {
@@ -23,12 +23,12 @@ export const metadata: Metadata = {
       noimageindex: true,
     },
   },
-}
+};
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className={`${roboto.variable} font-sans`}>
-      {children}
-    </div>
-  )
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return <div className={`${roboto.variable} font-sans`}>{children}</div>;
 }

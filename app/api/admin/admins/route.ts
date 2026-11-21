@@ -46,17 +46,23 @@ export async function POST(req: NextRequest) {
       );
     }
     const userId =
-      typeof body === "object" && body !== null && "userId" in body &&
+      typeof body === "object" &&
+      body !== null &&
+      "userId" in body &&
       typeof body.userId === "string"
         ? body.userId.trim()
         : "";
     const email =
-      typeof body === "object" && body !== null && "email" in body &&
+      typeof body === "object" &&
+      body !== null &&
+      "email" in body &&
       typeof body.email === "string"
         ? body.email.trim().toLowerCase()
         : "";
     const password =
-      typeof body === "object" && body !== null && "password" in body &&
+      typeof body === "object" &&
+      body !== null &&
+      "password" in body &&
       typeof body.password === "string"
         ? body.password
         : "";

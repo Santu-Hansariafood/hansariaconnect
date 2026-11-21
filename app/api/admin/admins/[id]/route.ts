@@ -57,7 +57,10 @@ export async function PATCH(
     if (companyName !== undefined) {
       if (typeof companyName !== "string" || companyName.trim().length > 100) {
         return NextResponse.json(
-          { success: false, error: "Company name must be 100 characters or fewer" },
+          {
+            success: false,
+            error: "Company name must be 100 characters or fewer",
+          },
           { status: 400 },
         );
       }
@@ -87,7 +90,8 @@ export async function PATCH(
             domainUrl.pathname !== "/" ||
             domainUrl.search ||
             domainUrl.hash
-          ) throw new Error("invalid domain");
+          )
+            throw new Error("invalid domain");
           updateData.companyDomain = domainUrl.hostname;
         } catch {
           return NextResponse.json(
@@ -101,15 +105,30 @@ export async function PATCH(
     if (isCompanyVerified !== undefined) {
       if (typeof isCompanyVerified !== "boolean") {
         return NextResponse.json(
-          { success: false, error: "Company verification status must be a boolean" },
+          {
+            success: false,
+            error: "Company verification status must be a boolean",
+          },
           { status: 400 },
         );
       }
-      if (isCompanyVerified && !((companyName ?? "") && (companyDomain ?? ""))) {
-        const existingAdmin = await Admin.findById(id).select("companyName companyDomain").lean();
-        if (!(companyName ?? existingAdmin?.companyName) || !(companyDomain ?? existingAdmin?.companyDomain)) {
+      if (
+        isCompanyVerified &&
+        !((companyName ?? "") && (companyDomain ?? ""))
+      ) {
+        const existingAdmin = await Admin.findById(id)
+          .select("companyName companyDomain")
+          .lean();
+        if (
+          !(companyName ?? existingAdmin?.companyName) ||
+          !(companyDomain ?? existingAdmin?.companyDomain)
+        ) {
           return NextResponse.json(
-            { success: false, error: "Set the company name and domain before approving verification" },
+            {
+              success: false,
+              error:
+                "Set the company name and domain before approving verification",
+            },
             { status: 400 },
           );
         }

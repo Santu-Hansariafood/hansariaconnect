@@ -13,10 +13,6 @@ import type {
 import { ACCOUNT_TEMPLATE_HEADERS } from "@/components/admin/adminConstants";
 import type { TemplateActionButton } from "@/lib/templateActionButtons";
 
-/*
- * Each dashboard tab is its own chunk now. Only the tab the admin opens is
- * downloaded, so the initial dashboard payload no longer carries every panel.
- */
 const AdminApplicationConnectionGuide = dynamic(
   () => import("@/components/admin/AdminApplicationConnectionGuide"),
 );
@@ -134,7 +130,9 @@ export default function AdminDashboard() {
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState("");
   const [templateHeader, setTemplateHeader] = useState("");
-  const [templateButtons, setTemplateButtons] = useState<TemplateActionButton[]>([]);
+  const [templateButtons, setTemplateButtons] = useState<
+    TemplateActionButton[]
+  >([]);
   const [templateDefaultLanguage, setTemplateDefaultLanguage] = useState("en");
   const [templateFolder, setTemplateFolder] = useState("General");
   const [templateTranslations, setTemplateTranslations] = useState<
@@ -426,22 +424,19 @@ export default function AdminDashboard() {
     setSaving("template");
     setError("");
     try {
-      const res = await fetch(
-        `/api/admin/templates/${editingTemplate._id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: editingTemplateName,
-            body: editingTemplateBody,
-            subject: editingTemplateHeader,
-            buttons: editingTemplateButtons,
-            defaultLanguage: editingTemplateDefaultLanguage,
-            folder: editingTemplateFolder,
-            translations: editingTemplateTranslations,
-          }),
-        },
-      );
+      const res = await fetch(`/api/admin/templates/${editingTemplate._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editingTemplateName,
+          body: editingTemplateBody,
+          subject: editingTemplateHeader,
+          buttons: editingTemplateButtons,
+          defaultLanguage: editingTemplateDefaultLanguage,
+          folder: editingTemplateFolder,
+          translations: editingTemplateTranslations,
+        }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to update template");
       setTemplates((previous) =>
@@ -549,8 +544,7 @@ export default function AdminDashboard() {
     setApiKeyCreateError("");
     setNewApiKeyIsPrimary(
       !apiKeys.some(
-        (apiKey) =>
-          apiKey.adminId === effectiveKeyOwnerId && apiKey.isPrimary,
+        (apiKey) => apiKey.adminId === effectiveKeyOwnerId && apiKey.isPrimary,
       ),
     );
     setShowCreateApiKey(true);
@@ -650,9 +644,8 @@ export default function AdminDashboard() {
     try {
       // Loaded on demand: the Excel writer is only needed when an admin
       // actually downloads the template, so it stays out of the dashboard bundle.
-      const { default: writeXlsxFile } = await import(
-        "write-excel-file/browser"
-      );
+      const { default: writeXlsxFile } =
+        await import("write-excel-file/browser");
       const blob = await writeXlsxFile([[...ACCOUNT_TEMPLATE_HEADERS]], {
         sheet: "Accounts",
         columns: [{ width: 28 }, { width: 36 }, { width: 18 }],
@@ -878,7 +871,9 @@ export default function AdminDashboard() {
       setNewAdminIsSuper(false);
       void refreshData();
     } catch {
-      setCreateAdminError("Could not create admin. Check your connection and try again.");
+      setCreateAdminError(
+        "Could not create admin. Check your connection and try again.",
+      );
     } finally {
       setSaving(null);
     }
@@ -976,7 +971,9 @@ export default function AdminDashboard() {
               <div className="flex flex-wrap items-center gap-2">
                 <h1
                   className={`truncate text-base font-bold sm:text-lg ${
-                    isPlatformAdmin ? "text-white" : "text-slate-900 dark:text-slate-100"
+                    isPlatformAdmin
+                      ? "text-white"
+                      : "text-slate-900 dark:text-slate-100"
                   }`}
                 >
                   {isPlatformAdmin ? "Super Admin Console" : "Admin Workspace"}
@@ -993,7 +990,9 @@ export default function AdminDashboard() {
               </div>
               <p
                 className={`hidden truncate text-xs sm:block ${
-                  isPlatformAdmin ? "text-slate-300" : "text-slate-500 dark:text-slate-400"
+                  isPlatformAdmin
+                    ? "text-slate-300"
+                    : "text-slate-500 dark:text-slate-400"
                 }`}
               >
                 {adminProfile.email ||
@@ -1006,9 +1005,7 @@ export default function AdminDashboard() {
             <span
               className={`hidden items-center gap-2 text-xs transition-opacity sm:flex ${
                 isPlatformAdmin ? "text-slate-300" : "text-slate-500"
-              } ${
-                refreshing ? "opacity-100" : "opacity-0"
-              }`}
+              } ${refreshing ? "opacity-100" : "opacity-0"}`}
               role="status"
               aria-live="polite"
             >
@@ -1075,7 +1072,9 @@ export default function AdminDashboard() {
                   </h2>
                   <p
                     className={`mt-2 text-sm leading-6 sm:text-base ${
-                      isPlatformAdmin ? "text-slate-300" : "text-slate-600 dark:text-slate-400"
+                      isPlatformAdmin
+                        ? "text-slate-300"
+                        : "text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     {isPlatformAdmin
@@ -1165,7 +1164,9 @@ export default function AdminDashboard() {
                     >
                       <p
                         className={`text-xs font-medium ${
-                          isPlatformAdmin ? "text-slate-300" : "text-slate-500 dark:text-slate-400"
+                          isPlatformAdmin
+                            ? "text-slate-300"
+                            : "text-slate-500 dark:text-slate-400"
                         }`}
                       >
                         {stat.label}
@@ -1182,7 +1183,9 @@ export default function AdminDashboard() {
                     {adminProfile.email || adminProfile.userId}
                   </span>
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300">
-                    {isPlatformAdmin ? "All workspaces" : "Private to this admin"}
+                    {isPlatformAdmin
+                      ? "All workspaces"
+                      : "Private to this admin"}
                   </span>
                 </p>
               )}
@@ -1205,7 +1208,11 @@ export default function AdminDashboard() {
             )}
 
             <nav
-              aria-label={isPlatformAdmin ? "Super Admin sections" : "Admin workspace sections"}
+              aria-label={
+                isPlatformAdmin
+                  ? "Super Admin sections"
+                  : "Admin workspace sections"
+              }
               className="mb-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-900"
             >
               {isPlatformAdmin ? (
@@ -1257,27 +1264,33 @@ export default function AdminDashboard() {
                     Workspace tools
                   </p>
                   <div className="flex gap-1 overflow-x-auto">
-                  <button
-                    onClick={() => setActiveTab("accounts")}
-                    aria-current={activeTab === "accounts" ? "page" : undefined}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
-                  >
-                    Accounts
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("templates")}
-                    aria-current={activeTab === "templates" ? "page" : undefined}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
-                  >
-                    Templates
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("profile")}
-                    aria-current={activeTab === "profile" ? "page" : undefined}
-                    className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
-                  >
-                    Profile
-                  </button>
+                    <button
+                      onClick={() => setActiveTab("accounts")}
+                      aria-current={
+                        activeTab === "accounts" ? "page" : undefined
+                      }
+                      className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "accounts" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
+                    >
+                      Accounts
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("templates")}
+                      aria-current={
+                        activeTab === "templates" ? "page" : undefined
+                      }
+                      className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "templates" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
+                    >
+                      Templates
+                    </button>
+                    <button
+                      onClick={() => setActiveTab("profile")}
+                      aria-current={
+                        activeTab === "profile" ? "page" : undefined
+                      }
+                      className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === "profile" ? "bg-emerald-700 text-white shadow-md shadow-emerald-900/15" : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"}`}
+                    >
+                      Profile
+                    </button>
                   </div>
                 </div>
               )}
@@ -1290,7 +1303,9 @@ export default function AdminDashboard() {
               >
                 <p
                   className={`mb-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] ${
-                    isPlatformAdmin ? "text-indigo-700 dark:text-indigo-300" : "text-emerald-800 dark:text-emerald-300"
+                    isPlatformAdmin
+                      ? "text-indigo-700 dark:text-indigo-300"
+                      : "text-emerald-800 dark:text-emerald-300"
                   }`}
                 >
                   {isPlatformAdmin ? "Personal integrations" : "Integrations"}
@@ -1415,9 +1430,7 @@ export default function AdminDashboard() {
                     template.defaultLanguage || "en",
                   );
                   setEditingTemplateFolder(template.folder || "General");
-                  setEditingTemplateTranslations(
-                    template.translations || {},
-                  );
+                  setEditingTemplateTranslations(template.translations || {});
                 }}
                 onCancelEdit={() => setEditingTemplate(null)}
                 onUpdate={updateTemplate}
@@ -1433,7 +1446,8 @@ export default function AdminDashboard() {
                 onAddTranslation={() => {
                   setTemplateTranslations((previous) => ({
                     ...previous,
-                    [newTranslationLanguage]: previous[newTranslationLanguage] || "",
+                    [newTranslationLanguage]:
+                      previous[newTranslationLanguage] || "",
                   }));
                 }}
                 editingFolder={editingTemplateFolder}
@@ -1516,9 +1530,7 @@ export default function AdminDashboard() {
                   setEditAdminIsSuper(admin.isSuperAdmin);
                   setEditAdminCompanyName(admin.companyName || "");
                   setEditAdminCompanyDomain(admin.companyDomain || "");
-                  setEditAdminCompanyVerified(
-                    Boolean(admin.isCompanyVerified),
-                  );
+                  setEditAdminCompanyVerified(Boolean(admin.isCompanyVerified));
                 }}
                 onCloseEdit={() => setEditingAdmin(null)}
                 editUserId={editAdminUserId}
@@ -1565,7 +1577,9 @@ export default function AdminDashboard() {
                       </h2>
                       <p
                         className={`mt-2 max-w-2xl text-sm leading-6 ${
-                          isPlatformAdmin ? "text-slate-300" : "text-slate-600 dark:text-slate-400"
+                          isPlatformAdmin
+                            ? "text-slate-300"
+                            : "text-slate-600 dark:text-slate-400"
                         }`}
                       >
                         {isPlatformAdmin
@@ -1582,7 +1596,9 @@ export default function AdminDashboard() {
                           : "bg-emerald-700 text-white hover:bg-emerald-800 focus:ring-emerald-600"
                       } disabled:cursor-not-allowed disabled:opacity-50`}
                     >
-                      {effectiveKeyOwnerCount >= 3 ? "Key limit reached (3)" : "Create API key"}
+                      {effectiveKeyOwnerCount >= 3
+                        ? "Key limit reached (3)"
+                        : "Create API key"}
                     </button>
                   </div>
                   <div className="mt-5 flex flex-wrap gap-2">
@@ -1593,7 +1609,8 @@ export default function AdminDashboard() {
                           : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
-                      {apiKeys.length} total key{apiKeys.length === 1 ? "" : "s"}
+                      {apiKeys.length} total key
+                      {apiKeys.length === 1 ? "" : "s"}
                     </span>
                     <span
                       className={`rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -1602,7 +1619,8 @@ export default function AdminDashboard() {
                           : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
-                      {apiKeys.filter((apiKey) => apiKey.isActive).length} active
+                      {apiKeys.filter((apiKey) => apiKey.isActive).length}{" "}
+                      active
                     </span>
                     <span
                       className={`rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -1611,7 +1629,11 @@ export default function AdminDashboard() {
                           : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
-                      {apiKeys.reduce((total, apiKey) => total + apiKey.sentCount, 0)} messages sent
+                      {apiKeys.reduce(
+                        (total, apiKey) => total + apiKey.sentCount,
+                        0,
+                      )}{" "}
+                      messages sent
                     </span>
                     <span
                       className={`rounded-full border px-3 py-1 text-xs font-semibold ${
@@ -1620,7 +1642,9 @@ export default function AdminDashboard() {
                           : "border-emerald-900/10 bg-white/70 text-emerald-900 dark:border-slate-700 dark:bg-slate-900/70 dark:text-emerald-300"
                       }`}
                     >
-                      {isPlatformAdmin ? "All workspaces" : "Private to this admin"}
+                      {isPlatformAdmin
+                        ? "All workspaces"
+                        : "Private to this admin"}
                     </span>
                   </div>
                 </section>
@@ -1637,7 +1661,10 @@ export default function AdminDashboard() {
                 <AdminApplicationConnectionGuide
                   isPlatformAdmin={isPlatformAdmin}
                   adminId={effectiveKeyOwnerId}
-                  workspaces={admins.map(({ _id, userId }) => ({ _id, userId }))}
+                  workspaces={admins.map(({ _id, userId }) => ({
+                    _id,
+                    userId,
+                  }))}
                   templates={templates}
                   onNavigate={setActiveTab}
                   onCreateApiKey={openCreateApiKey}
@@ -1661,9 +1688,8 @@ export default function AdminDashboard() {
                         API key created
                       </h3>
                       <p className="mt-2 text-sm leading-6 text-slate-600">
-                        Copy and store this key securely. It is shown only
-                        once; you cannot retrieve it after closing this
-                        message.
+                        Copy and store this key securely. It is shown only once;
+                        you cannot retrieve it after closing this message.
                       </p>
                       <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -1819,8 +1845,8 @@ export default function AdminDashboard() {
                             </span>
                             <span className="mt-1 block text-xs leading-5 text-emerald-800">
                               Use this key as the default secret in your
-                              integration&apos;s HANSARIA_API_KEY setting.
-                              Other keys stay active; this replaces the
+                              integration&apos;s HANSARIA_API_KEY setting. Other
+                              keys stay active; this replaces the
                               workspace&apos;s previous primary key.
                             </span>
                           </span>
@@ -1849,9 +1875,9 @@ export default function AdminDashboard() {
                             Bind the key to an existing chat account for bulk
                             sends. Regular registered accounts can be used
                             without registering again; enter the chat account
-                            ID, not the admin ID or phone number.
-                            Leave blank when each single-send request supplies
-                            its own fromUserId.
+                            ID, not the admin ID or phone number. Leave blank
+                            when each single-send request supplies its own
+                            fromUserId.
                           </p>
                         </div>
                         <div>
@@ -1967,12 +1993,16 @@ export default function AdminDashboard() {
                             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                               <span>
                                 Created{" "}
-                                {new Date(apiKey.createdAt).toLocaleDateString()}
+                                {new Date(
+                                  apiKey.createdAt,
+                                ).toLocaleDateString()}
                               </span>
                               {apiKey.expiresAt && (
                                 <span>
                                   Expires{" "}
-                                  {new Date(apiKey.expiresAt).toLocaleDateString()}
+                                  {new Date(
+                                    apiKey.expiresAt,
+                                  ).toLocaleDateString()}
                                 </span>
                               )}
                               {apiKey.senderUserId && (
