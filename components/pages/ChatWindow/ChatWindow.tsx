@@ -192,12 +192,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     };
   }, []);
 
+  const usableContactName = (value?: string) => {
+    const name = value?.trim();
+    return name && !["user", "unknown"].includes(name.toLowerCase())
+      ? name
+      : "";
+  };
   const headerName =
     (contact?.registeredProfile?.isCompanyVerified &&
-      contact.registeredProfile.companyName) ||
-    contact?.registeredProfile?.name ||
-    contact?.name ||
-    "User";
+      usableContactName(contact.registeredProfile.companyName)) ||
+    usableContactName(contact?.registeredProfile?.name) ||
+    usableContactName(contact?.name) ||
+    contact?.mobile?.trim() ||
+    "Unknown contact";
   const headerAvatar =
     contact?.registeredProfile?.photo || contact?.avatar || "/logo/logo.png";
   const isSavedContact = Boolean(contact?.id || contact?._id);
