@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectDB } from "@/lib/db/db";
 import User from "@/models/user/User";
 import Profile from "@/models/profile/Profile";
+import Admin from "@/models/admin/Admin";
 
 interface InviteRequestBody {
   mobiles: Array<string | number>;
@@ -45,7 +46,11 @@ export async function POST(req: NextRequest) {
     const user = await User.findById(session.id);
     const profile = await Profile.findOne({ userId: session.id });
     const senderName = profile?.name || user?.name || "Someone";
-    const senderMobile = user?.mobile || "";
+    const admin = user?.createdByAdminId
+      ? await Admin.findById(user.createdByAdminId, "smsContactNumber").lean()
+      : null;
+    const senderMobile =
+      admin?.smsContactNumber || user?.mobile || "";
 
     const cleanedMobiles = body.mobiles
       .map((val) => String(val).replace(/\D/g, ""))

@@ -8,6 +8,7 @@ export interface IAdmin extends Document {
   isSuperAdmin: boolean;
   companyName?: string;
   companyDomain?: string;
+  smsContactNumber?: string;
   companyVerificationRequested: boolean;
   isCompanyVerified: boolean;
   createdAt: Date;
@@ -23,6 +24,7 @@ const AdminSchema = new Schema<IAdmin>(
     isSuperAdmin: { type: Boolean, default: false },
     companyName: { type: String, trim: true, maxlength: 100 },
     companyDomain: { type: String, trim: true, lowercase: true, maxlength: 253 },
+    smsContactNumber: { type: String, trim: true, match: /^\d{10}$/ },
     companyVerificationRequested: { type: Boolean, default: false },
     isCompanyVerified: { type: Boolean, default: false },
   },

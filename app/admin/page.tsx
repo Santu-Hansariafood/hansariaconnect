@@ -175,6 +175,7 @@ export default function AdminDashboard() {
   const [profilePassword, setProfilePassword] = useState("");
   const [profileCompanyName, setProfileCompanyName] = useState("");
   const [profileCompanyDomain, setProfileCompanyDomain] = useState("");
+  const [profileSmsContactNumber, setProfileSmsContactNumber] = useState("");
   const [showCreateApiKey, setShowCreateApiKey] = useState(false);
   const [newApiKeyName, setNewApiKeyName] = useState("");
   const [newApiKeyExpiresDays, setNewApiKeyExpiresDays] = useState("");
@@ -279,6 +280,7 @@ export default function AdminDashboard() {
           setProfileEmail(profileData.profile.email || "");
           setProfileCompanyName(profileData.profile.companyName || "");
           setProfileCompanyDomain(profileData.profile.companyDomain || "");
+          setProfileSmsContactNumber(profileData.profile.smsContactNumber || "");
         } else if (!profileRes.ok) {
           loadErrors.push(profileData?.error || "Failed to load admin profile");
         }
@@ -484,11 +486,13 @@ export default function AdminDashboard() {
           password: profilePassword || undefined,
           companyName: profileCompanyName,
           companyDomain: profileCompanyDomain,
+          smsContactNumber: profileSmsContactNumber,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Failed to save profile");
       setAdminProfile(data.profile);
+      setProfileSmsContactNumber(data.profile.smsContactNumber || "");
       setProfilePassword("");
     } catch (error: any) {
       setError(error?.message || "Failed to save profile");
@@ -1483,6 +1487,8 @@ export default function AdminDashboard() {
                 setCompanyName={setProfileCompanyName}
                 companyDomain={profileCompanyDomain}
                 setCompanyDomain={setProfileCompanyDomain}
+                smsContactNumber={profileSmsContactNumber}
+                setSmsContactNumber={setProfileSmsContactNumber}
                 companyVerificationRequested={
                   adminProfile.companyVerificationRequested
                 }

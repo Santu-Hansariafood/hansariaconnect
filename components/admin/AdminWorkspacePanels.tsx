@@ -659,6 +659,8 @@ export function AdminProfilePanel({
   setCompanyName,
   companyDomain,
   setCompanyDomain,
+  smsContactNumber,
+  setSmsContactNumber,
   companyVerificationRequested,
   isCompanyVerified,
   password,
@@ -674,6 +676,8 @@ export function AdminProfilePanel({
   setCompanyName: (value: SetStateAction<string>) => void;
   companyDomain: string;
   setCompanyDomain: (value: SetStateAction<string>) => void;
+  smsContactNumber: string;
+  setSmsContactNumber: (value: SetStateAction<string>) => void;
   companyVerificationRequested: boolean;
   isCompanyVerified: boolean;
   password: string;
@@ -736,6 +740,28 @@ export function AdminProfilePanel({
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
         Save your company name and domain to request super-admin verification.
         Only approved businesses show a verified badge to chat recipients.
+      </p>
+      <label
+        htmlFor="admin-sms-contact-number"
+        className="mt-5 block text-sm font-medium text-gray-700 dark:text-slate-200"
+      >
+        SMS invitation contact number
+      </label>
+      <input
+        id="admin-sms-contact-number"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel-national"
+        value={smsContactNumber}
+        onChange={(event) => setSmsContactNumber(event.target.value)}
+        maxLength={14}
+        className={`mt-1 ${adminFieldClass}`}
+        placeholder="10-digit mobile number"
+      />
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        This number is included in SMS invitations sent by accounts in your
+        workspace. Leave blank to use the inviter&apos;s account number. SMS
+        messages are sent using the device&apos;s messaging app.
       </p>
       <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-400">
         Verification:{" "}

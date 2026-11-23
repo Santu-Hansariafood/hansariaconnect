@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
     isSuperAdmin: auth.admin.isSuperAdmin,
     companyName: auth.admin.companyName || "",
     companyDomain: auth.admin.companyDomain || "",
+    smsContactNumber: auth.admin.smsContactNumber || "",
     companyVerificationRequested: auth.admin.companyVerificationRequested,
     isCompanyVerified: auth.admin.isCompanyVerified,
   } });
@@ -29,6 +30,24 @@ export async function PATCH(req: NextRequest) {
     body?.companyName === undefined ? undefined : String(body.companyName).trim();
   const rawDomain =
     body?.companyDomain === undefined ? undefined : String(body.companyDomain).trim().toLowerCase();
+  const smsContactNumberInput =
+    body?.smsContactNumber === undefined
+      ? undefined
+      : String(body.smsContactNumber).trim();
+  const compactSmsContactNumber = smsContactNumberInput?.replace(
+    /[\s()-]/g,
+    "",
+  );
+  const smsContactNumber =
+    compactSmsContactNumber === undefined
+      ? undefined
+      : compactSmsContactNumber === ""
+        ? ""
+        : /^\+?91\d{10}$/.test(compactSmsContactNumber)
+          ? compactSmsContactNumber.replace(/^\+?91/, "")
+          : /^\d{10}$/.test(compactSmsContactNumber)
+            ? compactSmsContactNumber
+            : null;
   let companyDomain: string | undefined;
   if (rawDomain !== undefined) {
     if (!rawDomain) {
@@ -56,6 +75,12 @@ export async function PATCH(req: NextRequest) {
   if (companyName !== undefined && companyName.length > 100) {
     return NextResponse.json({ error: "Company name must be 100 characters or fewer" }, { status: 400 });
   }
+  if (smsContactNumber === null) {
+    return NextResponse.json(
+      { error: "Enter a valid 10-digit mobile number" },
+      { status: 400 },
+    );
+  }
   if (email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
   }
@@ -75,6 +100,9 @@ export async function PATCH(req: NextRequest) {
   if (companyDomain !== undefined) {
     admin.companyDomain = companyDomain;
   }
+  if (smsContactNumber !== undefined) {
+    admin.smsContactNumber = smsContactNumber;
+  }
   if (companyNameChanged || companyDomainChanged) {
     admin.isCompanyVerified = false;
     admin.companyVerificationRequested = Boolean(
@@ -89,6 +117,7 @@ export async function PATCH(req: NextRequest) {
     isSuperAdmin: admin.isSuperAdmin,
     companyName: admin.companyName || "",
     companyDomain: admin.companyDomain || "",
+    smsContactNumber: admin.smsContactNumber || "",
     companyVerificationRequested: admin.companyVerificationRequested,
     isCompanyVerified: admin.isCompanyVerified,
   } });
