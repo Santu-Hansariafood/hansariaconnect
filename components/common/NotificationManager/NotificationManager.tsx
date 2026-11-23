@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useSocket } from "@/hooks/useSocket";
@@ -29,7 +29,9 @@ const isStandaloneApp = () => {
   const standaloneMatch =
     typeof window.matchMedia === "function" &&
     window.matchMedia("(display-mode: standalone)").matches;
-  const iosStandalone = Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+  const iosStandalone = Boolean(
+    (window.navigator as Navigator & { standalone?: boolean }).standalone,
+  );
   return standaloneMatch || iosStandalone;
 };
 
@@ -38,6 +40,44 @@ const buildUrlFromPayload = (p: NotifyPayload, adminSurface = false) => {
   const path =
     p.kind === "direct" ? `/chat/${p.chatId}` : `/chat/${p.chatId}?group=true`;
   return path;
+};
+
+/**
+ * WhatsApp-style fallback previews for media-only messages.
+ * Used whenever the payload has no textual preview.
+ */
+const getMessagePreview = (payload: NotifyPayload): string => {
+  const trimmed = payload.preview?.trim();
+  if (trimmed) return trimmed;
+
+  const type = (payload.messageType || "").toLowerCase();
+  switch (type) {
+    case "image":
+    case "photo":
+      return "📷 Photo";
+    case "video":
+      return "🎥 Video";
+    case "audio":
+    case "voice":
+    case "ptt":
+    case "voice_note":
+      return "🎤 Voice message";
+    case "document":
+    case "file":
+      return "📎 Document";
+    case "sticker":
+      return "Sticker";
+    case "gif":
+      return "GIF";
+    case "location":
+      return "📍 Location";
+    case "contact":
+      return "👤 Contact";
+    case "poll":
+      return "📊 Poll";
+    default:
+      return "New message";
+  }
 };
 
 type NotificationManagerProps = {
@@ -50,8 +90,8 @@ export default function NotificationManager({
   const pathname = usePathname();
   const isAdminSurface = Boolean(
     pathname?.startsWith("/admin") ||
-      (typeof window !== "undefined" &&
-        /^(admin|super)\./i.test(window.location.hostname)),
+    (typeof window !== "undefined" &&
+      /^(admin|super)\./i.test(window.location.hostname)),
   );
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const { socket, addListener, removeListener } = useSocket({
@@ -62,7 +102,9 @@ export default function NotificationManager({
     preferences,
     preferencesLoaded,
     playStartupTune,
+    playRingtone,
     showNotification,
+    setAppBadge,
   } = useNotifications(userId || undefined);
   const activeChatId = useRef<string | null>(null);
   const startupTunePlayed = useRef(false);
@@ -71,14 +113,47 @@ export default function NotificationManager({
   const handleNotifyRef = useRef<(payload: NotifyPayload) => void>(() => {});
   const baseDocumentTitleRef = useRef("HansariaConnect");
 
+  // WhatsApp-style unread tracking per chat → drives the PWA app badge.
+  const unreadCountsRef = useRef<Map<string, number>>(new Map());
+
+  const syncBadge = useCallback(() => {
+    const total = Array.from(unreadCountsRef.current.values()).reduce(
+      (a, b) => a + b,
+      0,
+    );
+    setAppBadge(total);
+  }, [setAppBadge]);
+
+  const bumpUnread = useCallback(
+    (chatKey: string) => {
+      unreadCountsRef.current.set(
+        chatKey,
+        (unreadCountsRef.current.get(chatKey) ?? 0) + 1,
+      );
+      syncBadge();
+    },
+    [syncBadge],
+  );
+
+  const clearUnreadForChat = useCallback(
+    (chatId: string) => {
+      unreadCountsRef.current.delete(`direct-${chatId}`);
+      unreadCountsRef.current.delete(`group-${chatId}`);
+      syncBadge();
+    },
+    [syncBadge],
+  );
+
   useEffect(() => {
     const chatMatch = pathname?.match(/(?:^|\/)chat\/([^/?#]+)/);
     if (!chatMatch) {
       activeChatId.current = null;
       return;
     }
-    activeChatId.current = chatMatch[1] || null;
-  }, [pathname]);
+    const chatId = chatMatch[1] || null;
+    activeChatId.current = chatId;
+    if (chatId) clearUnreadForChat(chatId);
+  }, [pathname, clearUnreadForChat]);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
@@ -206,6 +281,26 @@ export default function NotificationManager({
     };
   }, []);
 
+  // WhatsApp clears the home-screen unread badge as soon as the app is
+  // brought back into focus.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const resetBadge = () => {
+      if (document.visibilityState === "visible") {
+        unreadCountsRef.current.clear();
+        syncBadge();
+      }
+    };
+
+    document.addEventListener("visibilitychange", resetBadge);
+    window.addEventListener("focus", resetBadge);
+    return () => {
+      document.removeEventListener("visibilitychange", resetBadge);
+      window.removeEventListener("focus", resetBadge);
+    };
+  }, [syncBadge]);
+
   useEffect(() => {
     if (!preferencesLoaded || startupTunePlayed.current) return;
     startupTunePlayed.current = true;
@@ -305,18 +400,31 @@ export default function NotificationManager({
         payload.preview,
       );
 
+      // --- WhatsApp-style title / body -------------------------------
+      const preview = getMessagePreview(payload);
+
       const notificationTitle =
         payload.kind === "group"
           ? payload.chatName || "New group message"
           : payload.fromName || payload.chatName || "New message";
+
       const notificationBody = isAdminSurface
         ? payload.kind === "group"
           ? "New message in a group"
           : "You have a new message"
-        : payload.preview || "You have a new message";
+        : payload.kind === "group"
+          ? `${payload.fromName || "Someone"}: ${preview}`
+          : preview;
+      // --------------------------------------------------------------
+
       const isPageVisible = document.visibilityState === "visible";
-      const isWindowFocused = typeof document.hasFocus === "function" ? document.hasFocus() : isPageVisible;
-      const isFocusedConversation = Boolean(isActiveChat && isPageVisible && isWindowFocused);
+      const isWindowFocused =
+        typeof document.hasFocus === "function"
+          ? document.hasFocus()
+          : isPageVisible;
+      const isFocusedConversation = Boolean(
+        isActiveChat && isPageVisible && isWindowFocused,
+      );
 
       console.log(
         "[NotificationManager] Focus state check:",
@@ -358,19 +466,17 @@ export default function NotificationManager({
         appInForeground,
         ")",
       );
-      /*
-       * When the alert was offloaded to Web Push, the service worker raises the
-       * notification itself. Showing one here too would duplicate it.
-       */
-      const pushWillDisplay = payload.pushDispatched === true && !payload.fallback;
 
-      /*
-       * Every alert is raised as a real browser/OS notification with
-       * `silent: false`, so the operating system plays its own notification
-       * sound and vibration. This works whether the app is on screen,
-       * minimised, or closed, and needs no page-run audio.
-       */
+      const pushWillDisplay =
+        payload.pushDispatched === true && !payload.fallback;
+
       if (!pushWillDisplay) {
+        // WhatsApp-style audible alert for local in-app notifications.
+        void playRingtone(preferences.ringtone || "whatsapp");
+
+        // Bump the per-chat unread counter → PWA app badge total.
+        bumpUnread(`${payload.kind}-${payload.chatId}`);
+
         void showNotification(
           notificationTitle,
           notificationBody,
@@ -387,18 +493,18 @@ export default function NotificationManager({
     };
   }, [
     adminUserId,
+    bumpUnread,
     isAdminSurface,
+    playRingtone,
     preferences.groups,
     preferences.messages,
+    preferences.ringtone,
     showNotification,
     userId,
   ]);
 
   useEffect(() => {
-    if (
-      !preferences.enabled ||
-      (isAdminSurface ? !adminUserId : !userId)
-    ) {
+    if (!preferences.enabled || (isAdminSurface ? !adminUserId : !userId)) {
       return;
     }
 

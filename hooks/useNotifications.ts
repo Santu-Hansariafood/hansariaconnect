@@ -270,6 +270,28 @@ const toAbsoluteUrl = (value?: string | null): string | undefined => {
   }
 };
 
+/**
+ * Update the PWA home-screen app badge (WhatsApp-style unread count).
+ * Supported in Chrome/Edge (desktop + Android) and iOS 16.4+ standalone.
+ * Silently no-ops where the API is unavailable.
+ */
+const setAppBadge = (count: number) => {
+  if (typeof navigator === "undefined") return;
+  const nav = navigator as Navigator & {
+    setAppBadge?: (count?: number) => Promise<void>;
+    clearAppBadge?: () => Promise<void>;
+  };
+  try {
+    if (count > 0 && typeof nav.setAppBadge === "function") {
+      void nav.setAppBadge(count);
+    } else if (typeof nav.clearAppBadge === "function") {
+      void nav.clearAppBadge();
+    }
+  } catch {
+    /* badge unsupported – ignore */
+  }
+};
+
 export function useNotifications(userId?: string | number) {
   const normalizedUserId = userId == null ? null : String(userId);
 
@@ -296,8 +318,7 @@ export function useNotifications(userId?: string | number) {
     userId: normalizedUserId,
     ready: false,
   }));
-  const pushReady =
-    pushState.userId === normalizedUserId && pushState.ready;
+  const pushReady = pushState.userId === normalizedUserId && pushState.ready;
 
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -634,7 +655,9 @@ export function useNotifications(userId?: string | number) {
       icon?: string,
     ) => {
       if (!preferences.enabled) {
-        console.warn("[Notifications] Skipped: notifications are disabled in preferences.");
+        console.warn(
+          "[Notifications] Skipped: notifications are disabled in preferences.",
+        );
         return false;
       }
 
@@ -686,7 +709,9 @@ export function useNotifications(userId?: string | number) {
 
       const showWindowNotification = () => {
         if (typeof Notification !== "function") {
-          console.error("[Notifications] Window notification fallback is unavailable.");
+          console.error(
+            "[Notifications] Window notification fallback is unavailable.",
+          );
           return false;
         }
 
@@ -711,12 +736,6 @@ export function useNotifications(userId?: string | number) {
 
       try {
         if ("serviceWorker" in navigator) {
-          /*
-           * A worker that is registered but still installing cannot raise the
-           * notification, and on phones the window fallback below does not
-           * exist at all — so a short wait for a usable registration is what
-           * decides between an alert and silence.
-           */
           const registration =
             (await navigator.serviceWorker.getRegistration()) ??
             (await Promise.race([
@@ -727,13 +746,6 @@ export function useNotifications(userId?: string | number) {
             ]));
 
           if (registration?.active) {
-            /*
-             * Consecutive messages of one chat share a tag, so they collapse
-             * into a single notification whose body counts them — like a native
-             * messaging app. The recorded message ids keep the same message
-             * from being counted twice, whether the push or this socket event
-             * was the transport that arrived first.
-             */
             let count = 1;
             let messageIds: string[] = [];
 
@@ -772,9 +784,12 @@ export function useNotifications(userId?: string | number) {
                 : 1;
             }
 
+            // WhatsApp keeps the *latest* message visible in the body when
+            // several messages stack under the same tag. The unread total
+            // is reflected on the PWA app badge (see NotificationManager).
             await registration.showNotification(title, {
               ...serviceWorkerOptions,
-              body: messageId && count > 1 ? `${count} new messages` : body,
+              body,
               data: {
                 url: targetUrl,
                 tag,
@@ -783,7 +798,9 @@ export function useNotifications(userId?: string | number) {
                 messageIds,
               },
             });
-            console.log("[Notifications] System notification shown by service worker.");
+            console.log(
+              "[Notifications] System notification shown by service worker.",
+            );
             return true;
           }
         }
@@ -859,5 +876,8 @@ export function useNotifications(userId?: string | number) {
     playStartupTune,
 
     updatePreferences,
+
+    // NEW: WhatsApp-style PWA home-screen unread badge
+    setAppBadge,
   };
 }
