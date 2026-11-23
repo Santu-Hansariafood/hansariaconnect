@@ -73,6 +73,7 @@ export default function AdminApplicationConnectionGuide({
           workspaces={workspaces}
         />
         <WhatsAppTemplateBuilder
+          adminId={adminId}
           templates={templates}
           isPlatformAdmin={isPlatformAdmin}
           onCreateTemplate={() => onNavigate("templates")}

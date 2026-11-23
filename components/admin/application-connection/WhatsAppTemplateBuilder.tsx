@@ -16,10 +16,12 @@ const API_BASE_URL = "https://hfconnect.in";
 const buttonIcon = { call: Phone, reply: Reply, confirm: Check };
 
 export default function WhatsAppTemplateBuilder({
+  adminId,
   templates,
   isPlatformAdmin,
   onCreateTemplate,
 }: {
+  adminId: string;
   templates: BuilderTemplate[];
   isPlatformAdmin: boolean;
   onCreateTemplate: () => void;
@@ -34,6 +36,8 @@ export default function WhatsAppTemplateBuilder({
   const [apiKey, setApiKey] = useState("");
   const [senderUserId, setSenderUserId] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingRecipients, setIsLoadingRecipients] = useState(false);
+  const [isApiKeyVisible, setIsApiKeyVisible] = useState(false);
   const [sendResult, setSendResult] = useState<SendResult | null>(null);
   const [copyStatus, setCopyStatus] = useState("");
   const [clockTime, setClockTime] = useState("");
@@ -169,6 +173,54 @@ export default function WhatsAppTemplateBuilder({
     }
   };
 
+  const selectAllAccounts = async () => {
+    setIsLoadingRecipients(true);
+    setSendResult(null);
+    try {
+      const response = await fetch(
+        `/api/admin/sender-accounts?adminId=${encodeURIComponent(adminId)}`,
+        { cache: "no-store" },
+      );
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+        accounts?: Array<{ id: string }>;
+      } | null;
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to load workspace accounts.");
+      }
+
+      const accountIds = (result?.accounts || [])
+        .map((account) => account.id)
+        .filter(Boolean);
+      if (!accountIds.length) {
+        throw new Error("No accounts are available in this workspace.");
+      }
+      if (accountIds.length > 1000) {
+        throw new Error(
+          `This workspace has ${accountIds.length} accounts. The API supports up to 1,000 recipients per message.`,
+        );
+      }
+
+      setRecipient(accountIds.join(", "));
+      setRecipientMode("multiple");
+      setSendResult({
+        ok: true,
+        text: `Selected all ${accountIds.length} workspace accounts. Sending here delivers in-app chat messages, not carrier SMS.`,
+      });
+    } catch (error: unknown) {
+      console.error("[admin] Failed to select all workspace accounts:", error);
+      setSendResult({
+        ok: false,
+        text:
+          error instanceof Error
+            ? error.message
+            : "Failed to load workspace accounts.",
+      });
+    } finally {
+      setIsLoadingRecipients(false);
+    }
+  };
+
   const sendTestMessage = async () => {
     if (!template || !payload) return;
     if (!recipients.length) {
@@ -231,7 +283,11 @@ export default function WhatsAppTemplateBuilder({
         statusUrl?: string;
       } | null;
       if (!response.ok) {
-        throw new Error(result?.error || `Request failed: ${response.status}`);
+        const errorMessage =
+          result?.error === "One or more recipients do not exist"
+            ? "One or more recipient numbers are not registered HansariaConnect accounts. Register them first; this API sends in-app chat messages, not carrier SMS."
+            : result?.error || `Request failed: ${response.status}`;
+        throw new Error(errorMessage);
       }
       setSendResult({
         ok: true,
@@ -433,10 +489,12 @@ export default function WhatsAppTemplateBuilder({
             <option value="multiple">Multiple recipients</option>
           </select>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
-          {recipientMode === "single"
-            ? "Recipient mobile or chat account ID"
-            : `Recipient mobile numbers or chat account IDs (${recipients.length})`}
+        <div className="grid content-start gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+          <span>
+            {recipientMode === "single"
+              ? "Recipient mobile or chat account ID"
+              : `Recipient mobile numbers or chat account IDs (${recipients.length})`}
+          </span>
           {recipientMode === "single" ? (
             <input
               value={recipient}
@@ -453,14 +511,22 @@ export default function WhatsAppTemplateBuilder({
               placeholder={"9876543210, 9876543211\n9876543212"}
             />
           )}
+          <button
+            type="button"
+            onClick={selectAllAccounts}
+            disabled={isLoadingRecipients || isSending}
+            className="justify-self-start rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            {isLoadingRecipients ? "Loading accounts..." : "Select all accounts"}
+          </button>
           {recipientMode === "multiple" && (
             <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
               Separate recipients with commas or new lines (up to 1,000).
-              Numbers are matched to existing HansariaConnect accounts
-              automatically; no manual registration is needed here.
+              Each number must belong to an existing HansariaConnect account.
+              Unregistered numbers cannot receive messages from this tool.
             </span>
           )}
-        </label>
+        </div>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200">
           Sender chat account ID (required unless already bound to the API key)
           <input
@@ -477,14 +543,28 @@ export default function WhatsAppTemplateBuilder({
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 sm:col-span-2 dark:text-slate-200">
           Workspace API key
-          <input
-            type="password"
-            autoComplete="off"
-            value={apiKey}
-            onChange={(event) => setApiKey(event.target.value.trim())}
-            className="rounded-lg border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-            placeholder="Paste the key shown when you created it"
-          />
+          <div className="flex gap-2">
+            <input
+              type={isApiKeyVisible ? "text" : "password"}
+              autoComplete="off"
+              value={apiKey}
+              onChange={(event) => setApiKey(event.target.value.trim())}
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              placeholder="Paste the key shown when you created it"
+            />
+            <button
+              type="button"
+              onClick={() => setIsApiKeyVisible((visible) => !visible)}
+              aria-label={isApiKeyVisible ? "Hide API key" : "Show API key"}
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {isApiKeyVisible ? "Hide" : "Show"}
+            </button>
+          </div>
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+            This reveals only the key pasted here. Previously created keys
+            cannot be retrieved; create a new key if you no longer have one.
+          </span>
         </label>
       </div>
 
