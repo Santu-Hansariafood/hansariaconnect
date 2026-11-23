@@ -61,7 +61,6 @@ export default function NotificationManager({
   const {
     preferences,
     preferencesLoaded,
-    playRingtone,
     playStartupTune,
     showNotification,
   } = useNotifications(userId || undefined);
@@ -69,9 +68,7 @@ export default function NotificationManager({
   const startupTunePlayed = useRef(false);
   const socketAdminUserId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());
-  const alertedMessageIds = useRef(new Set<string>());
   const handleNotifyRef = useRef<(payload: NotifyPayload) => void>(() => {});
-  const playAlertRef = useRef<(payload: NotifyPayload) => void>(() => {});
   const baseDocumentTitleRef = useRef("HansariaConnect");
 
   useEffect(() => {
@@ -216,72 +213,6 @@ export default function NotificationManager({
     if (!isStandaloneApp()) return;
     void playStartupTune(preferences.ringtone || "whatsapp");
   }, [playStartupTune, preferences.ringtone, preferencesLoaded]);
-
-  useEffect(() => {
-    playAlertRef.current = (payload: NotifyPayload) => {
-      const kindOk =
-        payload.kind === "direct" ? preferences.messages : preferences.groups;
-      if (!preferences.enabled || !kindOk) return;
-
-      if (payload.messageId) {
-        if (alertedMessageIds.current.has(payload.messageId)) return;
-        alertedMessageIds.current.add(payload.messageId);
-        if (alertedMessageIds.current.size > 200) {
-          const oldest = alertedMessageIds.current.values().next().value;
-          if (oldest) alertedMessageIds.current.delete(oldest);
-        }
-      }
-
-      void playRingtone(preferences.ringtone || "whatsapp");
-    };
-  }, [
-    playRingtone,
-    preferences.enabled,
-    preferences.groups,
-    preferences.messages,
-    preferences.ringtone,
-  ]);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
-      return;
-    }
-
-    const handlePushRelay = (event: MessageEvent) => {
-      const data = event.data as
-        | { type?: string; payload?: NotifyPayload }
-        | null;
-      if (data?.type !== "PUSH_RECEIVED" || !data.payload) return;
-
-      const port = event.ports?.[0];
-      const kindOk =
-        data.payload.kind === "direct"
-          ? preferences.messages
-          : preferences.groups;
-
-      const stamp = data.payload.timestamp;
-      const age = stamp ? Date.now() - new Date(stamp).getTime() : 0;
-
-      const pageVisible =
-        typeof document !== "undefined" &&
-        document.visibilityState === "visible";
-      const willRing = pageVisible && Boolean(preferences.enabled && kindOk);
-
-      if (willRing && age <= 20000) {
-        playAlertRef.current(data.payload);
-      }
-
-      if (port) {
-        port.postMessage({ alerted: willRing });
-        port.close?.();
-      }
-    };
-
-    navigator.serviceWorker.addEventListener("message", handlePushRelay);
-
-    return () =>
-      navigator.serviceWorker.removeEventListener("message", handlePushRelay);
-  }, [preferences.enabled, preferences.groups, preferences.messages]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -429,19 +360,15 @@ export default function NotificationManager({
       );
       /*
        * When the alert was offloaded to Web Push, the service worker raises the
-       * notification (silent, because this page rings the tone). Showing one
-       * here too would duplicate it, so this page only rings. If the push
-       * reached nobody the backend re-sends this event, and that copy is the
-       * one that displays.
+       * notification itself. Showing one here too would duplicate it.
        */
       const pushWillDisplay = payload.pushDispatched === true && !payload.fallback;
 
       /*
-       * A visible page rings the chosen tone itself, so its banner stays
-       * silent. A background page cannot play the tone — its audio is
-       * suspended — so the banner itself has to sound, using the device's own
-       * notification tone. This is what keeps every alert audible whether the
-       * app is on screen or minimised.
+       * Every alert is raised as a real browser/OS notification with
+       * `silent: false`, so the operating system plays its own notification
+       * sound and vibration. This works whether the app is on screen,
+       * minimised, or closed, and needs no page-run audio.
        */
       if (!pushWillDisplay) {
         void showNotification(
@@ -449,17 +376,13 @@ export default function NotificationManager({
           notificationBody,
           `${payload.kind}-${payload.chatId}`,
           buildUrlFromPayload(payload, isAdminSurface),
-          isPageVisible,
+          false,
           isAdminSurface ? undefined : payload.mediaUrl,
           payload.messageId,
           payload.kind === "group"
             ? payload.chatAvatar || payload.fromAvatar
             : payload.fromAvatar || payload.chatAvatar,
         );
-      }
-
-      if (isPageVisible) {
-        playAlertRef.current(payload);
       }
     };
   }, [

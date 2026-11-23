@@ -29,40 +29,6 @@ const notifyClients = async (message) => {
   clients.forEach((client) => client.postMessage(message));
 };
 
-/*
- * Hands the payload to every open page and waits for one of them to confirm it
- * rang the recipient's chosen tone. The confirmation decides whether the
- * notification we show can stay silent — a page that never answers (a frozen
- * tab, or no page at all) means the device's own notification sound has to do
- * the alerting.
- */
-const requestClientAlert = (clients, payload) => {
-  return new Promise((resolve) => {
-    if (!clients.length) {
-      resolve(false);
-      return;
-    }
-
-    let settled = false;
-    const finish = (value) => {
-      if (settled) return;
-      settled = true;
-      resolve(value);
-    };
-
-    clients.forEach((client) => {
-      const channel = new MessageChannel();
-      channel.port1.onmessage = (event) =>
-        finish(Boolean(event.data && event.data.alerted));
-      try {
-        client.postMessage({ type: "PUSH_RECEIVED", payload }, [channel.port2]);
-      } catch {
-        // A client that refuses the message simply never confirms.
-      }
-    });
-  });
-};
-
 const openSyncDatabase = () =>
   new Promise((resolve, reject) => {
     const request = indexedDB.open(SYNC_DATABASE_NAME, SYNC_DATABASE_VERSION);
@@ -251,22 +217,6 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(
     (async () => {
-      let clients = [];
-      try {
-        clients = await self.clients.matchAll({
-          type: "window",
-          includeUncontrolled: true,
-        });
-      } catch {
-        clients = [];
-      }
-
-      // A page that answers rings the chosen tone, which keeps us silent.
-      const ringOnPage = await Promise.race([
-        requestClientAlert(clients, payload),
-        new Promise((resolve) => setTimeout(() => resolve(false), 500)),
-      ]).catch(() => false);
-
       let count = 1;
       let messageIds = [];
       let isDuplicate = false;
@@ -309,10 +259,10 @@ self.addEventListener("push", (event) => {
         image,
         badge: toAbsoluteUrl("/favicon/android-chrome-192x192.png"),
         tag,
-        renotify: Boolean(tag) && !ringOnPage,
-        silent: ringOnPage,
+        renotify: Boolean(tag),
+        silent: false,
         requireInteraction: true,
-        vibrate: ringOnPage ? undefined : [0, 200, 100, 200],
+        vibrate: [0, 200, 100, 200],
         timestamp: payload.timestamp || Date.now(),
         actions: [{ action: "open", title: "Open chat" }],
         data: {
