@@ -24,6 +24,12 @@ type NotifyPayload = {
   fallback?: boolean;
 };
 
+type InAppNotification = {
+  title: string;
+  body: string;
+  url: string;
+};
+
 const isStandaloneApp = () => {
   if (typeof window === "undefined") return false;
   const standaloneMatch =
@@ -94,6 +100,9 @@ export default function NotificationManager({
       /^(admin|super)\./i.test(window.location.hostname)),
   );
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const [topNotification, setTopNotification] =
+    useState<InAppNotification | null>(null);
+  const topNotificationTimeout = useRef<number | null>(null);
   const { socket, addListener, removeListener } = useSocket({
     subscribeOnline: false,
     enabled: Boolean(userId) || Boolean(isAdminSurface && adminUserId),
@@ -112,6 +121,34 @@ export default function NotificationManager({
   const notifiedMessageIds = useRef(new Set<string>());
   const handleNotifyRef = useRef<(payload: NotifyPayload) => void>(() => {});
   const baseDocumentTitleRef = useRef("HansariaConnect");
+
+  const dismissTopNotification = useCallback(() => {
+    if (topNotificationTimeout.current !== null) {
+      window.clearTimeout(topNotificationTimeout.current);
+      topNotificationTimeout.current = null;
+    }
+    setTopNotification(null);
+  }, []);
+
+  const showTopNotification = useCallback((notification: InAppNotification) => {
+    if (topNotificationTimeout.current !== null) {
+      window.clearTimeout(topNotificationTimeout.current);
+    }
+    setTopNotification(notification);
+    topNotificationTimeout.current = window.setTimeout(() => {
+      topNotificationTimeout.current = null;
+      setTopNotification(null);
+    }, 7000);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (topNotificationTimeout.current !== null) {
+        window.clearTimeout(topNotificationTimeout.current);
+      }
+    },
+    [],
+  );
 
   // WhatsApp-style unread tracking per chat → drives the PWA app badge.
   const unreadCountsRef = useRef<Map<string, number>>(new Map());
@@ -441,13 +478,6 @@ export default function NotificationManager({
           ? `${payload.fromName} in ${payload.chatName || "Group"}`
           : payload.fromName || payload.chatName || "New message";
 
-      if (isFocusedConversation) {
-        console.log(
-          "[NotificationManager] ⏭️ message:notify skipped - this conversation is already open and focused",
-        );
-        return;
-      }
-
       if (
         typeof document !== "undefined" &&
         (!isPageVisible || !isWindowFocused)
@@ -470,13 +500,23 @@ export default function NotificationManager({
       const pushWillDisplay =
         payload.pushDispatched === true && !payload.fallback;
 
-      if (!pushWillDisplay) {
-        // WhatsApp-style audible alert for local in-app notifications.
+      if (appInForeground) {
+        showTopNotification({
+          title: notificationTitle,
+          body: notificationBody,
+          url: buildUrlFromPayload(payload, isAdminSurface),
+        });
         void playRingtone(preferences.ringtone || "whatsapp");
 
-        // Bump the per-chat unread counter → PWA app badge total.
-        bumpUnread(`${payload.kind}-${payload.chatId}`);
+        if (!isFocusedConversation) {
+          bumpUnread(`${payload.kind}-${payload.chatId}`);
+        }
+        return;
+      }
 
+      if (!pushWillDisplay) {
+        void playRingtone(preferences.ringtone || "whatsapp");
+        bumpUnread(`${payload.kind}-${payload.chatId}`);
         void showNotification(
           notificationTitle,
           notificationBody,
@@ -499,6 +539,7 @@ export default function NotificationManager({
     preferences.groups,
     preferences.messages,
     preferences.ringtone,
+    showTopNotification,
     showNotification,
     userId,
   ]);
@@ -533,5 +574,44 @@ export default function NotificationManager({
     userId,
   ]);
 
-  return null;
+  return (
+    topNotification && (
+      <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+1rem)] z-[10000] flex justify-center px-3">
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-auto flex w-full max-w-lg items-start gap-3 rounded-2xl border border-emerald-100 bg-white p-3 shadow-xl shadow-black/15 dark:border-emerald-800 dark:bg-slate-900"
+        >
+          <a
+            href={topNotification.url}
+            onClick={dismissTopNotification}
+            className="flex min-w-0 flex-1 items-start gap-3 rounded-xl text-left"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-lg dark:bg-emerald-900/30"
+            >
+              🔔
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-semibold text-gray-900 dark:text-slate-100">
+                {topNotification.title}
+              </span>
+              <span className="mt-0.5 block truncate text-sm text-gray-600 dark:text-slate-300">
+                {topNotification.body}
+              </span>
+            </span>
+          </a>
+          <button
+            type="button"
+            onClick={dismissTopNotification}
+            aria-label="Dismiss notification"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl leading-none text-gray-500 transition hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    )
+  );
 }
