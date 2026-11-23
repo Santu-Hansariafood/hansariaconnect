@@ -21,6 +21,12 @@ export type PushPayload = {
   icon?: string;
   image?: string;
   /**
+   * Direct or group chat. The service worker relays the payload to any open
+   * page so it can ring the recipient's chosen tone, and the page uses this to
+   * honour the matching notification switch.
+   */
+  kind?: "direct" | "group";
+  /**
    * Identifies the message this alert is for. The service worker stamps it on
    * the notification so the page can tell "this device already got the push"
    * apart from "the push went to another device", which is what keeps alerts

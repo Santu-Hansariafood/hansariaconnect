@@ -416,7 +416,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const savedUser = readSavedUser();
 
       try {
-        const serverUser = await loadServerSession();
+        let serverUser = await loadServerSession();
+        if (!serverUser && savedUser) {
+          /*
+           * An app reopened from the Android home screen can report no session
+           * on the very first request while the device is still restoring its
+           * stored cookies. Confirm once more before treating the user as
+           * signed out, so a cold start does not force a fresh login.
+           */
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          serverUser = await loadServerSession();
+        }
         if (serverUser) {
           setUser(serverUser);
           localStorage.setItem("hansariaUser", JSON.stringify(serverUser));

@@ -150,10 +150,18 @@ export interface OtpSessionPayload {
   exp: number;
 }
 
+/*
+ * `SameSite=Lax` (not `Strict`): an app installed to the Android home screen is
+ * launched by the operating system, and on that first navigation the browser
+ * treats the request as cross-site — a `Strict` cookie is withheld, so the
+ * server sees no session and sends the user back to the login screen every time
+ * the app is reopened. `Lax` still keeps the cookie off cross-site POSTs (the
+ * requests that change state), so the CSRF protection that matters is intact.
+ */
 export const userSessionCookieOptions = {
   httpOnly: true as const,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "strict" as const,
+  sameSite: "lax" as const,
   path: "/" as const,
   maxAge: 365 * 24 * 60 * 60,
 };
@@ -211,6 +219,12 @@ export const getAdminSessionCookieOptions = (req?: unknown) => ({
 export const getUserSessionCookieOptions = (req?: unknown) => ({
   ...userSessionCookieOptions,
   secure: requestIsSecure(req),
+  /*
+   * Written together with `Max-Age`. An installed home-screen app is the most
+   * reliable about keeping a cookie that carries a real expiry date, which is
+   * what makes the 365-day session actually survive until the next open.
+   */
+  expires: new Date(Date.now() + userSessionCookieOptions.maxAge * 1000),
 });
 
 export const getAuthOtpCookieOptions = (req?: unknown) => ({

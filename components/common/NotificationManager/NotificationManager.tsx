@@ -69,7 +69,9 @@ export default function NotificationManager({
   const startupTunePlayed = useRef(false);
   const socketAdminUserId = useRef<string | null>(null);
   const notifiedMessageIds = useRef(new Set<string>());
+  const alertedMessageIds = useRef(new Set<string>());
   const handleNotifyRef = useRef<(payload: NotifyPayload) => void>(() => {});
+  const playAlertRef = useRef<(payload: NotifyPayload) => void>(() => {});
   const baseDocumentTitleRef = useRef("HansariaConnect");
 
   useEffect(() => {
@@ -79,6 +81,51 @@ export default function NotificationManager({
       return;
     }
     activeChatId.current = chatMatch[1] || null;
+  }, [pathname]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const clearActiveChatNotifications = async () => {
+      const chatId = activeChatId.current;
+      if (!chatId) return;
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration || cancelled) return;
+
+        for (const tag of [`direct-${chatId}`, `group-${chatId}`]) {
+          const shown = await registration.getNotifications({ tag });
+          shown.forEach((notification) => notification.close());
+        }
+      } catch (error) {
+        console.warn(
+          "[NotificationManager] Could not clear chat notifications:",
+          error,
+        );
+      }
+    };
+
+    void clearActiveChatNotifications();
+    document.addEventListener("visibilitychange", clearActiveChatNotifications);
+
+    return () => {
+      cancelled = true;
+      document.removeEventListener(
+        "visibilitychange",
+        clearActiveChatNotifications,
+      );
+    };
   }, [pathname]);
 
   useEffect(() => {
@@ -169,6 +216,72 @@ export default function NotificationManager({
     if (!isStandaloneApp()) return;
     void playStartupTune(preferences.ringtone || "whatsapp");
   }, [playStartupTune, preferences.ringtone, preferencesLoaded]);
+
+  useEffect(() => {
+    playAlertRef.current = (payload: NotifyPayload) => {
+      const kindOk =
+        payload.kind === "direct" ? preferences.messages : preferences.groups;
+      if (!preferences.enabled || !kindOk) return;
+
+      if (payload.messageId) {
+        if (alertedMessageIds.current.has(payload.messageId)) return;
+        alertedMessageIds.current.add(payload.messageId);
+        if (alertedMessageIds.current.size > 200) {
+          const oldest = alertedMessageIds.current.values().next().value;
+          if (oldest) alertedMessageIds.current.delete(oldest);
+        }
+      }
+
+      void playRingtone(preferences.ringtone || "whatsapp");
+    };
+  }, [
+    playRingtone,
+    preferences.enabled,
+    preferences.groups,
+    preferences.messages,
+    preferences.ringtone,
+  ]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+
+    const handlePushRelay = (event: MessageEvent) => {
+      const data = event.data as
+        | { type?: string; payload?: NotifyPayload }
+        | null;
+      if (data?.type !== "PUSH_RECEIVED" || !data.payload) return;
+
+      const port = event.ports?.[0];
+      const kindOk =
+        data.payload.kind === "direct"
+          ? preferences.messages
+          : preferences.groups;
+
+      const stamp = data.payload.timestamp;
+      const age = stamp ? Date.now() - new Date(stamp).getTime() : 0;
+
+      const pageVisible =
+        typeof document !== "undefined" &&
+        document.visibilityState === "visible";
+      const willRing = pageVisible && Boolean(preferences.enabled && kindOk);
+
+      if (willRing && age <= 20000) {
+        playAlertRef.current(data.payload);
+      }
+
+      if (port) {
+        port.postMessage({ alerted: willRing });
+        port.close?.();
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handlePushRelay);
+
+    return () =>
+      navigator.serviceWorker.removeEventListener("message", handlePushRelay);
+  }, [preferences.enabled, preferences.groups, preferences.messages]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && "Notification" in window) {
@@ -306,36 +419,54 @@ export default function NotificationManager({
       const appInForeground = isPageVisible && isWindowFocused;
 
       console.log(
-        "[NotificationManager] → Showing system notification (page:",
+        "[NotificationManager] → Handling alert (page:",
         isPageVisible ? "visible" : "hidden",
         "| window:",
         isWindowFocused ? "focused" : "not focused",
+        "| foreground:",
+        appInForeground,
         ")",
       );
-      void showNotification(
-        notificationTitle,
-        notificationBody,
-        `${payload.kind}-${payload.chatId}`,
-        buildUrlFromPayload(payload, isAdminSurface),
-        appInForeground,
-        isAdminSurface ? undefined : payload.mediaUrl,
-        payload.messageId,
-        payload.kind === "group"
-          ? payload.chatAvatar || payload.fromAvatar
-          : payload.fromAvatar || payload.chatAvatar,
-      );
+      /*
+       * When the alert was offloaded to Web Push, the service worker raises the
+       * notification (silent, because this page rings the tone). Showing one
+       * here too would duplicate it, so this page only rings. If the push
+       * reached nobody the backend re-sends this event, and that copy is the
+       * one that displays.
+       */
+      const pushWillDisplay = payload.pushDispatched === true && !payload.fallback;
 
-      if (appInForeground) {
-        void playRingtone(preferences.ringtone || "whatsapp");
+      /*
+       * A visible page rings the chosen tone itself, so its banner stays
+       * silent. A background page cannot play the tone — its audio is
+       * suspended — so the banner itself has to sound, using the device's own
+       * notification tone. This is what keeps every alert audible whether the
+       * app is on screen or minimised.
+       */
+      if (!pushWillDisplay) {
+        void showNotification(
+          notificationTitle,
+          notificationBody,
+          `${payload.kind}-${payload.chatId}`,
+          buildUrlFromPayload(payload, isAdminSurface),
+          isPageVisible,
+          isAdminSurface ? undefined : payload.mediaUrl,
+          payload.messageId,
+          payload.kind === "group"
+            ? payload.chatAvatar || payload.fromAvatar
+            : payload.fromAvatar || payload.chatAvatar,
+        );
+      }
+
+      if (isPageVisible) {
+        playAlertRef.current(payload);
       }
     };
   }, [
     adminUserId,
     isAdminSurface,
-    playRingtone,
     preferences.groups,
     preferences.messages,
-    preferences.ringtone,
     showNotification,
     userId,
   ]);

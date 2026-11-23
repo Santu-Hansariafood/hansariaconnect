@@ -728,32 +728,61 @@ export function useNotifications(userId?: string | number) {
 
           if (registration?.active) {
             /*
-             * Web Push may have already raised this exact message on this
-             * device (the service worker uses the same per-chat tag). One alert
-             * per message is the goal, so that copy wins and this one stands
-             * down — which is what keeps a push delivered to another device
-             * from leaving this one silent.
+             * Consecutive messages of one chat share a tag, so they collapse
+             * into a single notification whose body counts them — like a native
+             * messaging app. The recorded message ids keep the same message
+             * from being counted twice, whether the push or this socket event
+             * was the transport that arrived first.
              */
-            if (tag && messageId) {
+            let count = 1;
+            let messageIds: string[] = [];
+
+            if (tag) {
               const shown = await registration
                 .getNotifications({ tag })
                 .catch(() => [] as Notification[]);
 
-              if (
-                shown.some(
-                  (notification) =>
-                    (notification.data as { messageId?: string } | undefined)
-                      ?.messageId === messageId,
-                )
-              ) {
+              const previousData = (shown[0]?.data || {}) as {
+                messageId?: string;
+                count?: number;
+                messageIds?: string[];
+              };
+
+              const previousIds = Array.isArray(previousData.messageIds)
+                ? previousData.messageIds
+                : previousData.messageId
+                  ? [previousData.messageId]
+                  : [];
+
+              if (messageId && previousIds.includes(messageId)) {
                 console.log(
                   "[Notifications] This device already shows this message; skipping the duplicate.",
                 );
                 return true;
               }
+
+              messageIds = messageId
+                ? [...previousIds, messageId].slice(-25)
+                : previousIds;
+
+              count = messageId
+                ? (typeof previousData.count === "number"
+                    ? previousData.count
+                    : 0) + 1
+                : 1;
             }
 
-            await registration.showNotification(title, serviceWorkerOptions);
+            await registration.showNotification(title, {
+              ...serviceWorkerOptions,
+              body: messageId && count > 1 ? `${count} new messages` : body,
+              data: {
+                url: targetUrl,
+                tag,
+                messageId,
+                count,
+                messageIds,
+              },
+            });
             console.log("[Notifications] System notification shown by service worker.");
             return true;
           }

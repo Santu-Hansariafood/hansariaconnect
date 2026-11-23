@@ -371,6 +371,7 @@ const getMessageId = (message: DecryptedMessage): string | undefined =>
   message.id || String(message._id ?? "") || undefined;
 
 const toPushPayload = (notification: NotificationMeta): PushPayload => ({
+  kind: notification.kind,
   title:
     notification.kind === "group"
       ? `${notification.fromName} in ${notification.chatName}`

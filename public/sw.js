@@ -29,6 +29,40 @@ const notifyClients = async (message) => {
   clients.forEach((client) => client.postMessage(message));
 };
 
+/*
+ * Hands the payload to every open page and waits for one of them to confirm it
+ * rang the recipient's chosen tone. The confirmation decides whether the
+ * notification we show can stay silent — a page that never answers (a frozen
+ * tab, or no page at all) means the device's own notification sound has to do
+ * the alerting.
+ */
+const requestClientAlert = (clients, payload) => {
+  return new Promise((resolve) => {
+    if (!clients.length) {
+      resolve(false);
+      return;
+    }
+
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    clients.forEach((client) => {
+      const channel = new MessageChannel();
+      channel.port1.onmessage = (event) =>
+        finish(Boolean(event.data && event.data.alerted));
+      try {
+        client.postMessage({ type: "PUSH_RECEIVED", payload }, [channel.port2]);
+      } catch {
+        // A client that refuses the message simply never confirms.
+      }
+    });
+  });
+};
+
 const openSyncDatabase = () =>
   new Promise((resolve, reject) => {
     const request = indexedDB.open(SYNC_DATABASE_NAME, SYNC_DATABASE_VERSION);
@@ -174,11 +208,12 @@ self.addEventListener("fetch", (event) => {
 /*
  * Web Push: raised while the app is minimised or closed — the push service
  * wakes this worker over the internet, so the alert arrives even though no page
- * or socket is alive. The notification itself carries the sound: `silent` must
- * stay false for the device to play its alert tone, and `vibrate` gives the
- * same double buzz the in-app alert uses. The tone and its volume are owned by
- * the OS/device notification settings — the web Notification API cannot pick a
- * sound file or a per-notification volume.
+ * or socket is alive. When a page of this app is still running, the push is
+ * relayed to it and the page rings the recipient's own chosen tone, so the
+ * notification we show here stays silent to avoid a second sound; only when no
+ * page answers do we fall back to the device's own notification tone via
+ * `silent: false`. Consecutive messages of one chat share a tag and stack into
+ * a single notification whose body counts them, like a native messaging app.
  */
 self.addEventListener("push", (event) => {
   let payload = {};
@@ -211,57 +246,85 @@ self.addEventListener("push", (event) => {
     toAbsoluteUrl("/favicon/android-chrome-192x192.png");
   const image = toAbsoluteUrl(payload.image);
   const targetUrl = toAbsoluteUrl(payload.url || "/chat") || "/chat";
-  const options = {
-    body: payload.body || "You have a new message",
-    icon,
-    image,
-    badge: toAbsoluteUrl("/favicon/android-chrome-192x192.png"),
-    tag: payload.tag,
-    renotify: Boolean(payload.tag),
-    silent: false,
-    requireInteraction: true,
-    vibrate: [0, 200, 100, 200],
-    timestamp: payload.timestamp || Date.now(),
-    actions: [{ action: "open", title: "Open chat" }],
-    data: {
-      url: targetUrl,
-      tag: payload.tag,
-      messageId: payload.messageId,
-      timestamp: payload.timestamp,
-    },
-  };
+  const tag = payload.tag;
+  const messageId = payload.messageId;
 
   event.waitUntil(
     (async () => {
-      /*
-       * The page raises the very same alert over its socket, and either
-       * transport can land first. One notification per message is the rule, so
-       * if this device already shows it, the push stands down instead of
-       * buzzing a second time.
-       */
-      let alreadyShown = false;
+      let clients = [];
+      try {
+        clients = await self.clients.matchAll({
+          type: "window",
+          includeUncontrolled: true,
+        });
+      } catch {
+        clients = [];
+      }
 
-      if (payload.tag && payload.messageId) {
+      // A page that answers rings the chosen tone, which keeps us silent.
+      const ringOnPage = await Promise.race([
+        requestClientAlert(clients, payload),
+        new Promise((resolve) => setTimeout(() => resolve(false), 500)),
+      ]).catch(() => false);
+
+      let count = 1;
+      let messageIds = [];
+      let isDuplicate = false;
+
+      if (tag) {
         try {
-          const existing = await self.registration.getNotifications({
-            tag: payload.tag,
-          });
-          alreadyShown = existing.some(
-            (notification) =>
-              notification.data &&
-              notification.data.messageId === payload.messageId,
-          );
+          const existing = await self.registration.getNotifications({ tag });
+          const previousData = (existing[0] && existing[0].data) || {};
+          const previousIds = Array.isArray(previousData.messageIds)
+            ? previousData.messageIds
+            : previousData.messageId
+              ? [previousData.messageId]
+              : [];
+
+          if (messageId && previousIds.includes(messageId)) {
+            isDuplicate = true;
+          } else {
+            messageIds = messageId
+              ? previousIds.concat(messageId).slice(-25)
+              : previousIds;
+            count = messageId
+              ? (typeof previousData.count === "number"
+                  ? previousData.count
+                  : 0) + 1
+              : 1;
+          }
         } catch {
-          alreadyShown = false;
+          // Fall back to a single-message alert.
         }
       }
 
-      await Promise.all([
-        alreadyShown
-          ? Promise.resolve()
-          : self.registration.showNotification(title, options),
-        notifyClients({ type: "PUSH_RECEIVED" }),
-      ]);
+      if (isDuplicate) return;
+
+      const options = {
+        body:
+          messageId && count > 1
+            ? `${count} new messages`
+            : payload.body || "You have a new message",
+        icon,
+        image,
+        badge: toAbsoluteUrl("/favicon/android-chrome-192x192.png"),
+        tag,
+        renotify: Boolean(tag) && !ringOnPage,
+        silent: ringOnPage,
+        requireInteraction: true,
+        vibrate: ringOnPage ? undefined : [0, 200, 100, 200],
+        timestamp: payload.timestamp || Date.now(),
+        actions: [{ action: "open", title: "Open chat" }],
+        data: {
+          url: targetUrl,
+          tag,
+          messageId,
+          count,
+          messageIds,
+        },
+      };
+
+      await self.registration.showNotification(title, options);
     })(),
   );
 });
