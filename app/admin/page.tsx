@@ -1097,7 +1097,7 @@ export default function AdminDashboard() {
                   >
                     {isPlatformAdmin
                       ? "Manage platform users, admins, templates, and API keys across all workspaces."
-                      : "Manage the accounts, message templates, and API integrations belonging to this admin workspace. Super Admin platform controls are separate."}
+                      : "Manage workspace accounts, templates, in-app messages, and API integrations. Device SMS invitations are separate and do not create carrier-SMS conversations here."}
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     {browserNotificationPermission === "granted" ? (
@@ -1354,7 +1354,7 @@ export default function AdminDashboard() {
                         : "text-slate-600 hover:bg-emerald-50 hover:text-emerald-800 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-emerald-200"
                   }`}
                 >
-                  Chat test
+                  Messages
                 </button>
               </div>
             </nav>

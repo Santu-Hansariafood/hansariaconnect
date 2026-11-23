@@ -69,6 +69,7 @@ export default function ConnectionApiTest({
   const [senderAccountsError, setSenderAccountsError] = useState("");
   const [selectedApiKeyId, setSelectedApiKeyId] = useState("");
   const [recipientInput, setRecipientInput] = useState("");
+  const [messageText, setMessageText] = useState(sampleMessage);
   const [recipientResults, setRecipientResults] = useState<RecipientResult[]>([]);
   const [busy, setBusy] = useState<"key" | "send" | null>(null);
   const [testKeyCreated, setTestKeyCreated] = useState(false);
@@ -197,6 +198,10 @@ export default function ConnectionApiTest({
       );
       return;
     }
+    if (!messageText.trim()) {
+      setError("Enter a message before sending.");
+      return;
+    }
     if (!effectiveSelectedApiKeyId) {
       setError("Select the active key that matches the key entered above.");
       return;
@@ -235,7 +240,7 @@ export default function ConnectionApiTest({
             body: JSON.stringify({
               fromUserId: senderUserId.trim(),
               toUserId: recipient,
-              text: sampleMessage,
+              text: messageText.trim(),
               expectedApiKeyId: effectiveSelectedApiKeyId,
             }),
           });
@@ -301,10 +306,10 @@ export default function ConnectionApiTest({
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div>
         <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-          Test in-app chat delivery
+          Send in-app messages
         </h3>
         <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
-          Send the sample through HansariaConnect chat, not carrier SMS. Select
+          Send messages through HansariaConnect chat, not carrier SMS. Select
           an active send key for this workspace, or create a short-lived test
           key that is selected automatically. Existing key secrets are shown
           only once, so paste that key&apos;s secret if you choose an existing
@@ -457,6 +462,20 @@ export default function ConnectionApiTest({
           </span>
         </label>
         <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
+          Message
+          <textarea
+            value={messageText}
+            onChange={(event) => setMessageText(event.target.value)}
+            rows={4}
+            maxLength={10000}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-normal dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+            placeholder="Type the message to send"
+          />
+          <span className="text-xs font-normal text-slate-500 dark:text-slate-400">
+            Each recipient with a registered HansariaConnect account receives this as an in-app chat message.
+          </span>
+        </label>
+        <label className="grid gap-1 text-sm font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
           Workspace API key
           <span className="flex flex-wrap gap-2">
             <input
@@ -515,7 +534,7 @@ export default function ConnectionApiTest({
           disabled={busy !== null}
           className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
         >
-          {busy === "send" ? "Sending..." : "Send sample chat message(s)"}
+          {busy === "send" ? "Sending..." : "Send message(s)"}
         </button>
         <span
           aria-live="polite"

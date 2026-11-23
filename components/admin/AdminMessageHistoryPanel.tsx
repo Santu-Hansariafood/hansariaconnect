@@ -169,7 +169,7 @@ export default function AdminMessageHistoryPanel({
           Reporting
         </p>
         <h3 className="mt-1 text-xl font-bold text-slate-900 dark:text-slate-100">
-          API message history
+          In-app message history
         </h3>
         <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600 dark:text-slate-400">
           Count API-created chat messages by India date, API key, and saved

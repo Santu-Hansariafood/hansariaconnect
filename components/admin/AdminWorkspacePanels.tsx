@@ -745,7 +745,7 @@ export function AdminProfilePanel({
         htmlFor="admin-sms-contact-number"
         className="mt-5 block text-sm font-medium text-gray-700 dark:text-slate-200"
       >
-        SMS invitation contact number
+        Device SMS invitation number
       </label>
       <input
         id="admin-sms-contact-number"
@@ -759,9 +759,9 @@ export function AdminProfilePanel({
         placeholder="10-digit mobile number"
       />
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-        This number is included in SMS invitations sent by accounts in your
-        workspace. Leave blank to use the inviter&apos;s account number. SMS
-        messages are sent using the device&apos;s messaging app.
+        This number is included in device-SMS invitations opened from Contacts.
+        Leave blank to use the inviter&apos;s account number. Replies stay in the
+        device messaging app and are not added to the HansariaConnect inbox.
       </p>
       <p className="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-400">
         Verification:{" "}
